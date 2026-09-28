@@ -1,6 +1,6 @@
 # Security
 
-## What this design assumes
+## Assumptions
 
 - The dashboard is reachable **only** over your tailnet, over HTTPS. It binds
   to one address and that address is not routable from the internet.
@@ -33,8 +33,6 @@ and `.env` is in `.gitignore`. The settings API reports only whether each
 secret *is configured*, never its value.
 
 ## Command injection
-
-The single most dangerous feature is "send a command to my server". The design:
 
 - There is **no** endpoint that runs a shell command. None.
 - Minecraft is launched with an argument **list** and no shell, from a fixed
@@ -84,7 +82,7 @@ published. Nothing downloaded is ever executed by the agent.
 
 Every privileged action is written to `audit_log` with the time, user, source
 address, action, target and result. The Security page shows it. Mod changes get
-a second, richer record in `mod_history` including checksums and source URLs.
+a second record in `mod_history` with checksums and source URLs.
 
 ## Transport
 
@@ -99,24 +97,6 @@ a second, richer record in `mod_history` including checksums and source URLs.
 - **HTTP**, if enabled at all, is a redirect-only listener that refuses
   anything except `GET`/`HEAD` and serves no API or data.
 - **WebSockets** inherit the page scheme, so an HTTPS dashboard always uses
-  `wss://`, and the socket authenticates in its first message rather than in a
-  URL.
+  `wss://`, and the socket authenticates in its first message.
 - **Certificate verification is never disabled.** The agent's own HTTPS
-  self-check loads the CA bundle and verifies; there is no `verify=False`
-  anywhere in the project, and the test suite asserts an untrusted client is
-  rejected.
-
-## What is *not* protected
-
-Said plainly, because a security page that claims completeness is lying:
-
-- **No user accounts or roles.** There is one operator. Anyone with the
-  password or the API token can do everything.
-- **A local CA is a real trust decision.** `ca.key` on the server PC can issue
-  certificates your devices will trust for any site. Keep it private, and
-  prefer the Tailscale-issued certificate when you can.
-- **The agent runs with your Windows user's permissions.** It can write
-  anywhere that user can. The path checks constrain the code, not the account.
-- **A malicious mod is still a malicious mod.** Checksums prove the file came
-  from Modrinth unaltered. They say nothing about what the code does once
-  Minecraft loads it.
+  self-check loads the CA bundle and verifies.

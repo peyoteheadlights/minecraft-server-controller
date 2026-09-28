@@ -1,0 +1,52 @@
+# Secrets - never commit
+.env
+.env.*
+!.env.example
+
+# Your local configuration (copy config/config.example.yaml to create it)
+config/config.yaml
+
+# TLS certificates and private keys
+*.key
+*.pem
+*.pfx
+*.p12
+*.crt
+/certs/
+/certificates/
+
+# Data the agent creates at runtime. The leading slash matters: without it,
+# "backups/" would also ignore the agent/backups/ source package.
+/mcsc-data/
+/logs/
+/backups/
+/mod-backups/
+/mod-trash/
+*.sqlite3
+*.sqlite3-*
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+env/
+*.egg-info/
+build/
+dist/
+
+# Test and screenshot output
+/ui-shots/
+/ui-flows/
+.coverage
+htmlcov/
+
+# Editors and operating systems
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini

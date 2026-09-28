@@ -1,0 +1,165 @@
+# Minecraft Server Control - configuration
+# Copy to config/config.yaml and edit. Secrets never go in this file;
+# they live in .env (see .env.example).
+
+server:
+  id: main
+  name: "My Fabric Server"
+  # Required. The folder that contains your server jar. There is no default:
+  # the agent will not start Minecraft until this is set.
+  directory: 'C:\path\to\Minecraft Server'
+  jar: fabric-server-launch.jar
+  java: java                 # or a full path, e.g. 'C:\Program Files\Java\jdk-21\bin\java.exe'
+  jvm_args: ["-Xmx6G"]       # matches: java -Xmx6G -jar fabric-server-launch.jar nogui
+  server_args: ["nogui"]
+  raw_command: null          # set to a full argv list only if you launch some other way
+  port: 25565
+  max_players: 20
+  stop_timeout: 90           # seconds to wait after sending 'stop' before forcing the process down
+  start_timeout: 300
+  autostart_minecraft: false # true = the agent starts Minecraft when Windows boots
+
+monitor:
+  auto_restart: true
+  restart_delay: 10          # seconds to wait after a crash before restarting
+  max_crashes: 5             # stop retrying after this many crashes...
+  crash_window_minutes: 10   # ...inside this window
+  sample_interval: 10        # seconds between performance samples
+  tps_poll_interval: 60
+  # How TPS is read. "auto" tries `tick query` (vanilla 1.20.3+), `tps` (Carpet)
+  # and `spark tps` once when the server starts, and remembers what works.
+  # Set a command to force it, or "off" to disable. Never estimated.
+  tps_command: auto
+  history_days: 14
+
+thresholds:
+  cpu_percent: 90.0
+  ram_percent: 90.0
+  disk_free_gb: 20.0
+  tps_min: 18.0
+  mspt_max: 50.0
+
+tls:
+  # HTTPS is the production interface. The dashboard, the API and the
+  # WebSocket all run over it. Turning this off is only permitted when
+  # network.host is 127.0.0.1; the agent refuses to serve plain HTTP on any
+  # other address so credentials never cross a network unencrypted.
+  enabled: true
+  # Paths are created by: python -m installer.make_certs
+  # Relative paths resolve inside the agent data folder (mcsc-data).
+  certificate: certs/agent.crt
+  private_key: certs/agent.key
+  # The local CA, when one is in use. Empty for a Tailscale-issued (publicly
+  # trusted) certificate, because there is nothing to install on your devices.
+  ca_certificate: certs/ca.crt
+  # The name you actually type in the browser, e.g. minecraft-pc.tailXXXX.ts.net
+  # The agent checks the certificate covers it and reports if it does not.
+  hostname: ""
+  # A tiny HTTP listener that answers 308 to HTTPS for GET/HEAD and refuses
+  # everything else. It serves no API and no data. Set false to disable HTTP
+  # entirely.
+  http_redirect: true
+  http_redirect_port: 8080
+  # Strict-Transport-Security is sent on HTTPS responses only, and never on
+  # loopback, so http://127.0.0.1 development is never poisoned.
+  hsts: true
+  hsts_max_age: 31536000
+  hsts_include_subdomains: false
+  # Certificate expiry monitoring. Warnings and alerts are sent to Discord and
+  # email if those are enabled.
+  expiry_warn_days: 14
+  expiry_critical_days: 3
+  check_interval_hours: 6
+
+network:
+  # Use this machine's Tailscale address (100.x.y.z) so the dashboard is reachable
+  # from your phone over the tailnet and from nowhere else. 127.0.0.1 = this PC only.
+  # Never 0.0.0.0 on a network with a forwarded port.
+  host: 127.0.0.1
+  port: 8765
+  allowed_origins: []        # leave empty: the dashboard is served from this same agent
+  trust_proxy_headers: false
+
+security:
+  session_hours: 12
+  max_failed_logins: 5
+  lockout_minutes: 15
+  rate_limit_requests: 120
+  rate_limit_window: 60
+
+backups:
+  directory: backups         # relative paths resolve inside the agent data folder
+  include:
+    - world
+    - world_nether
+    - world_the_end
+    - server.properties
+    - config
+    - mods
+  keep_daily: 7
+  keep_weekly: 4
+  keep_monthly: 3
+  compression: deflate       # 'store' is much faster but much larger
+  stop_server_for_backup: false
+
+mods:
+  directory: mods            # relative to the Minecraft server folder
+  backup_directory: mod-backups
+  trash_directory: mod-trash
+  modrinth_api: https://api.modrinth.com/v2
+  user_agent: minecraft-server-control/1.0 (self-hosted)
+  backup_before_install: true
+  auto_stop_for_install: false
+  update_check_hours: 12
+
+notifications:
+  discord_enabled: false
+  email_enabled: false
+  min_interval_seconds: 300  # minimum gap between repeats of the same alert type
+  events:
+    server_started: true
+    server_stopped: true
+    server_crashed: true
+    server_restarted: true
+    server_recovered: true
+    player_joined: true
+    player_left: false
+    high_ram: true
+    high_cpu: true
+    low_disk: true
+    low_tps: true
+    high_mspt: true
+    backup_completed: true
+    backup_failed: true
+    mod_installed: true
+    mod_removed: true
+    mod_updated: true
+    mod_dependency_problem: true
+    auth_failure: true
+    maintenance_mode: true
+    certificate_expiring: true
+  email:
+    host: ""                 # e.g. smtp.gmail.com
+    port: 587
+    use_tls: true
+    use_ssl: false
+    from_address: ""
+    to_addresses: []
+    attach_crash_report: true
+    attach_log_tail: true
+
+logging:
+  directory: logs
+  level: INFO
+  max_bytes: 5000000
+  backup_count: 7
+
+paths:
+  data_dir: ""               # empty = <server directory>/mcsc-data
+  database: mcsc.sqlite3
+
+maintenance:
+  enabled: false
+  block_auto_restart: true
+  block_scheduled_tasks: true
+  message: "Maintenance in progress"

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Minecraft Server Control</title>
+<link rel="stylesheet" href="/assets/styles.css">
+<script src="/assets/theme.js"></script>
+</head>
+<body>
+
+<section id="login" class="login">
+  <form class="login-panel" id="login-form" novalidate>
+    <div class="app-mark" aria-hidden="true">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M12 2.8l8.5 4.7v9L12 21.2 3.5 16.5v-9z"/><path d="M3.8 7.6 12 12l8.2-4.4"/><path d="M12 12v9"/></svg>
+    </div>
+    <h1>Minecraft Server Control</h1>
+    <p class="sub">Sign in to manage your server.</p>
+    <div class="field">
+      <label for="username">Username</label>
+      <input id="username" name="username" autocomplete="username" required autofocus>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+    </div>
+    <div id="login-error" class="banner error" role="alert" hidden></div>
+    <button class="btn primary" type="submit">Sign in</button>
+    <p class="footnote">Reachable only through your Tailscale network.</p>
+  </form>
+</section>
+
+<div id="app" class="app">
+  <nav class="sidebar" id="sidebar" aria-label="Sections"></nav>
+  <main class="content" id="main" tabindex="-1">
+    <div class="content-inner">
+      <header class="toolbar">
+        <button class="btn plain icon-only menu-button" id="menu-button" type="button"
+                aria-label="Show sections" aria-controls="sidebar" aria-expanded="false"></button>
+        <h1 id="page-title">Overview</h1>
+        <div class="grow"></div>
+        <div class="toolbar-actions" id="toolbar-actions"></div>
+      </header>
+      <div id="page" class="page"></div>
+    </div>
+  </main>
+</div>
+
+<div id="announcer" class="sr-only" aria-live="polite"></div>
+<div id="modal-root"></div>
+<div id="toasts" aria-live="polite"></div>
+
+<script src="/assets/dependencies.js"></script>
+<script src="/assets/tps.js"></script>
+<script src="/assets/app.js"></script>
+</body>
+</html>

@@ -84,3 +84,8 @@ Check ($r.Code -eq 2) 'an unknown option is refused'
 Write-Host ''
 if ($failures) { Write-Host "$failures check(s) failed." -ForegroundColor Red; exit 1 }
 Write-Host 'All setup checks passed.' -ForegroundColor Green
+
+# Exit explicitly. Without this, GitHub's step wrapper ends with the exit code of
+# the last program run above - the deliberate "unknown option" check, where
+# setup.ps1 correctly exits 2 - and marks a fully passing run as failed.
+exit 0

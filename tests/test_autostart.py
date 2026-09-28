@@ -391,3 +391,34 @@ def test_bind_wait_retries_then_reports_an_address_that_never_appears(isolated_s
     events = [e["event"] for e in startup_diag.tail(20)]
     assert "bind_address_waiting" in events
     assert events[-1] == "bind_address_gave_up"
+
+
+# ================================================================ Windows' exported XML
+def windows_export(*drop):
+    """Our task XML as Windows exports it: elements equal to the Task Scheduler
+    default are left out. Found by the live Windows CI run, where RunLevel came
+    back missing."""
+    xml = autostart.build_task_xml("boot", r"HOST-PC\Alex", PY, ARGS, WORKDIR,
+                                   start_boundary="2026-09-21T00:00:00")
+    for element in ("RunLevel", "MultipleInstancesPolicy", *drop):
+        start = xml.index(f"<{element}>")
+        end = xml.index(f"</{element}>") + len(f"</{element}>")
+        xml = xml[:start] + xml[end:]
+    return xml
+
+
+def test_omitted_defaults_are_read_as_the_defaults():
+    task = autostart.parse_task_xml(windows_export())
+    assert task["run_level"] == "LeastPrivilege"
+    assert task["multiple_instances"] == "IgnoreNew"
+    expected = {"command": PY, "arguments": ARGS, "working_directory": WORKDIR}
+    assert autostart.compare_to_expected(task, expected) == []
+
+
+def test_an_omitted_time_limit_means_72_hours_and_is_reported():
+    """No ExecutionTimeLimit means Windows' default, which would kill the
+    agent after three days. It must not be treated as "no limit"."""
+    task = autostart.parse_task_xml(windows_export("ExecutionTimeLimit"))
+    assert task["execution_time_limit"] == "PT72H"
+    expected = {"command": PY, "arguments": ARGS, "working_directory": WORKDIR}
+    assert any("time limit" in p for p in autostart.compare_to_expected(task, expected))

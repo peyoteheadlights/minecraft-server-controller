@@ -230,6 +230,15 @@ def build_task_xml(mode: str, user: str, command: str, arguments: str, working_d
     )
 
 
+# Task Scheduler schema defaults (Task Scheduler 1.2 schema). Windows omits
+# these from exported XML, so they are what an absent element means.
+TASK_DEFAULTS = {
+    "run_level": "LeastPrivilege",
+    "multiple_instances": "IgnoreNew",
+    "execution_time_limit": "PT72H",   # the 72-hour limit this project turns off
+}
+
+
 def parse_task_xml(xml_text: str) -> dict[str, Any]:
     """Read back what is actually registered. Source of truth for the report."""
     text = xml_text.lstrip("\ufeff").strip()
@@ -271,10 +280,15 @@ def parse_task_xml(xml_text: str) -> dict[str, Any]:
         "working_directory": find("t:Actions/t:Exec/t:WorkingDirectory"),
         "user": find("t:Principals/t:Principal/t:UserId"),
         "logon_type": logon_type,
-        "run_level": find("t:Principals/t:Principal/t:RunLevel"),
+        # Windows leaves out any setting that equals the Task Scheduler schema
+        # default when it exports a task, so an absent element means the
+        # default applies - it does not mean "unknown".
+        "run_level": find("t:Principals/t:Principal/t:RunLevel") or TASK_DEFAULTS["run_level"],
         "enabled": (enabled or "true").lower() != "false",
-        "multiple_instances": find("t:Settings/t:MultipleInstancesPolicy"),
-        "execution_time_limit": find("t:Settings/t:ExecutionTimeLimit"),
+        "multiple_instances": (find("t:Settings/t:MultipleInstancesPolicy")
+                               or TASK_DEFAULTS["multiple_instances"]),
+        "execution_time_limit": (find("t:Settings/t:ExecutionTimeLimit")
+                                 or TASK_DEFAULTS["execution_time_limit"]),
         "stops_on_battery": (find("t:Settings/t:StopIfGoingOnBatteries") or "true").lower() == "true",
         "mode": mode,
         "triggers": triggers,
@@ -298,12 +312,12 @@ def compare_to_expected(registered: dict[str, Any], expected: dict[str, str]) ->
         problems.append(f"The task starts in {registered.get('working_directory')!r}, but the "
                         f"project is at {expected['working_directory']!r}. "
                         "`-m agent.main` only works from the project folder.")
-    if registered.get("execution_time_limit") not in ("PT0S", None):
+    if registered.get("execution_time_limit") != "PT0S":
         problems.append(f"The task has a time limit of {registered['execution_time_limit']}; "
                         "Windows will kill the agent when it is reached")
     if registered.get("stops_on_battery"):
         problems.append("The task stops when the PC switches to battery power")
-    if registered.get("multiple_instances") not in ("IgnoreNew", None):
+    if registered.get("multiple_instances") != "IgnoreNew":
         problems.append(f"Multiple-instance policy is {registered['multiple_instances']}; "
                         "a second copy could start and fight over the port")
     if not registered.get("enabled"):

@@ -22,7 +22,7 @@ renderers.settings = (page) => loadInto(page, async () => {
   const checkField = (key, label, checked) => {
     const input = el("input", { type: "checkbox", checked: checked ? "checked" : false });
     input.addEventListener("change", () => { pending[key] = input.checked; });
-    return el("label", { style: "display:flex;gap:8px;align-items:center;padding:5px 0" }, input, label);
+    return el("label", { class: "check-row pad-y" }, input, label);
   };
 
   holder.append(card("Crash handling and restarts",
@@ -52,7 +52,7 @@ renderers.settings = (page) => loadInto(page, async () => {
           ? "Webhook URL is configured in the agent's .env file."
           : "No webhook URL configured. Add MCSC_DISCORD_WEBHOOK to the agent's .env file."),
         el("button", {
-          class: "btn small", style: "margin-top:8px",
+          class: "btn small mt-8",
           onclick: async () => {
             const result = await api("/notifications/test?channel=discord", { method: "POST" });
             toast(result.sent ? "Discord test sent" : "Discord test failed, see notification history",
@@ -65,7 +65,7 @@ renderers.settings = (page) => loadInto(page, async () => {
           ? "SMTP credentials are configured in the agent's .env file."
           : "No SMTP password configured. Add MCSC_SMTP_USERNAME and MCSC_SMTP_PASSWORD to .env."),
         el("button", {
-          class: "btn small", style: "margin-top:8px",
+          class: "btn small mt-8",
           onclick: async () => {
             const result = await api("/notifications/test?channel=email", { method: "POST" });
             toast(result.sent ? "Email test sent" : "Email test failed, see notification history",
@@ -75,7 +75,7 @@ renderers.settings = (page) => loadInto(page, async () => {
     el("h3", { class: "subheading" }, "Which events to send"),
     el("div", { class: "grid cols-3" }, eventChecks))));
 
-  const startupResult = el("div", { style: "margin-top:10px" });
+  const startupResult = el("div", { class: "mt-10" });
   holder.append(el("div", { class: "gap-section" }, card("Windows startup",
     el("p", { class: "hint" },
       "Checks the scheduled task that starts this agent with Windows, reads it back from "
@@ -113,7 +113,7 @@ renderers.settings = (page) => loadInto(page, async () => {
               ["Controller initialised on that start", last.started_at ? (initialised ? "yes" : "no") : "-"],
             ]),
             (r.problems || []).length
-              ? el("div", { class: "banner error", style: "margin-top:10px" },
+              ? el("div", { class: "banner error mt-10" },
                   el("strong", {}, "Problems"),
                   el("ul", {}, r.problems.map((p) => el("li", {}, p))))
               : null,
@@ -130,7 +130,7 @@ renderers.settings = (page) => loadInto(page, async () => {
     checkField("maintenance.enabled", "Pause automatic restarts and scheduled tasks",
       config.maintenance.enabled),
     el("button", {
-      class: "btn small", style: "margin-top:8px",
+      class: "btn small mt-8",
       onclick: async () => {
         const next = !(state.status && state.status.maintenance);
         await api("/maintenance", { method: "POST", body: { enabled: next } });
@@ -139,7 +139,7 @@ renderers.settings = (page) => loadInto(page, async () => {
       },
     }, "Toggle maintenance mode now"))));
 
-  holder.append(el("div", { style: "margin-top:16px" },
+  holder.append(el("div", { class: "mt-16" },
     el("button", {
       class: "btn primary",
       onclick: async () => {
@@ -153,7 +153,7 @@ renderers.settings = (page) => loadInto(page, async () => {
         } catch (err) { toast(err.message, "error"); }
       },
     }, "Save settings"),
-    el("p", { class: "hint", style: "margin-top:10px" },
+    el("p", { class: "hint mt-10" },
       "Secrets (Discord webhook, SMTP password, API token) are never edited here. "
       + "They live in the agent's .env file on the Minecraft PC.")));
   return holder;

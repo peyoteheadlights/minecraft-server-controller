@@ -18,7 +18,7 @@ renderers.players = (page) => loadInto(page, async () => {
               p.username, fmt.time(p.first_seen), fmt.time(p.last_seen),
               String(p.sessions), fmt.duration(p.total_seconds_live)]))
         : el("div", { class: "empty" }, "No players recorded yet"))));
-  holder.append(el("p", { class: "hint", style: "margin-top:12px" },
+  holder.append(el("p", { class: "hint mt-12" },
     "Player IP addresses are deliberately not recorded."));
   return holder;
 });

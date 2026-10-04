@@ -122,3 +122,19 @@ It is plain HTML, CSS and JavaScript served by the agent itself. That means:
 
 The trade-off is no component framework. For eleven pages of tables, that is a
 trade worth making.
+
+The JavaScript is split into native ES modules that the browser loads
+directly, so there is still nothing to compile. `index.html` loads one module,
+`js/main.js`, which imports the rest:
+
+- `state.js` holds shared state and the page registry; it imports nothing.
+- `ui.js` has the DOM helpers (`el`, `card`, `table`, `toast`, …).
+- `api.js`, `auth.js`, `live.js` (WebSocket and status), `nav.js` (sidebar and
+  page switching), `charts.js` and `appearance.js` do one job each.
+- `pages/*.js` each register a renderer for one page; `panels/*.js` are the
+  TPS and dependency panels those pages embed.
+
+The CSP allows no inline styles, so styling goes in `styles.css`. For a value
+computed at runtime (a bar width, an indent), pass `el()` a style object; it is
+applied through the CSSOM, which the CSP allows. `tests/test_dashboard_assets.py`
+enforces this.

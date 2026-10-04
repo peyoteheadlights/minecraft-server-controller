@@ -29,7 +29,7 @@ renderers.security = (page) => loadInto(page, async () => {
       data.tailscale.detail),
     metric("Authentication", data.authentication.enabled ? "enabled" : "NOT SET",
       `sessions last ${data.authentication.session_hours}h`)));
-  holder.append(el("div", { class: "grid cols-3", style: "margin-top:14px" },
+  holder.append(el("div", { class: "grid cols-3 mt-14" },
     metric("Failed sign-ins", String(data.failed_logins_24h), "in the last 24 hours"),
     metric("Certificate covers", tls.covers_hostname === true ? "yes"
       : tls.covers_hostname === false ? "no" : null,
@@ -48,7 +48,7 @@ renderers.security = (page) => loadInto(page, async () => {
           s.user, fmt.time(s.created_at), fmt.ago(s.last_used),
           el("span", { class: "mono" }, s.source_ip || "—"), (s.label || "").slice(0, 40)]))
       : el("div", { class: "empty" }, "No active sessions"),
-    el("div", { class: "btn-row", style: "margin-top:12px" },
+    el("div", { class: "btn-row mt-12" },
       el("button", {
         class: "btn small",
         onclick: async () => {
@@ -79,7 +79,7 @@ renderers.security = (page) => loadInto(page, async () => {
           el("span", { class: `tag ${e.result === "ok" ? "ok" : "error"}` }, e.result)]))
       : el("div", { class: "empty" }, "Nothing logged yet"))));
 
-  holder.append(el("p", { class: "hint", style: "margin-top:12px" },
+  holder.append(el("p", { class: "hint mt-12" },
     `The agent is bound to ${data.bind_address}. Keep that address private to your tailnet;
      do not port-forward it.`));
   return holder;

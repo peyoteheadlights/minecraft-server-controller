@@ -26,8 +26,8 @@ renderers.mods = (page) => loadInto(page, async () => {
   dependenciesPanel(depPanel, { offline });
 
   const search = el("input", { type: "text", placeholder: "Search Modrinth for Fabric mods…",
-    class: "mono", style: "flex:1;min-width:200px;padding:8px 11px;background:var(--bg);border:1px solid var(--line);border-radius:8px" });
-  const results = el("div", { style: "margin-top:12px" });
+    class: "mono search-field" });
+  const results = el("div", { class: "mt-12" });
   holder.append(card("Install from Modrinth",
     el("div", { class: "btn-row" }, search,
       el("button", {
@@ -54,7 +54,7 @@ renderers.mods = (page) => loadInto(page, async () => {
         },
       }, "Search")),
     results,
-    el("p", { class: "hint", style: "margin-top:10px" },
+    el("p", { class: "hint mt-10" },
       `Downloads are checked against the SHA-512 Modrinth publishes, and only .jar files from
        Modrinth's own CDN are accepted. Minecraft version in use: ${data.minecraft_version || "unknown"}.`)));
 
@@ -93,7 +93,7 @@ renderers.mods = (page) => loadInto(page, async () => {
           el("button", { class: "btn small danger", disabled: !offline,
             onclick: () => removeMod(mod) }, "Remove")),
       ])),
-    el("p", { class: "hint", style: "margin-top:10px" },
+    el("p", { class: "hint mt-10" },
       (data.claim || "") + ". " + (data.claim_note || "")),
     el("p", { class: "hint" },
       "What this checker cannot see: " + data.limitations.join(" ")))));
@@ -132,7 +132,7 @@ export async function installMod(hit) {
     deps.length
       ? el("div", {},
           el("p", {}, el("strong", {}, `${deps.length} required dependency/dependencies declared.`)),
-          el("label", { style: "display:flex;gap:8px;align-items:center" },
+          el("label", { class: "check-row" },
             installDeps, "Install required dependencies too"))
       : el("p", { class: "hint" }, "No required dependencies declared."),
     el("p", { class: "hint" },

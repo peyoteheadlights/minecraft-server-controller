@@ -56,7 +56,7 @@ export function tpsPanel(node) {
           el("li", {}, el("span", { class: "mono" }, t.command), `: ${t.detail}`))));
       }
     }
-    const actions = el("div", { class: "btn-row", style: "margin-top:12px" },
+    const actions = el("div", { class: "btn-row mt-12" },
       el("button", { class: "btn small", type: "button", onclick: changeCommand },
         s.state === "unavailable" ? "Configure Manually" : "Change Command"),
       s.mode === "auto" ? el("button", {

@@ -161,7 +161,7 @@ def create_app(config: Config) -> FastAPI:
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self'; "
-            "style-src 'self' 'unsafe-inline'; "
+            "style-src 'self'; "
             "img-src 'self' data:; "
             "connect-src 'self'; "
             "base-uri 'none'; form-action 'none'; frame-ancestors 'none'; "

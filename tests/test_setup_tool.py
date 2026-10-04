@@ -28,7 +28,7 @@ def root(tmp_path, monkeypatch):
     server.mkdir()
     (server / "fabric-server-launch.jar").write_bytes(b"jar")
     monkeypatch.setattr(setup_tool.shutil, "which", lambda name: "/opt/java/bin/java")
-    monkeypatch.setattr("agent.security.certs.tailscale_binary", lambda: None)
+    monkeypatch.setattr("agent.tailscale.tailscale_binary", lambda: None)
     monkeypatch.delenv("MCSC_SETUP_SERVER_DIR", raising=False)
     monkeypatch.delenv("MCSC_SETUP_PASSWORD", raising=False)
     monkeypatch.delenv("MCSC_ADMIN_PASSWORD_HASH", raising=False)

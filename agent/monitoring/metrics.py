@@ -16,6 +16,7 @@ from typing import Any
 
 import psutil
 
+from .. import tailscale
 from ..events import Event, EventBus
 from ..security.paths import directory_size
 
@@ -164,77 +165,7 @@ class MetricsMonitor:
             return False
 
     def tailscale_status(self) -> dict[str, Any]:
-        """Report Tailscale state from an actual source.
-
-        Source of truth, in order:
-          1. `tailscale status --json` - the daemon's own view of whether it is
-             connected. This is the only thing that proves connectivity.
-          2. A network interface in the 100.64.0.0/10 range - proves an address
-             is assigned, which is *not* the same as being connected. Reported
-             as "interface detected", never as "connected".
-
-        `connected` is True only when the daemon said so, False when it said
-        otherwise, and None when we could not ask.
-        """
-        from ..security.certs import tailscale_status as cli_status
-
-        report = cli_status()
-        if report.get("cli_found") and report.get("connected") is not None and not report.get("error"):
-            return {
-                "connected": bool(report["connected"]),
-                "verified": True,
-                "source": "tailscale status --json",
-                "address": (report.get("addresses") or [None])[0],
-                "addresses": report.get("addresses") or [],
-                "dns_name": report.get("dns_name"),
-                "backend_state": report.get("backend_state"),
-                "detail": ("Verified through the Tailscale daemon"
-                           if report["connected"]
-                           else f"Tailscale is installed but not connected "
-                                f"({report.get('backend_state')})"),
-            }
-
-        # The CLI could not answer. Fall back to looking for an address, and be
-        # explicit that this proves less.
-        cli_problem = report.get("error") or "the tailscale command was not found"
-        try:
-            addrs = psutil.net_if_addrs()
-        except Exception:  # pragma: no cover
-            return {"connected": None, "verified": False, "source": "unavailable",
-                    "address": None, "addresses": [],
-                    "detail": f"Could not verify: {cli_problem}, and the network "
-                              f"interfaces could not be read either."}
-        for name, entries in addrs.items():
-            for entry in entries:
-                if entry.family != socket.AF_INET or not entry.address:
-                    continue
-                is_ts_name = "tailscale" in name.lower() or name.lower().startswith("ts")
-                in_cgnat = False
-                if entry.address.startswith("100."):
-                    try:
-                        in_cgnat = 64 <= int(entry.address.split(".")[1]) <= 127
-                    except (ValueError, IndexError):
-                        in_cgnat = False
-                if is_ts_name or in_cgnat:
-                    return {
-                        "connected": None,
-                        "verified": False,
-                        "source": "network interface",
-                        "address": entry.address,
-                        "addresses": [entry.address],
-                        "interface": name,
-                        "detail": (f"A Tailscale-style address ({entry.address}) is assigned to "
-                                   f"interface {name}, but connectivity could not be confirmed "
-                                   f"because {cli_problem}."),
-                    }
-        return {
-            "connected": None,
-            "verified": False,
-            "source": "network interface",
-            "address": None,
-            "addresses": [],
-            "detail": f"No Tailscale address found on this machine, and {cli_problem}.",
-        }
+        return tailscale.connection_status()
 
     def certificate_status(self) -> dict[str, Any]:
         """TLS certificate facts, read from the files on disk."""
@@ -333,14 +264,14 @@ class MetricsMonitor:
                 round(snap["disk_free_gb"], 1), th.disk_free_gb,
                 "Free space on the server drive, GB", source="filesystem query")
 
-        tailscale = self.tailscale_status()
-        if tailscale["connected"] is None:
+        ts = self.tailscale_status()
+        if ts["connected"] is None:
             add("Tailscale", True, None, None, unknown=True,
-                detail=tailscale["detail"], source=tailscale["source"])
+                detail=ts["detail"], source=ts["source"])
         else:
-            add("Tailscale", tailscale["connected"],
-                tailscale.get("dns_name") or tailscale.get("address") or "connected",
-                None, tailscale["detail"], source=tailscale["source"])
+            add("Tailscale", ts["connected"],
+                ts.get("dns_name") or ts.get("address") or "connected",
+                None, ts["detail"], source=ts["source"])
 
         port = int(self.server.detected_port or self.config.server.port)
         if state != "ONLINE":

@@ -5,7 +5,6 @@ Starts a real uvicorn TLS listener, drives it with an HTTP client that
 WebSocket over wss://. Every assertion is against observed behaviour.
 """
 
-import asyncio
 import json
 import os
 import ssl

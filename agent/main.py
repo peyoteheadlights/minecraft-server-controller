@@ -20,7 +20,6 @@ import argparse
 import asyncio
 import contextlib
 import logging
-import os
 import socket
 import ssl
 import sys

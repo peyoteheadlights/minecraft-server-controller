@@ -410,8 +410,8 @@ def task_runtime() -> dict[str, Any]:
 
 
 def legacy_service() -> dict[str, Any]:
-    """Look for the earlier pywin32 service, which would fight the task for
-    the port and, as originally registered, could never start."""
+    """Look for the old pywin32 service, which would fight the task for
+    the port."""
     result: dict[str, Any] = {"exists": False, "state": None,
                               "python_class": None, "python_class_valid": None}
     if not IS_WINDOWS:
@@ -708,7 +708,7 @@ def render(data: dict[str, Any]) -> str:
         lines.append(f"  Registered arguments    : {task.get('arguments')}")
         lines.append(f"  Registered working dir  : {task.get('working_directory')}")
         lines.append(f"  Enabled                 : {task.get('enabled')}")
-        lines.append(f"  Keep-alive              : "
+        lines.append("  Keep-alive              : "
                      + ", ".join(f"{t['type']}{' every ' + t['repeat_every'] if t['repeat_every'] else ''}"
                                  for t in task.get("triggers", [])))
     lines.append(f"  Points to this install  : "

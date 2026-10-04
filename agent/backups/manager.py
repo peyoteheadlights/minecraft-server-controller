@@ -368,7 +368,7 @@ class BackupManager:
         for item in entries:
             by_top.setdefault(item.filename.split("/")[0], []).append(item)
         checked = 0
-        for top, items in by_top.items():
+        for items in by_top.values():
             for item in items[:5]:
                 target = base / item.filename
                 if not target.exists():

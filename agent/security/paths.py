@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 import re
 import stat as stat_module
+from collections.abc import Iterable
 from pathlib import Path
 
 SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+\-() ]{0,190}$")
@@ -102,16 +103,20 @@ def ensure_dir(path: Path) -> Path:
     return path
 
 
-def directory_size(path: Path) -> int:
-    """Total size in bytes, ignoring symlinks and unreadable entries."""
+def directory_size(path: Path, exclude: Iterable[Path] = ()) -> int:
+    """Total size in bytes, ignoring symlinks, unreadable entries and any
+    folder in ``exclude`` (and everything under it)."""
     total = 0
     path = Path(path)
     if not path.exists():
         return 0
     if path.is_file():
         return path.stat().st_size
+    skip = {os.path.normcase(os.path.abspath(p)) for p in exclude}
     for root, dirs, files in os.walk(path, followlinks=False):
-        dirs[:] = [d for d in dirs if not os.path.islink(os.path.join(root, d))]
+        dirs[:] = [d for d in dirs
+                   if not os.path.islink(os.path.join(root, d))
+                   and os.path.normcase(os.path.abspath(os.path.join(root, d))) not in skip]
         for name in files:
             full = os.path.join(root, name)
             if os.path.islink(full):

@@ -20,6 +20,7 @@
 - Failed attempts are counted per user and per address. Five failures locks
   sign-in for 15 minutes, with `Retry-After` in the response.
 - All API requests are rate limited (120/minute per address by default).
+  Rejected requests don't count, so retrying doesn't extend the block.
 
 ## Secrets
 

@@ -22,7 +22,7 @@ number you cannot trust.
 | MSPT | The same reply | Same |
 | Minecraft RAM | `psutil` process RSS | When the process is not running. `-Xmx` is an allocation limit and is labelled as such, never as usage |
 | CPU, system RAM | `psutil`, operating-system counters | If the OS query fails |
-| Disk | A live filesystem query, every time | If the query fails |
+| Disk | A live filesystem query of the server folder's drive, every time | If the query fails. Never "0 GB free", and never another drive's free space |
 | Port 25565 | An actual TCP connection attempt | It is not checked when the server is offline, and says so |
 | Tailscale | `tailscale status --json` from the daemon | If the CLI is missing or errors. An assigned `100.x` address is reported as "interface detected", explicitly **not** as connected |
 | TLS certificate | Parsing the PEM file on disk | If the file is missing or unparseable - never reported as "valid" |

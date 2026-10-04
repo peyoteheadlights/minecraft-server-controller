@@ -72,8 +72,10 @@ def test_an_unrecognised_on_off_value_fails_instead_of_meaning_on(tmp_path, monk
         load(tmp_path, f"monitor:\n  auto_restart: {value}\n", monkeypatch)
 
 
-@pytest.mark.parametrize(("value", "expected"), [("yes", True), ("off", False), ("1", True),
-                                                 ("0", False), ("true", True)])
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [("yes", True), ("off", False), ("1", True), ("0", False), ("true", True)],
+)
 def test_recognised_on_off_values_still_work(tmp_path, monkeypatch, value, expected):
     cfg = load(tmp_path, f"monitor:\n  auto_restart: {value}\n", monkeypatch)
     assert cfg.monitor.auto_restart is expected

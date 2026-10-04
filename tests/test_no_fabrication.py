@@ -388,7 +388,8 @@ def test_dashboard_shows_why_disk_space_is_unknown():
         for name in re.findall(r"fmt\.gb\((\w+)\.disk_free_gb\)", source):
             shown += 1
             assert f"{name}.disk_unknown_reason" in source, (
-                f"{script.name} shows {name}.disk_free_gb without its unknown reason")
+                f"{script.name} shows {name}.disk_free_gb without its unknown reason"
+            )
     assert shown, "the dashboard no longer shows disk_free_gb; update this test"
 
 

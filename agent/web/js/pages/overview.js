@@ -170,7 +170,8 @@ export function overviewUpdate() {
     ["Java", fmt.java(s.java_version)],
     ["Port", known(s.port) ? String(s.port) : null],
     ["Mods loaded", known(s.mod_count) ? String(s.mod_count) : (s.state === "ONLINE" ? null : "Reported at startup")],
-    ["Disk free", known(m.disk_free_gb) ? fmt.gb(m.disk_free_gb) : null],
+    ["Disk free", known(m.disk_free_gb) ? fmt.gb(m.disk_free_gb)
+      : (m.disk_unknown_reason ? `Unknown: ${m.disk_unknown_reason}` : null)],
   ]));
 }
 

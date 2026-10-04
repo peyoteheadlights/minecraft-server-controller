@@ -2,7 +2,7 @@ import { api } from "../api.js";
 import { chart } from "../charts.js";
 import { tpsPanel } from "../panels/tps.js";
 import { renderers } from "../state.js";
-import { card, el, fmt, loadInto, metric, table } from "../ui.js";
+import { card, el, fmt, known, loadInto, metric, table } from "../ui.js";
 
 renderers.performance = (page) => {
   const tpsNode = el("div");
@@ -22,7 +22,9 @@ export const renderPerformance = (page) => loadInto(page, async () => {
       { bar: current.cpu_percent }),
     metric("RAM", fmt.pct(current.ram_percent), `threshold ${data.thresholds.ram_percent}%`,
       { bar: current.ram_percent }),
-    metric("Disk free", fmt.gb(current.disk_free_gb), `alert under ${data.thresholds.disk_free_gb} GB`),
+    metric("Disk free", fmt.gb(current.disk_free_gb),
+      known(current.disk_free_gb) || !current.disk_unknown_reason
+        ? `alert under ${data.thresholds.disk_free_gb} GB` : current.disk_unknown_reason),
     metric("Network", `${(current.net_recv_mb_s || 0).toFixed(2)}`, "MB/s received", {})));
 
   holder.append(el("div", { class: "gap-section" },

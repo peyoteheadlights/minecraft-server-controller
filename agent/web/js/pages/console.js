@@ -48,7 +48,7 @@ export async function copyText(text) {
     await navigator.clipboard.writeText(text);
     return true;
   } catch (e) {
-    const area = el("textarea", { style: "position:fixed;opacity:0" });
+    const area = el("textarea", { class: "offscreen" });
     area.value = text;
     document.body.append(area);
     area.select();

@@ -19,7 +19,7 @@ export function chart(history, key, label) {
   line.setAttribute("stroke", "var(--accent)");
   line.setAttribute("stroke-width", "1.6");
   svg.append(line);
-  return el("div", { style: "margin-bottom:14px" },
+  return el("div", { class: "mb-14" },
     el("div", { class: "chart-legend" },
       el("span", {}, label),
       el("span", {}, `peak ${Math.max(...points).toFixed(1)}`)),

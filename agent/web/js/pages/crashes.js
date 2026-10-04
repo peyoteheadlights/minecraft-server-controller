@@ -35,10 +35,10 @@ export async function showCrash(id) {
           el("span", { class: "hint" },
             " - appearing in a stack trace is not evidence of causing the crash"))
       : null,
-    el("h3", { style: "margin-top:16px;font-size:14px" }, "Evidence"),
-    el("div", { class: "console-wrap", style: "height:auto;max-height:200px" },
+    el("h3", { class: "evidence-heading" }, "Evidence"),
+    el("div", { class: "console-wrap compact" },
       (crash.evidence || []).map((line) => el("div", { class: "console-line ERROR" }, line))),
-    el("h3", { style: "margin-top:16px;font-size:14px" }, "Context"),
+    el("h3", { class: "evidence-heading" }, "Context"),
     table(["Field", "Value"], [
       ["Exit code", String(crash.exit_code)],
       ["Minecraft", context.minecraft_version || "unknown"],
@@ -48,7 +48,7 @@ export async function showCrash(id) {
       ["Crash report", context.crash_report || "none written by Minecraft"],
       ["Saved log", context.log_file || context.console_file || "—"],
     ]),
-    el("p", { class: "hint", style: "margin-top:12px" },
+    el("p", { class: "hint mt-12" },
       "This is a rule match on the log text, not a certainty. Check the evidence before acting."));
   await confirmDialog({ title: `Crash on ${fmt.time(crash.ts)}`, body, confirmLabel: "Close" });
 }

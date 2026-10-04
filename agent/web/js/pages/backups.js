@@ -7,7 +7,7 @@ renderers.backups = (page) => loadInto(page, async () => {
   const [data, worlds] = await Promise.all([api("/backups"), api("/worlds")]);
   const holder = el("div");
 
-  holder.append(el("div", { class: "btn-row", style: "margin-bottom:14px" },
+  holder.append(el("div", { class: "btn-row mb-14" },
     el("button", {
       class: "btn primary",
       onclick: async () => {
@@ -96,7 +96,7 @@ export async function restoreBackup(backup) {
   const body = el("div", {},
     el("p", {}, `Restore ${backup.name} from ${fmt.time(backup.created_at)}?`),
     el("ul", {}, preview.will_happen.map((item) => el("li", {}, item))),
-    el("label", { style: "display:flex;gap:8px;align-items:center;margin-top:10px" },
+    el("label", { class: "check-row mt-10" },
       startAfter, "Start the server when the restore finishes"));
   const ok = await confirmDialog({
     title: "Restore this backup?", body, confirmLabel: "Verify and restore", danger: true,

@@ -34,9 +34,9 @@ export const renderPerformance = (page) => loadInto(page, async () => {
         : el("p", { class: "hint" },
             "No TPS samples: no tick-rate command answered on this server."))));
 
-  holder.append(el("div", { class: "grid cols-2", style: "margin-top:14px" },
+  holder.append(el("div", { class: "grid cols-2 mt-14" },
     card("Health checks",
-      el("div", { class: "banner", style: "margin-bottom:10px" },
+      el("div", { class: "banner mb-10" },
         el("strong", {}, ({
           "ALL CHECKS VERIFIED": "All checks verified",
           "PARTIALLY VERIFIED": "Partially verified",

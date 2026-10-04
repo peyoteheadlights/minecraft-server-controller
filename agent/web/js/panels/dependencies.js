@@ -84,7 +84,7 @@ export function dependenciesPanel(node, opts = {}) {
 
     if (optional.length) {
       wrap.append(card(`Optional dependencies (${optional.length})`,
-        el("p", { class: "hint", style: "margin-top:0" },
+        el("p", { class: "hint mt-0" },
           "Mods work without these, but may offer more with them."),
         el("div", { class: "dep-list" }, optional.map(itemRow))));
     }
@@ -97,7 +97,7 @@ export function dependenciesPanel(node, opts = {}) {
       body.append(el("p", {}, "These will be downloaded from Modrinth and checked against their published checksums:"));
       const shallowFirst = [...plan.items].sort((a, b) => a.depth - b.depth);
       body.append(el("ul", { class: "dep-plan" }, shallowFirst.map((item) => el("li", {
-        style: `margin-left:${item.depth * 18}px`,
+        style: { marginLeft: `${item.depth * 18}px` },
       },
         item.depth ? "└ " : "",
         el("strong", {}, item.title), ` ${item.version_number}`,

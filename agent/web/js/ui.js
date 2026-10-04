@@ -5,6 +5,8 @@ export function el(tag, props = {}, ...children) {
   for (const [key, value] of Object.entries(props)) {
     if (value === null || value === undefined || value === false) continue;
     if (key === "class") node.className = value;
+    // Style objects go through the CSSOM: the page's CSP blocks style attributes.
+    else if (key === "style") Object.assign(node.style, value);
     else if (key.startsWith("on") && typeof value === "function") {
       node.addEventListener(key.slice(2).toLowerCase(), value);
     } else node.setAttribute(key, value === true ? "" : value);
@@ -213,7 +215,7 @@ export function metric(label, value, note, opts = {}) {
     note ? el("div", { class: "note", title: note }, note) : null,
     opts.bar !== undefined && !unknown
       ? el("div", { class: `meter ${opts.barLevel || ""}` },
-          el("span", { style: `width:${Math.min(100, Math.max(0, opts.bar))}%` }))
+          el("span", { style: { width: `${Math.min(100, Math.max(0, opts.bar))}%` } }))
       : null);
 }
 

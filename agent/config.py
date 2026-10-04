@@ -51,9 +51,14 @@ def _coerce(name: str, hint: Any, value: Any) -> Any:
             raise ConfigError(f"{name} must be a mapping")
         return hint.from_dict(value, prefix=name)
     if hint is bool:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, int) and value in (0, 1):
+            return bool(value)
         if isinstance(value, str) and value.strip().lower() in _BOOL_WORDS:
             return _BOOL_WORDS[value.strip().lower()]
-        return bool(value)
+        # Anything else would be a guess at what was meant.
+        raise ConfigError(f"{name} must be true or false, not {value!r}")
     if hint in (int, float):
         if isinstance(value, bool):
             raise ConfigError(f"{name} must be a number, not {value!r}")

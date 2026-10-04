@@ -228,3 +228,22 @@ def test_a_refused_control_action_is_audited(client):
     assert response.status_code == 409
     rows = core.db.query("SELECT * FROM audit_log WHERE action = 'cancel_restart'")
     assert rows and rows[-1]["result"] == "refused"
+
+
+# ---------------------------------------------------------------- version
+def test_the_version_comes_from_one_place(client):
+    import re
+    from pathlib import Path
+
+    from agent import __version__
+
+    status = client.get("/api/status", headers=auth(token_for(client))).json()
+    assert status["agent"]["version"] == __version__
+    assert client.app.version == __version__
+    # No other source file spells out a version of its own.
+    root = Path(__file__).resolve().parent.parent
+    for path in [*root.glob("agent/**/*.py"), *root.glob("installer/**/*.py")]:
+        if path.name == "__init__.py" and path.parent.name == "agent":
+            continue
+        source = path.read_text(encoding="utf-8")
+        assert not re.search(r"version\s*=\s*\"\d+\.\d+\.\d+\"", source), path

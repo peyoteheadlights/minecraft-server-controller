@@ -33,7 +33,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import startup_diag
+from . import __version__, startup_diag
 from .api.errors import register_error_handlers
 from .api.routes import router
 from .api.ws import ws_router
@@ -126,7 +126,7 @@ def create_app(config: Config) -> FastAPI:
 
     app = FastAPI(
         title="Minecraft Server Control",
-        version="1.1.0",
+        version=__version__,
         lifespan=lifespan,
         docs_url="/api/docs",
         redoc_url=None,

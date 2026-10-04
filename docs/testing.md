@@ -37,7 +37,8 @@ To run these before every commit: `pip install pre-commit`, then
 
 `requirements.txt` and `requirements-dev.txt` list what the project needs.
 `requirements.lock` and `requirements-dev.lock` pin the exact versions (with
-hashes) that CI tests, for every platform and Python 3.11+. After changing a
+hashes) that CI tests, for every platform and Python 3.11+. `setup.ps1`
+installs `requirements.lock`, so a PC runs what CI tested. After changing a
 requirements file, regenerate both:
 
 ```powershell

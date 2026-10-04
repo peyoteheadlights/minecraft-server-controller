@@ -20,13 +20,17 @@ def load(tmp_path, text, monkeypatch):
 
 
 def test_an_existing_single_server_config_loads_unchanged(tmp_path, monkeypatch):
-    cfg = load(tmp_path, """
+    cfg = load(
+        tmp_path,
+        """
 server:
   directory: C:/Minecraft
   jvm_args: [-Xmx8G]
 monitor:
   restart_delay: 30
-""", monkeypatch)
+""",
+        monkeypatch,
+    )
     assert cfg.server.directory == "C:/Minecraft"
     assert cfg.server.jvm_args == ["-Xmx8G"]
     assert cfg.monitor.restart_delay == 30
@@ -41,13 +45,17 @@ def test_defaults_are_built_from_the_typed_sections():
 
 
 def test_values_are_converted_to_their_declared_types(tmp_path, monkeypatch):
-    cfg = load(tmp_path, """
+    cfg = load(
+        tmp_path,
+        """
 network:
   port: "9000"
 monitor:
   auto_restart: "no"
   restart_delay: 5
-""", monkeypatch)
+""",
+        monkeypatch,
+    )
     assert cfg.network.port == 9000
     assert cfg.monitor.auto_restart is False
     assert isinstance(cfg.monitor.restart_delay, float)
@@ -64,21 +72,27 @@ def test_an_unrecognised_on_off_value_fails_instead_of_meaning_on(tmp_path, monk
         load(tmp_path, f"monitor:\n  auto_restart: {value}\n", monkeypatch)
 
 
-@pytest.mark.parametrize(("value", "expected"), [("yes", True), ("off", False), ("1", True),
-                                                 ("0", False), ("true", True)])
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [("yes", True), ("off", False), ("1", True), ("0", False), ("true", True)],
+)
 def test_recognised_on_off_values_still_work(tmp_path, monkeypatch, value, expected):
     cfg = load(tmp_path, f"monitor:\n  auto_restart: {value}\n", monkeypatch)
     assert cfg.monitor.auto_restart is expected
 
 
 def test_empty_yaml_values_mean_empty_not_the_word_none(tmp_path, monkeypatch):
-    cfg = load(tmp_path, """
+    cfg = load(
+        tmp_path,
+        """
 server:
   directory:
   port:
 tls:
   ca_certificate:
-""", monkeypatch)
+""",
+        monkeypatch,
+    )
     assert cfg.server.directory == ""
     assert cfg.server.port == 25565
     assert cfg.tls.ca_certificate == ""
@@ -92,11 +106,14 @@ def test_set_is_seen_by_the_typed_view(config):
 
 
 def test_the_dashboard_cannot_save_a_value_of_the_wrong_type(client, config):
-    token = client.post("/api/auth/login",
-                        json={"username": "admin", "password": PASSWORD}).json()["token"]
-    response = client.put("/api/settings", headers={"Authorization": f"Bearer {token}"},
-                          json={"updates": {"thresholds.cpu_percent": "lots",
-                                            "thresholds.ram_percent": 80}})
+    token = client.post("/api/auth/login", json={"username": "admin", "password": PASSWORD}).json()[
+        "token"
+    ]
+    response = client.put(
+        "/api/settings",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"updates": {"thresholds.cpu_percent": "lots", "thresholds.ram_percent": 80}},
+    )
     body = response.json()
     assert "thresholds.cpu_percent" in body["rejected"]
     assert body["applied"] == {"thresholds.ram_percent": 80}

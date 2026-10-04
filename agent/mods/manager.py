@@ -29,9 +29,9 @@ from ..security.paths import (
     safe_join,
 )
 from . import checks
+from .dependencies import DependencyResolver
 from .jarinfo import DISABLED_SUFFIX, ModInfo, read_mod_jar, sha256_file, version_satisfies
 from .modrinth import ModrinthClient, ModrinthError
-from .dependencies import DependencyResolver
 
 log = logging.getLogger("msc.mods")
 
@@ -60,8 +60,10 @@ class ModManager:
     def mods_dir(self) -> Path:
         path = self.config.mods_dir
         if not self.config.server_dir_configured:
-            raise ModError("The Minecraft server folder is not set. "
-                           "Set server.directory in config/config.yaml.")
+            raise ModError(
+                "The Minecraft server folder is not set. "
+                "Set server.directory in config/config.yaml."
+            )
         path.mkdir(parents=True, exist_ok=True)
         return path
 
@@ -151,15 +153,30 @@ class ModManager:
         for mod in mods:
             issues = checks.jar_issues(mod)
             if not mod.enabled:
-                per_mod.append({"filename": mod.filename, "mod_id": mod.mod_id,
-                                "status": "disabled", "issues": issues})
+                per_mod.append(
+                    {
+                        "filename": mod.filename,
+                        "mod_id": mod.mod_id,
+                        "status": "disabled",
+                        "issues": issues,
+                    }
+                )
                 continue
             issues += checks.dependency_issues(mod, installed, mc_version, loader_version)
             issues += checks.breaks_issues(mod, installed)
-            per_mod.append({"filename": mod.filename, "mod_id": mod.mod_id,
-                            "status": checks.status_of(issues), "issues": issues})
-            problems.extend({**i, "mod": mod.name, "filename": mod.filename}
-                            for i in issues if i["severity"] == "error")
+            per_mod.append(
+                {
+                    "filename": mod.filename,
+                    "mod_id": mod.mod_id,
+                    "status": checks.status_of(issues),
+                    "issues": issues,
+                }
+            )
+            problems.extend(
+                {**i, "mod": mod.name, "filename": mod.filename}
+                for i in issues
+                if i["severity"] == "error"
+            )
 
         return {
             "per_mod": per_mod,
@@ -167,10 +184,15 @@ class ModManager:
             "minecraft_version": mc_version,
             "fabric_loader": loader_version,
             "checked_at": time.time(),
-            "claim": ("No declared conflicts detected" if not problems
-                      else f"{len(problems)} declared problem(s) detected"),
-            "claim_note": ("'No declared conflicts detected' is not the same as 'no conflicts "
-                           "exist'. Only metadata was read; nothing was executed or tested."),
+            "claim": (
+                "No declared conflicts detected"
+                if not problems
+                else f"{len(problems)} declared problem(s) detected"
+            ),
+            "claim_note": (
+                "'No declared conflicts detected' is not the same as 'no conflicts "
+                "exist'. Only metadata was read; nothing was executed or tested."
+            ),
             "limitations": [
                 "Only declared metadata is checked (fabric.mod.json).",
                 "Mods can still conflict at runtime with nothing declared in their metadata.",
@@ -186,8 +208,9 @@ class ModManager:
     # ------------------------------------------------------------------
     # history
     # ------------------------------------------------------------------
-    def compatibility_verdict(self, modrinth_version: dict | None,
-                              mod: ModInfo | None = None) -> dict[str, Any]:
+    def compatibility_verdict(
+        self, modrinth_version: dict | None, mod: ModInfo | None = None
+    ) -> dict[str, Any]:
         """How confident we are that a mod will work here.
 
         Four verdicts, and none of them is "it works":
@@ -207,50 +230,74 @@ class ModManager:
         if not mc_version:
             return {
                 "verdict": "unknown",
-                "detail": ("The server's Minecraft version has not been observed yet. It is read "
-                           "from the console on first start, so compatibility cannot be checked."),
+                "detail": (
+                    "The server's Minecraft version has not been observed yet. It is read "
+                    "from the console on first start, so compatibility cannot be checked."
+                ),
             }
         declared = None
-        if mod and mod.minecraft_range:
-            declared = version_satisfies(mc_version, mod.minecraft_range)
+        mc_range = mod.minecraft_range if mod else None
+        if mc_range:
+            declared = version_satisfies(mc_version, mc_range)
         listed = None
         if modrinth_version:
             listed = mc_version in (modrinth_version.get("game_versions") or [])
         if declared is False:
-            return {"verdict": "incompatible",
-                    "detail": f"The jar declares it needs Minecraft {mod.minecraft_range}, "
-                              f"but this server runs {mc_version}."}
+            return {
+                "verdict": "incompatible",
+                "detail": f"The jar declares it needs Minecraft {mc_range}, "
+                f"but this server runs {mc_version}.",
+            }
         if declared is True and listed is not False:
-            return {"verdict": "verified_metadata",
-                    "detail": f"The jar declares support for {mod.minecraft_range}, which "
-                              f"includes {mc_version}. Metadata only - not a test."}
+            return {
+                "verdict": "verified_metadata",
+                "detail": f"The jar declares support for {mc_range}, which "
+                f"includes {mc_version}. Metadata only - not a test.",
+            }
         if listed:
-            return {"verdict": "likely",
-                    "detail": f"Modrinth lists this build for Minecraft {mc_version}, but the "
-                              f"jar's own metadata could not confirm it. That is the "
-                              f"publisher's claim, not a test result."}
-        return {"verdict": "unknown",
-                "detail": "Neither the jar metadata nor Modrinth confirmed this Minecraft version."}
+            return {
+                "verdict": "likely",
+                "detail": f"Modrinth lists this build for Minecraft {mc_version}, but the "
+                f"jar's own metadata could not confirm it. That is the "
+                f"publisher's claim, not a test result.",
+            }
+        return {
+            "verdict": "unknown",
+            "detail": "Neither the jar metadata nor Modrinth confirmed this Minecraft version.",
+        }
 
-    def record(self, action: str, user: str, mod: ModInfo | None = None, *,
-               mod_id: str | None = None, mod_name: str | None = None,
-               old_version: str | None = None, new_version: str | None = None,
-               source: str | None = None, sha256: str | None = None,
-               result: str = "ok", detail: str | None = None) -> int:
-        return self.db.insert("mod_history", {
-            "server_id": self.server.server_id,
-            "ts": time.time(),
-            "user": user,
-            "action": action,
-            "mod_id": mod_id or (mod.mod_id if mod else None),
-            "mod_name": mod_name or (mod.name if mod else None),
-            "old_version": old_version,
-            "new_version": new_version or (mod.version if mod else None),
-            "source": source,
-            "sha256": sha256 or (mod.sha256 if mod else None),
-            "result": result,
-            "detail": detail,
-        })
+    def record(
+        self,
+        action: str,
+        user: str,
+        mod: ModInfo | None = None,
+        *,
+        mod_id: str | None = None,
+        mod_name: str | None = None,
+        old_version: str | None = None,
+        new_version: str | None = None,
+        source: str | None = None,
+        sha256: str | None = None,
+        result: str = "ok",
+        detail: str | None = None,
+    ) -> int:
+        return self.db.insert(
+            "mod_history",
+            {
+                "server_id": self.server.server_id,
+                "ts": time.time(),
+                "user": user,
+                "action": action,
+                "mod_id": mod_id or (mod.mod_id if mod else None),
+                "mod_name": mod_name or (mod.name if mod else None),
+                "old_version": old_version,
+                "new_version": new_version or (mod.version if mod else None),
+                "source": source,
+                "sha256": sha256 or (mod.sha256 if mod else None),
+                "result": result,
+                "detail": detail,
+            },
+        )
 
     def history(self, limit: int = 100) -> list[dict[str, Any]]:
         return self.db.query(
@@ -277,16 +324,19 @@ class ModManager:
             target = folder / f"{stamp}-{counter}-{base_name}"
             counter += 1
         shutil.copy2(path, target)
-        self.db.insert("mod_versions", {
-            "server_id": self.server.server_id,
-            "mod_id": mod.mod_id,
-            "version": mod.version,
-            "filename": base_name,
-            "archive_path": str(target),
-            "sha256": mod.sha256 or sha256_file(target),
-            "source": source,
-            "created_at": time.time(),
-        })
+        self.db.insert(
+            "mod_versions",
+            {
+                "server_id": self.server.server_id,
+                "mod_id": mod.mod_id,
+                "version": mod.version,
+                "filename": base_name,
+                "archive_path": str(target),
+                "sha256": mod.sha256 or sha256_file(target),
+                "source": source,
+                "created_at": time.time(),
+            },
+        )
         return target
 
     def versions_for(self, mod_id: str) -> list[dict[str, Any]]:
@@ -320,14 +370,20 @@ class ModManager:
         existing = self.find_by_id(mod_id_or_slug)
         return {"already_installed": existing.to_dict() if existing else None}
 
-    async def install_from_modrinth(self, project: str, user: str, version_id: str | None = None,
-                                    minecraft_version: str | None = None,
-                                    allow_replace: bool = False,
-                                    install_dependencies: bool = False) -> dict[str, Any]:
+    async def install_from_modrinth(
+        self,
+        project: str,
+        user: str,
+        version_id: str | None = None,
+        minecraft_version: str | None = None,
+        allow_replace: bool = False,
+        install_dependencies: bool = False,
+    ) -> dict[str, Any]:
         """Download and install a mod. Returns a report of what changed."""
         self._require_server_offline("install a mod")
         mc_version = minecraft_version or self.server.mc_version
 
+        version: dict[str, Any] | None
         if version_id:
             version = await self.modrinth.version(version_id)
         else:
@@ -342,7 +398,7 @@ class ModManager:
                 f"{version['version_number']} supports {', '.join(version['game_versions'][:6])}, "
                 f"not {mc_version}. Pick a different version."
             )
-        if "fabric" not in [l.lower() for l in version["loaders"]]:
+        if "fabric" not in [loader.lower() for loader in version["loaders"]]:
             raise ModError(f"This file targets {', '.join(version['loaders'])}, not Fabric")
 
         filename = version["file"]["filename"]
@@ -377,15 +433,30 @@ class ModManager:
         installed = read_mod_jar(target)
         installed.sha256 = sha256
         self.archive(target, installed, source=version["file"]["url"])
-        self.record("install", user, installed, new_version=installed.version,
-                    source=version["file"]["url"], sha256=sha256,
-                    detail=f"Modrinth {version['version_number']} ({version['release_type']})")
-        self.db.set_setting(f"mod_source:{installed.mod_id}",
-                            {"modrinth_project": version.get("project_id") or project,
-                             "version_id": version["version_id"]})
+        self.record(
+            "install",
+            user,
+            installed,
+            new_version=installed.version,
+            source=version["file"]["url"],
+            sha256=sha256,
+            detail=f"Modrinth {version['version_number']} ({version['release_type']})",
+        )
+        self.db.set_setting(
+            f"mod_source:{installed.mod_id}",
+            {
+                "modrinth_project": version.get("project_id") or project,
+                "version_id": version["version_id"],
+            },
+        )
         self._cache = None
-        await self._emit("mod_installed", f"Installed {installed.name} {installed.version}",
-                         level="success", mod=installed.to_dict(), source="modrinth")
+        await self._emit(
+            "mod_installed",
+            f"Installed {installed.name} {installed.version}",
+            level="success",
+            mod=installed.to_dict(),
+            source="modrinth",
+        )
 
         report: dict[str, Any] = {
             "installed": installed.to_dict(),
@@ -393,8 +464,10 @@ class ModManager:
             # loading it. That is only known after the server has started and
             # reported the mod, so it stays unverified until then.
             "loaded_by_minecraft": "not verified",
-            "loaded_detail": ("The file is in the mods folder. Start the server to find out "
-                              "whether Fabric loads it."),
+            "loaded_detail": (
+                "The file is in the mods folder. Start the server to find out "
+                "whether Fabric loads it."
+            ),
             "compatibility": self.compatibility_verdict(version, installed),
             "replaced": replaced,
             "sha256": sha256,
@@ -408,21 +481,32 @@ class ModManager:
         # installed through the same verified path; see dependencies.py.
         if install_dependencies:
             outcome = await self.deps.install(None, user)
-            report["dependencies_installed"] = [r for r in outcome["results"] if r["result"] == "installed"]
-            report["dependencies_failed"] = [r for r in outcome["results"] if r["result"] == "failed"]
+            report["dependencies_installed"] = [
+                r for r in outcome["results"] if r["result"] == "installed"
+            ]
+            report["dependencies_failed"] = [
+                r for r in outcome["results"] if r["result"] == "failed"
+            ]
             report["dependencies_required"] = [
                 {"mod_id": g["mod_id"], "title": g["name"], "installed": False}
-                for g in outcome["still_missing"]]
+                for g in outcome["still_missing"]
+            ]
         else:
             report["dependencies_required"] = [
-                {"mod_id": g["mod_id"], "title": g["name"], "installed": False,
-                 "range_text": g["range_text"]}
+                {
+                    "mod_id": g["mod_id"],
+                    "title": g["name"],
+                    "installed": False,
+                    "range_text": g["range_text"],
+                }
                 for g in self.deps.analyse()["items"]
-                if g["status"] == "missing" and g["kind"] == "required"]
+                if g["status"] == "missing" and g["kind"] == "required"
+            ]
         return report
 
-    async def install_local_file(self, filename: str, data: bytes, user: str,
-                                 allow_replace: bool = False) -> dict[str, Any]:
+    async def install_local_file(
+        self, filename: str, data: bytes, user: str, allow_replace: bool = False
+    ) -> dict[str, Any]:
         """Install an uploaded jar. Same rules as a Modrinth install."""
         self._require_server_offline("install a mod")
         safe_filename(filename, JAR_EXT)
@@ -452,13 +536,20 @@ class ModManager:
         self.archive(target, installed, source="uploaded")
         self.record("install", user, installed, source="upload", detail=f"Uploaded {filename}")
         self._cache = None
-        await self._emit("mod_installed", f"Installed {installed.name} {installed.version} from a file",
-                         level="success", mod=installed.to_dict(), source="upload")
+        await self._emit(
+            "mod_installed",
+            f"Installed {installed.name} {installed.version} from a file",
+            level="success",
+            mod=installed.to_dict(),
+            source="upload",
+        )
         return {
             "installed": installed.to_dict(),
             "loaded_by_minecraft": "not verified",
-            "loaded_detail": ("The file is in the mods folder. Start the server to find out "
-                              "whether Fabric loads it."),
+            "loaded_detail": (
+                "The file is in the mods folder. Start the server to find out "
+                "whether Fabric loads it."
+            ),
         }
 
     def removal_impact(self, filename: str) -> dict[str, Any]:
@@ -470,15 +561,23 @@ class ModManager:
                 continue
             for dep in other.dependencies:
                 if dep.mod_id == mod.mod_id and dep.kind == "depends":
-                    dependents.append({"name": other.name, "mod_id": other.mod_id,
-                                       "filename": other.filename, "requires": dep.version_range})
+                    dependents.append(
+                        {
+                            "name": other.name,
+                            "mod_id": other.mod_id,
+                            "filename": other.filename,
+                            "requires": dep.version_range,
+                        }
+                    )
         return {
             "mod": mod.to_dict(),
             "dependents": dependents,
             "warning": (
                 f"{len(dependents)} installed mod(s) declare {mod.mod_id} as a required dependency. "
                 "Removing it may stop the server from starting."
-            ) if dependents else None,
+            )
+            if dependents
+            else None,
         }
 
     async def remove(self, filename: str, user: str, backup: bool = True) -> dict[str, Any]:
@@ -494,11 +593,18 @@ class ModManager:
         stamp = time.strftime("%Y%m%d-%H%M%S")
         trash_target = self.trash_dir / f"{stamp}-{path.name}"
         shutil.move(str(path), str(trash_target))
-        self.record("remove", user, mod, old_version=mod.version, source="local",
-                    detail=f"Moved to {trash_target.name}")
+        self.record(
+            "remove",
+            user,
+            mod,
+            old_version=mod.version,
+            source="local",
+            detail=f"Moved to {trash_target.name}",
+        )
         self._cache = None
-        await self._emit("mod_removed", f"Removed {mod.name} {mod.version}",
-                         level="warn", mod=mod.to_dict())
+        await self._emit(
+            "mod_removed", f"Removed {mod.name} {mod.version}", level="warn", mod=mod.to_dict()
+        )
         return {"removed": mod.to_dict(), "archived": archived, "trash": str(trash_target)}
 
     async def set_enabled(self, filename: str, enabled: bool, user: str) -> dict[str, Any]:
@@ -524,8 +630,11 @@ class ModManager:
         updated = read_mod_jar(target)
         action = "enable" if enabled else "disable"
         self.record(action, user, updated, detail=f"{path.name} -> {new_name}")
-        await self._emit(f"mod_{action}d", f"{'Enabled' if enabled else 'Disabled'} {updated.name}",
-                         mod=updated.to_dict())
+        await self._emit(
+            f"mod_{action}d",
+            f"{'Enabled' if enabled else 'Disabled'} {updated.name}",
+            mod=updated.to_dict(),
+        )
         return {"mod": updated.to_dict(), "changed": True}
 
     # ------------------------------------------------------------------
@@ -565,13 +674,16 @@ class ModManager:
         self.db.set_setting("mod_updates_checked_at", time.time())
         return updates
 
-    async def update(self, filename: str, user: str, version_id: str | None = None) -> dict[str, Any]:
+    async def update(
+        self, filename: str, user: str, version_id: str | None = None
+    ) -> dict[str, Any]:
         self._require_server_offline("update a mod")
         mod = self.find(filename)
         old_path = Path(mod.path)
         archived = self.archive(old_path, mod, source="pre-update")
         source = self.db.get_setting(f"mod_source:{mod.mod_id}") or {}
         project = source.get("modrinth_project") or mod.modrinth_project or mod.mod_id
+        version: dict[str, Any] | None
         if version_id:
             version = await self.modrinth.version(version_id)
         else:
@@ -597,21 +709,41 @@ class ModManager:
         installed = read_mod_jar(target)
         installed.sha256 = sha256
         self.archive(target, installed, source=version["file"]["url"])
-        self.record("update", user, installed, old_version=mod.version,
-                    new_version=installed.version, source=version["file"]["url"], sha256=sha256)
-        self.db.set_setting(f"mod_source:{installed.mod_id}",
-                            {"modrinth_project": version.get("project_id") or project,
-                             "version_id": version["version_id"]})
+        self.record(
+            "update",
+            user,
+            installed,
+            old_version=mod.version,
+            new_version=installed.version,
+            source=version["file"]["url"],
+            sha256=sha256,
+        )
+        self.db.set_setting(
+            f"mod_source:{installed.mod_id}",
+            {
+                "modrinth_project": version.get("project_id") or project,
+                "version_id": version["version_id"],
+            },
+        )
         self.db.set_setting(f"mod_update:{installed.mod_id}", None)
         self._cache = None
-        await self._emit("mod_updated",
-                         f"Updated {installed.name}: {mod.version} to {installed.version}",
-                         level="success", mod=installed.to_dict(), previous=mod.version)
-        return {"updated": installed.to_dict(), "previous_version": mod.version,
-                "rollback_archive": str(archived),
-                "loaded_by_minecraft": "not verified",
-                "loaded_detail": ("The new jar is in place. Start the server to find out whether "
-                                  "Fabric loads it. If startup fails, roll back from History.")}
+        await self._emit(
+            "mod_updated",
+            f"Updated {installed.name}: {mod.version} to {installed.version}",
+            level="success",
+            mod=installed.to_dict(),
+            previous=mod.version,
+        )
+        return {
+            "updated": installed.to_dict(),
+            "previous_version": mod.version,
+            "rollback_archive": str(archived),
+            "loaded_by_minecraft": "not verified",
+            "loaded_detail": (
+                "The new jar is in place. Start the server to find out whether "
+                "Fabric loads it. If startup fails, roll back from History."
+            ),
+        }
 
     async def rollback(self, mod_id: str, archive_path: str, user: str) -> dict[str, Any]:
         self._require_server_offline("roll a mod back")
@@ -629,7 +761,9 @@ class ModManager:
         if row.get("sha256"):
             actual = sha256_file(source)
             if actual != row["sha256"]:
-                raise ModError("The archived jar no longer matches its recorded SHA-256. Refusing to use it.")
+                raise ModError(
+                    "The archived jar no longer matches its recorded SHA-256. Refusing to use it."
+                )
 
         current = self.find_by_id(mod_id)
         previous_version = current.version if current else None
@@ -640,12 +774,22 @@ class ModManager:
         target = safe_join(self.mods_dir, row["filename"], allowed_extensions=JAR_EXT)
         shutil.copy2(source, target)
         restored = read_mod_jar(target)
-        self.record("rollback", user, restored, old_version=previous_version,
-                    new_version=restored.version, source=str(source))
+        self.record(
+            "rollback",
+            user,
+            restored,
+            old_version=previous_version,
+            new_version=restored.version,
+            source=str(source),
+        )
         self._cache = None
-        await self._emit("mod_rolled_back",
-                         f"Rolled {restored.name} back to {restored.version}",
-                         level="warn", mod=restored.to_dict(), previous=previous_version)
+        await self._emit(
+            "mod_rolled_back",
+            f"Rolled {restored.name} back to {restored.version}",
+            level="warn",
+            mod=restored.to_dict(),
+            previous=previous_version,
+        )
         return {"restored": restored.to_dict(), "previous_version": previous_version}
 
     async def close(self) -> None:

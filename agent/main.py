@@ -33,6 +33,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from . import __version__, startup_diag
 from .api.errors import register_error_handlers
 from .api.routes import router
 from .api.ws import ws_router
@@ -41,7 +42,6 @@ from .core import AgentCore
 from .diagnostics import run_diagnostics
 from .logging_setup import setup_logging
 from .security.tls import inspect_certificate
-from . import startup_diag
 
 log = logging.getLogger("msc.main")
 
@@ -105,10 +105,12 @@ def create_app(config: Config) -> FastAPI:
         except Exception as exc:
             startup_diag.record_exception("controller_initialization", exc)
             raise
-        startup_diag.record("controller_initialized", ok=True,
-                            detail=f"state={core.server.state.value}, "
-                                   f"java={core.server.java_version or 'unknown'}",
-                            url=config.base_url)
+        startup_diag.record(
+            "controller_initialized",
+            ok=True,
+            detail=f"state={core.server.state.value}, java={core.server.java_version or 'unknown'}",
+            url=config.base_url,
+        )
         log.info("agent ready on %s", config.base_url)
         try:
             yield
@@ -124,7 +126,7 @@ def create_app(config: Config) -> FastAPI:
 
     app = FastAPI(
         title="Minecraft Server Control",
-        version="1.1.0",
+        version=__version__,
         lifespan=lifespan,
         docs_url="/api/docs",
         redoc_url=None,
@@ -138,10 +140,11 @@ def create_app(config: Config) -> FastAPI:
     origins = [str(o) for o in config.network.allowed_origins]
     if origins:
         from fastapi.middleware.cors import CORSMiddleware
+
         app.add_middleware(
             CORSMiddleware,
             allow_origins=origins,
-            allow_credentials=False,   # bearer tokens, never cookies
+            allow_credentials=False,  # bearer tokens, never cookies
             allow_methods=["GET", "POST", "PUT", "DELETE"],
             allow_headers=["Authorization", "Content-Type"],
         )
@@ -180,8 +183,10 @@ def create_app(config: Config) -> FastAPI:
         log.exception("unhandled error on %s %s", request.method, request.url.path)
         return JSONResponse(
             status_code=500,
-            content={"detail": "The agent hit an unexpected error. "
-                               "Check mcsc-data/logs/agent-errors.log."},
+            content={
+                "detail": "The agent hit an unexpected error. "
+                "Check mcsc-data/logs/agent-errors.log."
+            },
         )
 
     register_error_handlers(app)
@@ -216,18 +221,22 @@ def create_redirect_app(https_port: int) -> FastAPI:
 
     @app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)
     async def to_https(request: Request, path: str = ""):
-        host = (request.url.hostname or "localhost")
+        host = request.url.hostname or "localhost"
         target = request.url.replace(scheme="https", netloc=f"{host}:{https_port}")
         return RedirectResponse(str(target), status_code=308)
 
-    @app.api_route("/{path:path}",
-                   methods=["POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-                   include_in_schema=False)
+    @app.api_route(
+        "/{path:path}",
+        methods=["POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+        include_in_schema=False,
+    )
     async def refuse(request: Request, path: str = ""):
         return JSONResponse(
             status_code=400,
-            content={"detail": "This agent only accepts API requests over HTTPS. "
-                               f"Use https://<host>:{https_port}{request.url.path}"},
+            content={
+                "detail": "This agent only accepts API requests over HTTPS. "
+                f"Use https://<host>:{https_port}{request.url.path}"
+            },
         )
 
     return app
@@ -236,12 +245,21 @@ def create_redirect_app(https_port: int) -> FastAPI:
 def _run_redirect_listener(host: str, http_port: int, https_port: int) -> threading.Thread:
     def serve():
         try:
-            config = uvicorn.Config(create_redirect_app(https_port), host=host, port=http_port,
-                                    log_level="warning", access_log=False)
+            config = uvicorn.Config(
+                create_redirect_app(https_port),
+                host=host,
+                port=http_port,
+                log_level="warning",
+                access_log=False,
+            )
             asyncio.run(uvicorn.Server(config).serve())
         except OSError as exc:
-            log.warning("HTTP redirect listener could not start on %s:%s (%s). "
-                        "HTTPS is unaffected.", host, http_port, exc)
+            log.warning(
+                "HTTP redirect listener could not start on %s:%s (%s). HTTPS is unaffected.",
+                host,
+                http_port,
+                exc,
+            )
         except Exception:  # pragma: no cover
             log.exception("HTTP redirect listener stopped")
 
@@ -269,17 +287,25 @@ def wait_for_bind_address(host: str, timeout: float, interval: float = 3.0) -> b
         attempt += 1
         try:
             with socket.socket(family, socket.SOCK_STREAM) as probe:
-                probe.bind((host, 0))   # port 0: tests the address, not our port
+                probe.bind((host, 0))  # port 0: tests the address, not our port
             if attempt > 1:
                 startup_diag.record("bind_address_available", host=host, attempts=attempt)
             return True
         except OSError as exc:
             if attempt == 1 or attempt % 5 == 0:
-                startup_diag.record("bind_address_waiting", host=host, attempt=attempt,
-                                    error=f"{type(exc).__name__}: {exc}")
+                startup_diag.record(
+                    "bind_address_waiting",
+                    host=host,
+                    attempt=attempt,
+                    error=f"{type(exc).__name__}: {exc}",
+                )
             if time.monotonic() >= deadline:
-                startup_diag.record("bind_address_gave_up", host=host, attempts=attempt,
-                                    error=f"{type(exc).__name__}: {exc}")
+                startup_diag.record(
+                    "bind_address_gave_up",
+                    host=host,
+                    attempts=attempt,
+                    error=f"{type(exc).__name__}: {exc}",
+                )
                 return False
             time.sleep(interval)
 
@@ -290,15 +316,25 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--env", help="Path to the .env file holding secrets")
     parser.add_argument("--host", help="Override the bind address")
     parser.add_argument("--port", type=int, help="Override the bind port")
-    parser.add_argument("--check", action="store_true",
-                        help="Run diagnostics and exit without serving")
-    parser.add_argument("--deep", action="store_true",
-                        help="With --check: also perform a real TLS handshake against a running agent")
+    parser.add_argument(
+        "--check", action="store_true", help="Run diagnostics and exit without serving"
+    )
+    parser.add_argument(
+        "--deep",
+        action="store_true",
+        help="With --check: also perform a real TLS handshake against a running agent",
+    )
     parser.add_argument("--json", action="store_true", help="With --check: emit JSON")
-    parser.add_argument("--no-tls", action="store_true",
-                        help="Serve plain HTTP. Only permitted on a loopback address.")
-    parser.add_argument("--launched-by", default="manual",
-                        help="Recorded in logs/startup.log. The Windows startup task passes 'task'.")
+    parser.add_argument(
+        "--no-tls",
+        action="store_true",
+        help="Serve plain HTTP. Only permitted on a loopback address.",
+    )
+    parser.add_argument(
+        "--launched-by",
+        default="manual",
+        help="Recorded in logs/startup.log. The Windows startup task passes 'task'.",
+    )
     return parser
 
 
@@ -343,15 +379,18 @@ def _main(argv: list[str] | None = None) -> int:
         print(f"\nConfiguration could not be loaded: {exc}\n", file=sys.stderr)
         return 2
     if not args.check:
-        startup_diag.record("config_loaded", source=str(config.source),
-                            server_directory=str(config.server_dir),
-                            server_directory_exists=config.server_dir.is_dir(),
-                            data_directory=str(config.data_dir),
-                            java=config.server.java,
-                            host=config.network.host,
-                            port=config.network.port,
-                            tls=config.tls_enabled,
-                            password_configured=bool(config.admin_password_hash))
+        startup_diag.record(
+            "config_loaded",
+            source=str(config.source),
+            server_directory=str(config.server_dir),
+            server_directory_exists=config.server_dir.is_dir(),
+            data_directory=str(config.data_dir),
+            java=config.server.java,
+            host=config.network.host,
+            port=config.network.port,
+            tls=config.tls_enabled,
+            password_configured=bool(config.admin_password_hash),
+        )
     if args.host:
         config.set("network.host", args.host)
     if args.port:
@@ -367,6 +406,7 @@ def _main(argv: list[str] | None = None) -> int:
         report = run_diagnostics(config, deep=args.deep)
         if args.json:
             import json
+
             print(json.dumps(report.to_dict(), indent=2))
         else:
             print(report.render())
@@ -375,8 +415,10 @@ def _main(argv: list[str] | None = None) -> int:
     setup_logging(config.log_dir, level=config.logging.level)
 
     if not config.admin_password_hash and not config.api_token:
-        log.error("No MCSC_ADMIN_PASSWORD_HASH or MCSC_API_TOKEN is set. Every API call will be "
-                  "refused. Run: python -m installer.make_secrets")
+        log.error(
+            "No MCSC_ADMIN_PASSWORD_HASH or MCSC_API_TOKEN is set. Every API call will be "
+            "refused. Run: python -m installer.make_secrets"
+        )
 
     ssl_files = None
     if config.tls_enabled:
@@ -387,28 +429,43 @@ def _main(argv: list[str] | None = None) -> int:
             startup_diag.record("tls_failed", error=str(exc))
             print(f"\nHTTPS cannot start:\n{exc}\n", file=sys.stderr)
             return 2
-        startup_diag.record("tls_ready", certificate=ssl_files[0])
+        if ssl_files:
+            startup_diag.record("tls_ready", certificate=ssl_files[0])
     else:
         if host not in LOOPBACK:
-            log.error("Refusing to serve plain HTTP on %s. Credentials would cross the network "
-                      "unencrypted. Enable tls.enabled, or bind to 127.0.0.1.", host)
-            print(f"\nRefusing to serve plain HTTP on {host}.\n"
-                  "HTTP is only allowed on 127.0.0.1. Enable TLS in config.yaml "
-                  "(tls.enabled: true) and run: python -m installer.make_certs\n", file=sys.stderr)
+            log.error(
+                "Refusing to serve plain HTTP on %s. Credentials would cross the network "
+                "unencrypted. Enable tls.enabled, or bind to 127.0.0.1.",
+                host,
+            )
+            print(
+                f"\nRefusing to serve plain HTTP on {host}.\n"
+                "HTTP is only allowed on 127.0.0.1. Enable TLS in config.yaml "
+                "(tls.enabled: true) and run: python -m installer.make_certs\n",
+                file=sys.stderr,
+            )
             return 2
         log.warning("TLS is disabled. Serving plain HTTP on %s:%s (loopback only).", host, port)
 
     if host in ("0.0.0.0", "::"):
-        log.warning("Binding to %s exposes the dashboard on every interface, including your LAN. "
-                    "Prefer this machine's Tailscale address.", host)
+        log.warning(
+            "Binding to %s exposes the dashboard on every interface, including your LAN. "
+            "Prefer this machine's Tailscale address.",
+            host,
+        )
 
     bind_wait = config.network.bind_wait_seconds
     if not wait_for_bind_address(host, bind_wait):
-        log.error("The address %s never became available (waited %.0fs). Is Tailscale running?",
-                  host, bind_wait)
-        print(f"\nCannot bind to {host}: the address did not become available within "
-              f"{bind_wait:.0f}s. If this is a Tailscale address, check Tailscale is running.\n",
-              file=sys.stderr)
+        log.error(
+            "The address %s never became available (waited %.0fs). Is Tailscale running?",
+            host,
+            bind_wait,
+        )
+        print(
+            f"\nCannot bind to {host}: the address did not become available within "
+            f"{bind_wait:.0f}s. If this is a Tailscale address, check Tailscale is running.\n",
+            file=sys.stderr,
+        )
         return 3
 
     if ssl_files and config.tls.http_redirect:
@@ -417,12 +474,17 @@ def _main(argv: list[str] | None = None) -> int:
     app = create_app(config)
     startup_diag.record("server_binding", host=host, port=port, tls=bool(ssl_files))
     uvicorn.run(
-        app, host=host, port=port, log_level="info", access_log=False,
-        ws_ping_interval=20, ws_ping_timeout=20,
+        app,
+        host=host,
+        port=port,
+        log_level="info",
+        access_log=False,
+        ws_ping_interval=20,
+        ws_ping_timeout=20,
         ssl_certfile=ssl_files[0] if ssl_files else None,
         ssl_keyfile=ssl_files[1] if ssl_files else None,
         # TLS 1.2 is the floor; anything older is long broken.
-        ssl_version=ssl.PROTOCOL_TLS_SERVER if ssl_files else None,
+        ssl_version=ssl.PROTOCOL_TLS_SERVER,
     )
     return 0
 

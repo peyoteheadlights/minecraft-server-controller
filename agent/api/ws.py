@@ -62,7 +62,7 @@ async def websocket_endpoint(ws: WebSocket) -> None:
         if message.get("type") != "auth" or not message.get("token"):
             raise AuthError("The first message must be an auth message")
         principal = core.auth.authenticate(message["token"], source_ip=client_ip)
-    except (asyncio.TimeoutError, json.JSONDecodeError, KeyError, TypeError):
+    except (TimeoutError, json.JSONDecodeError, KeyError, TypeError):
         await _send(ws, {"type": "error", "message": "Authentication failed"})
         await ws.close(code=1008)
         return
@@ -77,13 +77,16 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     core.db.audit("websocket_open", user=principal.user, source_ip=client_ip)
 
     try:
-        await _send(ws, {
-            "type": "ready",
-            "user": principal.user,
-            "status": core.status(),
-            "console": [line.to_dict() for line in core.server.console.tail(200)],
-            "ts": time.time(),
-        })
+        await _send(
+            ws,
+            {
+                "type": "ready",
+                "user": principal.user,
+                "status": core.status(),
+                "console": [line.to_dict() for line in core.server.console.tail(200)],
+                "ts": time.time(),
+            },
+        )
 
         async def pump() -> None:
             while True:
@@ -110,10 +113,13 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                     continue
                 if message.get("type") == "tail":
                     count = min(int(message.get("lines", 100) or 100), 500)
-                    await _send(ws, {
-                        "type": "console_tail",
-                        "lines": [l.to_dict() for l in core.server.console.tail(count)],
-                    })
+                    await _send(
+                        ws,
+                        {
+                            "type": "console_tail",
+                            "lines": [line.to_dict() for line in core.server.console.tail(count)],
+                        },
+                    )
                 elif message.get("type") == "status":
                     await _send(ws, {"type": "status", "status": core.status()})
 
@@ -124,9 +130,9 @@ async def websocket_endpoint(ws: WebSocket) -> None:
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await task
         for task in done:
-            exc = task.exception()
-            if exc and not isinstance(exc, WebSocketDisconnect):
-                log.debug("websocket task ended: %s", exc)
+            error = task.exception()
+            if error and not isinstance(error, WebSocketDisconnect):
+                log.debug("websocket task ended: %s", error)
     except WebSocketDisconnect:
         pass
     except Exception:  # pragma: no cover

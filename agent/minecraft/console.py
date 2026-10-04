@@ -21,10 +21,14 @@ LINE_RE = re.compile(
 
 DONE_RE = re.compile(r'Done \((?P<secs>[0-9.]+)s\)! For help, type "help"')
 MC_VERSION_RE = re.compile(r"Starting minecraft server version (?P<ver>[\w.\-]+)")
-LOADING_RE = re.compile(r"Loading Minecraft (?P<mc>[\w.\-]+) with Fabric Loader (?P<loader>[\w.\-+]+)")
+LOADING_RE = re.compile(
+    r"Loading Minecraft (?P<mc>[\w.\-]+) with Fabric Loader (?P<loader>[\w.\-+]+)"
+)
 JOIN_RE = re.compile(r"\b(?P<name>[A-Za-z0-9_]{1,16})(?:\[[^\]]*\])? joined the game")
 LEAVE_RE = re.compile(r"\b(?P<name>[A-Za-z0-9_]{1,16}) left the game")
-UUID_RE = re.compile(r"UUID of player (?P<name>[A-Za-z0-9_]{1,16}) is (?P<uuid>[0-9a-fA-F-]{32,36})")
+UUID_RE = re.compile(
+    r"UUID of player (?P<name>[A-Za-z0-9_]{1,16}) is (?P<uuid>[0-9a-fA-F-]{32,36})"
+)
 STOPPING_RE = re.compile(r"(Stopping the server|Stopping server|Saving worlds|Server closed)")
 PORT_RE = re.compile(r"Starting Minecraft server on (?P<host>[^:\s]*):(?P<port>\d+)")
 MODS_LOADED_RE = re.compile(r"Loading (?P<count>\d+) mods:")
@@ -35,9 +39,9 @@ PLAYER_LIST_RE = re.compile(
 # TPS/MSPT answers differ per mod/server. We support the common shapes and
 # report "unknown" instead of inventing a number when nothing answers.
 TPS_PATTERNS = [
-    re.compile(r"TPS:\s*(?P<tps>[0-9.]+)\s*MSPT:\s*(?P<mspt>[0-9.]+)", re.IGNORECASE),   # Carpet
-    re.compile(r"TPS from last[^:]*:\s*\*?(?P<tps>[0-9.]+)", re.IGNORECASE),             # spark
-    re.compile(r"\bTPS[:=]\s*\*?(?P<tps>[0-9.]+)", re.IGNORECASE),                       # generic
+    re.compile(r"TPS:\s*(?P<tps>[0-9.]+)\s*MSPT:\s*(?P<mspt>[0-9.]+)", re.IGNORECASE),  # Carpet
+    re.compile(r"TPS from last[^:]*:\s*\*?(?P<tps>[0-9.]+)", re.IGNORECASE),  # spark
+    re.compile(r"\bTPS[:=]\s*\*?(?P<tps>[0-9.]+)", re.IGNORECASE),  # generic
 ]
 # Vanilla `tick query` (1.20.3+) prints the *target* rate, which is a setting,
 # not a measurement. It is captured separately and never reported as TPS; the
@@ -123,7 +127,8 @@ class ConsoleBuffer:
     def search(self, needle: str, limit: int = 200, level: str | None = None) -> list[ConsoleLine]:
         needle_l = needle.lower()
         found = [
-            ln for ln in self._lines
+            ln
+            for ln in self._lines
             if needle_l in ln.raw.lower() and (level is None or ln.level == level.upper())
         ]
         return found[-limit:]

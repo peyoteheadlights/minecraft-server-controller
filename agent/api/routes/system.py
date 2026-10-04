@@ -30,10 +30,11 @@ async def windows_startup_test(principal: Principal = Depends(require_auth)):
     includes the agent's own record of its last startup. Read-only.
     """
     import asyncio
+
     try:
         from installer.autostart import report
     except ImportError as exc:
-        raise HTTPException(status_code=500,
-                            detail=f"The startup inspector could not be loaded: {exc}") from exc
+        raise HTTPException(
+            status_code=500, detail=f"The startup inspector could not be loaded: {exc}"
+        ) from exc
     return await asyncio.to_thread(report)
-

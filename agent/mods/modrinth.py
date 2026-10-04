@@ -71,41 +71,57 @@ class ModrinthClient:
             raise ModrinthError("Modrinth returned a response that could not be read") from exc
 
     # ------------------------------------------------------------------
-    async def search(self, query: str, minecraft_version: str | None = None,
-                     loader: str = "fabric", limit: int = 20, offset: int = 0) -> dict[str, Any]:
+    async def search(
+        self,
+        query: str,
+        minecraft_version: str | None = None,
+        loader: str = "fabric",
+        limit: int = 20,
+        offset: int = 0,
+    ) -> dict[str, Any]:
         facets: list[list[str]] = [["project_type:mod"]]
         if loader:
             facets.append([f"categories:{loader}"])
         if minecraft_version:
             facets.append([f"versions:{minecraft_version}"])
         import json as _json
-        data = await self._get("/search", {
-            "query": query or "",
-            "limit": max(1, min(int(limit), 50)),
-            "offset": max(0, int(offset)),
-            "index": "relevance",
-            "facets": _json.dumps(facets),
-        })
+
+        data = await self._get(
+            "/search",
+            {
+                "query": query or "",
+                "limit": max(1, min(int(limit), 50)),
+                "offset": max(0, int(offset)),
+                "index": "relevance",
+                "facets": _json.dumps(facets),
+            },
+        )
         hits = []
         for hit in data.get("hits", []):
-            hits.append({
-                "project_id": hit.get("project_id"),
-                "slug": hit.get("slug"),
-                "title": hit.get("title"),
-                "description": hit.get("description"),
-                "author": hit.get("author"),
-                "downloads": hit.get("downloads"),
-                "follows": hit.get("follows"),
-                "categories": hit.get("categories", []),
-                "versions": hit.get("versions", []),
-                "latest_version": hit.get("latest_version"),
-                "client_side": hit.get("client_side"),
-                "server_side": hit.get("server_side"),
-                "icon_url": hit.get("icon_url"),
-                "license": hit.get("license"),
-                "page": f"https://modrinth.com/mod/{hit.get('slug')}",
-            })
-        return {"hits": hits, "total": data.get("total_hits", len(hits)), "offset": data.get("offset", 0)}
+            hits.append(
+                {
+                    "project_id": hit.get("project_id"),
+                    "slug": hit.get("slug"),
+                    "title": hit.get("title"),
+                    "description": hit.get("description"),
+                    "author": hit.get("author"),
+                    "downloads": hit.get("downloads"),
+                    "follows": hit.get("follows"),
+                    "categories": hit.get("categories", []),
+                    "versions": hit.get("versions", []),
+                    "latest_version": hit.get("latest_version"),
+                    "client_side": hit.get("client_side"),
+                    "server_side": hit.get("server_side"),
+                    "icon_url": hit.get("icon_url"),
+                    "license": hit.get("license"),
+                    "page": f"https://modrinth.com/mod/{hit.get('slug')}",
+                }
+            )
+        return {
+            "hits": hits,
+            "total": data.get("total_hits", len(hits)),
+            "offset": data.get("offset", 0),
+        }
 
     async def project(self, id_or_slug: str) -> dict[str, Any]:
         data = await self._get(f"/project/{id_or_slug}")
@@ -126,9 +142,11 @@ class ModrinthClient:
             "page": f"https://modrinth.com/mod/{data.get('slug')}",
         }
 
-    async def versions(self, id_or_slug: str, minecraft_version: str | None = None,
-                       loader: str = "fabric") -> list[dict[str, Any]]:
+    async def versions(
+        self, id_or_slug: str, minecraft_version: str | None = None, loader: str = "fabric"
+    ) -> list[dict[str, Any]]:
         import json as _json
+
         params: dict[str, Any] = {}
         if loader:
             params["loaders"] = _json.dumps([loader])
@@ -178,9 +196,13 @@ class ModrinthClient:
             },
         }
 
-    async def latest_for(self, id_or_slug: str, minecraft_version: str | None,
-                         loader: str = "fabric",
-                         allow_types: tuple[str, ...] = ("release", "beta", "alpha")) -> dict | None:
+    async def latest_for(
+        self,
+        id_or_slug: str,
+        minecraft_version: str | None,
+        loader: str = "fabric",
+        allow_types: tuple[str, ...] = ("release", "beta", "alpha"),
+    ) -> dict | None:
         versions = await self.versions(id_or_slug, minecraft_version, loader)
         for release_type in allow_types:
             for version in versions:
@@ -235,7 +257,9 @@ class ModrinthClient:
             if actual1.lower() != str(sha1).lower():
                 raise ModrinthError("SHA-1 checksum did not match. The download was discarded.")
         if not sha512 and not sha1:
-            raise ModrinthError("Modrinth published no checksum for this file, so it was not installed")
+            raise ModrinthError(
+                "Modrinth published no checksum for this file, so it was not installed"
+            )
         if not data.startswith(b"PK"):
             raise ModrinthError("The downloaded file is not a zip/jar archive")
         return data, filename, hashlib.sha256(data).hexdigest()

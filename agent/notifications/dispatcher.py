@@ -56,8 +56,15 @@ EVENT_MAP: dict[str, tuple[str, str, int, str]] = {
 }
 
 
-THROTTLED = {"high_ram", "high_cpu", "low_disk", "low_tps", "high_mspt",
-             "auth_failure", "certificate_expiring"}
+THROTTLED = {
+    "high_ram",
+    "high_cpu",
+    "low_disk",
+    "low_tps",
+    "high_mspt",
+    "auth_failure",
+    "certificate_expiring",
+}
 
 
 class Notifier:
@@ -85,10 +92,16 @@ class Notifier:
 
     def _log(self, channel: str, event: str, status: str, detail: str = "") -> None:
         try:
-            self.db.insert("notifications_log", {
-                "ts": time.time(), "channel": channel, "event": event,
-                "status": status, "detail": detail[:500],
-            })
+            self.db.insert(
+                "notifications_log",
+                {
+                    "ts": time.time(),
+                    "channel": channel,
+                    "event": event,
+                    "status": status,
+                    "detail": detail[:500],
+                },
+            )
         except Exception:  # pragma: no cover
             log.exception("could not record notification result")
 
@@ -100,45 +113,74 @@ class Notifier:
         fields: list[dict[str, Any]] = []
         data = event.data or {}
         if event.type == "server_started" and data.get("startup_seconds"):
-            fields.append({"name": "Startup time", "value": f"{data['startup_seconds']:.1f} s", "inline": True})
+            fields.append(
+                {
+                    "name": "Startup time",
+                    "value": f"{data['startup_seconds']:.1f} s",
+                    "inline": True,
+                }
+            )
         if event.type == "server_crashed":
             analysis = data.get("analysis") or {}
-            fields.append({"name": "Exit code", "value": str(data.get("exit_code")), "inline": True})
+            fields.append(
+                {"name": "Exit code", "value": str(data.get("exit_code")), "inline": True}
+            )
             if analysis.get("category"):
-                fields.append({
-                    "name": f"{str(analysis.get('confidence', 'possible')).title()} cause",
-                    "value": f"{analysis['category']}\n{analysis.get('summary', '')}"[:1000],
-                    "inline": False,
-                })
+                fields.append(
+                    {
+                        "name": f"{str(analysis.get('confidence', 'possible')).title()} cause",
+                        "value": f"{analysis['category']}\n{analysis.get('summary', '')}"[:1000],
+                        "inline": False,
+                    }
+                )
             if analysis.get("evidence"):
                 evidence = "\n".join(analysis["evidence"][-3:])[:900]
                 fields.append({"name": "Evidence", "value": f"```{evidence}```", "inline": False})
             if data.get("players_online"):
-                fields.append({"name": "Players online at the time",
-                               "value": ", ".join(data["players_online"])[:200], "inline": False})
+                fields.append(
+                    {
+                        "name": "Players online at the time",
+                        "value": ", ".join(data["players_online"])[:200],
+                        "inline": False,
+                    }
+                )
             auto = self.config.monitor.auto_restart
-            fields.append({"name": "Automatic restart",
-                           "value": "Enabled" if auto else "Disabled", "inline": True})
+            fields.append(
+                {
+                    "name": "Automatic restart",
+                    "value": "Enabled" if auto else "Disabled",
+                    "inline": True,
+                }
+            )
         if self.metrics and event.type in ("server_crashed", "high_ram", "high_cpu", "low_disk"):
             snap = self.metrics.last or {}
             if snap:
                 disk_free = snap.get("disk_free_gb")
                 disk = f"{disk_free:.1f} GB free" if disk_free is not None else "unknown"
-                fields.append({
-                    "name": "Machine",
-                    "value": (f"RAM {snap.get('ram_used_mb', 0)/1024:.1f} / "
-                              f"{snap.get('ram_total_mb', 0)/1024:.1f} GB\n"
-                              f"CPU {snap.get('cpu_percent', 0):.0f}%\n"
-                              f"Disk {disk}"),
-                    "inline": True,
-                })
+                fields.append(
+                    {
+                        "name": "Machine",
+                        "value": (
+                            f"RAM {snap.get('ram_used_mb', 0) / 1024:.1f} / "
+                            f"{snap.get('ram_total_mb', 0) / 1024:.1f} GB\n"
+                            f"CPU {snap.get('cpu_percent', 0):.0f}%\n"
+                            f"Disk {disk}"
+                        ),
+                        "inline": True,
+                    }
+                )
         for key in ("username", "value", "threshold", "name", "size_bytes"):
             if key in data and not any(f["name"].lower() == key for f in fields):
                 value = data[key]
                 if key == "size_bytes":
-                    value = f"{float(value)/1024**3:.2f} GB"
-                fields.append({"name": key.replace("_", " ").title(), "value": str(value)[:200],
-                               "inline": True})
+                    value = f"{float(value) / 1024**3:.2f} GB"
+                fields.append(
+                    {
+                        "name": key.replace("_", " ").title(),
+                        "value": str(value)[:200],
+                        "inline": True,
+                    }
+                )
         return fields[:8]
 
     # ------------------------------------------------------------------
@@ -147,18 +189,20 @@ class Notifier:
         if not webhook:
             self._log("discord", event.type, "skipped", "No webhook URL is configured")
             return False
-        emoji, colour, title = EVENT_MAP.get(event.type, ("", 0x5865F2, event.type))[1:]
+        emoji, colour, title = EVENT_MAP.get(event.type, (event.type, "", 0x5865F2, event.type))[1:]
         server_name = self.config.server.name
         payload = {
             "username": "Minecraft Control",
-            "embeds": [{
-                "title": f"{emoji} {title}",
-                "description": event.message[:2000] or title,
-                "color": colour,
-                "fields": self._fields(event),
-                "footer": {"text": f"{server_name} · {time.strftime('%d %b %H:%M')}"},
-                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(event.ts)),
-            }],
+            "embeds": [
+                {
+                    "title": f"{emoji} {title}",
+                    "description": event.message[:2000] or title,
+                    "color": colour,
+                    "fields": self._fields(event),
+                    "footer": {"text": f"{server_name} · {time.strftime('%d %b %H:%M')}"},
+                    "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(event.ts)),
+                }
+            ],
         }
         try:
             async with httpx.AsyncClient(timeout=15) as client:
@@ -177,7 +221,7 @@ class Notifier:
     # ------------------------------------------------------------------
     def _build_email(self, event: Event) -> EmailMessage:
         cfg = self.config.notifications.email
-        emoji, _, title = EVENT_MAP.get(event.type, ("", 0, event.type))[1:]
+        emoji, _, title = EVENT_MAP.get(event.type, (event.type, "", 0, event.type))[1:]
         server_name = self.config.server.name
         message = EmailMessage()
         message["Subject"] = f"[{server_name}] {emoji} {title}"
@@ -200,7 +244,7 @@ class Notifier:
                 continue
             lines.append(f"{key}: {value}")
         lines += ["", f"Sent by Minecraft Server Control at {time.strftime('%Y-%m-%d %H:%M:%S')}"]
-        message.set_content("\n".join(str(l) for l in lines))
+        message.set_content("\n".join(str(line) for line in lines))
 
         if cfg.attach_crash_report and data.get("crash_report"):
             self._attach(message, Path(data["crash_report"]))
@@ -223,6 +267,7 @@ class Notifier:
         host = cfg.host
         port = cfg.port
         timeout = 25
+        server: smtplib.SMTP
         if cfg.use_ssl:
             server = smtplib.SMTP_SSL(host, port, timeout=timeout)
         else:
@@ -258,11 +303,14 @@ class Notifier:
 
     async def _report_failure(self, channel: str, detail: str) -> None:
         try:
-            await self.bus.publish(Event(
-                type="notification_failed", level="warn",
-                message=f"{channel} notification could not be sent: {detail}"[:300],
-                data={"channel": channel},
-            ))
+            await self.bus.publish(
+                Event(
+                    type="notification_failed",
+                    level="warn",
+                    message=f"{channel} notification could not be sent: {detail}"[:300],
+                    data={"channel": channel},
+                )
+            )
         except Exception:  # pragma: no cover
             log.exception("could not publish notification failure")
 
@@ -288,8 +336,7 @@ class Notifier:
 
     def _ensure_worker(self) -> None:
         if self._worker is None or self._worker.done():
-            self._worker = asyncio.get_running_loop().create_task(
-                self._run(), name="notifier")
+            self._worker = asyncio.get_running_loop().create_task(self._run(), name="notifier")
 
     async def _run(self) -> None:
         while True:
@@ -321,7 +368,7 @@ class Notifier:
         if self._worker and not self._worker.done() and drain_timeout > 0:
             try:
                 await asyncio.wait_for(self.drain(), drain_timeout)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 log.warning("stopping with %d alert(s) unsent", self._queue.qsize())
         if self._worker:
             self._worker.cancel()
@@ -332,9 +379,12 @@ class Notifier:
             self._worker = None
 
     async def test(self, channel: str) -> dict[str, Any]:
-        event = Event(type="server_started", level="success",
-                      message="Test notification from Minecraft Server Control",
-                      data={"startup_seconds": 0.0})
+        event = Event(
+            type="server_started",
+            level="success",
+            message="Test notification from Minecraft Server Control",
+            data={"startup_seconds": 0.0},
+        )
         if channel == "discord":
             ok = await self.send_discord(event)
         elif channel == "email":

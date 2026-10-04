@@ -16,7 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from agent.security.auth import hash_password  # noqa: E402
+from agent.security.auth import hash_password
 
 ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 

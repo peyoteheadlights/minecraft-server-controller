@@ -14,7 +14,8 @@ import pytest
 
 pytestmark = pytest.mark.skipif(
     os.name != "nt" or os.environ.get("MCSC_LIVE_WINDOWS_TESTS") != "1",
-    reason="live Windows Task Scheduler test (CI only)")
+    reason="live Windows Task Scheduler test (CI only)",
+)
 
 PROJECT = Path(__file__).resolve().parents[2]
 
@@ -23,9 +24,10 @@ PROJECT = Path(__file__).resolve().parents[2]
 def autostart():
     assert os.environ.get("MCSC_TASK_NAME", "").startswith("MCSC CI"), "use an isolated task name"
     from installer import autostart as module
+
     assert module.TASK_NAME == os.environ["MCSC_TASK_NAME"]
     yield module
-    if module.query_task() is not None:      # never leave a task behind
+    if module.query_task() is not None:  # never leave a task behind
         module.disable()
 
 
@@ -70,16 +72,24 @@ def test_boot_task_registers_verifies_launches_and_removes(autostart):
     record = None
     for _ in range(90):
         time.sleep(1)
-        record = next((e for e in read_new_log_entries(log, offset)
-                       if e.get("event") == "process_started" and e.get("launched_by") == "task"), None)
+        record = next(
+            (
+                e
+                for e in read_new_log_entries(log, offset)
+                if e.get("event") == "process_started" and e.get("launched_by") == "task"
+            ),
+            None,
+        )
         if record:
             break
     if not record:
         runtime = autostart.task_runtime()
         tail = read_new_log_entries(log, offset)[-10:]
-        pytest.fail("The scheduled task did not start the agent within 90 seconds. "
-                    f"Windows reports status={runtime['status']!r}, "
-                    f"last result={runtime['last_result']!r}. New startup.log entries: {tail}")
+        pytest.fail(
+            "The scheduled task did not start the agent within 90 seconds. "
+            f"Windows reports status={runtime['status']!r}, "
+            f"last result={runtime['last_result']!r}. New startup.log entries: {tail}"
+        )
     assert Path(record["cwd"]).resolve() == PROJECT.resolve()
     assert record["executable"].lower().endswith("pythonw.exe")
 

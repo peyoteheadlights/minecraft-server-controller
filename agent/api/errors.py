@@ -26,14 +26,14 @@ from .deps import audit
 
 # The default status for each domain error.
 ERROR_STATUS: dict[type[Exception], int] = {
-    ServerError: 409,          # the server is in the wrong state for this
+    ServerError: 409,  # the server is in the wrong state for this
     CommandError: 400,
     BackupError: 400,
     ModError: 400,
     DependencyError: 400,
     ScheduleError: 400,
     PathSafetyError: 400,
-    ModrinthError: 502,        # Modrinth failed, not the request
+    ModrinthError: 502,  # Modrinth failed, not the request
 }
 DOMAIN_ERRORS: tuple[type[Exception], ...] = tuple(ERROR_STATUS)
 
@@ -41,14 +41,14 @@ DOMAIN_ERRORS: tuple[type[Exception], ...] = tuple(ERROR_STATUS)
 def _status_handler(status: int):
     async def handler(request: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(status_code=status, content={"detail": str(exc)})
+
     return handler
 
 
 async def _auth_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, AuthError)
     headers = {"Retry-After": str(exc.retry_after)} if exc.retry_after else None
-    return JSONResponse(status_code=exc.status, content={"detail": exc.message},
-                        headers=headers)
+    return JSONResponse(status_code=exc.status, content={"detail": exc.message}, headers=headers)
 
 
 def register_error_handlers(app: FastAPI) -> None:
@@ -68,8 +68,9 @@ def respond_as(status: int) -> Iterator[None]:
 
 
 @contextmanager
-def audit_failure(core, request: Request, action: str, target: str | None = None,
-                  result: str = "failed") -> Iterator[None]:
+def audit_failure(
+    core, request: Request, action: str, target: str | None = None, result: str = "failed"
+) -> Iterator[None]:
     """Record a domain error raised inside the block in the audit log, then
     let it propagate to its handler."""
     try:

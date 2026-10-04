@@ -26,7 +26,7 @@ log = logging.getLogger("msc.tls")
 try:
     from cryptography import x509
     from cryptography.hazmat.primitives import hashes, serialization
-    from cryptography.x509.oid import ExtensionOID, NameOID
+    from cryptography.x509.oid import NameOID
 
     HAVE_CRYPTOGRAPHY = True
 except ImportError:  # pragma: no cover - cryptography is a hard requirement
@@ -123,13 +123,13 @@ class CertificateInfo:
 
 def _utc_timestamp(value: dt.datetime) -> float:
     if value.tzinfo is None:
-        value = value.replace(tzinfo=dt.timezone.utc)
+        value = value.replace(tzinfo=dt.UTC)
     return value.timestamp()
 
 
-def inspect_certificate(cert_path: str | Path | None,
-                        key_path: str | Path | None = None,
-                        now: float | None = None) -> CertificateInfo:
+def inspect_certificate(
+    cert_path: str | Path | None, key_path: str | Path | None = None, now: float | None = None
+) -> CertificateInfo:
     """Read a certificate (and optionally its key) and report what is true.
 
     Source of truth: the PEM files on disk. Nothing is inferred from the
@@ -154,7 +154,9 @@ def inspect_certificate(cert_path: str | Path | None,
             info.problems.append(f"Private key file not found: {key_path}")
 
     if not HAVE_CRYPTOGRAPHY:  # pragma: no cover
-        info.parse_error = "The 'cryptography' package is not installed, so the certificate could not be parsed"
+        info.parse_error = (
+            "The 'cryptography' package is not installed, so the certificate could not be parsed"
+        )
         info.problems.append(info.parse_error)
         return info
 
@@ -182,7 +184,7 @@ def inspect_certificate(cert_path: str | Path | None,
         not_after = _utc_timestamp(cert.not_valid_after)
     info.not_before = not_before
     info.not_after = not_after
-    reference = now if now is not None else dt.datetime.now(dt.timezone.utc).timestamp()
+    reference = now if now is not None else dt.datetime.now(dt.UTC).timestamp()
     info.days_remaining = (not_after - reference) / 86400
     info.expired = reference > not_after or reference < not_before
     if reference < not_before:
@@ -192,7 +194,7 @@ def inspect_certificate(cert_path: str | Path | None,
 
     # Subject Alternative Names are what browsers actually check.
     try:
-        san = cert.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME).value
+        san = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
         info.names = [str(n) for n in san.get_values_for_type(x509.DNSName)]
         info.ip_names = [str(n) for n in san.get_values_for_type(x509.IPAddress)]
     except x509.ExtensionNotFound:
@@ -240,8 +242,13 @@ def _key_matches(key_file: Path, cert) -> tuple[bool | None, str | None]:
         del key
 
 
-def verify_endpoint(host: str, port: int, ca_file: str | Path | None = None,
-                    server_hostname: str | None = None, timeout: float = 5.0) -> dict[str, Any]:
+def verify_endpoint(
+    host: str,
+    port: int,
+    ca_file: str | Path | None = None,
+    server_hostname: str | None = None,
+    timeout: float = 5.0,
+) -> dict[str, Any]:
     """Actually complete a TLS handshake against the running agent.
 
     This is the only honest way to say "HTTPS works". Certificate verification
@@ -249,8 +256,12 @@ def verify_endpoint(host: str, port: int, ca_file: str | Path | None = None,
     than verification being switched off.
     """
     result: dict[str, Any] = {
-        "reachable": None, "handshake": None, "verified": None,
-        "protocol": None, "cipher": None, "error": None,
+        "reachable": None,
+        "handshake": None,
+        "verified": None,
+        "protocol": None,
+        "cipher": None,
+        "error": None,
         "hostname_checked": server_hostname or host,
     }
     context = ssl.create_default_context()

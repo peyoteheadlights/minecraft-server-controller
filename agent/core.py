@@ -13,6 +13,7 @@ import logging
 import time
 from typing import Any
 
+from . import __version__
 from .backups.manager import BackupManager
 from .database.db import Database
 from .database.event_writer import EventWriter
@@ -49,11 +50,13 @@ class AgentCore:
         self.tps = TpsMonitor(config, self.bus, self.db, self.server)
         self.mods = ModManager(config, self.bus, self.db, self.server)
         self.backups = BackupManager(config, self.bus, self.db, self.server)
-        self.crashes = CrashReporter(config, self.db, self.server, self.metrics,
-                                     self.players, self.mods)
+        self.crashes = CrashReporter(
+            config, self.db, self.server, self.metrics, self.players, self.mods
+        )
         self.notifier = Notifier(config, self.bus, self.db, self.server, self.metrics)
-        self.scheduler = Scheduler(config, self.bus, self.db, self.server,
-                                   self.backups, self.notifier)
+        self.scheduler = Scheduler(
+            config, self.bus, self.db, self.server, self.backups, self.notifier
+        )
         self.auth = AuthManager(config, self.db, self.bus)
 
         self.server.signal_hook = self.players.handle_signals
@@ -71,8 +74,13 @@ class AgentCore:
     async def _persist_event(self, event: Event) -> None:
         if event.type in ("console", "metrics"):
             return  # far too chatty for the database; these live in files/metrics
-        self.events.add(self.server.server_id, event.type, event.message,
-                        level=event.level, data=event.data or None)
+        self.events.add(
+            self.server.server_id,
+            event.type,
+            event.message,
+            level=event.level,
+            data=event.data or None,
+        )
         if event.type in ("server_stopped", "server_crashed"):
             try:
                 await self.players.clear_online()
@@ -95,15 +103,22 @@ class AgentCore:
         self.scheduler.start()
         self._update_task = asyncio.create_task(self._update_check_loop(), name="mod-updates")
         self._cert_task = asyncio.create_task(self._certificate_watch_loop(), name="cert-watch")
-        await self.bus.publish(Event(type="agent_started", level="success",
-                                     message="Server agent started"))
+        await self.bus.publish(
+            Event(type="agent_started", level="success", message="Server agent started")
+        )
         if self.config.server.autostart_minecraft:
             from .minecraft.process import ServerError
+
             try:
                 await self.server.start(actor="agent-autostart")
             except ServerError as exc:
-                await self.bus.publish(Event(type="autostart_failed", level="error",
-                                             message=f"Automatic start failed: {exc}"))
+                await self.bus.publish(
+                    Event(
+                        type="autostart_failed",
+                        level="error",
+                        message=f"Automatic start failed: {exc}",
+                    )
+                )
 
     async def _update_check_loop(self) -> None:
         hours = self.config.mods.update_check_hours
@@ -114,17 +129,19 @@ class AgentCore:
             try:
                 updates = await self.mods.check_updates()
                 if updates:
-                    await self.bus.publish(Event(
-                        type="mod_updates_available", level="info",
-                        message=f"{len(updates)} mod update(s) available",
-                        data={"updates": updates[:10]},
-                    ))
+                    await self.bus.publish(
+                        Event(
+                            type="mod_updates_available",
+                            level="info",
+                            message=f"{len(updates)} mod update(s) available",
+                            data={"updates": updates[:10]},
+                        )
+                    )
             except asyncio.CancelledError:
                 raise
             except Exception:
                 log.debug("mod update check failed", exc_info=True)
             await asyncio.sleep(hours * 3600)
-
 
     async def check_certificate(self) -> dict:
         """Read the certificate and alert on approaching expiry.
@@ -139,24 +156,35 @@ class AgentCore:
         days = status.get("days_remaining")
         if severity in ("warn", "critical") and self._cert_alerted != severity:
             self._cert_alerted = severity
-            await self.bus.publish(Event(
-                type="certificate_expiring",
-                level="error" if severity == "critical" else "warn",
-                message=(f"TLS certificate expires in {days:.0f} days"
-                         if days is not None else "TLS certificate expiry could not be read"),
-                data={"days_remaining": days, "severity": severity,
-                      "certificate": status.get("certificate_path"),
-                      "renew": "python -m installer.make_certs --renew"},
-            ))
+            await self.bus.publish(
+                Event(
+                    type="certificate_expiring",
+                    level="error" if severity == "critical" else "warn",
+                    message=(
+                        f"TLS certificate expires in {days:.0f} days"
+                        if days is not None
+                        else "TLS certificate expiry could not be read"
+                    ),
+                    data={
+                        "days_remaining": days,
+                        "severity": severity,
+                        "certificate": status.get("certificate_path"),
+                        "renew": "python -m installer.make_certs --renew",
+                    },
+                )
+            )
         elif severity == "ok":
             self._cert_alerted = None
         if not status.get("parsed") and self._cert_alerted != "unreadable":
             self._cert_alerted = "unreadable"
-            await self.bus.publish(Event(
-                type="certificate_problem", level="error",
-                message="The TLS certificate could not be read, so its expiry is unknown",
-                data={"error": status.get("parse_error")},
-            ))
+            await self.bus.publish(
+                Event(
+                    type="certificate_problem",
+                    level="error",
+                    message="The TLS certificate could not be read, so its expiry is unknown",
+                    data={"error": status.get("parse_error")},
+                )
+            )
         return status
 
     async def _certificate_watch_loop(self) -> None:
@@ -201,7 +229,7 @@ class AgentCore:
         status["agent"] = {
             "started_at": self.started_at,
             "uptime": time.time() - self.started_at,
-            "version": "1.0.0",
+            "version": __version__,
             "database_version": self.db.version,
             "maintenance": self.server.maintenance,
             "maintenance_message": self.config.maintenance.message,
@@ -212,12 +240,14 @@ class AgentCore:
         self.server.maintenance = bool(enabled)
         self.config.set("maintenance.enabled", bool(enabled))
         self.db.audit("maintenance_mode", user=user, detail="on" if enabled else "off")
-        self.bus.publish_soon(Event(
-            type="maintenance_mode",
-            level="warn" if enabled else "info",
-            message=("Maintenance mode is on. "
-                     + self.config.maintenance.message) if enabled
-                    else "Maintenance mode is off",
-            data={"enabled": bool(enabled)},
-        ))
+        self.bus.publish_soon(
+            Event(
+                type="maintenance_mode",
+                level="warn" if enabled else "info",
+                message=("Maintenance mode is on. " + self.config.maintenance.message)
+                if enabled
+                else "Maintenance mode is off",
+                data={"enabled": bool(enabled)},
+            )
+        )
         return {"maintenance": self.server.maintenance}

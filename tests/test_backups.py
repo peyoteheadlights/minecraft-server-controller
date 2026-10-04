@@ -78,8 +78,9 @@ async def test_restore_refuses_an_archive_with_an_escaping_path(backups, config)
     with zipfile.ZipFile(path, "a") as zf:
         zf.writestr("../../escaped.txt", "payload")
     # rewrite the stored hash so the archive verifies and the path check is what fires
-    backups.db.execute("UPDATE backups SET sha256 = ? WHERE id = ?",
-                       (backups._sha256(path), created["id"]))
+    backups.db.execute(
+        "UPDATE backups SET sha256 = ? WHERE id = ?", (backups._sha256(path), created["id"])
+    )
     with pytest.raises(BackupError):
         await backups.restore(created["id"], user="tester")
     assert not (config.server_dir.parent.parent / "escaped.txt").exists()

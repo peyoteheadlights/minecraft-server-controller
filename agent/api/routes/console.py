@@ -14,8 +14,14 @@ router = APIRouter()
 
 
 @router.get("/logs")
-async def logs(lines: int = 100, since: int = 0, search: str = "", level: str = "",
-               principal: Principal = Depends(require_auth), core=Depends(get_core)):
+async def logs(
+    lines: int = 100,
+    since: int = 0,
+    search: str = "",
+    level: str = "",
+    principal: Principal = Depends(require_auth),
+    core=Depends(get_core),
+):
     lines = max(1, min(int(lines), 500))
     if search:
         found = core.server.console.search(search, limit=lines, level=level or None)
@@ -42,8 +48,9 @@ async def download_logs(principal: Principal = Depends(require_auth), core=Depen
 
 
 @router.post("/logs/clear")
-async def clear_console(request: Request, principal: Principal = Depends(require_auth),
-                        core=Depends(get_core)):
+async def clear_console(
+    request: Request, principal: Principal = Depends(require_auth), core=Depends(get_core)
+):
     """Clears the agent's in-memory view only. Minecraft's own log files are untouched."""
     core.server.console.clear()
     audit(core, request, "console_clear")
@@ -51,24 +58,26 @@ async def clear_console(request: Request, principal: Principal = Depends(require
 
 
 @router.get("/events")
-async def events(limit: int = 100, principal: Principal = Depends(require_auth),
-                 core=Depends(get_core)):
+async def events(
+    limit: int = 100, principal: Principal = Depends(require_auth), core=Depends(get_core)
+):
     limit = max(1, min(int(limit), 500))
     await core.events.flush()
     return {"events": core.db.recent_events(core.server.server_id, limit)}
 
 
 @router.get("/crashes")
-async def crashes(limit: int = 50, principal: Principal = Depends(require_auth),
-                  core=Depends(get_core)):
+async def crashes(
+    limit: int = 50, principal: Principal = Depends(require_auth), core=Depends(get_core)
+):
     return {"crashes": core.crashes.list_crashes(max(1, min(limit, 200)))}
 
 
 @router.get("/crashes/{crash_id}")
-async def crash_detail(crash_id: int, principal: Principal = Depends(require_auth),
-                       core=Depends(get_core)):
+async def crash_detail(
+    crash_id: int, principal: Principal = Depends(require_auth), core=Depends(get_core)
+):
     row = core.crashes.get_crash(crash_id)
     if not row:
         raise HTTPException(status_code=404, detail="That crash record does not exist")
     return row
-

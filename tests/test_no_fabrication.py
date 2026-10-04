@@ -5,7 +5,6 @@ than producing a plausible number. These are the tests that fail if someone
 later adds a convenient default.
 """
 
-
 import pytest
 
 from agent.backups.manager import BackupError, BackupManager
@@ -54,6 +53,7 @@ async def test_online_is_only_claimed_after_the_startup_line(config):
     bus = EventBus()
     server = MinecraftServer(config, bus)
     import os
+
     os.environ["FAKE_BOOT_DELAY"] = "2"
     try:
         await server.start()
@@ -83,7 +83,7 @@ def test_tps_is_unknown_with_no_provider(parts):
 
 def test_tps_reason_names_the_command_that_went_unanswered(parts):
     config, bus, db, server = parts
-    config.set("monitor.tps_command", "tps")      # a manual command that never answered
+    config.set("monitor.tps_command", "tps")  # a manual command that never answered
     server.state = ServerState.ONLINE
     server.tps_asked_at = 1.0
     reason = server.tps_unavailable_reason()
@@ -93,12 +93,12 @@ def test_tps_reason_names_the_command_that_went_unanswered(parts):
 
 def test_tps_records_its_source_when_a_provider_answers(parts):
     config, bus, db, server = parts
+    import asyncio
+
     from agent.minecraft.console import parse_line
 
-    import asyncio
     line = parse_line("[10:00:00] [Server thread/INFO]: TPS: 19.8 MSPT: 12.400", 1)
-    asyncio.get_event_loop().run_until_complete(server._handle_signals(line)) \
-        if False else None
+    asyncio.get_event_loop().run_until_complete(server._handle_signals(line)) if False else None
     asyncio.run(server._handle_signals(line))
     assert server.tps == 19.8
     assert server.mspt == 12.4
@@ -162,9 +162,12 @@ def test_minecraft_and_fabric_versions_start_unknown(parts):
 def test_versions_are_only_set_from_console_output(parts):
     config, bus, db, server = parts
     import asyncio
+
     from agent.minecraft.console import parse_line
 
-    line = parse_line("[10:00:00] [main/INFO]: Loading Minecraft 1.20.1 with Fabric Loader 0.15.3", 1)
+    line = parse_line(
+        "[10:00:00] [main/INFO]: Loading Minecraft 1.20.1 with Fabric Loader 0.15.3", 1
+    )
     asyncio.run(server._handle_signals(line))
     status = server.status()
     assert status["minecraft_version"] == "1.20.1"
@@ -184,6 +187,7 @@ def test_java_detection_reads_a_real_executable():
     """Uses python itself as a stand-in binary: the point is that an
     unparseable -version output yields unknown, not a guess."""
     import sys
+
     info = detect_java(sys.executable)
     assert info.executable_found is True
     assert info.version_major is None or isinstance(info.version_major, int)
@@ -234,8 +238,10 @@ def test_analysis_always_carries_its_evidence_and_a_disclaimer():
 
 
 def test_a_mod_is_never_named_as_the_cause():
-    lines = ["[10:00:00] [Server thread/ERROR]: Exception in server tick loop",
-             "\tat com.example.voxy.Renderer.tick(Renderer.java:42)"]
+    lines = [
+        "[10:00:00] [Server thread/ERROR]: Exception in server tick loop",
+        "\tat com.example.voxy.Renderer.tick(Renderer.java:42)",
+    ]
     result = analyze(lines, exit_code=1, known_mod_ids=["voxy"])
     assert "voxy" in result.suspect_mods
     # the category is the error class, never the mod name
@@ -262,6 +268,7 @@ async def test_backup_success_is_only_claimed_after_verification(backups, config
 
 async def test_a_backup_that_fails_verification_is_not_reported_as_ok(backups, config, monkeypatch):
     """Simulate a truncated archive: the row must not say ok."""
+
     def broken(path, expected_sha256=None, expected_files=None):
         return {"ok": False, "reason": "simulated truncation"}
 
@@ -316,8 +323,7 @@ def test_modrinth_listing_alone_is_only_likely(mods, config):
 
 def test_declared_metadata_gives_the_strongest_available_verdict(mods, config):
     mods.server.mc_version = "1.20.1"
-    make_jar(config.mods_dir / "cooltech.jar", "cooltech", "1.0.0",
-             depends={"minecraft": ">=1.20"})
+    make_jar(config.mods_dir / "cooltech.jar", "cooltech", "1.0.0", depends={"minecraft": ">=1.20"})
     mod = mods.find("cooltech.jar")
     verdict = mods.compatibility_verdict({"game_versions": ["1.20.1"]}, mod)
     assert verdict["verdict"] == "verified_metadata"
@@ -382,7 +388,8 @@ def test_dashboard_shows_why_disk_space_is_unknown():
         for name in re.findall(r"fmt\.gb\((\w+)\.disk_free_gb\)", source):
             shown += 1
             assert f"{name}.disk_unknown_reason" in source, (
-                f"{script.name} shows {name}.disk_free_gb without its unknown reason")
+                f"{script.name} shows {name}.disk_free_gb without its unknown reason"
+            )
     assert shown, "the dashboard no longer shows disk_free_gb; update this test"
 
 
@@ -404,9 +411,10 @@ def test_an_address_alone_does_not_prove_tailscale_connectivity(parts, monkeypat
 
     Addr = namedtuple("Addr", "family address netmask broadcast ptp")
     monkeypatch.setattr("agent.tailscale.tailscale_binary", lambda: None)
-    monkeypatch.setattr("psutil.net_if_addrs",
-                        lambda: {"Tailscale": [Addr(socket_module.AF_INET, "100.101.102.103",
-                                                    None, None, None)]})
+    monkeypatch.setattr(
+        "psutil.net_if_addrs",
+        lambda: {"Tailscale": [Addr(socket_module.AF_INET, "100.101.102.103", None, None, None)]},
+    )
     metrics = MetricsMonitor(config, bus, db, server)
     status = metrics.tailscale_status()
     assert status["connected"] is None, "an assigned address is not proof of connectivity"
@@ -452,11 +460,13 @@ def test_control_responses_distinguish_requested_from_verified():
 # ---------------------------------------------------------------- no guessed paths
 def test_the_server_folder_has_no_built_in_default():
     from agent.config import DEFAULTS
+
     assert DEFAULTS["server"]["directory"] == "", "no machine-specific path may ship as a default"
 
 
 def test_an_unset_server_folder_is_never_the_working_directory(tmp_path, monkeypatch):
     from agent.config import DEFAULTS, Config, _deep_merge
+
     monkeypatch.chdir(tmp_path)
     cfg = Config(_deep_merge(DEFAULTS, {}))
     assert cfg.server_dir_configured is False
@@ -467,8 +477,10 @@ def test_an_unset_server_folder_is_never_the_working_directory(tmp_path, monkeyp
 
 def test_starting_with_an_unset_folder_explains_what_to_do(tmp_path):
     from agent.config import DEFAULTS, Config, _deep_merge
-    server = MinecraftServer(Config(_deep_merge(DEFAULTS, {"paths": {"data_dir": str(tmp_path)}})),
-                             EventBus())
+
+    server = MinecraftServer(
+        Config(_deep_merge(DEFAULTS, {"paths": {"data_dir": str(tmp_path)}})), EventBus()
+    )
     result = server.preflight()
     assert result.ok is False
     assert "server.directory" in result.problems[0]
@@ -477,6 +489,7 @@ def test_starting_with_an_unset_folder_explains_what_to_do(tmp_path):
 def test_mod_manager_refuses_to_create_folders_for_an_unset_server(tmp_path):
     from agent.config import DEFAULTS, Config, _deep_merge
     from agent.mods.manager import ModError
+
     cfg = Config(_deep_merge(DEFAULTS, {"paths": {"data_dir": str(tmp_path)}}))
     db = Database(cfg.database_path)
     manager = ModManager(cfg, EventBus(), db, MinecraftServer(cfg, EventBus(), db))
@@ -488,8 +501,12 @@ def test_mod_manager_refuses_to_create_folders_for_an_unset_server(tmp_path):
 def test_diagnostics_create_nothing_for_an_unset_server_folder(tmp_path):
     from agent.config import DEFAULTS, Config, _deep_merge
     from agent.diagnostics import run_diagnostics
-    cfg = Config(_deep_merge(DEFAULTS, {"paths": {"data_dir": str(tmp_path / "data")},
-                                        "tls": {"enabled": False}}))
+
+    cfg = Config(
+        _deep_merge(
+            DEFAULTS, {"paths": {"data_dir": str(tmp_path / "data")}, "tls": {"enabled": False}}
+        )
+    )
     report = run_diagnostics(cfg)
     assert any(c.name == "Minecraft directory" and c.status == "FAIL" for c in report.failures)
     assert not cfg.server_dir.exists(), "the diagnostic must not create the placeholder folder"
@@ -498,9 +515,17 @@ def test_diagnostics_create_nothing_for_an_unset_server_folder(tmp_path):
 def test_diagnostics_never_report_another_drives_free_space(tmp_path):
     from agent.config import DEFAULTS, Config, _deep_merge
     from agent.diagnostics import Report, _storage
-    cfg = Config(_deep_merge(DEFAULTS, {"server": {"directory": str(tmp_path / "missing")},
-                                        "paths": {"data_dir": str(tmp_path / "data")},
-                                        "tls": {"enabled": False}}))
+
+    cfg = Config(
+        _deep_merge(
+            DEFAULTS,
+            {
+                "server": {"directory": str(tmp_path / "missing")},
+                "paths": {"data_dir": str(tmp_path / "data")},
+                "tls": {"enabled": False},
+            },
+        )
+    )
     report = Report()
     _storage(report, cfg)
     disk = next(c for c in report.sections["Storage"] if c.name == "Disk space")

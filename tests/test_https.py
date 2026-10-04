@@ -267,6 +267,7 @@ def test_security_headers_over_https(live_tls):
     assert "script-src 'self'" in csp
     assert "script-src *" not in csp
     assert "'unsafe-eval'" not in csp
+    assert "'unsafe-inline'" not in csp
     assert "frame-ancestors 'none'" in csp
 
 

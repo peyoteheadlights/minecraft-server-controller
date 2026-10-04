@@ -67,7 +67,7 @@ published. Nothing downloaded is executed by the agent.
 
 - Bearer tokens, not cookies, so CSRF doesn't apply.
 - CORS is off by default — the dashboard is served from the same origin.
-- `Content-Security-Policy` blocks inline scripts and restricts connections
+- `Content-Security-Policy` blocks inline scripts and inline styles and restricts connections
   to the same origin; `X-Frame-Options: DENY` blocks clickjacking;
   `X-Content-Type-Options: nosniff` and a strict referrer policy are set.
 - The dashboard builds the DOM through `document.createElement` and text

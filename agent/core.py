@@ -15,6 +15,7 @@ from typing import Any
 
 from .backups.manager import BackupManager
 from .database.db import Database
+from .database.event_writer import EventWriter
 from .events import Event, EventBus
 from .minecraft.crash import CrashReporter
 from .minecraft.process import MinecraftServer
@@ -36,6 +37,7 @@ class AgentCore:
         self.started_at = time.time()
         self.bus = EventBus()
         self.db = Database(config.database_path)
+        self.events = EventWriter(self.db)
         self.db.register_server(
             config.server.id,
             config.server.name,
@@ -69,11 +71,8 @@ class AgentCore:
     async def _persist_event(self, event: Event) -> None:
         if event.type in ("console", "metrics"):
             return  # far too chatty for the database; these live in files/metrics
-        try:
-            self.db.add_event(self.server.server_id, event.type, event.message,
-                              level=event.level, data=event.data or None)
-        except Exception:  # pragma: no cover
-            log.exception("could not persist event %s", event.type)
+        self.events.add(self.server.server_id, event.type, event.message,
+                        level=event.level, data=event.data or None)
         if event.type in ("server_stopped", "server_crashed"):
             try:
                 await self.players.clear_online()
@@ -85,7 +84,8 @@ class AgentCore:
         # Establish facts before the dashboard can ask for them, so the first
         # status it sees is verified rather than assumed.
         self.server.verify_state()
-        self.server.detect_java()
+        # `java -version` can take seconds on a cold disk; don't block the loop.
+        await asyncio.to_thread(self.server.detect_java)
         if self.server.state.value == "OFFLINE":
             # Nothing is running, so "nobody is online" is a verified fact.
             await self.players.clear_online()
@@ -184,6 +184,7 @@ class AgentCore:
         await self.mods.close()
         await self.server.shutdown()
         await self.notifier.stop()
+        await self.events.stop()
         self.db.close()
 
     # ------------------------------------------------------------------

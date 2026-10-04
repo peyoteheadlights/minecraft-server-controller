@@ -281,6 +281,30 @@ class Database:
             },
         )
 
+    def add_events(self, rows: list[dict[str, Any]]) -> None:
+        """Insert many event rows in one transaction."""
+        if not rows:
+            return
+        with self._lock:
+            self._conn.executemany(
+                "INSERT INTO events (server_id, ts, type, level, message, data) "
+                "VALUES (:server_id, :ts, :type, :level, :message, :data)",
+                rows,
+            )
+            self._conn.commit()
+
+    def recent_events(self, server_id: str, limit: int = 100) -> list[dict]:
+        return self.query(
+            "SELECT * FROM events WHERE server_id = ? ORDER BY ts DESC LIMIT ?",
+            (server_id, limit),
+        )
+
+    def list_servers(self) -> list[dict]:
+        return self.query("SELECT * FROM servers")
+
+    def audit_entries(self, limit: int = 100) -> list[dict]:
+        return self.query("SELECT * FROM audit_log ORDER BY ts DESC LIMIT ?", (limit,))
+
     def audit(
         self,
         action: str,

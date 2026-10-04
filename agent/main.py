@@ -20,6 +20,7 @@ import argparse
 import asyncio
 import contextlib
 import logging
+import mimetypes
 import socket
 import ssl
 import sys
@@ -160,7 +161,7 @@ def create_app(config: Config) -> FastAPI:
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self'; "
-            "style-src 'self' 'unsafe-inline'; "
+            "style-src 'self'; "
             "img-src 'self' data:; "
             "connect-src 'self'; "
             "base-uri 'none'; form-action 'none'; frame-ancestors 'none'; "
@@ -188,6 +189,9 @@ def create_app(config: Config) -> FastAPI:
     app.include_router(ws_router)
 
     if WEB_DIR.is_dir():
+        # Browsers refuse module scripts served as text/plain, which some
+        # Windows registries map .js to.
+        mimetypes.add_type("text/javascript", ".js")
         app.mount("/assets", StaticFiles(directory=WEB_DIR), name="assets")
 
         @app.get("/", include_in_schema=False)

@@ -6,6 +6,3 @@ PyYAML>=6.0
 cryptography>=42.0        # TLS certificate generation and inspection
 python-multipart>=0.0.9
 websockets>=12.0
-
-# Windows only, for running the agent as a service:
-pywin32>=306; sys_platform == "win32"

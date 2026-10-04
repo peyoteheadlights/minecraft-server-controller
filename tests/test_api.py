@@ -131,6 +131,17 @@ def test_settings_updates_are_limited_to_an_allow_list(client):
     assert "server.raw_command" in body["rejected"]
 
 
+def test_settings_reject_a_nonsense_on_off_value(client, config):
+    token = token_for(client)
+    before = config.monitor.auto_restart
+    response = client.put("/api/settings", headers=auth(token),
+                          json={"updates": {"monitor.auto_restart": "maybe"}})
+    body = response.json()
+    assert "monitor.auto_restart" not in body.get("applied", {})
+    assert "monitor.auto_restart" in body["rejected"]
+    assert config.monitor.auto_restart is before
+
+
 def test_restore_returns_a_confirmation_payload_before_acting(client, config):
     token = token_for(client)
     created = client.post("/api/backups", json={}, headers=auth(token)).json()

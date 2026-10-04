@@ -48,7 +48,7 @@ class ModInfo:
     enabled: bool = True
     size_bytes: int = 0
     modified: float = 0.0
-    loader: str = "fabric"        # fabric | forge | quilt | unknown
+    loader: str = "fabric"  # fabric | forge | quilt | unknown
     dependencies: list[ModDependency] = field(default_factory=list)
     breaks: list[ModDependency] = field(default_factory=list)
     minecraft_range: str = ""
@@ -159,8 +159,10 @@ def read_mod_jar(path: Path, compute_hash: bool = True) -> ModInfo:
                             break
             elif "quilt.mod.json" in names:
                 info.loader = "quilt"
-                data = json.loads(zf.read("quilt.mod.json").decode("utf-8", errors="replace"), strict=False)
-                loader_block = (data.get("quilt_loader") or {})
+                data = json.loads(
+                    zf.read("quilt.mod.json").decode("utf-8", errors="replace"), strict=False
+                )
+                loader_block = data.get("quilt_loader") or {}
                 info.mod_id = str(loader_block.get("id", ""))
                 info.version = str(loader_block.get("version", ""))
                 info.name = str((loader_block.get("metadata") or {}).get("name", info.mod_id))
@@ -240,13 +242,17 @@ def _clause_ok(version: str, clause: str) -> bool | None:
         return True
     for op in (">=", "<=", "!=", ">", "<", "="):
         if clause.startswith(op):
-            target = clause[len(op):].strip()
+            target = clause[len(op) :].strip()
             if not target:
                 return None
             result = _cmp(version, target)
             return {
-                ">=": result >= 0, "<=": result <= 0, ">": result > 0,
-                "<": result < 0, "=": result == 0, "!=": result != 0,
+                ">=": result >= 0,
+                "<=": result <= 0,
+                ">": result > 0,
+                "<": result < 0,
+                "=": result == 0,
+                "!=": result != 0,
             }[op]
     if clause.startswith("~"):  # ~1.2.3 -> >=1.2.3 <1.3.0
         target = clause[1:].strip()

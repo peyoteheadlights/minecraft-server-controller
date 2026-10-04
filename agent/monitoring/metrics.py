@@ -17,9 +17,9 @@ from typing import Any
 import psutil
 
 from .. import tailscale
-from . import health
 from ..events import Event, EventBus
 from ..security.paths import directory_size
+from . import health
 
 log = logging.getLogger("msc.metrics")
 
@@ -206,10 +206,14 @@ class MetricsMonitor:
             health.port(port, state, self.port_listening(port) if state == "ONLINE" else None),
         ]
         if self.config.tls_enabled:
-            checks.append(health.certificate(self.certificate_status(),
-                                             self.config.tls.expiry_warn_days))
-        checks.append(health.recent_crashes(self.server.recent_crash_count(),
-                                            self.config.monitor.crash_window_minutes))
+            checks.append(
+                health.certificate(self.certificate_status(), self.config.tls.expiry_warn_days)
+            )
+        checks.append(
+            health.recent_crashes(
+                self.server.recent_crash_count(), self.config.monitor.crash_window_minutes
+            )
+        )
         return {
             **health.summarize(checks),
             "checks": checks,
@@ -232,48 +236,64 @@ class MetricsMonitor:
             await self.bus.publish(Event(type=type_, message=message, level="warn", data=data))
 
         if sample["cpu_percent"] >= th.cpu_percent:
-            await alert("cpu", "high_cpu",
-                        f"CPU at {sample['cpu_percent']:.0f}% (threshold {th.cpu_percent}%)",
-                        {"value": sample["cpu_percent"], "threshold": th.cpu_percent})
+            await alert(
+                "cpu",
+                "high_cpu",
+                f"CPU at {sample['cpu_percent']:.0f}% (threshold {th.cpu_percent}%)",
+                {"value": sample["cpu_percent"], "threshold": th.cpu_percent},
+            )
         if sample["ram_percent"] >= th.ram_percent:
-            await alert("ram", "high_ram",
-                        f"RAM at {sample['ram_percent']:.0f}% "
-                        f"({sample['ram_used_mb']/1024:.1f} of {sample['ram_total_mb']/1024:.1f} GB)",
-                        {"value": sample["ram_percent"], "threshold": th.ram_percent})
-        if (sample["disk_free_gb"] is not None
-                and sample["disk_free_gb"] <= th.disk_free_gb):
-            await alert("disk", "low_disk",
-                        f"Only {sample['disk_free_gb']:.1f} GB free "
-                        f"(threshold {th.disk_free_gb} GB)",
-                        {"value": sample["disk_free_gb"], "threshold": th.disk_free_gb})
+            await alert(
+                "ram",
+                "high_ram",
+                f"RAM at {sample['ram_percent']:.0f}% "
+                f"({sample['ram_used_mb'] / 1024:.1f} of {sample['ram_total_mb'] / 1024:.1f} GB)",
+                {"value": sample["ram_percent"], "threshold": th.ram_percent},
+            )
+        if sample["disk_free_gb"] is not None and sample["disk_free_gb"] <= th.disk_free_gb:
+            await alert(
+                "disk",
+                "low_disk",
+                f"Only {sample['disk_free_gb']:.1f} GB free (threshold {th.disk_free_gb} GB)",
+                {"value": sample["disk_free_gb"], "threshold": th.disk_free_gb},
+            )
         if sample["tps"] is not None and sample["tps"] < th.tps_min:
-            await alert("tps", "low_tps",
-                        f"TPS at {sample['tps']:.1f} (threshold {th.tps_min})",
-                        {"value": sample["tps"], "threshold": th.tps_min})
+            await alert(
+                "tps",
+                "low_tps",
+                f"TPS at {sample['tps']:.1f} (threshold {th.tps_min})",
+                {"value": sample["tps"], "threshold": th.tps_min},
+            )
         if sample["mspt"] is not None and sample["mspt"] > th.mspt_max:
-            await alert("mspt", "high_mspt",
-                        f"MSPT at {sample['mspt']:.0f} ms (threshold {th.mspt_max} ms)",
-                        {"value": sample["mspt"], "threshold": th.mspt_max})
+            await alert(
+                "mspt",
+                "high_mspt",
+                f"MSPT at {sample['mspt']:.0f} ms (threshold {th.mspt_max} ms)",
+                {"value": sample["mspt"], "threshold": th.mspt_max},
+            )
 
     async def sample_once(self, player_count: int | None = None) -> dict[str, Any]:
         sample = self.snapshot()
         sample["players"] = player_count
         try:
-            self.db.insert("metrics", {
-                "server_id": self.server.server_id,
-                "ts": sample["ts"],
-                "cpu_percent": sample["cpu_percent"],
-                "ram_used_mb": sample["ram_used_mb"],
-                "ram_total_mb": sample["ram_total_mb"],
-                "proc_ram_mb": sample["proc_ram_mb"],
-                "disk_free_gb": sample["disk_free_gb"],
-                "disk_percent": sample["disk_percent"],
-                "net_sent_mb": sample["net_sent_mb_s"],
-                "net_recv_mb": sample["net_recv_mb_s"],
-                "tps": sample["tps"],
-                "mspt": sample["mspt"],
-                "players": player_count,
-            })
+            self.db.insert(
+                "metrics",
+                {
+                    "server_id": self.server.server_id,
+                    "ts": sample["ts"],
+                    "cpu_percent": sample["cpu_percent"],
+                    "ram_used_mb": sample["ram_used_mb"],
+                    "ram_total_mb": sample["ram_total_mb"],
+                    "proc_ram_mb": sample["proc_ram_mb"],
+                    "disk_free_gb": sample["disk_free_gb"],
+                    "disk_percent": sample["disk_percent"],
+                    "net_sent_mb": sample["net_sent_mb_s"],
+                    "net_recv_mb": sample["net_recv_mb_s"],
+                    "tps": sample["tps"],
+                    "mspt": sample["mspt"],
+                    "players": player_count,
+                },
+            )
         except Exception:  # pragma: no cover
             log.exception("could not store metrics sample")
         await self._check_thresholds(sample)

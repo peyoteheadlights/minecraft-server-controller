@@ -21,12 +21,16 @@ import logging
 import shutil
 import time
 from collections import deque
+from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..events import Event, EventBus
 from .console import ConsoleBuffer, ConsoleLine, extract_signals
 from .state import NORMAL_REASONS, ExitReason, ServerState
+
+if TYPE_CHECKING:
+    from .java import JavaInfo
 
 log = logging.getLogger("msc.process")
 
@@ -83,11 +87,11 @@ class MinecraftServer:
         # Which provider actually answered. None means nothing has, and the
         # dashboard must show 'unknown' rather than a plausible 20.0.
         self.tps_source: str | None = None
-        self.tps_status: dict | None = None   # published by TpsMonitor
-        self._target_tps: float | None = None   # vanilla's configured rate, not a measurement
+        self.tps_status: dict | None = None  # published by TpsMonitor
+        self._target_tps: float | None = None  # vanilla's configured rate, not a measurement
         self.tps_asked_at: float | None = None
-        self.java_info = None            # agent.minecraft.java.JavaInfo once detected
-        self.startup_confirmed = False   # True only after 'Done (..)!' was seen
+        self.java_info: JavaInfo | None = None
+        self.startup_confirmed = False  # True only after 'Done (..)!' was seen
 
         self._stop_requested = False
         self._stop_reason: ExitReason = ExitReason.UNKNOWN
@@ -110,8 +114,8 @@ class MinecraftServer:
         self.auto_restart_blocked = False
         self.auto_restart_block_reason: str | None = None
 
-        self.signal_hook = None   # PlayerTracker / metrics
-        self.crash_hook = None    # CrashReporter
+        self.signal_hook: Callable[..., Awaitable[Any]] | None = None  # PlayerTracker / metrics
+        self.crash_hook: Callable[..., Awaitable[Any]] | None = None  # CrashReporter
         self.maintenance = False
 
     # ------------------------------------------------------------------
@@ -124,7 +128,9 @@ class MinecraftServer:
     @property
     def uptime(self) -> float | None:
         if self.started_at and self.state in (
-            ServerState.ONLINE, ServerState.STOPPING, ServerState.STARTING
+            ServerState.ONLINE,
+            ServerState.STOPPING,
+            ServerState.STARTING,
         ):
             return time.time() - self.started_at
         return None
@@ -161,9 +167,11 @@ class MinecraftServer:
             return "No tick-rate command is configured (monitor.tps_command is empty)."
         if self.tps_asked_at is None:
             return f"The agent has not yet asked for the tick rate ('{command}')."
-        return (f"'{command}' was sent but nothing answered with a tick rate. "
-                "Vanilla Fabric has no such command; install Carpet or spark, or use "
-                "'tick query' on Minecraft 1.20.3 and newer.")
+        return (
+            f"'{command}' was sent but nothing answered with a tick rate. "
+            "Vanilla Fabric has no such command; install Carpet or spark, or use "
+            "'tick query' on Minecraft 1.20.3 and newer."
+        )
 
     def verify_state(self) -> ServerState:
         """Check the operating system, not our own memory.
@@ -185,12 +193,14 @@ class MinecraftServer:
     def detect_java(self):
         """Detect the Java runtime. Source of truth: `java -version` output."""
         from .java import detect_java as _detect
+
         self.java_info = _detect(self.config.server.java)
         self.java_version = self.java_info.version_string
         return self.java_info
 
     def java_compatibility(self) -> dict[str, Any] | None:
         from .java import check_compatibility
+
         if not self.java_info:
             return None
         return check_compatibility(self.java_info, self.mc_version)
@@ -296,7 +306,9 @@ class MinecraftServer:
     # ------------------------------------------------------------------
     # internals
     # ------------------------------------------------------------------
-    async def _set_state(self, state: ServerState, message: str = "", level: str = "info", **data) -> None:
+    async def _set_state(
+        self, state: ServerState, message: str = "", level: str = "info", **data
+    ) -> None:
         previous = self.state
         self.state = state
         self.last_state_change = time.time()
@@ -321,12 +333,16 @@ class MinecraftServer:
     async def start(self, actor: str = "system", _from_pending: bool = False) -> dict[str, Any]:
         async with self._lock:
             if self.state in (ServerState.STARTING, ServerState.ONLINE, ServerState.STOPPING):
-                raise ServerError(f"The server is already {self.state.value.lower()}; start ignored")
+                raise ServerError(
+                    f"The server is already {self.state.value.lower()}; start ignored"
+                )
             if self.state == ServerState.RESTART_PENDING and not _from_pending:
                 # Enforced here, not only in the dashboard: a second start while
                 # the countdown runs would race the automatic restart.
-                raise ServerError("An automatic restart is already scheduled. "
-                                  "Use Restart Now to start immediately, or Cancel to stay stopped.")
+                raise ServerError(
+                    "An automatic restart is already scheduled. "
+                    "Use Restart Now to start immediately, or Cancel to stay stopped."
+                )
             if not _from_pending and self._restart_task and not self._restart_task.done():
                 self._restart_task.cancel()
             self.restart_at = None
@@ -335,8 +351,10 @@ class MinecraftServer:
             pre = self.preflight()
             if not pre.ok:
                 await self._set_state(
-                    ServerState.OFFLINE, "Start blocked by preflight checks",
-                    level="error", preflight=pre.to_dict(),
+                    ServerState.OFFLINE,
+                    "Start blocked by preflight checks",
+                    level="error",
+                    preflight=pre.to_dict(),
                 )
                 raise ServerError("; ".join(pre.problems))
 
@@ -358,6 +376,7 @@ class MinecraftServer:
             # the agent runs without one (i.e. when started by Windows) - a window
             # that would kill the server if someone closed it.
             from ..winproc import NEW_PROCESS_GROUP, NO_WINDOW
+
             creationflags = NEW_PROCESS_GROUP | NO_WINDOW
             try:
                 self.process = await asyncio.create_subprocess_exec(
@@ -371,14 +390,18 @@ class MinecraftServer:
             except (OSError, ValueError) as exc:
                 self.started_at = None
                 self._exited_event.set()
-                await self._set_state(ServerState.OFFLINE, f"Could not launch Minecraft: {exc}", level="error")
+                await self._set_state(
+                    ServerState.OFFLINE, f"Could not launch Minecraft: {exc}", level="error"
+                )
                 raise ServerError(f"Could not launch Minecraft: {exc}") from exc
 
             self.pid = self.process.pid
             self._reader_task = asyncio.create_task(self._pump_output(), name="mc-console")
             self._waiter_task = asyncio.create_task(self._wait_exit(), name="mc-wait")
             if self.db:
-                self.db.add_event(self.server_id, "server_start_requested", f"Start requested by {actor}")
+                self.db.add_event(
+                    self.server_id, "server_start_requested", f"Start requested by {actor}"
+                )
             return {"pid": self.pid, "command": cmd}
 
     async def wait_online(self, timeout: float | None = None) -> bool:
@@ -386,14 +409,14 @@ class MinecraftServer:
         try:
             await asyncio.wait_for(self._online_event.wait(), timeout=timeout)
             return True
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return False
 
     async def wait_exit(self, timeout: float = 60) -> bool:
         try:
             await asyncio.wait_for(self._exited_event.wait(), timeout=timeout)
             return True
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return False
 
     # ------------------------------------------------------------------
@@ -443,8 +466,7 @@ class MinecraftServer:
                 # Derived from a measurement: a server that needs longer than
                 # 1000/target ms per tick cannot reach its target rate.
                 self.tps = round(min(self._target_tps, 1000.0 / sig.mspt), 2)
-            self.tps_source = self.tps_source or str(
-                self.config.monitor.tps_command)
+            self.tps_source = self.tps_source or str(self.config.monitor.tps_command)
 
         if sig.done_seconds is not None and self.state == ServerState.STARTING:
             self.startup_seconds = sig.done_seconds
@@ -452,8 +474,10 @@ class MinecraftServer:
             self.startup_confirmed = True
             self._online_event.set()
             await self._set_state(
-                ServerState.ONLINE, f"Online in {sig.done_seconds:.1f}s",
-                level="success", startup_seconds=sig.done_seconds,
+                ServerState.ONLINE,
+                f"Online in {sig.done_seconds:.1f}s",
+                level="success",
+                startup_seconds=sig.done_seconds,
             )
             await self.bus.publish(
                 Event(
@@ -473,8 +497,13 @@ class MinecraftServer:
     # ------------------------------------------------------------------
     # stop / restart
     # ------------------------------------------------------------------
-    async def stop(self, actor: str = "system", reason: ExitReason = ExitReason.USER_STOP,
-                   timeout: float | None = None, restart: bool = False) -> dict[str, Any]:
+    async def stop(
+        self,
+        actor: str = "system",
+        reason: ExitReason = ExitReason.USER_STOP,
+        timeout: float | None = None,
+        restart: bool = False,
+    ) -> dict[str, Any]:
         if not self.running:
             raise ServerError("Server is not running")
         timeout = timeout if timeout is not None else self.config.server.stop_timeout
@@ -487,11 +516,14 @@ class MinecraftServer:
 
         sent = await self.send_command("stop", internal=True)
         forced = False
+        assert self.process is not None  # self.running checked above
         try:
             await asyncio.wait_for(self.process.wait(), timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             forced = True
-            self._emit_console(f"[agent] graceful stop timed out after {timeout:.0f}s, terminating process")
+            self._emit_console(
+                f"[agent] graceful stop timed out after {timeout:.0f}s, terminating process"
+            )
             self._stop_reason = ExitReason.FORCE_KILLED
             await self._terminate()
         await self.wait_exit(timeout=30)
@@ -504,7 +536,7 @@ class MinecraftServer:
             self.process.terminate()
         try:
             await asyncio.wait_for(self.process.wait(), timeout=20)
-        except asyncio.TimeoutError:  # pragma: no cover
+        except TimeoutError:  # pragma: no cover
             with contextlib.suppress(ProcessLookupError, OSError):
                 self.process.kill()
             with contextlib.suppress(asyncio.TimeoutError):
@@ -552,7 +584,11 @@ class MinecraftServer:
 
     def _classify_exit(self, code: int) -> ExitReason:
         if self._stop_requested:
-            return self._stop_reason if self._stop_reason != ExitReason.UNKNOWN else ExitReason.USER_STOP
+            return (
+                self._stop_reason
+                if self._stop_reason != ExitReason.UNKNOWN
+                else ExitReason.USER_STOP
+            )
         if self._stop_reason == ExitReason.CLEAN_EXIT:
             return ExitReason.CLEAN_EXIT
         if self.state == ServerState.STARTING:
@@ -582,7 +618,8 @@ class MinecraftServer:
             await self._set_state(
                 ServerState.OFFLINE,
                 "Server stopped" if reason != ExitReason.FORCE_KILLED else "Server force stopped",
-                exit_code=code, reason=reason.value,
+                exit_code=code,
+                reason=reason.value,
             )
             await self.bus.publish(
                 Event(
@@ -598,7 +635,11 @@ class MinecraftServer:
                     await self.start(actor="restart")
                 except ServerError as exc:
                     await self.bus.publish(
-                        Event(type="server_restart_failed", message=f"Restart failed: {exc}", level="error")
+                        Event(
+                            type="server_restart_failed",
+                            message=f"Restart failed: {exc}",
+                            level="error",
+                        )
                     )
                 else:
                     await self.bus.publish(
@@ -612,7 +653,9 @@ class MinecraftServer:
         await self._set_state(
             ServerState.CRASHED,
             "Server crashed" if reason == ExitReason.CRASH else "Server failed to start",
-            level="error", exit_code=code, reason=reason.value,
+            level="error",
+            exit_code=code,
+            reason=reason.value,
         )
         context: dict[str, Any] = {"exit_code": code, "reason": reason.value, "uptime": uptime}
         if self.crash_hook:
@@ -636,8 +679,11 @@ class MinecraftServer:
             return
         if self.maintenance and self.config.maintenance.block_auto_restart:
             await self.bus.publish(
-                Event(type="auto_restart_skipped",
-                      message="Automatic restart skipped: maintenance mode is on", level="warn")
+                Event(
+                    type="auto_restart_skipped",
+                    message="Automatic restart skipped: maintenance mode is on",
+                    level="warn",
+                )
             )
             return
         max_crashes = self.config.monitor.max_crashes
@@ -647,24 +693,36 @@ class MinecraftServer:
             self.auto_restart_blocked = True
             self.auto_restart_block_reason = f"{recent} crashes within {window_min:.0f} minutes"
             await self.bus.publish(
-                Event(type="crash_loop",
-                      message=f"Automatic restart disabled: {self.auto_restart_block_reason}",
-                      level="error",
-                      data={"crashes": recent, "window_minutes": window_min, "max_crashes": max_crashes})
+                Event(
+                    type="crash_loop",
+                    message=f"Automatic restart disabled: {self.auto_restart_block_reason}",
+                    level="error",
+                    data={
+                        "crashes": recent,
+                        "window_minutes": window_min,
+                        "max_crashes": max_crashes,
+                    },
+                )
             )
             return
         delay = self.config.monitor.restart_delay
         self.restart_delay = delay
         self.restart_at = time.time() + delay
-        await self._set_state(ServerState.RESTART_PENDING,
-                              f"Restarting automatically in {delay:.0f}s", level="warn",
-                              restart_at=self.restart_at, delay=delay)
+        await self._set_state(
+            ServerState.RESTART_PENDING,
+            f"Restarting automatically in {delay:.0f}s",
+            level="warn",
+            restart_at=self.restart_at,
+            delay=delay,
+        )
         log.info("restart_scheduled delay=%.0fs crash=%d/%d", delay, recent, max_crashes)
         await self.bus.publish(
-            Event(type="restart_scheduled",
-                  message=f"Restarting automatically in {delay:.0f}s (crash {recent} of {max_crashes})",
-                  level="warn",
-                  data={"delay": delay, "restart_at": self.restart_at, "crash_count": recent})
+            Event(
+                type="restart_scheduled",
+                message=f"Restarting automatically in {delay:.0f}s (crash {recent} of {max_crashes})",
+                level="warn",
+                data={"delay": delay, "restart_at": self.restart_at, "crash_count": recent},
+            )
         )
         self._restart_sleeping = True
         try:
@@ -683,16 +741,26 @@ class MinecraftServer:
         except ServerError as exc:
             self.restart_at = None
             await self.bus.publish(
-                Event(type="auto_restart_failed", level="error",
-                      message=f"The automatic restart could not start the server: {exc}")
+                Event(
+                    type="auto_restart_failed",
+                    level="error",
+                    message=f"The automatic restart could not start the server: {exc}",
+                )
             )
             if self.state == ServerState.RESTART_PENDING:
-                await self._set_state(ServerState.CRASHED, "Automatic restart failed", level="error")
+                await self._set_state(
+                    ServerState.CRASHED, "Automatic restart failed", level="error"
+                )
             raise
         log.info("restart_started actor=%s forced=%s", actor, forced)
-        await self.bus.publish(Event(type="restart_started", level="info",
-                                     message="Starting the server after the crash",
-                                     data={"actor": actor, "forced": forced}))
+        await self.bus.publish(
+            Event(
+                type="restart_started",
+                level="info",
+                message="Starting the server after the crash",
+                data={"actor": actor, "forced": forced},
+            )
+        )
         self._recovery_task = asyncio.create_task(self._announce_recovery(), name="mc-recovery")
         return result
 
@@ -700,13 +768,19 @@ class MinecraftServer:
         # "Recovered" only once startup has actually completed.
         if await self.wait_online():
             await self.bus.publish(
-                Event(type="server_recovered", message="Server recovered after a crash", level="success",
-                      data={"startup_seconds": self.startup_seconds})
+                Event(
+                    type="server_recovered",
+                    message="Server recovered after a crash",
+                    level="success",
+                    data={"startup_seconds": self.startup_seconds},
+                )
             )
 
     def _pending_or_raise(self) -> None:
         if self.state != ServerState.RESTART_PENDING:
-            raise ServerError(f"No automatic restart is pending (the server is {self.state.value.lower()}).")
+            raise ServerError(
+                f"No automatic restart is pending (the server is {self.state.value.lower()})."
+            )
         task = self._restart_task
         if task and not task.done() and not self._restart_sleeping:
             # The countdown already reached zero and the start is under way.
@@ -720,8 +794,9 @@ class MinecraftServer:
         if task and not task.done() and task is not asyncio.current_task():
             task.cancel()
         log.info("restart_forced actor=%s", actor)
-        await self.bus.publish(Event(type="restart_forced", level="info",
-                                     message=f"Restart now requested by {actor}"))
+        await self.bus.publish(
+            Event(type="restart_forced", level="info", message=f"Restart now requested by {actor}")
+        )
         return await self._run_pending_restart(actor, forced=True)
 
     async def cancel_pending_restart(self, actor: str = "system") -> dict[str, Any]:
@@ -735,8 +810,13 @@ class MinecraftServer:
         self.auto_restart_cancelled = True
         await self._set_state(ServerState.CRASHED, f"Automatic restart cancelled by {actor}")
         log.info("restart_cancelled actor=%s", actor)
-        await self.bus.publish(Event(type="restart_cancelled", level="info",
-                                     message="Automatic restart cancelled. The server will stay stopped."))
+        await self.bus.publish(
+            Event(
+                type="restart_cancelled",
+                level="info",
+                message="Automatic restart cancelled. The server will stay stopped.",
+            )
+        )
         return {"cancelled": True}
 
     def clear_crash_block(self) -> None:

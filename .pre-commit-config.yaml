@@ -1,0 +1,19 @@
+# Optional: `pip install pre-commit && pre-commit install` runs these before
+# each commit. CI runs the same checks either way.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.10
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+  # mypy runs from your own environment so it sees the real dependencies
+  # (pip install -r requirements-dev.txt), exactly as CI does.
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: python -m mypy
+        language: system
+        types: [python]
+        pass_filenames: false

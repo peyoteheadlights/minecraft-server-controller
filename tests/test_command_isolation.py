@@ -58,7 +58,7 @@ def test_every_subprocess_call_uses_an_argument_list():
             following = match.group(3)
             assert following in "[*(", (
                 f"{path.name}: subprocess call does not start with a list or unpacked list: "
-                f"{text[match.start():match.start() + 90]}"
+                f"{text[match.start() : match.start() + 90]}"
             )
 
 
@@ -82,21 +82,24 @@ def test_minecraft_commands_only_reach_process_stdin():
         assert forbidden not in source
 
 
-@pytest.mark.parametrize("payload", [
-    "say hi & calc.exe",
-    "say hi | powershell",
-    "say hi; shutdown /s /t 0",
-    "say hi && del C:\\Windows",
-    "say $(rm -rf /)",
-    "say `whoami`",
-    "say hi\nstop",
-    "say hi\r\nop attacker",
-    "say hi\x00stop",
-    "cmd.exe /c calc",
-    "../../../windows/system32/cmd.exe",
-    "say hi > C:\\evil.txt",
-    "say hi < input.txt",
-])
+@pytest.mark.parametrize(
+    "payload",
+    [
+        "say hi & calc.exe",
+        "say hi | powershell",
+        "say hi; shutdown /s /t 0",
+        "say hi && del C:\\Windows",
+        "say $(rm -rf /)",
+        "say `whoami`",
+        "say hi\nstop",
+        "say hi\r\nop attacker",
+        "say hi\x00stop",
+        "cmd.exe /c calc",
+        "../../../windows/system32/cmd.exe",
+        "say hi > C:\\evil.txt",
+        "say hi < input.txt",
+    ],
+)
 def test_os_command_shapes_are_rejected_by_validation(payload):
     with pytest.raises(CommandError):
         validate(payload, confirm=True)
@@ -136,6 +139,7 @@ def test_launch_arguments_come_only_from_configuration(config):
     assert isinstance(command, list)
     assert all(isinstance(part, str) for part in command)
     from agent.api.routes import SETTABLE_PREFIXES
+
     for editable in SETTABLE_PREFIXES:
         assert not editable.startswith("server.raw_command")
         assert editable not in ("server.java", "server.jar", "server.directory")
@@ -250,12 +254,14 @@ async def test_user_restarts_do_not_count_towards_the_crash_limit(config):
 
 
 async def test_five_crashes_stop_automatic_restarts(make_config):
-    config = make_config(**{
-        "monitor.auto_restart": True,
-        "monitor.restart_delay": 0.05,
-        "monitor.max_crashes": 5,
-        "monitor.crash_window_minutes": 10,
-    })
+    config = make_config(
+        **{
+            "monitor.auto_restart": True,
+            "monitor.restart_delay": 0.05,
+            "monitor.max_crashes": 5,
+            "monitor.crash_window_minutes": 10,
+        }
+    )
     bus = EventBus()
     events = []
     bus.subscribe(lambda event: events.append(event.type))

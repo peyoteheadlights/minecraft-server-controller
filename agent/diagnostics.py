@@ -23,8 +23,8 @@ from pathlib import Path
 from typing import Any
 
 from .minecraft.java import detect_java
-from .tailscale import tailscale_status
 from .security.tls import inspect_certificate, verify_endpoint
+from .tailscale import tailscale_status
 
 OK, WARN, FAIL, UNKNOWN, SKIP = "OK", "WARN", "FAIL", "UNKNOWN", "SKIP"
 
@@ -37,8 +37,12 @@ class Check:
     detail: str = ""
 
     def to_dict(self) -> dict[str, Any]:
-        return {"name": self.name, "status": self.status,
-                "value": self.value, "detail": self.detail}
+        return {
+            "name": self.name,
+            "status": self.status,
+            "value": self.value,
+            "detail": self.detail,
+        }
 
 
 @dataclass
@@ -63,7 +67,9 @@ class Report:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "sections": {name: [c.to_dict() for c in checks] for name, checks in self.sections.items()},
+            "sections": {
+                name: [c.to_dict() for c in checks] for name, checks in self.sections.items()
+            },
             "failures": len(self.failures),
             "warnings": len(self.warnings),
             "unknowns": len(self.unknowns),
@@ -98,8 +104,10 @@ class Report:
             for check in self.warnings:
                 lines.append(f"  - {check.name}: {check.detail or check.value}")
         if self.unknowns:
-            lines.append(f"{len(self.unknowns)} item(s) could not be verified "
-                         f"(reported as UNKNOWN, not assumed good):")
+            lines.append(
+                f"{len(self.unknowns)} item(s) could not be verified "
+                f"(reported as UNKNOWN, not assumed good):"
+            )
             for check in self.unknowns:
                 lines.append(f"  - {check.name}: {check.detail or 'no data source available'}")
         lines.append("")
@@ -154,8 +162,10 @@ def _minecraft(report: Report, config) -> None:
     if not config.server_dir_configured:
         # Nothing else in this section can be checked without the folder, and
         # nothing may be created under a path that has not been chosen.
-        report.add(section, Check("Server JAR, mods, worlds", SKIP, "",
-                                  "Checked once server.directory is set."))
+        report.add(
+            section,
+            Check("Server JAR, mods, worlds", SKIP, "", "Checked once server.directory is set."),
+        )
         return
     _minecraft_launch(report, config, section)
     _minecraft_mods(report, config, section)
@@ -165,31 +175,55 @@ def _minecraft(report: Report, config) -> None:
 def _minecraft_directory(report: Report, config, section: str) -> None:
     server_dir = config.server_dir
     if not config.server_dir_configured:
-        report.add(section, Check("Minecraft directory", FAIL, "not set",
-                                  "server.directory is empty. Open config/config.yaml and set it to "
-                                  "the folder that contains your server jar."))
+        report.add(
+            section,
+            Check(
+                "Minecraft directory",
+                FAIL,
+                "not set",
+                "server.directory is empty. Open config/config.yaml and set it to "
+                "the folder that contains your server jar.",
+            ),
+        )
     elif server_dir.is_dir():
         report.add(section, Check("Minecraft directory", OK, str(server_dir)))
     else:
         # Everything below depends on it, but keep checking what we can.
-        report.add(section, Check("Minecraft directory", FAIL, str(server_dir),
-                                  f"The directory does not exist: {server_dir}. "
-                                  "Set server.directory in config/config.yaml."))
+        report.add(
+            section,
+            Check(
+                "Minecraft directory",
+                FAIL,
+                str(server_dir),
+                f"The directory does not exist: {server_dir}. "
+                "Set server.directory in config/config.yaml.",
+            ),
+        )
 
 
 def _minecraft_launch(report: Report, config, section: str) -> None:
     raw_command = config.server.raw_command
     if raw_command:
-        report.add(section, Check("Launch command", OK, " ".join(str(a) for a in raw_command),
-                                  "server.raw_command is set, so jar and java settings are not used."))
+        report.add(
+            section,
+            Check(
+                "Launch command",
+                OK,
+                " ".join(str(a) for a in raw_command),
+                "server.raw_command is set, so jar and java settings are not used.",
+            ),
+        )
         return
     jar = config.server_dir / config.server.jar
     if jar.is_file():
-        report.add(section, Check("Server JAR", OK, jar.name,
-                                  f"{jar.stat().st_size / 1024**2:.1f} MB"))
+        report.add(
+            section, Check("Server JAR", OK, jar.name, f"{jar.stat().st_size / 1024**2:.1f} MB")
+        )
     else:
-        report.add(section, Check("Server JAR", FAIL, str(jar),
-                                  "The server jar was not found. Check server.jar."))
+        report.add(
+            section,
+            Check("Server JAR", FAIL, str(jar), "The server jar was not found. Check server.jar."),
+        )
 
 
 def _minecraft_mods(report: Report, config, section: str) -> None:
@@ -197,27 +231,55 @@ def _minecraft_mods(report: Report, config, section: str) -> None:
     if mods_dir.is_dir():
         jars = list(mods_dir.glob("*.jar"))
         disabled = list(mods_dir.glob("*.jar.disabled"))
-        report.add(section, Check("Mods directory", OK, str(mods_dir),
-                                  f"{len(jars)} enabled, {len(disabled)} disabled"))
+        report.add(
+            section,
+            Check(
+                "Mods directory",
+                OK,
+                str(mods_dir),
+                f"{len(jars)} enabled, {len(disabled)} disabled",
+            ),
+        )
     else:
         ok, error = _writable(mods_dir)
-        report.add(section, Check("Mods directory", OK if ok else FAIL, str(mods_dir),
-                                  "Created, it did not exist." if ok else f"Cannot create: {error}"))
+        report.add(
+            section,
+            Check(
+                "Mods directory",
+                OK if ok else FAIL,
+                str(mods_dir),
+                "Created, it did not exist." if ok else f"Cannot create: {error}",
+            ),
+        )
 
 
 def _minecraft_worlds(report: Report, config, section: str) -> None:
     server_dir = config.server_dir
     config_dir = server_dir / "config"
-    report.add(section, Check(
-        "Config directory", OK if config_dir.is_dir() else WARN, str(config_dir),
-        "" if config_dir.is_dir() else "Not present. Fabric creates it on first start."))
-    worlds = [name for name in ("world", "world_nether", "world_the_end")
-              if (server_dir / name).is_dir()]
+    report.add(
+        section,
+        Check(
+            "Config directory",
+            OK if config_dir.is_dir() else WARN,
+            str(config_dir),
+            "" if config_dir.is_dir() else "Not present. Fabric creates it on first start.",
+        ),
+    )
+    worlds = [
+        name for name in ("world", "world_nether", "world_the_end") if (server_dir / name).is_dir()
+    ]
     if worlds:
         report.add(section, Check("World directories", OK, ", ".join(worlds)))
     else:
-        report.add(section, Check("World directories", WARN, "none found",
-                                  "No world folders yet. Minecraft creates them on first start."))
+        report.add(
+            section,
+            Check(
+                "World directories",
+                WARN,
+                "none found",
+                "No world folders yet. Minecraft creates them on first start.",
+            ),
+        )
 
 
 def _java(report: Report, config) -> None:
@@ -225,35 +287,73 @@ def _java(report: Report, config) -> None:
     section = "Java"
     java = detect_java(config.server.java)
     if config.server.raw_command:
-        report.add(section, Check("Java", SKIP, "",
-                                  "server.raw_command is set, so the agent does not choose the runtime."))
+        report.add(
+            section,
+            Check(
+                "Java",
+                SKIP,
+                "",
+                "server.raw_command is set, so the agent does not choose the runtime.",
+            ),
+        )
     elif java.executable_found is False:
-        report.add(section, Check("Java executable", FAIL, config.server.java,
-                                  "Java was not found. Install a JDK or set server.java to the "
-                                  "full path of java.exe."))
+        report.add(
+            section,
+            Check(
+                "Java executable",
+                FAIL,
+                config.server.java,
+                "Java was not found. Install a JDK or set server.java to the "
+                "full path of java.exe.",
+            ),
+        )
     elif java.version_major is None:
         report.add(section, Check("Java executable", OK, java.path or "found"))
-        report.add(section, Check("Java version", UNKNOWN, "unknown",
-                                  java.error or "The java -version output could not be parsed. "
-                                                "The agent will not block startup on an unknown version."))
+        report.add(
+            section,
+            Check(
+                "Java version",
+                UNKNOWN,
+                "unknown",
+                java.error
+                or "The java -version output could not be parsed. "
+                "The agent will not block startup on an unknown version.",
+            ),
+        )
     else:
         report.add(section, Check("Java executable", OK, java.path or ""))
-        report.add(section, Check("Java version", OK, str(java.version_major),
-                                  java.version_string or ""))
+        report.add(
+            section, Check("Java version", OK, str(java.version_major), java.version_string or "")
+        )
 
 
 def _storage(report: Report, config) -> None:
     """The data and log folders, the database and free disk space."""
     section = "Storage"
     ok, error = _writable(config.data_dir)
-    report.add(section, Check("Data directory", OK if ok else FAIL, str(config.data_dir),
-                              "" if ok else f"Not writable: {error}"))
+    report.add(
+        section,
+        Check(
+            "Data directory",
+            OK if ok else FAIL,
+            str(config.data_dir),
+            "" if ok else f"Not writable: {error}",
+        ),
+    )
     ok, error = _writable(config.log_dir)
-    report.add(section, Check("Log directory", OK if ok else FAIL, str(config.log_dir),
-                              "" if ok else f"Not writable: {error}"))
+    report.add(
+        section,
+        Check(
+            "Log directory",
+            OK if ok else FAIL,
+            str(config.log_dir),
+            "" if ok else f"Not writable: {error}",
+        ),
+    )
     db_path = config.database_path
     try:
         from .database.db import Database
+
         probe = Database(db_path)
         version = probe.version
         probe.close()
@@ -262,19 +362,29 @@ def _storage(report: Report, config) -> None:
         report.add(section, Check("Database", FAIL, str(db_path), f"Not usable: {exc}"))
     if not config.server_dir.is_dir():
         # Another drive's free space is not the server's free space.
-        report.add(section, Check("Disk space", UNKNOWN, "unknown",
-                                  "Checked once the Minecraft directory exists."))
+        report.add(
+            section,
+            Check("Disk space", UNKNOWN, "unknown", "Checked once the Minecraft directory exists."),
+        )
         return
     try:
         usage = shutil.disk_usage(config.server_dir)
         free_gb = usage.free / 1024**3
         threshold = config.thresholds.disk_free_gb
-        report.add(section, Check(
-            "Disk space", OK if free_gb > threshold else WARN, f"{free_gb:.1f} GB free",
-            f"Alert threshold is {threshold} GB"))
+        report.add(
+            section,
+            Check(
+                "Disk space",
+                OK if free_gb > threshold else WARN,
+                f"{free_gb:.1f} GB free",
+                f"Alert threshold is {threshold} GB",
+            ),
+        )
     except OSError as exc:
-        report.add(section, Check("Disk space", UNKNOWN, "unknown",
-                                  f"The filesystem could not be queried: {exc}"))
+        report.add(
+            section,
+            Check("Disk space", UNKNOWN, "unknown", f"The filesystem could not be queried: {exc}"),
+        )
 
 
 def _https(report: Report, config, deep: bool) -> None:
@@ -298,121 +408,263 @@ def _https(report: Report, config, deep: bool) -> None:
 
 def _plain_http(report: Report, config, section: str) -> None:
     host, port = config.network.host, config.network.port
-    report.add(section, Check("TLS", WARN, "disabled",
-                              "tls.enabled is false, so the dashboard is served over plain HTTP. "
-                              "This is only acceptable on 127.0.0.1 for local development."))
+    report.add(
+        section,
+        Check(
+            "TLS",
+            WARN,
+            "disabled",
+            "tls.enabled is false, so the dashboard is served over plain HTTP. "
+            "This is only acceptable on 127.0.0.1 for local development.",
+        ),
+    )
     if host not in ("127.0.0.1", "localhost", "::1"):
-        report.add(section, Check("Plain HTTP binding", FAIL, f"{host}:{port}",
-                                  "HTTP is bound to a non-loopback address. Credentials would "
-                                  "cross the network unencrypted. Enable tls.enabled."))
+        report.add(
+            section,
+            Check(
+                "Plain HTTP binding",
+                FAIL,
+                f"{host}:{port}",
+                "HTTP is bound to a non-loopback address. Credentials would "
+                "cross the network unencrypted. Enable tls.enabled.",
+            ),
+        )
 
 
 def _certificate_file(report: Report, config, section: str, cert) -> bool:
     """Whether the certificate could be read; the other checks need it."""
     if cert.certificate_present is False:
-        report.add(section, Check("Certificate", FAIL, str(config.tls_certificate),
-                                  "No certificate file. Run: python -m installer.make_certs"))
+        report.add(
+            section,
+            Check(
+                "Certificate",
+                FAIL,
+                str(config.tls_certificate),
+                "No certificate file. Run: python -m installer.make_certs",
+            ),
+        )
         return False
     if not cert.parsed:
-        report.add(section, Check("Certificate", FAIL, str(config.tls_certificate),
-                                  cert.parse_error or "The certificate could not be parsed"))
+        report.add(
+            section,
+            Check(
+                "Certificate",
+                FAIL,
+                str(config.tls_certificate),
+                cert.parse_error or "The certificate could not be parsed",
+            ),
+        )
         return False
-    report.add(section, Check("Certificate", OK, str(config.tls_certificate),
-                              f"issued by {cert.issuer}"))
+    report.add(
+        section, Check("Certificate", OK, str(config.tls_certificate), f"issued by {cert.issuer}")
+    )
     return True
 
 
 def _certificate_expiry(report: Report, section: str, cert) -> None:
     if cert.expired:
-        report.add(section, Check("Certificate expiration", FAIL, "expired",
-                                  "The certificate is outside its validity window. Renew it."))
+        report.add(
+            section,
+            Check(
+                "Certificate expiration",
+                FAIL,
+                "expired",
+                "The certificate is outside its validity window. Renew it.",
+            ),
+        )
     elif cert.days_remaining is not None:
         status = {"critical": FAIL, "warn": WARN, "ok": OK}[cert.expiry_severity]
-        report.add(section, Check("Certificate expiration", status,
-                                  f"{cert.days_remaining:.0f} days",
-                                  "Renew with: python -m installer.make_certs --renew"
-                                  if status != OK else ""))
+        report.add(
+            section,
+            Check(
+                "Certificate expiration",
+                status,
+                f"{cert.days_remaining:.0f} days",
+                "Renew with: python -m installer.make_certs --renew" if status != OK else "",
+            ),
+        )
     else:
-        report.add(section, Check("Certificate expiration", UNKNOWN, "unknown",
-                                  "The validity dates could not be read."))
+        report.add(
+            section,
+            Check(
+                "Certificate expiration",
+                UNKNOWN,
+                "unknown",
+                "The validity dates could not be read.",
+            ),
+        )
 
 
 def _certificate_hostname(report: Report, config, section: str, cert) -> None:
     hostname = config.dashboard_hostname
     if not hostname:
-        report.add(section, Check("Certificate hostname", UNKNOWN, "not configured",
-                                  "tls.hostname is empty, so the agent cannot check that the "
-                                  f"certificate matches what you type. It covers: "
-                                  f"{', '.join(cert.names + cert.ip_names) or 'no names'}"))
+        report.add(
+            section,
+            Check(
+                "Certificate hostname",
+                UNKNOWN,
+                "not configured",
+                "tls.hostname is empty, so the agent cannot check that the "
+                f"certificate matches what you type. It covers: "
+                f"{', '.join(cert.names + cert.ip_names) or 'no names'}",
+            ),
+        )
         return
     covers = cert.covers(hostname)
     if covers is True:
         report.add(section, Check("Certificate hostname", OK, hostname))
     elif covers is False:
-        report.add(section, Check("Certificate hostname", FAIL, hostname,
-                                  "The certificate does not cover this name. It covers: "
-                                  f"{', '.join(cert.names + cert.ip_names)}. "
-                                  "Re-issue with: python -m installer.make_certs"))
+        report.add(
+            section,
+            Check(
+                "Certificate hostname",
+                FAIL,
+                hostname,
+                "The certificate does not cover this name. It covers: "
+                f"{', '.join(cert.names + cert.ip_names)}. "
+                "Re-issue with: python -m installer.make_certs",
+            ),
+        )
     else:
-        report.add(section, Check("Certificate hostname", UNKNOWN, hostname,
-                                  "The names in the certificate could not be read."))
+        report.add(
+            section,
+            Check(
+                "Certificate hostname",
+                UNKNOWN,
+                hostname,
+                "The names in the certificate could not be read.",
+            ),
+        )
 
 
 def _private_key(report: Report, config, section: str, cert) -> None:
     if cert.key_present is False:
-        report.add(section, Check("Private key", FAIL, str(config.tls_private_key),
-                                  "The private key file was not found."))
+        report.add(
+            section,
+            Check(
+                "Private key",
+                FAIL,
+                str(config.tls_private_key),
+                "The private key file was not found.",
+            ),
+        )
     elif cert.key_matches_certificate is True:
         report.add(section, Check("Private key", OK, "matches certificate"))
     elif cert.key_matches_certificate is False:
-        report.add(section, Check("Private key", FAIL, "does not match certificate",
-                                  "TLS will fail to start. Re-issue both files together."))
+        report.add(
+            section,
+            Check(
+                "Private key",
+                FAIL,
+                "does not match certificate",
+                "TLS will fail to start. Re-issue both files together.",
+            ),
+        )
     else:
-        report.add(section, Check("Private key", UNKNOWN, "not verified",
-                                  cert.key_check_error or "The key could not be compared."))
+        report.add(
+            section,
+            Check(
+                "Private key",
+                UNKNOWN,
+                "not verified",
+                cert.key_check_error or "The key could not be compared.",
+            ),
+        )
 
 
 def _https_listeners(report: Report, config, section: str) -> None:
     host, port = config.network.host, config.network.port
-    report.add(section, Check("HTTPS binding", OK, f"https://{host}:{port}",
-                              "This is the address the agent will listen on."))
+    report.add(
+        section,
+        Check(
+            "HTTPS binding",
+            OK,
+            f"https://{host}:{port}",
+            "This is the address the agent will listen on.",
+        ),
+    )
     if host in ("0.0.0.0", "::"):
-        report.add(section, Check("Bind scope", WARN, host,
-                                  "Binding to every interface. Prefer the Tailscale address so "
-                                  "the dashboard is not reachable from your LAN or a forwarded port."))
+        report.add(
+            section,
+            Check(
+                "Bind scope",
+                WARN,
+                host,
+                "Binding to every interface. Prefer the Tailscale address so "
+                "the dashboard is not reachable from your LAN or a forwarded port.",
+            ),
+        )
     if config.tls.http_redirect:
-        report.add(section, Check("HTTP redirect", OK,
-                                  f"http://{host}:{config.tls.http_redirect_port}",
-                                  "Redirect-only listener: it answers 308 to HTTPS and serves "
-                                  "no API, no data and no session."))
+        report.add(
+            section,
+            Check(
+                "HTTP redirect",
+                OK,
+                f"http://{host}:{config.tls.http_redirect_port}",
+                "Redirect-only listener: it answers 308 to HTTPS and serves "
+                "no API, no data and no session.",
+            ),
+        )
     else:
-        report.add(section, Check("HTTP redirect", SKIP, "disabled",
-                                  "Plain HTTP is not served at all."))
-    report.add(section, Check("HSTS", OK if config.tls.hsts else SKIP,
-                              f"max-age={config.tls.hsts_max_age}" if config.tls.hsts else "off",
-                              "Sent on HTTPS responses only, never over HTTP, and never on "
-                              "loopback, so local development is unaffected."))
-    report.add(section, Check("WebSocket", OK, "wss://",
-                              "The dashboard derives its socket scheme from the page, so an "
-                              "HTTPS dashboard always uses wss://."))
+        report.add(
+            section, Check("HTTP redirect", SKIP, "disabled", "Plain HTTP is not served at all.")
+        )
+    report.add(
+        section,
+        Check(
+            "HSTS",
+            OK if config.tls.hsts else SKIP,
+            f"max-age={config.tls.hsts_max_age}" if config.tls.hsts else "off",
+            "Sent on HTTPS responses only, never over HTTP, and never on "
+            "loopback, so local development is unaffected.",
+        ),
+    )
+    report.add(
+        section,
+        Check(
+            "WebSocket",
+            OK,
+            "wss://",
+            "The dashboard derives its socket scheme from the page, so an "
+            "HTTPS dashboard always uses wss://.",
+        ),
+    )
 
 
 def _tls_handshake(report: Report, config, section: str) -> None:
     host, port = config.network.host, config.network.port
     check_host = config.dashboard_hostname or ("127.0.0.1" if host in ("0.0.0.0", "::") else host)
-    result = verify_endpoint(host if host not in ("0.0.0.0", "::") else "127.0.0.1",
-                             port, config.tls_ca_certificate, server_hostname=check_host)
+    result = verify_endpoint(
+        host if host not in ("0.0.0.0", "::") else "127.0.0.1",
+        port,
+        config.tls_ca_certificate,
+        server_hostname=check_host,
+    )
     if result["verified"] is True:
-        report.add(section, Check("TLS handshake", OK,
-                                  f"{result['protocol']} / {result['cipher']}",
-                                  f"Verified against {check_host} with certificate checking on."))
+        report.add(
+            section,
+            Check(
+                "TLS handshake",
+                OK,
+                f"{result['protocol']} / {result['cipher']}",
+                f"Verified against {check_host} with certificate checking on.",
+            ),
+        )
     elif result["reachable"] is False:
-        report.add(section, Check("TLS handshake", UNKNOWN, "no agent listening",
-                                  "Nothing answered on that port. Start the agent and run "
-                                  "--check --deep again."))
+        report.add(
+            section,
+            Check(
+                "TLS handshake",
+                UNKNOWN,
+                "no agent listening",
+                "Nothing answered on that port. Start the agent and run --check --deep again.",
+            ),
+        )
     else:
-        report.add(section, Check("TLS handshake", FAIL, "not verified",
-                                  result["error"] or "unknown error"))
+        report.add(
+            section,
+            Check("TLS handshake", FAIL, "not verified", result["error"] or "unknown error"),
+        )
 
 
 def _tailscale(report: Report, config) -> None:
@@ -420,26 +672,65 @@ def _tailscale(report: Report, config) -> None:
     section = "Tailscale"
     status = tailscale_status()
     if not status["cli_found"]:
-        report.add(section, Check("Tailscale", UNKNOWN, "CLI not found",
-                                  "The tailscale command is not on this machine, so connectivity "
-                                  "cannot be verified. Install Tailscale for remote access."))
+        report.add(
+            section,
+            Check(
+                "Tailscale",
+                UNKNOWN,
+                "CLI not found",
+                "The tailscale command is not on this machine, so connectivity "
+                "cannot be verified. Install Tailscale for remote access.",
+            ),
+        )
     elif status.get("error"):
         report.add(section, Check("Tailscale", UNKNOWN, "not verified", status["error"]))
     elif status.get("connected"):
-        report.add(section, Check("Tailscale", OK, status.get("backend_state") or "Running",
-                                  "Verified through tailscale status."))
-        report.add(section, Check("Tailscale address", OK,
-                                  ", ".join(status.get("addresses") or []) or "none reported"))
+        report.add(
+            section,
+            Check(
+                "Tailscale",
+                OK,
+                status.get("backend_state") or "Running",
+                "Verified through tailscale status.",
+            ),
+        )
+        report.add(
+            section,
+            Check(
+                "Tailscale address", OK, ", ".join(status.get("addresses") or []) or "none reported"
+            ),
+        )
         if status.get("dns_name"):
-            report.add(section, Check("MagicDNS name", OK, status["dns_name"],
-                                      "Use this as tls.hostname and in the browser."))
+            report.add(
+                section,
+                Check(
+                    "MagicDNS name",
+                    OK,
+                    status["dns_name"],
+                    "Use this as tls.hostname and in the browser.",
+                ),
+            )
         else:
-            report.add(section, Check("MagicDNS name", WARN, "not available",
-                                      "Without MagicDNS you must use the 100.x address, and "
-                                      "Tailscale-issued certificates are not available."))
+            report.add(
+                section,
+                Check(
+                    "MagicDNS name",
+                    WARN,
+                    "not available",
+                    "Without MagicDNS you must use the 100.x address, and "
+                    "Tailscale-issued certificates are not available.",
+                ),
+            )
     else:
-        report.add(section, Check("Tailscale", FAIL, status.get("backend_state") or "not running",
-                                  "Tailscale is installed but not connected. Run: tailscale up"))
+        report.add(
+            section,
+            Check(
+                "Tailscale",
+                FAIL,
+                status.get("backend_state") or "not running",
+                "Tailscale is installed but not connected. Run: tailscale up",
+            ),
+        )
 
 
 def _authentication(report: Report, config) -> None:
@@ -447,14 +738,29 @@ def _authentication(report: Report, config) -> None:
     section = "Authentication"
     if config.admin_password_hash:
         algorithm = config.admin_password_hash.split("$")[0]
-        report.add(section, Check("Dashboard password", OK, f"{algorithm} hash configured",
-                                  f"User: {config.admin_username}"))
+        report.add(
+            section,
+            Check(
+                "Dashboard password",
+                OK,
+                f"{algorithm} hash configured",
+                f"User: {config.admin_username}",
+            ),
+        )
     else:
-        report.add(section, Check("Dashboard password", FAIL, "not set",
-                                  "Run: python -m installer.make_secrets"))
-    report.add(section, Check("API token", OK if config.api_token else SKIP,
-                              "configured" if config.api_token else "not set",
-                              "" if config.api_token else "Optional: only needed for scripts."))
+        report.add(
+            section,
+            Check("Dashboard password", FAIL, "not set", "Run: python -m installer.make_secrets"),
+        )
+    report.add(
+        section,
+        Check(
+            "API token",
+            OK if config.api_token else SKIP,
+            "configured" if config.api_token else "not set",
+            "" if config.api_token else "Optional: only needed for scripts.",
+        ),
+    )
     env_path = Path(__file__).resolve().parent.parent / ".env"
     if env_path.is_file():
         detail = ""
@@ -463,8 +769,10 @@ def _authentication(report: Report, config) -> None:
             detail = f"permissions {oct(mode)}" + (" - consider chmod 600" if mode & 0o077 else "")
         report.add(section, Check(".env file", OK, str(env_path), detail))
     else:
-        report.add(section, Check(".env file", WARN, "not found",
-                                  "Secrets are read from the environment instead."))
+        report.add(
+            section,
+            Check(".env file", WARN, "not found", "Secrets are read from the environment instead."),
+        )
 
 
 def _notifications(report: Report, config) -> None:
@@ -472,11 +780,22 @@ def _notifications(report: Report, config) -> None:
     section = "Notifications"
     if config.notifications.discord_enabled:
         if config.discord_webhook:
-            report.add(section, Check("Discord", OK, "enabled, webhook configured",
-                                      "Delivery is only proven by Settings -> Send test."))
+            report.add(
+                section,
+                Check(
+                    "Discord",
+                    OK,
+                    "enabled, webhook configured",
+                    "Delivery is only proven by Settings -> Send test.",
+                ),
+            )
         else:
-            report.add(section, Check("Discord", FAIL, "enabled but no webhook",
-                                      "Set MCSC_DISCORD_WEBHOOK in .env."))
+            report.add(
+                section,
+                Check(
+                    "Discord", FAIL, "enabled but no webhook", "Set MCSC_DISCORD_WEBHOOK in .env."
+                ),
+            )
     else:
         report.add(section, Check("Discord", SKIP, "disabled"))
     if config.notifications.email_enabled:
@@ -485,14 +804,35 @@ def _notifications(report: Report, config) -> None:
         if not email.to_addresses:
             missing.append("to_addresses")
         if missing:
-            report.add(section, Check("Email", FAIL, "enabled but incomplete",
-                                      f"Missing in config.yaml: {', '.join(missing)}"))
+            report.add(
+                section,
+                Check(
+                    "Email",
+                    FAIL,
+                    "enabled but incomplete",
+                    f"Missing in config.yaml: {', '.join(missing)}",
+                ),
+            )
         elif not config.smtp_password:
-            report.add(section, Check("Email", WARN, "no SMTP password",
-                                      "Set MCSC_SMTP_PASSWORD in .env if your server needs a login."))
+            report.add(
+                section,
+                Check(
+                    "Email",
+                    WARN,
+                    "no SMTP password",
+                    "Set MCSC_SMTP_PASSWORD in .env if your server needs a login.",
+                ),
+            )
         else:
-            report.add(section, Check("Email", OK, f"{email.host}:{email.port}",
-                                      "Delivery is only proven by Settings -> Send test."))
+            report.add(
+                section,
+                Check(
+                    "Email",
+                    OK,
+                    f"{email.host}:{email.port}",
+                    "Delivery is only proven by Settings -> Send test.",
+                ),
+            )
     else:
         report.add(section, Check("Email", SKIP, "disabled"))
 
@@ -502,46 +842,86 @@ def _windows_startup(report: Report, config) -> None:
     section = "Windows startup"
     try:
         from installer.autostart import report as startup_report
+
         startup = startup_report()
     except Exception as exc:  # the check must never crash the diagnostic
-        report.add(section, Check("Startup task", UNKNOWN, "not inspected",
-                                  f"The startup inspector failed: {exc}"))
+        report.add(
+            section,
+            Check("Startup task", UNKNOWN, "not inspected", f"The startup inspector failed: {exc}"),
+        )
         return
     if not startup["supported"]:
         report.add(section, Check("Startup task", SKIP, "not Windows"))
     elif not startup["registered"]:
-        report.add(section, Check("Startup task", WARN, "not registered",
-                                  "The agent will not start with Windows. Run (as Administrator): "
-                                  "python -m installer.autostart enable"))
+        report.add(
+            section,
+            Check(
+                "Startup task",
+                WARN,
+                "not registered",
+                "The agent will not start with Windows. Run (as Administrator): "
+                "python -m installer.autostart enable",
+            ),
+        )
     else:
         task = startup.get("task") or {}
         status = OK if startup["points_to_current_app"] else FAIL
-        report.add(section, Check("Startup task", status, startup["mechanism"],
-                                  f"mode={task.get('mode')}, runs {task.get('command')} "
-                                  f"in {task.get('working_directory')}"))
+        report.add(
+            section,
+            Check(
+                "Startup task",
+                status,
+                startup["mechanism"],
+                f"mode={task.get('mode')}, runs {task.get('command')} "
+                f"in {task.get('working_directory')}",
+            ),
+        )
     for problem in startup["problems"]:
         report.add(section, Check("Startup problem", FAIL, "", problem))
     last = startup.get("last_startup") or {}
     if last:
-        initialised = any(e.get("event") == "controller_initialized" for e in last.get("events", []))
-        report.add(section, Check(
-            "Last startup", OK if initialised else WARN,
-            f"{last.get('started_at')} ({last.get('launched_by')})",
-            f"outcome={last.get('outcome')}, last stage={last.get('last_event')}, "
-            f"controller initialised={'yes' if initialised else 'no'}"))
+        initialised = any(
+            e.get("event") == "controller_initialized" for e in last.get("events", [])
+        )
+        report.add(
+            section,
+            Check(
+                "Last startup",
+                OK if initialised else WARN,
+                f"{last.get('started_at')} ({last.get('launched_by')})",
+                f"outcome={last.get('outcome')}, last stage={last.get('last_event')}, "
+                f"controller initialised={'yes' if initialised else 'no'}",
+            ),
+        )
     else:
-        report.add(section, Check("Last startup", UNKNOWN, "none recorded",
-                                  "logs/startup.log has no entries yet."))
+        report.add(
+            section,
+            Check("Last startup", UNKNOWN, "none recorded", "logs/startup.log has no entries yet."),
+        )
 
 
 def _runtime(report: Report, config) -> None:
     """Python, the config file and the working directory."""
     section = "Runtime"
     report.add(section, Check("Python", OK, sys.version.split()[0], sys.executable))
-    report.add(section, Check("Config file", OK if config.source and Path(config.source).is_file() else WARN,
-                              str(config.source or "defaults only"),
-                              "" if config.source and Path(config.source).is_file()
-                              else "No config.yaml found; built-in defaults are in use."))
-    report.add(section, Check("Working directory", OK, os.getcwd(),
-                              "All paths the agent uses are absolute, so this does not matter "
-                              "when Windows starts the agent."))
+    report.add(
+        section,
+        Check(
+            "Config file",
+            OK if config.source and Path(config.source).is_file() else WARN,
+            str(config.source or "defaults only"),
+            ""
+            if config.source and Path(config.source).is_file()
+            else "No config.yaml found; built-in defaults are in use.",
+        ),
+    )
+    report.add(
+        section,
+        Check(
+            "Working directory",
+            OK,
+            os.getcwd(),
+            "All paths the agent uses are absolute, so this does not matter "
+            "when Windows starts the agent.",
+        ),
+    )

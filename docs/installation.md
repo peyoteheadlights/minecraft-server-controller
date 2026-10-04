@@ -32,10 +32,12 @@ C:\Main\minecraft-server-control\
 
 ```powershell
 cd C:\Main\minecraft-server-control
-pip install -r requirements.txt
+pip install -r requirements.lock
 ```
 
-If `pip` is not recognised, use `python -m pip install -r requirements.txt`.
+If `pip` is not recognised, use `python -m pip install -r requirements.lock`.
+`requirements.lock` pins the exact versions the automated tests use;
+`setup.ps1` installs from it too.
 
 ## 4. Configure
 

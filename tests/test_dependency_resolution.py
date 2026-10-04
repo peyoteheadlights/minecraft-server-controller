@@ -25,9 +25,18 @@ from .test_mods import make_jar
 def jar_bytes(mod_id, version, depends=None):
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as zf:
-        zf.writestr("fabric.mod.json", json.dumps({"schemaVersion": 1, "id": mod_id,
-                                                   "version": version, "name": mod_id.title(),
-                                                   "depends": depends or {}}))
+        zf.writestr(
+            "fabric.mod.json",
+            json.dumps(
+                {
+                    "schemaVersion": 1,
+                    "id": mod_id,
+                    "version": version,
+                    "name": mod_id.title(),
+                    "depends": depends or {},
+                }
+            ),
+        )
     return buffer.getvalue()
 
 
@@ -42,8 +51,12 @@ class FakeModrinth:
 
     def _info(self, slug):
         p = self.projects[slug]
-        return {"project_id": p["project_id"], "slug": slug, "title": p["title"],
-                "page": f"https://modrinth.com/mod/{slug}"}
+        return {
+            "project_id": p["project_id"],
+            "slug": slug,
+            "title": p["title"],
+            "page": f"https://modrinth.com/mod/{slug}",
+        }
 
     async def project(self, id_or_slug):
         slug = self.by_id.get(id_or_slug, id_or_slug)
@@ -56,12 +69,21 @@ class FakeModrinth:
         return {"hits": hits, "total": len(hits)}
 
     def _version(self, slug, number, deps, filename=None):
-        return {"version_id": f"{slug}-{number}", "project_id": self.projects[slug]["project_id"],
-                "version_number": number, "release_type": "release",
-                "game_versions": [self.mc], "loaders": ["fabric"],
-                "dependencies": [{"project_id": d, "type": "required"} for d in deps],
-                "file": {"filename": filename or f"{slug}-{number}.jar", "size": 1234,
-                         "url": f"https://cdn.modrinth.com/{slug}.jar", "sha512": "x"}}
+        return {
+            "version_id": f"{slug}-{number}",
+            "project_id": self.projects[slug]["project_id"],
+            "version_number": number,
+            "release_type": "release",
+            "game_versions": [self.mc],
+            "loaders": ["fabric"],
+            "dependencies": [{"project_id": d, "type": "required"} for d in deps],
+            "file": {
+                "filename": filename or f"{slug}-{number}.jar",
+                "size": 1234,
+                "url": f"https://cdn.modrinth.com/{slug}.jar",
+                "sha512": "x",
+            },
+        }
 
     async def versions(self, id_or_slug, minecraft_version=None, loader="fabric"):
         slug = self.by_id.get(id_or_slug, id_or_slug)
@@ -109,20 +131,34 @@ def item(report, mod_id):
 
 
 # ---------------------------------------------------------------- readable output
-@pytest.mark.parametrize("spec,words", [
-    ("*", "Any version"), ("", "Any version"), (">=1.2.0", "1.2.0 or newer"),
-    ("<2", "older than 2"), ("1.4.x", "any 1.4 release"), ("=3.1", "exactly 3.1"),
-    (">=1.0 <2.0", "1.0 or newer and older than 2.0"), ("~1.2.3", "1.2.3 or a newer 1.2.x release"),
-    ("^2.1", "2.1 or a newer 2.x release"), (">=1 || >=3", "1 or newer or 3 or newer"),
-])
+@pytest.mark.parametrize(
+    "spec,words",
+    [
+        ("*", "Any version"),
+        ("", "Any version"),
+        (">=1.2.0", "1.2.0 or newer"),
+        ("<2", "older than 2"),
+        ("1.4.x", "any 1.4 release"),
+        ("=3.1", "exactly 3.1"),
+        (">=1.0 <2.0", "1.0 or newer and older than 2.0"),
+        ("~1.2.3", "1.2.3 or a newer 1.2.x release"),
+        ("^2.1", "2.1 or a newer 2.x release"),
+        (">=1 || >=3", "1 or newer or 3 or newer"),
+    ],
+)
 def test_version_ranges_read_as_words(spec, words):
     assert describe_range(spec) == words
 
 
 def test_the_skinsrestorer_case_is_understandable(mods, config):
     """The exact message the user found cryptic: 'SkinsRestorer requires cloud *'."""
-    make_jar(config.mods_dir / "skinsrestorer.jar", "skinsrestorer", "15.0",
-             name="SkinsRestorer", depends={"cloud": "*"})
+    make_jar(
+        config.mods_dir / "skinsrestorer.jar",
+        "skinsrestorer",
+        "15.0",
+        name="SkinsRestorer",
+        depends={"cloud": "*"},
+    )
     report = mods.deps.analyse()
     dep = item(report, "cloud")
     assert dep["status"] == "missing"
@@ -130,7 +166,9 @@ def test_the_skinsrestorer_case_is_understandable(mods, config):
     assert dep["name"] == "Cloud"
     assert dep["range_text"] == "Any version"
     assert dep["required_by"][0]["name"] == "SkinsRestorer"
-    detail = next(p["detail"] for p in mods.check_all()["problems"] if p["kind"] == "missing_dependency")
+    detail = next(
+        p["detail"] for p in mods.check_all()["problems"] if p["kind"] == "missing_dependency"
+    )
     assert "*" not in detail and "Any version" in detail
 
 
@@ -153,8 +191,12 @@ def test_an_incompatible_version_is_reported_not_replaced(mods, config):
 def test_an_optional_dependency_is_listed_but_not_required(mods, config):
     path = config.mods_dir / "a.jar"
     with zipfile.ZipFile(path, "w") as zf:
-        zf.writestr("fabric.mod.json", json.dumps({"schemaVersion": 1, "id": "moda", "version": "1",
-                                                   "recommends": {"extras": "*"}}))
+        zf.writestr(
+            "fabric.mod.json",
+            json.dumps(
+                {"schemaVersion": 1, "id": "moda", "version": "1", "recommends": {"extras": "*"}}
+            ),
+        )
     report = mods.deps.analyse()
     assert item(report, "extras")["kind"] == "optional"
     assert "extras" not in report["missing_required"]
@@ -175,7 +217,16 @@ def test_minecraft_version_is_checked_as_a_platform_requirement(mods, config):
 
 async def test_modrinth_supplies_the_readable_name(mods, config):
     make_jar(config.mods_dir / "a.jar", "moda", depends={"cloud": "*"})
-    use(mods, {"cloud": {"project_id": "CLOUD001", "title": "Cloud Command Framework", "versions": [("2.0", [])]}})
+    use(
+        mods,
+        {
+            "cloud": {
+                "project_id": "CLOUD001",
+                "title": "Cloud Command Framework",
+                "versions": [("2.0", [])],
+            }
+        },
+    )
     report = await mods.deps.describe(mods.deps.analyse())
     dep = item(report, "cloud")
     assert dep["name"] == "Cloud Command Framework"
@@ -223,7 +274,7 @@ async def test_a_dependency_shared_by_two_mods_is_downloaded_once(mods, config):
 
 async def test_an_installed_dependency_is_never_downloaded_again(mods, config):
     make_jar(config.mods_dir / "a.jar", "mod-a", depends={"mod-b": "*"})
-    make_jar(config.mods_dir / "mod-c.jar", "mod-c", "9.0")     # newer than Modrinth offers
+    make_jar(config.mods_dir / "mod-c.jar", "mod-c", "9.0")  # newer than Modrinth offers
     fake = use(mods, NESTED)
     plan = await mods.deps.plan()
     assert [i["slug"] for i in plan["items"]] == ["mod-b"]
@@ -235,8 +286,16 @@ async def test_an_installed_dependency_is_never_downloaded_again(mods, config):
 
 async def test_a_version_satisfying_the_range_is_chosen(mods, config):
     make_jar(config.mods_dir / "a.jar", "mod-a", depends={"lib": "<2.0"})
-    use(mods, {"lib": {"project_id": "LIB00001", "title": "Lib",
-                       "versions": [("2.5", []), ("1.9", []), ("1.0", [])]}})
+    use(
+        mods,
+        {
+            "lib": {
+                "project_id": "LIB00001",
+                "title": "Lib",
+                "versions": [("2.5", []), ("1.9", []), ("1.0", [])],
+            }
+        },
+    )
     plan = await mods.deps.plan()
     assert plan["items"][0]["version_number"] == "1.9"
     assert plan["items"][0]["range_verified"] is True
@@ -269,8 +328,16 @@ async def test_malicious_identifiers_are_refused(mods, config):
 
 async def test_a_traversal_filename_from_modrinth_writes_nothing(mods, config, tmp_path):
     make_jar(config.mods_dir / "a.jar", "mod-a", depends={"evil": "*"})
-    use(mods, {"evil": {"project_id": "EVIL0001", "title": "Evil",
-                        "versions": [("1.0", [], "../../escaped.jar")]}})
+    use(
+        mods,
+        {
+            "evil": {
+                "project_id": "EVIL0001",
+                "title": "Evil",
+                "versions": [("1.0", [], "../../escaped.jar")],
+            }
+        },
+    )
     result = await mods.deps.install(None, user="tester")
     assert result["results"][0]["result"] == "failed"
     assert not list(tmp_path.rglob("escaped.jar"))
@@ -290,25 +357,43 @@ async def test_installing_is_refused_while_the_server_runs(mods, config):
 
 def test_dependency_endpoints(config, monkeypatch):
     from fastapi.testclient import TestClient
+
     from agent.main import create_app
     from agent.security.auth import hash_password
-    monkeypatch.setenv("MCSC_ADMIN_PASSWORD_HASH", hash_password("long enough password", rounds=1000))
-    make_jar(config.mods_dir / "skinsrestorer.jar", "skinsrestorer", name="SkinsRestorer",
-             depends={"cloud": "*"})
+
+    monkeypatch.setenv(
+        "MCSC_ADMIN_PASSWORD_HASH", hash_password("long enough password", rounds=1000)
+    )
+    make_jar(
+        config.mods_dir / "skinsrestorer.jar",
+        "skinsrestorer",
+        name="SkinsRestorer",
+        depends={"cloud": "*"},
+    )
     with TestClient(create_app(config)) as client:
         core = client.app.state.core
         core.server.mc_version = "1.21.1"
-        core.mods.modrinth = FakeModrinth({"cloud": {"project_id": "CLOUD001", "title": "Cloud",
-                                                     "versions": [("2.0", [])]}})
-        token = client.post("/api/auth/login", json={"username": "admin",
-                                                     "password": "long enough password"}).json()["token"]
+        core.mods.modrinth = FakeModrinth(
+            {"cloud": {"project_id": "CLOUD001", "title": "Cloud", "versions": [("2.0", [])]}}
+        )
+        token = client.post(
+            "/api/auth/login", json={"username": "admin", "password": "long enough password"}
+        ).json()["token"]
         headers = {"Authorization": f"Bearer {token}"}
         report = client.get("/api/mods/dependencies", headers=headers).json()
         cloud = item(report, "cloud")
-        assert (cloud["name"], cloud["range_text"], cloud["status"]) == ("Cloud", "Any version", "missing")
+        assert (cloud["name"], cloud["range_text"], cloud["status"]) == (
+            "Cloud",
+            "Any version",
+            "missing",
+        )
         plan = client.post("/api/mods/dependencies/plan", headers=headers, json={}).json()
         assert plan["items"][0]["title"] == "Cloud"
         installed = client.post("/api/mods/dependencies/install", headers=headers, json={}).json()
         assert installed["results"][0]["result"] == "installed"
-        assert client.post("/api/mods/dependencies/plan", headers=headers,
-                           json={"mod_ids": ["../x"]}).status_code == 400
+        assert (
+            client.post(
+                "/api/mods/dependencies/plan", headers=headers, json={"mod_ids": ["../x"]}
+            ).status_code
+            == 400
+        )

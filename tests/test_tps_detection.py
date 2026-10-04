@@ -37,7 +37,9 @@ async def finish(server):
         await server.stop()
 
 
-@pytest.mark.parametrize("provider,expected", [("tick", "tick query"), ("carpet", "tps"), ("spark", "spark tps")])
+@pytest.mark.parametrize(
+    "provider,expected", [("tick", "tick query"), ("carpet", "tps"), ("spark", "spark tps")]
+)
 async def test_each_provider_is_detected(setup, provider, expected):
     config, bus, db, server, monitor = setup
     await online(server, provider)
@@ -57,7 +59,7 @@ async def test_each_provider_is_detected(setup, provider, expected):
 
 async def test_vanilla_tps_comes_from_measured_tick_time_not_the_target(setup, monkeypatch):
     config, bus, db, server, monitor = setup
-    monkeypatch.setenv("FAKE_MSPT", "80.0")      # an overloaded server
+    monkeypatch.setenv("FAKE_MSPT", "80.0")  # an overloaded server
     await online(server, "tick")
     try:
         await monitor.detect()
@@ -184,5 +186,7 @@ async def test_redetect_needs_an_online_server(setup):
 
 async def test_target_rate_line_alone_never_sets_tps(setup):
     config, bus, db, server, monitor = setup
-    await server._handle_signals(parse_line("[10:00:00] [Server thread/INFO]: Target tick rate: 20.0 per second.", 1))
+    await server._handle_signals(
+        parse_line("[10:00:00] [Server thread/INFO]: Target tick rate: 20.0 per second.", 1)
+    )
     assert server.tps is None

@@ -18,13 +18,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from agent.config import Config  # noqa: E402
-from agent.security.certs import (  # noqa: E402
+from agent.config import Config
+from agent.security.certs import (
     provision,
     secure_directory,
 )
-from agent.tailscale import tailscale_status  # noqa: E402
-from agent.security.tls import fingerprint, inspect_certificate  # noqa: E402
+from agent.security.tls import fingerprint, inspect_certificate
+from agent.tailscale import tailscale_status
 
 
 def show(config: Config) -> int:
@@ -56,10 +56,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", help="Path to config.yaml")
     parser.add_argument("--renew", action="store_true", help="Re-issue, keeping the existing CA")
     parser.add_argument("--local-ca", action="store_true", help="Do not try Tailscale")
-    parser.add_argument("--host", action="append", default=[],
-                        help="Extra hostname for the certificate (repeatable)")
-    parser.add_argument("--ip", action="append", default=[],
-                        help="Extra IP address for the certificate (repeatable)")
+    parser.add_argument(
+        "--host",
+        action="append",
+        default=[],
+        help="Extra hostname for the certificate (repeatable)",
+    )
+    parser.add_argument(
+        "--ip",
+        action="append",
+        default=[],
+        help="Extra IP address for the certificate (repeatable)",
+    )
     parser.add_argument("--show", action="store_true", help="Report on the current certificate")
     args = parser.parse_args(argv)
 
@@ -82,8 +90,9 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(f"  Tailscale CLI    : not found ({status.get('error')})")
 
-    report = provision(cert_dir, extra_hostnames=args.host, extra_ips=args.ip,
-                       prefer_tailscale=not args.local_ca)
+    report = provision(
+        cert_dir, extra_hostnames=args.host, extra_ips=args.ip, prefer_tailscale=not args.local_ca
+    )
     result = report["result"]
 
     if report.get("tailscale_error"):
@@ -119,8 +128,10 @@ def main(argv: list[str] | None = None) -> int:
         print("  Trust the CA once on each device, then no browser warnings ever again:")
         print()
         print("  Windows (Administrator PowerShell):")
-        print(f'    Import-Certificate -FilePath "{ca_path}" '
-              r'-CertStoreLocation Cert:\LocalMachine\Root')
+        print(
+            f'    Import-Certificate -FilePath "{ca_path}" '
+            r"-CertStoreLocation Cert:\LocalMachine\Root"
+        )
         print()
         print("  Android: copy ca.crt to the phone, then Settings -> Security ->")
         print("           Encryption & credentials -> Install a certificate -> CA certificate")
@@ -146,8 +157,10 @@ def main(argv: list[str] | None = None) -> int:
     print("-" * 56)
     print(f"  Parsed            : {info.parsed}")
     print(f"  Key matches cert  : {info.key_matches_certificate}")
-    print(f"  Expires in        : "
-          f"{f'{info.days_remaining:.0f} days' if info.days_remaining is not None else 'unknown'}")
+    print(
+        f"  Expires in        : "
+        f"{f'{info.days_remaining:.0f} days' if info.days_remaining is not None else 'unknown'}"
+    )
     print(f"  Covers {hostname:<11}: {info.covers(hostname)}")
     print(f"\n  Updated {saved}")
     print(f"  Dashboard URL     : https://{hostname}:{config.network.port}")

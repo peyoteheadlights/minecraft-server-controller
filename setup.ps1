@@ -166,12 +166,16 @@ if ($Writing) {
         }
     }
     & $VenvPy -m pip install --disable-pip-version-check --quiet --upgrade pip setuptools wheel
-    & $VenvPy -m pip install --disable-pip-version-check --quiet -r (Join-Path $ProjectRoot 'requirements.txt')
+    # requirements.lock pins the exact versions (with hashes) that CI tests.
+    $ReqFile = 'requirements.lock'
+    $HashArgs = @('--require-hashes')
+    if (-not (Test-Path (Join-Path $ProjectRoot $ReqFile))) { $ReqFile = 'requirements.txt'; $HashArgs = @() }
+    & $VenvPy -m pip install --disable-pip-version-check --quiet @HashArgs -r (Join-Path $ProjectRoot $ReqFile)
     if ($LASTEXITCODE -ne 0) {
         Stop-Setup 'The dependencies could not be installed.' "pip exited with code $LASTEXITCODE. This is usually a network problem." `
             'Check the internet connection (and any proxy), then run setup again. Nothing was left half-configured.'
     }
-    Write-Status 'OK' 'Dependencies' 'installed from requirements.txt'
+    Write-Status 'OK' 'Dependencies' "installed from $ReqFile"
     $Pre += 'Dependencies=OK'
 } elseif ($venvState -ne 'ok') {
     Write-Status 'SKIP' 'Dependencies' 'cannot be checked without a working virtual environment'

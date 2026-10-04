@@ -14,12 +14,14 @@ def test_index_loads_one_module_entry_point():
     html = (WEB / "index.html").read_text(encoding="utf-8")
     scripts = re.findall(r"<script[^>]*>", html)
     assert '<script type="module" src="/assets/js/main.js">' in scripts
-    assert all("type=\"module\"" in s or "theme.js" in s for s in scripts)
+    assert all('type="module"' in s or "theme.js" in s for s in scripts)
 
 
 def test_every_import_points_at_a_real_file():
     for module in modules():
-        for target in re.findall(r'^import .*?"(\.[^"]+)";', module.read_text(encoding="utf-8"), re.M):
+        for target in re.findall(
+            r'^import .*?"(\.[^"]+)";', module.read_text(encoding="utf-8"), re.M
+        ):
             assert (module.parent / target).resolve().is_file(), f"{module.name} imports {target}"
 
 

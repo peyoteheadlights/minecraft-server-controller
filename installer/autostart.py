@@ -129,9 +129,15 @@ def current_user() -> str:
 # ======================================================================
 # Task XML
 # ======================================================================
-def build_task_xml(mode: str, user: str, command: str, arguments: str, working_directory: str,
-                   keepalive_minutes: int = KEEPALIVE_MINUTES,
-                   start_boundary: str | None = None) -> str:
+def build_task_xml(
+    mode: str,
+    user: str,
+    command: str,
+    arguments: str,
+    working_directory: str,
+    keepalive_minutes: int = KEEPALIVE_MINUTES,
+    start_boundary: str | None = None,
+) -> str:
     """The complete task definition.
 
     Element order follows what Task Scheduler itself exports, so the file is
@@ -156,8 +162,10 @@ def build_task_xml(mode: str, user: str, command: str, arguments: str, working_d
             "    </BootTrigger>\n"
         )
         logon_type = "S4U"
-        description = ("Starts the Minecraft Server Control agent when Windows boots, "
-                       "without anyone needing to log in.")
+        description = (
+            "Starts the Minecraft Server Control agent when Windows boots, "
+            "without anyone needing to log in."
+        )
     else:
         startup_trigger = (
             "    <LogonTrigger>\n"
@@ -167,8 +175,7 @@ def build_task_xml(mode: str, user: str, command: str, arguments: str, working_d
             "    </LogonTrigger>\n"
         )
         logon_type = "InteractiveToken"
-        description = ("Starts the Minecraft Server Control agent when "
-                       f"{user} logs in to Windows.")
+        description = f"Starts the Minecraft Server Control agent when {user} logs in to Windows."
 
     keepalive = (
         "    <TimeTrigger>\n"
@@ -236,7 +243,7 @@ def build_task_xml(mode: str, user: str, command: str, arguments: str, working_d
 TASK_DEFAULTS = {
     "run_level": "LeastPrivilege",
     "multiple_instances": "IgnoreNew",
-    "execution_time_limit": "PT72H",   # the 72-hour limit this project turns off
+    "execution_time_limit": "PT72H",  # the 72-hour limit this project turns off
 }
 
 
@@ -244,7 +251,7 @@ def parse_task_xml(xml_text: str) -> dict[str, Any]:
     """Read back what is actually registered. Source of truth for the report."""
     text = xml_text.lstrip("\ufeff").strip()
     if text.startswith("<?xml"):
-        text = text[text.index("?>") + 2:]
+        text = text[text.index("?>") + 2 :]
     root = ET.fromstring(text)
     ns = {"t": TASK_NS}
 
@@ -259,13 +266,19 @@ def parse_task_xml(xml_text: str) -> dict[str, Any]:
             kind = trig.tag.split("}")[-1]
             interval = trig.find("t:Repetition/t:Interval", ns)
             enabled = trig.find("t:Enabled", ns)
-            triggers.append({
-                "type": kind,
-                "enabled": (enabled.text.strip().lower() != "false") if enabled is not None and enabled.text else True,
-                "repeat_every": interval.text.strip() if interval is not None and interval.text else None,
-                "delay": (trig.find("t:Delay", ns).text.strip()
-                          if trig.find("t:Delay", ns) is not None and trig.find("t:Delay", ns).text else None),
-            })
+            delay = trig.find("t:Delay", ns)
+            triggers.append(
+                {
+                    "type": kind,
+                    "enabled": (enabled.text.strip().lower() != "false")
+                    if enabled is not None and enabled.text
+                    else True,
+                    "repeat_every": interval.text.strip()
+                    if interval is not None and interval.text
+                    else None,
+                    "delay": delay.text.strip() if delay is not None and delay.text else None,
+                }
+            )
 
     logon_type = find("t:Principals/t:Principal/t:LogonType")
     mode = None
@@ -273,7 +286,7 @@ def parse_task_xml(xml_text: str) -> dict[str, Any]:
         mode = "boot"
     elif any(t["type"] == "LogonTrigger" for t in triggers):
         mode = "logon"
-    enabled = find("t:Settings/t:Enabled")
+    task_enabled = find("t:Settings/t:Enabled")
 
     return {
         "command": find("t:Actions/t:Exec/t:Command"),
@@ -285,12 +298,15 @@ def parse_task_xml(xml_text: str) -> dict[str, Any]:
         # default when it exports a task, so an absent element means the
         # default applies - it does not mean "unknown".
         "run_level": find("t:Principals/t:Principal/t:RunLevel") or TASK_DEFAULTS["run_level"],
-        "enabled": (enabled or "true").lower() != "false",
-        "multiple_instances": (find("t:Settings/t:MultipleInstancesPolicy")
-                               or TASK_DEFAULTS["multiple_instances"]),
-        "execution_time_limit": (find("t:Settings/t:ExecutionTimeLimit")
-                                 or TASK_DEFAULTS["execution_time_limit"]),
-        "stops_on_battery": (find("t:Settings/t:StopIfGoingOnBatteries") or "true").lower() == "true",
+        "enabled": (task_enabled or "true").lower() != "false",
+        "multiple_instances": (
+            find("t:Settings/t:MultipleInstancesPolicy") or TASK_DEFAULTS["multiple_instances"]
+        ),
+        "execution_time_limit": (
+            find("t:Settings/t:ExecutionTimeLimit") or TASK_DEFAULTS["execution_time_limit"]
+        ),
+        "stops_on_battery": (find("t:Settings/t:StopIfGoingOnBatteries") or "true").lower()
+        == "true",
         "mode": mode,
         "triggers": triggers,
     }
@@ -304,23 +320,33 @@ def compare_to_expected(registered: dict[str, Any], expected: dict[str, str]) ->
 
     problems = []
     if norm(registered.get("command")) != norm(expected["command"]):
-        problems.append(f"The task runs {registered.get('command')!r}, but this installation's "
-                        f"interpreter is {expected['command']!r}")
+        problems.append(
+            f"The task runs {registered.get('command')!r}, but this installation's "
+            f"interpreter is {expected['command']!r}"
+        )
     if (registered.get("arguments") or "").split()[:2] != ["-m", "agent.main"]:
-        problems.append(f"The task arguments are {registered.get('arguments')!r}, "
-                        "expected '-m agent.main --launched-by task'")
+        problems.append(
+            f"The task arguments are {registered.get('arguments')!r}, "
+            "expected '-m agent.main --launched-by task'"
+        )
     if norm(registered.get("working_directory")) != norm(expected["working_directory"]):
-        problems.append(f"The task starts in {registered.get('working_directory')!r}, but the "
-                        f"project is at {expected['working_directory']!r}. "
-                        "`-m agent.main` only works from the project folder.")
+        problems.append(
+            f"The task starts in {registered.get('working_directory')!r}, but the "
+            f"project is at {expected['working_directory']!r}. "
+            "`-m agent.main` only works from the project folder."
+        )
     if registered.get("execution_time_limit") != "PT0S":
-        problems.append(f"The task has a time limit of {registered['execution_time_limit']}; "
-                        "Windows will kill the agent when it is reached")
+        problems.append(
+            f"The task has a time limit of {registered['execution_time_limit']}; "
+            "Windows will kill the agent when it is reached"
+        )
     if registered.get("stops_on_battery"):
         problems.append("The task stops when the PC switches to battery power")
     if registered.get("multiple_instances") != "IgnoreNew":
-        problems.append(f"Multiple-instance policy is {registered['multiple_instances']}; "
-                        "a second copy could start and fight over the port")
+        problems.append(
+            f"Multiple-instance policy is {registered['multiple_instances']}; "
+            "a second copy could start and fight over the port"
+        )
     if not registered.get("enabled"):
         problems.append("The task exists but is disabled")
     return problems
@@ -350,8 +376,9 @@ def run_tool(args: list[str], timeout: float = 60) -> tuple[int, str, str]:
     if not isinstance(args, list) or not all(isinstance(a, str) for a in args):
         raise TypeError("run_tool requires a list of strings")
     try:
-        proc = subprocess.run([*args], capture_output=True, timeout=timeout,
-                              creationflags=NO_WINDOW)
+        proc = subprocess.run(
+            [*args], capture_output=True, timeout=timeout, creationflags=NO_WINDOW
+        )
     except FileNotFoundError:
         return 127, "", f"{args[0]} was not found"
     except (OSError, subprocess.SubprocessError) as exc:
@@ -364,6 +391,7 @@ def is_admin() -> bool | None:
         return None
     try:
         import ctypes
+
         return bool(ctypes.windll.shell32.IsUserAnAdmin())
     except Exception:
         return None
@@ -387,12 +415,20 @@ def task_runtime() -> dict[str, Any]:
     guessed.
     """
     code, out, _ = run_tool(["schtasks.exe", "/Query", "/TN", TASK_NAME, "/V", "/FO", "LIST"])
-    info: dict[str, Any] = {"status": None, "last_run_time": None,
-                            "last_result": None, "next_run_time": None}
+    info: dict[str, Any] = {
+        "status": None,
+        "last_run_time": None,
+        "last_result": None,
+        "next_run_time": None,
+    }
     if code != 0:
         return info
-    wanted = {"status": "status", "last run time": "last_run_time",
-              "last result": "last_result", "next run time": "next_run_time"}
+    wanted = {
+        "status": "status",
+        "last run time": "last_run_time",
+        "last result": "last_result",
+        "next run time": "next_run_time",
+    }
     for line in out.splitlines():
         if ":" not in line:
             continue
@@ -401,10 +437,14 @@ def task_runtime() -> dict[str, Any]:
         if key in wanted and info[wanted[key]] is None:
             info[wanted[key]] = value.strip()
     if info["last_result"] is not None:
-        meanings = {"0": "0 (success)", "267009": "267009 (currently running)",
-                    "267011": "267011 (has not run yet)", "1": "1 (the agent exited with an error)",
-                    "2": "2 (the agent refused to start - see logs/startup.log)",
-                    "3": "3 (the network address never became available)"}
+        meanings = {
+            "0": "0 (success)",
+            "267009": "267009 (currently running)",
+            "267011": "267011 (has not run yet)",
+            "1": "1 (the agent exited with an error)",
+            "2": "2 (the agent refused to start - see logs/startup.log)",
+            "3": "3 (the network address never became available)",
+        }
         info["last_result"] = meanings.get(info["last_result"], info["last_result"])
     return info
 
@@ -412,8 +452,12 @@ def task_runtime() -> dict[str, Any]:
 def legacy_service() -> dict[str, Any]:
     """Look for the old pywin32 service, which would fight the task for
     the port."""
-    result: dict[str, Any] = {"exists": False, "state": None,
-                              "python_class": None, "python_class_valid": None}
+    result: dict[str, Any] = {
+        "exists": False,
+        "state": None,
+        "python_class": None,
+        "python_class_valid": None,
+    }
     if not IS_WINDOWS:
         return result
     code, out, _ = run_tool(["sc.exe", "query", LEGACY_SERVICE])
@@ -425,8 +469,11 @@ def legacy_service() -> dict[str, Any]:
             result["state"] = line.split(":", 1)[1].strip()
     try:
         import winreg
-        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
-                            rf"SYSTEM\CurrentControlSet\Services\{LEGACY_SERVICE}\PythonClass") as key:
+
+        with winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE,
+            rf"SYSTEM\CurrentControlSet\Services\{LEGACY_SERVICE}\PythonClass",
+        ) as key:
             value, _ = winreg.QueryValueEx(key, "")
         result["python_class"] = value
         result["python_class_valid"] = not str(value).startswith("__main__.")
@@ -444,7 +491,11 @@ def other_startup_entries() -> list[dict[str, str]]:
     markers = ("agent.main", "minecraft-server-control", "installer.service", "mcsc")
     try:
         import winreg
-        for hive, hive_name in ((winreg.HKEY_CURRENT_USER, "HKCU"), (winreg.HKEY_LOCAL_MACHINE, "HKLM")):
+
+        for hive, hive_name in (
+            (winreg.HKEY_CURRENT_USER, "HKCU"),
+            (winreg.HKEY_LOCAL_MACHINE, "HKLM"),
+        ):
             path = r"Software\Microsoft\Windows\CurrentVersion\Run"
             try:
                 with winreg.OpenKey(hive, path) as key:
@@ -455,9 +506,13 @@ def other_startup_entries() -> list[dict[str, str]]:
                         except OSError:
                             break
                         if any(m in str(value).lower() for m in markers):
-                            found.append({"kind": "registry Run key",
-                                          "location": f"{hive_name}\\{path}\\{name}",
-                                          "value": str(value)})
+                            found.append(
+                                {
+                                    "kind": "registry Run key",
+                                    "location": f"{hive_name}\\{path}\\{name}",
+                                    "value": str(value),
+                                }
+                            )
                         index += 1
             except OSError:
                 continue
@@ -472,8 +527,13 @@ def other_startup_entries() -> list[dict[str, str]]:
             continue
         for item in folder.iterdir():
             if "minecraft" in item.name.lower() or "mcsc" in item.name.lower():
-                found.append({"kind": "Startup folder item", "location": str(item),
-                              "value": "(shortcut target not inspected)"})
+                found.append(
+                    {
+                        "kind": "Startup folder item",
+                        "location": str(item),
+                        "value": "(shortcut target not inspected)",
+                    }
+                )
     return found
 
 
@@ -495,7 +555,9 @@ def remove_legacy_service() -> dict[str, Any] | None:
     code, out, err = run_tool(["sc.exe", "delete", LEGACY_SERVICE])
     if code != 0:
         raise AutostartError(f"The old service could not be removed: {(err or out).strip()}")
-    startup_diag.append_event("setup.log", "legacy_service_removed", python_class=info.get("python_class"))
+    startup_diag.append_event(
+        "setup.log", "legacy_service_removed", python_class=info.get("python_class")
+    )
     return info
 
 
@@ -507,6 +569,7 @@ def pin_java_path(config_path: Path) -> str | None:
     or None if nothing needed changing.
     """
     from agent.config import Config
+
     config = Config.load(config_path)
     current = config.server.java
     if config.server.raw_command or Path(current).is_absolute():
@@ -522,7 +585,9 @@ def pin_java_path(config_path: Path) -> str | None:
     return str(Path(resolved).resolve())
 
 
-def enable(mode: str = "boot", pin_java: bool = True, executable: str | None = None) -> dict[str, Any]:
+def enable(
+    mode: str = "boot", pin_java: bool = True, executable: str | None = None
+) -> dict[str, Any]:
     _require_windows()
     if mode not in MODES:
         raise AutostartError(f"mode must be one of {MODES}")
@@ -549,7 +614,8 @@ def enable(mode: str = "boot", pin_java: bool = True, executable: str | None = N
             why = "its PythonClass value could not be read"
         report["actions"].append(
             f"Removed the old Windows Service '{LEGACY_SERVICE}' ({why}; it would also "
-            "conflict with the scheduled task).")
+            "conflict with the scheduled task)."
+        )
 
     if pin_java:
         pinned = pin_java_path(PROJECT_ROOT / "config" / "config.yaml")
@@ -558,16 +624,18 @@ def enable(mode: str = "boot", pin_java: bool = True, executable: str | None = N
 
     launch = expected_launch(executable)
     user = current_user()
-    xml = build_task_xml(mode, user, launch["command"], launch["arguments"],
-                         launch["working_directory"])
+    xml = build_task_xml(
+        mode, user, launch["command"], launch["arguments"], launch["working_directory"]
+    )
     with tempfile.NamedTemporaryFile("w", suffix=".xml", delete=False, encoding="utf-16") as fh:
         fh.write(xml)
         xml_path = fh.name
     try:
         # /F replaces an existing task of the same name, so re-running enable
         # never creates a duplicate.
-        code, out, err = run_tool(["schtasks.exe", "/Create", "/TN", TASK_NAME,
-                                   "/XML", xml_path, "/F"])
+        code, out, err = run_tool(
+            ["schtasks.exe", "/Create", "/TN", TASK_NAME, "/XML", xml_path, "/F"]
+        )
     finally:
         try:
             os.unlink(xml_path)
@@ -585,11 +653,16 @@ def enable(mode: str = "boot", pin_java: bool = True, executable: str | None = N
         raise AutostartError("schtasks reported success but the task could not be read back")
     mismatches = compare_to_expected(registered, launch)
     if mismatches:
-        raise AutostartError("The task was created but does not match what was requested: "
-                             + "; ".join(mismatches))
-    startup_diag.append_event("setup.log", "startup_task_created", task=TASK_NAME, mode=mode, user=user, **launch)
+        raise AutostartError(
+            "The task was created but does not match what was requested: " + "; ".join(mismatches)
+        )
+    startup_diag.append_event(
+        "setup.log", "startup_task_created", task=TASK_NAME, mode=mode, user=user, **launch
+    )
     report.update({"registered": registered, "user": user, "launch": launch})
-    report["actions"].append(f"Registered scheduled task '{TASK_NAME}' ({mode} mode) and read it back")
+    report["actions"].append(
+        f"Registered scheduled task '{TASK_NAME}' ({mode} mode) and read it back"
+    )
     return report
 
 
@@ -602,10 +675,12 @@ def disable() -> dict[str, Any]:
     if code != 0:
         raise AutostartError(f"schtasks could not delete the task: {(err or out).strip()}")
     startup_diag.append_event("setup.log", "startup_task_removed", task=TASK_NAME)
-    return {"removed": True,
-            "detail": f"Removed '{TASK_NAME}'. The agent will no longer start with Windows. "
-                      "If it is running now, it has been stopped; Minecraft keeps running only "
-                      "if it was started separately."}
+    return {
+        "removed": True,
+        "detail": f"Removed '{TASK_NAME}'. The agent will no longer start with Windows. "
+        "If it is running now, it has been stopped; Minecraft keeps running only "
+        "if it was started separately.",
+    }
 
 
 def run_now() -> dict[str, Any]:
@@ -613,9 +688,11 @@ def run_now() -> dict[str, Any]:
     code, out, err = run_tool(["schtasks.exe", "/Run", "/TN", TASK_NAME])
     if code != 0:
         raise AutostartError(f"schtasks could not start the task: {(err or out).strip()}")
-    return {"result": "REQUESTED",
-            "detail": "Task Scheduler was asked to start the agent. Check logs/startup.log or "
-                      "run the test command in ~20 seconds to see whether it initialised."}
+    return {
+        "result": "REQUESTED",
+        "detail": "Task Scheduler was asked to start the agent. Check logs/startup.log or "
+        "run the test command in ~20 seconds to see whether it initialised.",
+    }
 
 
 def report(executable: str | None = None) -> dict[str, Any]:
@@ -634,9 +711,13 @@ def report(executable: str | None = None) -> dict[str, Any]:
         "problems": [],
     }
     if not IS_WINDOWS:
-        out.update(mechanism=None, registered=None, points_to_current_app=None,
-                   verdict="unsupported",
-                   detail="Windows startup can only be inspected on Windows.")
+        out.update(
+            mechanism=None,
+            registered=None,
+            points_to_current_app=None,
+            verdict="unsupported",
+            detail="Windows startup can only be inspected on Windows.",
+        )
         return out
 
     task = query_task()
@@ -657,7 +738,9 @@ def report(executable: str | None = None) -> dict[str, Any]:
         out["mechanism"] = "Task Scheduler"
         out["registered"] = True
         out["points_to_current_app"] = None
-        out["problems"].append(f"The task exists but its definition could not be read: {task['parse_error']}")
+        out["problems"].append(
+            f"The task exists but its definition could not be read: {task['parse_error']}"
+        )
     else:
         out["mechanism"] = "Windows Service (legacy)" if service["exists"] else None
         out["registered"] = False
@@ -668,14 +751,17 @@ def report(executable: str | None = None) -> dict[str, Any]:
             out["problems"].append(
                 f"The old Windows Service '{LEGACY_SERVICE}' is registered with PythonClass="
                 f"{service['python_class']!r}. That can never start. "
-                "Run: python -m installer.autostart enable  (it removes the service).")
+                "Run: python -m installer.autostart enable  (it removes the service)."
+            )
         else:
             out["problems"].append(
                 f"The old Windows Service '{LEGACY_SERVICE}' still exists alongside the task. "
-                "Two startup mechanisms will fight over the same port.")
+                "Two startup mechanisms will fight over the same port."
+            )
     for entry in others:
-        out["problems"].append(f"Another startup entry also launches the agent: "
-                               f"{entry['kind']} at {entry['location']}")
+        out["problems"].append(
+            f"Another startup entry also launches the agent: {entry['kind']} at {entry['location']}"
+        )
     out["problems"].extend(out["interpreter_problems"])
 
     if not out["registered"]:
@@ -700,21 +786,32 @@ def render(data: dict[str, Any]) -> str:
     lines.append(f"  Startup mechanism       : {data.get('mechanism') or 'none'}")
     task = data.get("task") or {}
     if task:
-        lines.append(f"  Mode                    : {task.get('mode')} "
-                     f"({'runs at boot, no login needed' if task.get('mode') == 'boot' else 'runs when you log in'})")
-        lines.append(f"  Runs as                 : {task.get('user')} "
-                     f"[{task.get('logon_type')}, {task.get('run_level')}]")
+        lines.append(
+            f"  Mode                    : {task.get('mode')} "
+            f"({'runs at boot, no login needed' if task.get('mode') == 'boot' else 'runs when you log in'})"
+        )
+        lines.append(
+            f"  Runs as                 : {task.get('user')} "
+            f"[{task.get('logon_type')}, {task.get('run_level')}]"
+        )
         lines.append(f"  Registered executable   : {task.get('command')}")
         lines.append(f"  Registered arguments    : {task.get('arguments')}")
         lines.append(f"  Registered working dir  : {task.get('working_directory')}")
         lines.append(f"  Enabled                 : {task.get('enabled')}")
-        lines.append("  Keep-alive              : "
-                     + ", ".join(f"{t['type']}{' every ' + t['repeat_every'] if t['repeat_every'] else ''}"
-                                 for t in task.get("triggers", [])))
-    lines.append(f"  Points to this install  : "
-                 f"{ {True: 'YES', False: 'NO', None: 'unknown'}[data.get('points_to_current_app')] }")
-    lines.append(f"  This install would run  : {data['expected']['command']} "
-                 f"{data['expected']['arguments']}")
+        lines.append(
+            "  Keep-alive              : "
+            + ", ".join(
+                f"{t['type']}{' every ' + t['repeat_every'] if t['repeat_every'] else ''}"
+                for t in task.get("triggers", [])
+            )
+        )
+    lines.append(
+        f"  Points to this install  : "
+        f"{ {True: 'YES', False: 'NO', None: 'unknown'}[data.get('points_to_current_app')] }"
+    )
+    lines.append(
+        f"  This install would run  : {data['expected']['command']} {data['expected']['arguments']}"
+    )
     lines.append(f"                 in       : {data['expected']['working_directory']}")
     runtime = data.get("runtime") or {}
     if runtime:
@@ -723,8 +820,10 @@ def render(data: dict[str, Any]) -> str:
         lines.append(f"  Last result (Windows)   : {runtime.get('last_result') or 'unknown'}")
         lines.append(f"  Next run                : {runtime.get('next_run_time') or 'unknown'}")
     service = data.get("legacy_service") or {}
-    lines.append(f"  Old Windows Service     : "
-                 f"{'present - ' + str(service.get('state')) if service.get('exists') else 'not present'}")
+    lines.append(
+        f"  Old Windows Service     : "
+        f"{'present - ' + str(service.get('state')) if service.get('exists') else 'not present'}"
+    )
     last = data.get("last_startup")
     lines.append("")
     lines.append("Last startup attempt recorded by the agent")
@@ -735,12 +834,18 @@ def render(data: dict[str, Any]) -> str:
         lines.append(f"  Executable              : {last.get('executable')}")
         lines.append(f"  Working directory       : {last.get('cwd')}")
         lines.append(f"  Outcome                 : {last.get('outcome')}")
-        lines.append(f"  Last stage reached      : {last.get('last_event')} at {last.get('last_event_ts')}")
-        initialised = any(e.get("event") == "controller_initialized" for e in last.get("events", []))
+        lines.append(
+            f"  Last stage reached      : {last.get('last_event')} at {last.get('last_event_ts')}"
+        )
+        initialised = any(
+            e.get("event") == "controller_initialized" for e in last.get("events", [])
+        )
         lines.append(f"  Controller initialised  : {'YES' if initialised else 'NO'}")
         for event in last.get("events", [])[-6:]:
             extra = event.get("error") or event.get("detail") or ""
-            lines.append(f"    {event['ts']}  {event['event']}{'  - ' + str(extra) if extra else ''}")
+            lines.append(
+                f"    {event['ts']}  {event['event']}{'  - ' + str(extra) if extra else ''}"
+            )
     else:
         lines.append("  No startup has been recorded yet.")
     lines.append(f"  Full log                : {data['startup_log']}")
@@ -758,10 +863,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Start the agent automatically with Windows")
     sub = parser.add_subparsers(dest="command", required=True)
     enable_p = sub.add_parser("enable", help="Register the startup task")
-    enable_p.add_argument("--logon", action="store_true",
-                          help="Start when you log in, instead of at boot")
-    enable_p.add_argument("--no-pin-java", action="store_true",
-                          help="Leave server.java as it is in config.yaml")
+    enable_p.add_argument(
+        "--logon", action="store_true", help="Start when you log in, instead of at boot"
+    )
+    enable_p.add_argument(
+        "--no-pin-java", action="store_true", help="Leave server.java as it is in config.yaml"
+    )
     sub.add_parser("disable", help="Remove the startup task")
     sub.add_parser("status", help="Short summary")
     test_p = sub.add_parser("test", help="Full Test Windows Startup report")
@@ -787,8 +894,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "test" and args.json:
             print(json.dumps(data, indent=2, default=str))
         elif args.command == "status":
-            print(f"{data['verdict']}: mechanism={data.get('mechanism')}, "
-                  f"points_to_current_app={data.get('points_to_current_app')}")
+            print(
+                f"{data['verdict']}: mechanism={data.get('mechanism')}, "
+                f"points_to_current_app={data.get('points_to_current_app')}"
+            )
         else:
             print(render(data))
         return 0 if data["verdict"] in ("registered correctly", "unsupported") else 1

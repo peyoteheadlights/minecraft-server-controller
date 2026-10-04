@@ -109,12 +109,22 @@ async def test_crash_notification_carries_the_analysis(parts, monkeypatch):
 
     monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
     notifier = Notifier(config, bus, db, server)
-    await notifier.handle(Event(
-        type="server_crashed", message="Server crashed", level="error",
-        data={"exit_code": 1, "analysis": {
-            "category": "OutOfMemoryError", "confidence": "likely",
-            "summary": "Ran out of heap", "evidence": ["java.lang.OutOfMemoryError"]}},
-    ))
+    await notifier.handle(
+        Event(
+            type="server_crashed",
+            message="Server crashed",
+            level="error",
+            data={
+                "exit_code": 1,
+                "analysis": {
+                    "category": "OutOfMemoryError",
+                    "confidence": "likely",
+                    "summary": "Ran out of heap",
+                    "evidence": ["java.lang.OutOfMemoryError"],
+                },
+            },
+        )
+    )
     await notifier.drain()
     fields = captured["embeds"][0]["fields"]
     names = " ".join(f["name"] for f in fields)
@@ -149,7 +159,7 @@ async def test_a_slow_alert_never_stalls_the_console(parts, monkeypatch):
         while asyncio.get_running_loop().time() < deadline:
             try:
                 event = await asyncio.wait_for(queue.get(), 0.5)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
             if event.type == "console":
                 seen.append(event.message)
@@ -247,12 +257,13 @@ async def test_uuid_is_captured_from_the_console_line(parts):
     config, bus, db, server = parts
     tracker = PlayerTracker(config, bus, db, "test")
     server.signal_hook = tracker.handle_signals
-    from agent.minecraft.console import parse_line
-    from agent.minecraft.console import extract_signals
+    from agent.minecraft.console import extract_signals, parse_line
 
     uuid_line = parse_line(
         "[10:00:00] [User Authenticator #1/INFO]: UUID of player Steve is "
-        "069a79f4-44e9-4726-a5be-fca90e38aaf5", 1)
+        "069a79f4-44e9-4726-a5be-fca90e38aaf5",
+        1,
+    )
     join_line = parse_line("[10:00:01] [Server thread/INFO]: Steve joined the game", 2)
     await tracker.handle_signals(extract_signals(uuid_line), uuid_line)
     await tracker.handle_signals(extract_signals(join_line), join_line)

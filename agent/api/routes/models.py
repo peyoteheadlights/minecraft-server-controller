@@ -78,4 +78,3 @@ class DependencyInstallRequest(BaseModel):
 
 class TpsCommandRequest(BaseModel):
     command: str = Field(max_length=100, description='"auto", "off", or a Minecraft command')
-

@@ -32,15 +32,17 @@ async def security_overview(principal: Principal = Depends(require_auth), core=D
 
 
 @router.get("/security/audit")
-async def audit_log(limit: int = 100, principal: Principal = Depends(require_auth),
-                    core=Depends(get_core)):
+async def audit_log(
+    limit: int = 100, principal: Principal = Depends(require_auth), core=Depends(get_core)
+):
     limit = max(1, min(int(limit), 500))
     return {"entries": core.db.audit_entries(limit)}
 
 
 @router.post("/security/revoke-sessions")
-async def revoke_sessions(request: Request, principal: Principal = Depends(require_auth),
-                          core=Depends(get_core)):
+async def revoke_sessions(
+    request: Request, principal: Principal = Depends(require_auth), core=Depends(get_core)
+):
     count = core.auth.revoke_all()
     audit(core, request, "revoke_all_sessions", detail=str(count))
     return {"ok": True, "revoked": count}
@@ -61,6 +63,5 @@ async def tls_status(principal: Principal = Depends(require_auth), core=Depends(
         "hsts": core.config.tls.hsts,
         "http_redirect": core.config.tls.http_redirect,
         "renewal": "Run 'python -m installer.make_certs --renew' on the server PC. "
-                   "Tailscale-issued certificates renew automatically.",
+        "Tailscale-issued certificates renew automatically.",
     }
-

@@ -96,9 +96,14 @@ class BackupManager:
         return files, target.stat().st_size
 
     # ------------------------------------------------------------------
-    async def create(self, name: str | None = None, kind: str = "manual",
-                     includes: list[str] | None = None, user: str = "system",
-                     note: str | None = None) -> dict[str, Any]:
+    async def create(
+        self,
+        name: str | None = None,
+        kind: str = "manual",
+        includes: list[str] | None = None,
+        user: str = "system",
+        note: str | None = None,
+    ) -> dict[str, Any]:
         if self._running:
             raise BackupError("A backup is already running")
         sources = self._sources(includes)
@@ -111,13 +116,14 @@ class BackupManager:
         free = shutil.disk_usage(self.directory).free
         estimated = sum(
             sum(f.stat().st_size for f in s.rglob("*") if f.is_file() and not f.is_symlink())
-            if s.is_dir() else s.stat().st_size
+            if s.is_dir()
+            else s.stat().st_size
             for s in sources
         )
         if free < estimated * 0.35 + 200 * 1024**2:
             raise BackupError(
-                f"Not enough free disk space: {free/1024**3:.1f} GB free, "
-                f"about {estimated/1024**3:.1f} GB of source data"
+                f"Not enough free disk space: {free / 1024**3:.1f} GB free, "
+                f"about {estimated / 1024**3:.1f} GB of source data"
             )
 
         self._running = True
@@ -141,14 +147,29 @@ class BackupManager:
             digest = await asyncio.to_thread(self._sha256, target)
         except Exception as exc:
             target.unlink(missing_ok=True)
-            self.db.insert("backups", {
-                "server_id": self.server.server_id, "name": base_name, "path": str(target),
-                "kind": kind, "created_at": time.time(), "size_bytes": 0,
-                "includes": ",".join(p.name for p in sources), "sha256": None,
-                "status": "failed", "note": str(exc)[:400],
-            })
-            await self.bus.publish(Event(type="backup_failed", level="error",
-                                         message=f"Backup failed: {exc}", data={"error": str(exc)}))
+            self.db.insert(
+                "backups",
+                {
+                    "server_id": self.server.server_id,
+                    "name": base_name,
+                    "path": str(target),
+                    "kind": kind,
+                    "created_at": time.time(),
+                    "size_bytes": 0,
+                    "includes": ",".join(p.name for p in sources),
+                    "sha256": None,
+                    "status": "failed",
+                    "note": str(exc)[:400],
+                },
+            )
+            await self.bus.publish(
+                Event(
+                    type="backup_failed",
+                    level="error",
+                    message=f"Backup failed: {exc}",
+                    data={"error": str(exc)},
+                )
+            )
             raise BackupError(str(exc)) from exc
         finally:
             self._running = False
@@ -163,38 +184,68 @@ class BackupManager:
         # exist, open, pass a member-by-member integrity test, contain
         # something, and hash to the value we just computed.
         verification = self._verify_file(target, digest, expected_files=files)
-        row_id = self.db.insert("backups", {
-            "server_id": self.server.server_id, "name": base_name, "path": str(target),
-            "kind": kind, "created_at": time.time(), "size_bytes": size,
-            "includes": ",".join(p.name for p in sources), "sha256": digest,
-            "status": "ok" if verification["ok"] else "unverified",
-            "note": note if verification["ok"] else f"FAILED VERIFICATION: {verification['reason']}",
-        })
+        row_id = self.db.insert(
+            "backups",
+            {
+                "server_id": self.server.server_id,
+                "name": base_name,
+                "path": str(target),
+                "kind": kind,
+                "created_at": time.time(),
+                "size_bytes": size,
+                "includes": ",".join(p.name for p in sources),
+                "sha256": digest,
+                "status": "ok" if verification["ok"] else "unverified",
+                "note": note
+                if verification["ok"]
+                else f"FAILED VERIFICATION: {verification['reason']}",
+            },
+        )
         if not verification["ok"]:
-            await self.bus.publish(Event(
-                type="backup_failed", level="error",
-                message=f"Backup failed verification: {verification['reason']}",
-                data={"name": base_name, "reason": verification["reason"]},
-            ))
+            await self.bus.publish(
+                Event(
+                    type="backup_failed",
+                    level="error",
+                    message=f"Backup failed verification: {verification['reason']}",
+                    data={"name": base_name, "reason": verification["reason"]},
+                )
+            )
             raise BackupError(
                 f"The backup was written but failed verification: {verification['reason']}. "
                 f"It is recorded as unverified and must not be relied on."
             )
         duration = time.time() - started
         self.db.audit("backup_create", user=user, target=base_name, detail=f"{files} files")
-        await self.bus.publish(Event(
-            type="backup_completed", level="success",
-            message=f"Backup verified: {base_name} ({size/1024**3:.2f} GB, {duration:.0f}s)",
-            data={"id": row_id, "name": base_name, "size_bytes": size,
-                  "files": files, "seconds": duration},
-        ))
+        await self.bus.publish(
+            Event(
+                type="backup_completed",
+                level="success",
+                message=f"Backup verified: {base_name} ({size / 1024**3:.2f} GB, {duration:.0f}s)",
+                data={
+                    "id": row_id,
+                    "name": base_name,
+                    "size_bytes": size,
+                    "files": files,
+                    "seconds": duration,
+                },
+            )
+        )
         await self.apply_retention()
-        return {"id": row_id, "name": base_name, "path": str(target), "size_bytes": size,
-                "files": files, "sha256": digest, "seconds": duration,
-            "verified": True, "verification": verification}
+        return {
+            "id": row_id,
+            "name": base_name,
+            "path": str(target),
+            "size_bytes": size,
+            "files": files,
+            "sha256": digest,
+            "seconds": duration,
+            "verified": True,
+            "verification": verification,
+        }
 
-    def _verify_file(self, path: Path, expected_sha256: str | None = None,
-                     expected_files: int | None = None) -> dict[str, Any]:
+    def _verify_file(
+        self, path: Path, expected_sha256: str | None = None, expected_files: int | None = None
+    ) -> dict[str, Any]:
         """Actually open the archive and check it. Source of truth: the file."""
         if not path.is_file():
             return {"ok": False, "reason": "the archive file does not exist on disk"}
@@ -212,16 +263,30 @@ class BackupManager:
         except (zipfile.BadZipFile, OSError) as exc:
             return {"ok": False, "reason": f"the archive could not be opened: {exc}"}
         if expected_files is not None and len(names) < expected_files:
-            return {"ok": False,
-                    "reason": f"expected at least {expected_files} entries, found {len(names)}"}
+            return {
+                "ok": False,
+                "reason": f"expected at least {expected_files} entries, found {len(names)}",
+            }
         if expected_sha256:
             actual = self._sha256(path)
             if actual != expected_sha256:
-                return {"ok": False, "reason": "the SHA-256 does not match the value computed "
-                                               "when the archive was written"}
-        return {"ok": True, "entries": len(names), "size_bytes": size,
-                "checks": ["file exists", "archive opens", "member integrity test",
-                           "entry count", "SHA-256 match" if expected_sha256 else "size"]}
+                return {
+                    "ok": False,
+                    "reason": "the SHA-256 does not match the value computed "
+                    "when the archive was written",
+                }
+        return {
+            "ok": True,
+            "entries": len(names),
+            "size_bytes": size,
+            "checks": [
+                "file exists",
+                "archive opens",
+                "member integrity test",
+                "entry count",
+                "SHA-256 match" if expected_sha256 else "size",
+            ],
+        }
 
     # ------------------------------------------------------------------
     def list_backups(self) -> list[dict[str, Any]]:
@@ -264,13 +329,19 @@ class BackupManager:
         path.unlink(missing_ok=True)
         self.db.execute("DELETE FROM backups WHERE id = ?", (backup_id,))
         self.db.audit("backup_delete", user=user, target=row["name"])
-        await self.bus.publish(Event(type="backup_deleted", level="warn",
-                                     message=f"Deleted backup {row['name']}"))
+        await self.bus.publish(
+            Event(type="backup_deleted", level="warn", message=f"Deleted backup {row['name']}")
+        )
         return {"deleted": row["name"]}
 
     # ------------------------------------------------------------------
-    async def restore(self, backup_id: int, user: str = "system",
-                      start_after: bool = False, safety_backup: bool = True) -> dict[str, Any]:
+    async def restore(
+        self,
+        backup_id: int,
+        user: str = "system",
+        start_after: bool = False,
+        safety_backup: bool = True,
+    ) -> dict[str, Any]:
         """Stop, verify, safety-backup, restore. The current world is never
         removed before the safety backup exists."""
         row = self.get(backup_id)
@@ -280,15 +351,21 @@ class BackupManager:
 
         was_running = self.server.running
         if was_running:
-            await self.bus.publish(Event(type="restore_stopping",
-                                         message="Stopping the server before restoring"))
+            await self.bus.publish(
+                Event(type="restore_stopping", message="Stopping the server before restoring")
+            )
             from ..minecraft.state import ExitReason
+
             await self.server.stop(actor=user, reason=ExitReason.USER_STOP)
 
         safety = None
         if safety_backup:
-            safety = await self.create(name="pre-restore", kind="safety", user=user,
-                                       note=f"Automatic safety copy before restoring {row['name']}")
+            safety = await self.create(
+                name="pre-restore",
+                kind="safety",
+                user=user,
+                note=f"Automatic safety copy before restoring {row['name']}",
+            )
 
         path = Path(row["path"])
         base = self.config.server_dir
@@ -316,39 +393,68 @@ class BackupManager:
                 name = original.name.split(".replaced-")[0]
                 if original.exists() and not (base / name).exists():
                     shutil.move(str(original), str(base / name))
-            await self.bus.publish(Event(type="restore_failed", level="error",
-                                         message=f"Restore failed: {exc}"))
-            raise BackupError(f"Restore failed and the previous files were put back: {exc}") from exc
+            await self.bus.publish(
+                Event(type="restore_failed", level="error", message=f"Restore failed: {exc}")
+            )
+            raise BackupError(
+                f"Restore failed and the previous files were put back: {exc}"
+            ) from exc
 
         # Check the files are actually back before reporting success.
         restored_ok, restore_detail = self._verify_restored(path, base)
         if not restored_ok:
-            await self.bus.publish(Event(
-                type="restore_failed", level="error",
-                message=f"Restore could not be verified: {restore_detail}"))
+            await self.bus.publish(
+                Event(
+                    type="restore_failed",
+                    level="error",
+                    message=f"Restore could not be verified: {restore_detail}",
+                )
+            )
             raise BackupError(
                 f"The archive was extracted but the result could not be verified: {restore_detail}"
             )
-        self.db.audit("backup_restore", user=user, target=row["name"],
-                      detail=f"safety={safety['name'] if safety else 'none'}; verified")
-        await self.bus.publish(Event(
-            type="backup_restored", level="warn",
-            message=f"Restored {row['name']}",
-            data={"backup": row["name"], "safety_backup": safety["name"] if safety else None,
-                  "replaced": replaced},
-        ))
+        self.db.audit(
+            "backup_restore",
+            user=user,
+            target=row["name"],
+            detail=f"safety={safety['name'] if safety else 'none'}; verified",
+        )
+        await self.bus.publish(
+            Event(
+                type="backup_restored",
+                level="warn",
+                message=f"Restored {row['name']}",
+                data={
+                    "backup": row["name"],
+                    "safety_backup": safety["name"] if safety else None,
+                    "replaced": replaced,
+                },
+            )
+        )
         started = False
         if start_after:
             from ..minecraft.process import ServerError
+
             try:
                 await self.server.start(actor=user)
                 started = await self.server.wait_online()
             except ServerError as exc:
-                await self.bus.publish(Event(type="restore_start_failed", level="error",
-                                             message=f"The server did not start after restoring: {exc}"))
-        return {"restored": row["name"], "safety_backup": safety, "replaced": replaced,
-                "server_started": started, "was_running": was_running,
-                "verified": True, "verification": restore_detail}
+                await self.bus.publish(
+                    Event(
+                        type="restore_start_failed",
+                        level="error",
+                        message=f"The server did not start after restoring: {exc}",
+                    )
+                )
+        return {
+            "restored": row["name"],
+            "safety_backup": safety,
+            "replaced": replaced,
+            "server_started": started,
+            "was_running": was_running,
+            "verified": True,
+            "verification": restore_detail,
+        }
 
     def _verify_restored(self, archive: Path, base: Path) -> tuple[bool, str]:
         """Confirm the extracted files are actually on disk and the right size.
@@ -374,7 +480,10 @@ class BackupManager:
                 if not target.exists():
                     return False, f"{item.filename} is missing after extraction"
                 if target.stat().st_size != item.file_size:
-                    return False, f"{item.filename} is {target.stat().st_size} bytes, expected {item.file_size}"
+                    return (
+                        False,
+                        f"{item.filename} is {target.stat().st_size} bytes, expected {item.file_size}",
+                    )
                 checked += 1
         return True, f"{checked} restored file(s) checked across {len(by_top)} top-level path(s)"
 
@@ -404,8 +513,14 @@ class BackupManager:
                 ("monthly", time.strftime("%Y-%m", t)),
             ):
                 buckets[span].setdefault(key, row)
-        for span, limit in (("daily", keep_daily), ("weekly", keep_weekly), ("monthly", keep_monthly)):
-            chosen = sorted(buckets[span].values(), key=lambda r: r["created_at"], reverse=True)[:limit]
+        for span, limit in (
+            ("daily", keep_daily),
+            ("weekly", keep_weekly),
+            ("monthly", keep_monthly),
+        ):
+            chosen = sorted(buckets[span].values(), key=lambda r: r["created_at"], reverse=True)[
+                :limit
+            ]
             keep.update(r["id"] for r in chosen)
 
         removed = []
@@ -418,19 +533,26 @@ class BackupManager:
                 self.db.execute("DELETE FROM backups WHERE id = ?", (row["id"],))
                 removed.append(row["name"])
         if removed:
-            await self.bus.publish(Event(
-                type="backup_retention", message=f"Retention removed {len(removed)} old backup(s)",
-                data={"removed": removed},
-            ))
+            await self.bus.publish(
+                Event(
+                    type="backup_retention",
+                    message=f"Retention removed {len(removed)} old backup(s)",
+                    data={"removed": removed},
+                )
+            )
         return {"removed": removed, "kept": len(keep)}
 
     # ------------------------------------------------------------------
     def world_summary(self) -> list[dict[str, Any]]:
         from ..security.paths import directory_size
+
         base = self.config.server_dir
         out = []
-        for key, label in (("world", "Overworld"), ("world_nether", "Nether"),
-                           ("world_the_end", "The End")):
+        for key, label in (
+            ("world", "Overworld"),
+            ("world_nether", "Nether"),
+            ("world_the_end", "The End"),
+        ):
             path = base / key
             if not path.exists():
                 out.append({"key": key, "label": label, "exists": False})
@@ -440,10 +562,14 @@ class BackupManager:
                 "AND includes LIKE ? ORDER BY created_at DESC LIMIT 1",
                 (self.server.server_id, f"%{key}%"),
             )
-            out.append({
-                "key": key, "label": label, "exists": True,
-                "size_bytes": directory_size(path),
-                "modified": path.stat().st_mtime,
-                "last_backup": last_backup,
-            })
+            out.append(
+                {
+                    "key": key,
+                    "label": label,
+                    "exists": True,
+                    "size_bytes": directory_size(path),
+                    "modified": path.stat().st_mtime,
+                    "last_backup": last_backup,
+                }
+            )
         return out

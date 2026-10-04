@@ -17,7 +17,7 @@ log = logging.getLogger("msc.events")
 
 
 class EventWriter:
-    INTERVAL = 1.0   # seconds between writes while events are arriving
+    INTERVAL = 1.0  # seconds between writes while events are arriving
     MAX_BATCH = 200  # write early once this many are waiting
 
     def __init__(self, db):
@@ -27,12 +27,24 @@ class EventWriter:
         self._task: asyncio.Task | None = None
         self._lock = asyncio.Lock()
 
-    def add(self, server_id: str, type_: str, message: str, level: str = "info",
-            data: dict | None = None) -> None:
-        self._pending.append({
-            "server_id": server_id, "ts": time.time(), "type": type_, "level": level,
-            "message": message, "data": json.dumps(data) if data else None,
-        })
+    def add(
+        self,
+        server_id: str,
+        type_: str,
+        message: str,
+        level: str = "info",
+        data: dict | None = None,
+    ) -> None:
+        self._pending.append(
+            {
+                "server_id": server_id,
+                "ts": time.time(),
+                "type": type_,
+                "level": level,
+                "message": message,
+                "data": json.dumps(data) if data else None,
+            }
+        )
         if self._task is None or self._task.done():
             self._task = asyncio.get_running_loop().create_task(self._run(), name="event-writer")
         if len(self._pending) >= self.MAX_BATCH:
@@ -53,7 +65,7 @@ class EventWriter:
         while True:
             try:
                 await asyncio.wait_for(self._wake.wait(), self.INTERVAL)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 pass
             self._wake.clear()
             await self.flush()

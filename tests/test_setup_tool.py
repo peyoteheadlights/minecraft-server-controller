@@ -38,8 +38,15 @@ def root(tmp_path, monkeypatch):
 
 def ctx_for(r, mode="setup", **kw):
     out = []
-    ctx = Context(mode=mode, root=r, interactive=False, skip_firewall=True, skip_startup=True,
-                  say=out.append, **kw)
+    ctx = Context(
+        mode=mode,
+        root=r,
+        interactive=False,
+        skip_firewall=True,
+        skip_startup=True,
+        say=out.append,
+        **kw,
+    )
     return ctx, out
 
 
@@ -119,7 +126,7 @@ def test_secrets_never_appear_in_output_or_plain_text(root, monkeypatch):
         if path.is_file():
             assert PASSWORD.encode() not in path.read_bytes(), f"plain password found in {path}"
     logs = PROJECT / "logs"
-    for log in (logs.glob("*.log") if logs.exists() else []):
+    for log in logs.glob("*.log") if logs.exists() else []:
         assert PASSWORD not in log.read_text(errors="replace")
 
 
@@ -149,9 +156,17 @@ def test_an_invalid_folder_is_rejected_then_a_valid_one_accepted(root):
     r, server = root
     answers = iter(["C:\\does\\not\\exist", str(server.parent), str(server)])
     out = []
-    ctx = Context(mode="setup", root=r, interactive=True, skip_firewall=True, skip_startup=True,
-                  skip_certs=True, say=out.append, ask=lambda _: next(answers),
-                  ask_secret=lambda _: PASSWORD)
+    ctx = Context(
+        mode="setup",
+        root=r,
+        interactive=True,
+        skip_firewall=True,
+        skip_startup=True,
+        skip_certs=True,
+        say=out.append,
+        ask=lambda _: next(answers),
+        ask_secret=lambda _: PASSWORD,
+    )
     setup_tool.run(ctx)
     text = "\n".join(out)
     assert "The folder does not exist" in text
@@ -164,8 +179,17 @@ def test_mismatched_password_entries_are_retried(root, monkeypatch):
     monkeypatch.setenv("MCSC_SETUP_SERVER_DIR", str(server))
     entries = iter(["short", PASSWORD, "different one 1", PASSWORD, PASSWORD])
     out = []
-    ctx = Context(mode="setup", root=r, interactive=True, skip_firewall=True, skip_startup=True,
-                  skip_certs=True, say=out.append, ask=lambda _: "", ask_secret=lambda _: next(entries))
+    ctx = Context(
+        mode="setup",
+        root=r,
+        interactive=True,
+        skip_firewall=True,
+        skip_startup=True,
+        skip_certs=True,
+        say=out.append,
+        ask=lambda _: "",
+        ask_secret=lambda _: next(entries),
+    )
     setup_tool.run(ctx)
     text = "\n".join(out)
     assert "Too short" in text and "did not match" in text
@@ -205,9 +229,20 @@ def test_the_python_half_works_from_another_directory(tmp_path):
     elsewhere = tmp_path / "somewhere-else"
     elsewhere.mkdir()
     env = dict(os.environ, MCSC_STARTUP_LOG_DIR=str(tmp_path / "logs"))
-    proc = subprocess.run([sys.executable, str(PROJECT / "installer" / "setup_tool.py"), "check",
-                           "--skip-firewall", "--skip-startup"],
-                          cwd=elsewhere, capture_output=True, text=True, env=env, timeout=120)
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(PROJECT / "installer" / "setup_tool.py"),
+            "check",
+            "--skip-firewall",
+            "--skip-startup",
+        ],
+        cwd=elsewhere,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=120,
+    )
     assert "Minecraft Server Controller Health Check" in proc.stdout, proc.stderr[-800:]
     assert "[" in proc.stdout and "Python" in proc.stdout
     assert list(elsewhere.iterdir()) == [], "nothing may be written to the working directory"

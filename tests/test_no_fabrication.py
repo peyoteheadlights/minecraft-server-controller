@@ -369,6 +369,23 @@ async def test_unknown_disk_space_raises_no_low_disk_alert(parts, monkeypatch):
     assert "low_disk" not in seen
 
 
+def test_dashboard_shows_why_disk_space_is_unknown():
+    """Every place the dashboard shows disk_free_gb must also show the reason
+    when it is unknown, not a bare "Unknown"."""
+    import re
+    from pathlib import Path
+
+    web = Path(__file__).resolve().parent.parent / "agent" / "web"
+    shown = 0
+    for script in web.rglob("*.js"):
+        source = script.read_text(encoding="utf-8")
+        for name in re.findall(r"fmt\.gb\((\w+)\.disk_free_gb\)", source):
+            shown += 1
+            assert f"{name}.disk_unknown_reason" in source, (
+                f"{script.name} shows {name}.disk_free_gb without its unknown reason")
+    assert shown, "the dashboard no longer shows disk_free_gb; update this test"
+
+
 # ---------------------------------------------------------------- tailscale / TLS
 def test_tailscale_is_unknown_when_the_cli_cannot_be_asked(parts, monkeypatch):
     config, bus, db, server = parts

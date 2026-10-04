@@ -16,6 +16,7 @@ from typing import Any
 
 import psutil
 
+from .. import tailscale
 from ..events import Event, EventBus
 from ..security.paths import directory_size
 
@@ -156,7 +157,7 @@ class MetricsMonitor:
 
     # ------------------------------------------------------------------
     def port_listening(self, port: int | None = None, host: str = "127.0.0.1") -> bool:
-        port = port or int(self.server.detected_port or self.config.get("server.port", 25565))
+        port = port or int(self.server.detected_port or self.config.server.port)
         try:
             with socket.create_connection((host, port), timeout=1.5):
                 return True
@@ -164,77 +165,7 @@ class MetricsMonitor:
             return False
 
     def tailscale_status(self) -> dict[str, Any]:
-        """Report Tailscale state from an actual source.
-
-        Source of truth, in order:
-          1. `tailscale status --json` - the daemon's own view of whether it is
-             connected. This is the only thing that proves connectivity.
-          2. A network interface in the 100.64.0.0/10 range - proves an address
-             is assigned, which is *not* the same as being connected. Reported
-             as "interface detected", never as "connected".
-
-        `connected` is True only when the daemon said so, False when it said
-        otherwise, and None when we could not ask.
-        """
-        from ..security.certs import tailscale_status as cli_status
-
-        report = cli_status()
-        if report.get("cli_found") and report.get("connected") is not None and not report.get("error"):
-            return {
-                "connected": bool(report["connected"]),
-                "verified": True,
-                "source": "tailscale status --json",
-                "address": (report.get("addresses") or [None])[0],
-                "addresses": report.get("addresses") or [],
-                "dns_name": report.get("dns_name"),
-                "backend_state": report.get("backend_state"),
-                "detail": ("Verified through the Tailscale daemon"
-                           if report["connected"]
-                           else f"Tailscale is installed but not connected "
-                                f"({report.get('backend_state')})"),
-            }
-
-        # The CLI could not answer. Fall back to looking for an address, and be
-        # explicit that this proves less.
-        cli_problem = report.get("error") or "the tailscale command was not found"
-        try:
-            addrs = psutil.net_if_addrs()
-        except Exception:  # pragma: no cover
-            return {"connected": None, "verified": False, "source": "unavailable",
-                    "address": None, "addresses": [],
-                    "detail": f"Could not verify: {cli_problem}, and the network "
-                              f"interfaces could not be read either."}
-        for name, entries in addrs.items():
-            for entry in entries:
-                if entry.family != socket.AF_INET or not entry.address:
-                    continue
-                is_ts_name = "tailscale" in name.lower() or name.lower().startswith("ts")
-                in_cgnat = False
-                if entry.address.startswith("100."):
-                    try:
-                        in_cgnat = 64 <= int(entry.address.split(".")[1]) <= 127
-                    except (ValueError, IndexError):
-                        in_cgnat = False
-                if is_ts_name or in_cgnat:
-                    return {
-                        "connected": None,
-                        "verified": False,
-                        "source": "network interface",
-                        "address": entry.address,
-                        "addresses": [entry.address],
-                        "interface": name,
-                        "detail": (f"A Tailscale-style address ({entry.address}) is assigned to "
-                                   f"interface {name}, but connectivity could not be confirmed "
-                                   f"because {cli_problem}."),
-                    }
-        return {
-            "connected": None,
-            "verified": False,
-            "source": "network interface",
-            "address": None,
-            "addresses": [],
-            "detail": f"No Tailscale address found on this machine, and {cli_problem}.",
-        }
+        return tailscale.connection_status()
 
     def certificate_status(self) -> dict[str, Any]:
         """TLS certificate facts, read from the files on disk."""
@@ -258,7 +189,7 @@ class MetricsMonitor:
         worse than no summary at all.
         """
         snap = self.snapshot()
-        th = self.config.get("thresholds", {})
+        th = self.config.thresholds
         checks: list[dict[str, Any]] = []
 
         def add(name, ok, value, threshold=None, detail="", source="", unknown=False):
@@ -281,21 +212,21 @@ class MetricsMonitor:
                 detail=f"State is {state}", source=self.server._state_source())
 
         if self.server.tps is None:
-            add("TPS", True, None, th.get("tps_min"), unknown=True,
+            add("TPS", True, None, th.tps_min, unknown=True,
                 detail=self.server.tps_unavailable_reason() or "No tick-rate source available",
                 source="no provider answered")
         else:
-            add("TPS", self.server.tps >= float(th.get("tps_min", 18)), round(self.server.tps, 2),
-                th.get("tps_min"), f"Minimum acceptable is {th.get('tps_min')}",
+            add("TPS", self.server.tps >= th.tps_min, round(self.server.tps, 2),
+                th.tps_min, f"Minimum acceptable is {th.tps_min}",
                 source=self.server.tps_source or "server console reply")
 
         if self.server.mspt is None:
-            add("MSPT", True, None, th.get("mspt_max"), unknown=True,
+            add("MSPT", True, None, th.mspt_max, unknown=True,
                 detail="No tick-time report has been received from the server.",
                 source="no provider answered")
         else:
-            add("MSPT", self.server.mspt <= float(th.get("mspt_max", 50)), round(self.server.mspt, 1),
-                th.get("mspt_max"), f"Maximum acceptable is {th.get('mspt_max')} ms",
+            add("MSPT", self.server.mspt <= th.mspt_max, round(self.server.mspt, 1),
+                th.mspt_max, f"Maximum acceptable is {th.mspt_max} ms",
                 source=self.server.tps_source or "server console reply")
 
         if player_count is None:
@@ -304,14 +235,14 @@ class MetricsMonitor:
                        "player joins or leaves, when /list is answered, or when the server stops.",
                 source="not established")
         else:
-            add("Players", True, player_count, self.config.get("server.max_players"),
+            add("Players", True, player_count, self.config.server.max_players,
                 detail="Players currently connected", source="console join/leave and /list")
 
-        add("CPU", snap["cpu_percent"] < float(th.get("cpu_percent", 90)),
-            round(snap["cpu_percent"], 1), th.get("cpu_percent"),
+        add("CPU", snap["cpu_percent"] < th.cpu_percent,
+            round(snap["cpu_percent"], 1), th.cpu_percent,
             "Whole-machine CPU use, percent", source="psutil (operating system)")
-        add("System RAM", snap["ram_percent"] < float(th.get("ram_percent", 90)),
-            round(snap["ram_percent"], 1), th.get("ram_percent"),
+        add("System RAM", snap["ram_percent"] < th.ram_percent,
+            round(snap["ram_percent"], 1), th.ram_percent,
             f"{snap['ram_used_mb']/1024:.1f} of {snap['ram_total_mb']/1024:.1f} GB used",
             source="psutil (operating system)")
         if snap["proc_ram_mb"] is None:
@@ -323,26 +254,26 @@ class MetricsMonitor:
         else:
             add("Minecraft RAM", True, round(snap["proc_ram_mb"] / 1024, 2), None,
                 f"Actual process memory. Allocation limit is "
-                f"{' '.join(str(a) for a in self.config.get('server.jvm_args', [])) or 'not set'}",
+                f"{' '.join(str(a) for a in self.config.server.jvm_args) or 'not set'}",
                 source="psutil process RSS")
         if snap["disk_free_gb"] is None:
-            add("Disk space", True, None, th.get("disk_free_gb"), unknown=True,
+            add("Disk space", True, None, th.disk_free_gb, unknown=True,
                 detail=snap["disk_unknown_reason"], source="filesystem query failed")
         else:
-            add("Disk space", snap["disk_free_gb"] > float(th.get("disk_free_gb", 20)),
-                round(snap["disk_free_gb"], 1), th.get("disk_free_gb"),
+            add("Disk space", snap["disk_free_gb"] > th.disk_free_gb,
+                round(snap["disk_free_gb"], 1), th.disk_free_gb,
                 "Free space on the server drive, GB", source="filesystem query")
 
-        tailscale = self.tailscale_status()
-        if tailscale["connected"] is None:
+        ts = self.tailscale_status()
+        if ts["connected"] is None:
             add("Tailscale", True, None, None, unknown=True,
-                detail=tailscale["detail"], source=tailscale["source"])
+                detail=ts["detail"], source=ts["source"])
         else:
-            add("Tailscale", tailscale["connected"],
-                tailscale.get("dns_name") or tailscale.get("address") or "connected",
-                None, tailscale["detail"], source=tailscale["source"])
+            add("Tailscale", ts["connected"],
+                ts.get("dns_name") or ts.get("address") or "connected",
+                None, ts["detail"], source=ts["source"])
 
-        port = int(self.server.detected_port or self.config.get("server.port", 25565))
+        port = int(self.server.detected_port or self.config.server.port)
         if state != "ONLINE":
             add(f"Port {port}", True, None, "listening", unknown=True,
                 detail="Not checked: the server is not online, so the port is not expected to "
@@ -365,12 +296,12 @@ class MetricsMonitor:
                 severity = cert.get("expiry_severity")
                 add("TLS certificate", severity == "ok",
                     f"{days:.0f} days remaining" if days is not None else None,
-                    self.config.get("tls.expiry_warn_days"),
+                    self.config.tls.expiry_warn_days,
                     f"Issued by {cert.get('issuer')}",
                     source="certificate file", unknown=days is None)
 
         recent = self.server.recent_crash_count()
-        window = self.config.get("monitor.crash_window_minutes", 10)
+        window = self.config.monitor.crash_window_minutes
         add("Recent crashes", recent == 0, recent, 0,
             f"Crashes in the last {window} minutes", source="agent crash records")
 
@@ -399,8 +330,8 @@ class MetricsMonitor:
 
     # ------------------------------------------------------------------
     async def _check_thresholds(self, sample: dict[str, Any]) -> None:
-        th = self.config.get("thresholds", {})
-        min_interval = float(self.config.get("notifications.min_interval_seconds", 300))
+        th = self.config.thresholds
+        min_interval = self.config.notifications.min_interval_seconds
         now = time.time()
 
         async def alert(key: str, type_: str, message: str, data: dict) -> None:
@@ -409,29 +340,29 @@ class MetricsMonitor:
             self._alert_sent[key] = now
             await self.bus.publish(Event(type=type_, message=message, level="warn", data=data))
 
-        if sample["cpu_percent"] >= float(th.get("cpu_percent", 90)):
+        if sample["cpu_percent"] >= th.cpu_percent:
             await alert("cpu", "high_cpu",
-                        f"CPU at {sample['cpu_percent']:.0f}% (threshold {th.get('cpu_percent')}%)",
-                        {"value": sample["cpu_percent"], "threshold": th.get("cpu_percent")})
-        if sample["ram_percent"] >= float(th.get("ram_percent", 90)):
+                        f"CPU at {sample['cpu_percent']:.0f}% (threshold {th.cpu_percent}%)",
+                        {"value": sample["cpu_percent"], "threshold": th.cpu_percent})
+        if sample["ram_percent"] >= th.ram_percent:
             await alert("ram", "high_ram",
                         f"RAM at {sample['ram_percent']:.0f}% "
                         f"({sample['ram_used_mb']/1024:.1f} of {sample['ram_total_mb']/1024:.1f} GB)",
-                        {"value": sample["ram_percent"], "threshold": th.get("ram_percent")})
+                        {"value": sample["ram_percent"], "threshold": th.ram_percent})
         if (sample["disk_free_gb"] is not None
-                and sample["disk_free_gb"] <= float(th.get("disk_free_gb", 20))):
+                and sample["disk_free_gb"] <= th.disk_free_gb):
             await alert("disk", "low_disk",
                         f"Only {sample['disk_free_gb']:.1f} GB free "
-                        f"(threshold {th.get('disk_free_gb')} GB)",
-                        {"value": sample["disk_free_gb"], "threshold": th.get("disk_free_gb")})
-        if sample["tps"] is not None and sample["tps"] < float(th.get("tps_min", 18)):
+                        f"(threshold {th.disk_free_gb} GB)",
+                        {"value": sample["disk_free_gb"], "threshold": th.disk_free_gb})
+        if sample["tps"] is not None and sample["tps"] < th.tps_min:
             await alert("tps", "low_tps",
-                        f"TPS at {sample['tps']:.1f} (threshold {th.get('tps_min')})",
-                        {"value": sample["tps"], "threshold": th.get("tps_min")})
-        if sample["mspt"] is not None and sample["mspt"] > float(th.get("mspt_max", 50)):
+                        f"TPS at {sample['tps']:.1f} (threshold {th.tps_min})",
+                        {"value": sample["tps"], "threshold": th.tps_min})
+        if sample["mspt"] is not None and sample["mspt"] > th.mspt_max:
             await alert("mspt", "high_mspt",
-                        f"MSPT at {sample['mspt']:.0f} ms (threshold {th.get('mspt_max')} ms)",
-                        {"value": sample["mspt"], "threshold": th.get("mspt_max")})
+                        f"MSPT at {sample['mspt']:.0f} ms (threshold {th.mspt_max} ms)",
+                        {"value": sample["mspt"], "threshold": th.mspt_max})
 
     async def sample_once(self, player_count: int | None = None) -> dict[str, Any]:
         sample = self.snapshot()
@@ -467,7 +398,7 @@ class MetricsMonitor:
 
     # ------------------------------------------------------------------
     async def run(self, player_source=None) -> None:
-        interval = float(self.config.get("monitor.sample_interval", 10))
+        interval = self.config.monitor.sample_interval
         psutil.cpu_percent(interval=None)  # prime the counter
         while True:
             try:

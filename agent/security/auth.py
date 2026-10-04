@@ -131,8 +131,8 @@ class AuthManager:
         self.db = db
         self.bus = bus
         self.api_rate = RateLimiter(
-            int(config.get("security.rate_limit_requests", 120)),
-            float(config.get("security.rate_limit_window", 60)),
+            config.security.rate_limit_requests,
+            config.security.rate_limit_window,
         )
         self.login_rate = RateLimiter(10, 300.0)
 
@@ -142,8 +142,8 @@ class AuthManager:
         return bool(self.config.admin_password_hash or self.config.api_token)
 
     def _locked_out(self, user: str, source_ip: str) -> float | None:
-        max_failed = int(self.config.get("security.max_failed_logins", 5))
-        window = float(self.config.get("security.lockout_minutes", 15)) * 60
+        max_failed = self.config.security.max_failed_logins
+        window = self.config.security.lockout_minutes * 60
         cutoff = time.time() - window
         rows = self.db.query(
             "SELECT ts FROM login_attempts WHERE success = 0 AND ts > ? AND (user = ? OR source_ip = ?) "
@@ -201,7 +201,7 @@ class AuthManager:
 
         self._record_attempt(username, source_ip, True)
         token = secrets.token_urlsafe(TOKEN_BYTES)
-        hours = float(self.config.get("security.session_hours", 12))
+        hours = self.config.security.session_hours
         expires = time.time() + hours * 3600
         self.db.insert("sessions", {
             "token_hash": token_hash(token), "user": username,
@@ -236,7 +236,7 @@ class AuthManager:
         if principal.kind != "session" or not principal.token_hash:
             raise AuthError("Only interactive sessions can be rotated", status=400)
         token = secrets.token_urlsafe(TOKEN_BYTES)
-        hours = float(self.config.get("security.session_hours", 12))
+        hours = self.config.security.session_hours
         expires = time.time() + hours * 3600
         self.db.insert("sessions", {
             "token_hash": token_hash(token), "user": principal.user,

@@ -222,7 +222,7 @@ class Scheduler:
                 if file.stat().st_mtime < cutoff:
                     file.unlink(missing_ok=True)
                     removed += 1
-        self.db.prune(metrics_days=int(self.config.get("monitor.history_days", 14)))
+        self.db.prune(metrics_days=self.config.monitor.history_days)
         return f"Removed {removed} old log file(s) and pruned old metrics"
 
     async def _task_notify(self, payload: dict) -> str:
@@ -255,7 +255,7 @@ class Scheduler:
     async def run_due(self, now: float | None = None) -> list[dict[str, Any]]:
         now = now or time.time()
         results = []
-        blocked = self.server.maintenance and self.config.get("maintenance.block_scheduled_tasks", True)
+        blocked = self.server.maintenance and self.config.maintenance.block_scheduled_tasks
         for row in self.list_schedules():
             if not row["enabled"] or not row.get("next_run") or row["next_run"] > now:
                 continue

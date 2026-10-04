@@ -4,7 +4,7 @@
 
 | Check | How |
 | --- | --- |
-| Is the agent running? | `python -m installer.service status`, or look for the PowerShell window |
+| Is the agent running? | `python -m installer.autostart status`, or look for the PowerShell window |
 | Right address? | `network.host` in `config.yaml` must match what you type |
 | Firewall? | Windows Firewall may prompt the first time; allow it on private networks |
 | Tailscale up on both devices? | `tailscale status` on the PC, and the phone app |

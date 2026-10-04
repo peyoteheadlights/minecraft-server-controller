@@ -2,7 +2,8 @@
 
 ## Upgrading
 
-1. Stop the agent (`python -m installer.service stop`), or Ctrl+C
+1. Stop the agent: Ctrl+C in its window, or, if it starts with Windows,
+   `schtasks /End /TN "Minecraft Server Control"`
 2. Back up `config/config.yaml` and `.env`
 3. Replace the project files with the new version
 4. `pip install -r requirements.txt`
@@ -21,8 +22,8 @@ new.
 
 ```powershell
 # 1. Stop Minecraft from the dashboard if it is running
-# 2. Remove the service (Administrator PowerShell)
-python -m installer.service uninstall
+# 2. Remove the startup task (Administrator PowerShell if it runs at boot)
+python -m installer.autostart disable
 ```
 
 Then delete what you want gone:

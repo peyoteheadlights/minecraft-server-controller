@@ -37,8 +37,8 @@ class AgentCore:
         self.bus = EventBus()
         self.db = Database(config.database_path)
         self.db.register_server(
-            config.get("server.id", "main"),
-            config.get("server.name", "Minecraft Server"),
+            config.server.id,
+            config.server.name,
             str(config.server_dir),
         )
         self.server = MinecraftServer(config, self.bus, self.db)
@@ -56,7 +56,7 @@ class AgentCore:
 
         self.server.signal_hook = self.players.handle_signals
         self.server.crash_hook = self.crashes.collect
-        self.server.maintenance = bool(config.get("maintenance.enabled", False))
+        self.server.maintenance = config.maintenance.enabled
 
         self.bus.subscribe(self._persist_event)
         self.bus.subscribe(self.notifier.handle)
@@ -97,7 +97,7 @@ class AgentCore:
         self._cert_task = asyncio.create_task(self._certificate_watch_loop(), name="cert-watch")
         await self.bus.publish(Event(type="agent_started", level="success",
                                      message="Server agent started"))
-        if self.config.get("server.autostart_minecraft", False):
+        if self.config.server.autostart_minecraft:
             from .minecraft.process import ServerError
             try:
                 await self.server.start(actor="agent-autostart")
@@ -106,7 +106,7 @@ class AgentCore:
                                              message=f"Automatic start failed: {exc}"))
 
     async def _update_check_loop(self) -> None:
-        hours = float(self.config.get("mods.update_check_hours", 12))
+        hours = self.config.mods.update_check_hours
         if hours <= 0:
             return
         await asyncio.sleep(60)
@@ -162,7 +162,7 @@ class AgentCore:
     async def _certificate_watch_loop(self) -> None:
         if not self.config.tls_enabled:
             return
-        hours = float(self.config.get("tls.check_interval_hours", 6))
+        hours = self.config.tls.check_interval_hours
         await asyncio.sleep(5)
         while True:
             try:
@@ -203,7 +203,7 @@ class AgentCore:
             "version": "1.0.0",
             "database_version": self.db.version,
             "maintenance": self.server.maintenance,
-            "maintenance_message": self.config.get("maintenance.message"),
+            "maintenance_message": self.config.maintenance.message,
         }
         return status
 
@@ -215,7 +215,7 @@ class AgentCore:
             type="maintenance_mode",
             level="warn" if enabled else "info",
             message=("Maintenance mode is on. "
-                     + str(self.config.get("maintenance.message", ""))) if enabled
+                     + self.config.maintenance.message) if enabled
                     else "Maintenance mode is off",
             data={"enabled": bool(enabled)},
         ))

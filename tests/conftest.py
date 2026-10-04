@@ -10,6 +10,7 @@ sys.path.insert(0, str(ROOT))
 from agent.config import DEFAULTS, Config, _deep_merge  # noqa: E402
 
 FAKE_SERVER = Path(__file__).resolve().parent / "fixtures" / "fake_server.py"
+PASSWORD = "correct horse battery"
 
 
 def build_config(tmp_path: Path, **overrides) -> Config:
@@ -65,6 +66,21 @@ def make_config(tmp_path):
     def _make(**overrides):
         return build_config(tmp_path, **overrides)
     return _make
+
+
+@pytest.fixture
+def client(config, monkeypatch):
+    """The real app, signed in as admin with PASSWORD."""
+    from fastapi.testclient import TestClient
+
+    from agent.main import create_app
+    from agent.security.auth import hash_password
+
+    monkeypatch.setenv("MCSC_ADMIN_USERNAME", "admin")
+    monkeypatch.setenv("MCSC_ADMIN_PASSWORD_HASH", hash_password(PASSWORD, rounds=1000))
+    monkeypatch.delenv("MCSC_API_TOKEN", raising=False)
+    with TestClient(create_app(config)) as test_client:
+        yield test_client
 
 
 @pytest.fixture(autouse=True)

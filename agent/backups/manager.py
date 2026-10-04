@@ -48,7 +48,7 @@ class BackupManager:
 
     # ------------------------------------------------------------------
     def _sources(self, includes: list[str] | None = None) -> list[Path]:
-        includes = includes or list(self.config.get("backups.include", []))
+        includes = includes or list(self.config.backups.include)
         base = self.config.server_dir
         found = []
         for name in includes:
@@ -69,7 +69,7 @@ class BackupManager:
     def _zip_sync(self, target: Path, sources: list[Path], base: Path) -> tuple[int, int]:
         compression = (
             zipfile.ZIP_DEFLATED
-            if str(self.config.get("backups.compression", "deflate")) != "store"
+            if self.config.backups.compression != "store"
             else zipfile.ZIP_STORED
         )
         files = 0
@@ -368,7 +368,7 @@ class BackupManager:
         for item in entries:
             by_top.setdefault(item.filename.split("/")[0], []).append(item)
         checked = 0
-        for top, items in by_top.items():
+        for items in by_top.values():
             for item in items[:5]:
                 target = base / item.filename
                 if not target.exists():
@@ -382,9 +382,9 @@ class BackupManager:
     async def apply_retention(self) -> dict[str, Any]:
         """Keep N daily, weekly and monthly backups. Safety backups are kept
         for 14 days regardless; manual backups are never auto-deleted."""
-        keep_daily = int(self.config.get("backups.keep_daily", 7))
-        keep_weekly = int(self.config.get("backups.keep_weekly", 4))
-        keep_monthly = int(self.config.get("backups.keep_monthly", 3))
+        keep_daily = self.config.backups.keep_daily
+        keep_weekly = self.config.backups.keep_weekly
+        keep_monthly = self.config.backups.keep_monthly
         rows = [r for r in self.list_backups() if r["status"] == "ok"]
 
         keep: set[int] = set()

@@ -5,7 +5,6 @@ than producing a plausible number. These are the tests that fail if someone
 later adds a convenient default.
 """
 
-import zipfile
 
 import pytest
 
@@ -20,7 +19,6 @@ from agent.minecraft.state import ServerState
 from agent.mods.manager import ModManager
 from agent.monitoring.metrics import MetricsMonitor
 from agent.monitoring.players import PlayerTracker
-from agent.security.tls import inspect_certificate
 
 from .test_mods import make_jar
 
@@ -264,8 +262,6 @@ async def test_backup_success_is_only_claimed_after_verification(backups, config
 
 async def test_a_backup_that_fails_verification_is_not_reported_as_ok(backups, config, monkeypatch):
     """Simulate a truncated archive: the row must not say ok."""
-    real_verify = backups._verify_file
-
     def broken(path, expected_sha256=None, expected_files=None):
         return {"ok": False, "reason": "simulated truncation"}
 
@@ -393,7 +389,7 @@ def test_dashboard_shows_why_disk_space_is_unknown():
 # ---------------------------------------------------------------- tailscale / TLS
 def test_tailscale_is_unknown_when_the_cli_cannot_be_asked(parts, monkeypatch):
     config, bus, db, server = parts
-    monkeypatch.setattr("agent.security.certs.tailscale_binary", lambda: None)
+    monkeypatch.setattr("agent.tailscale.tailscale_binary", lambda: None)
     monkeypatch.setattr("psutil.net_if_addrs", lambda: {})
     metrics = MetricsMonitor(config, bus, db, server)
     status = metrics.tailscale_status()
@@ -407,7 +403,7 @@ def test_an_address_alone_does_not_prove_tailscale_connectivity(parts, monkeypat
     from collections import namedtuple
 
     Addr = namedtuple("Addr", "family address netmask broadcast ptp")
-    monkeypatch.setattr("agent.security.certs.tailscale_binary", lambda: None)
+    monkeypatch.setattr("agent.tailscale.tailscale_binary", lambda: None)
     monkeypatch.setattr("psutil.net_if_addrs",
                         lambda: {"Tailscale": [Addr(socket_module.AF_INET, "100.101.102.103",
                                                     None, None, None)]})

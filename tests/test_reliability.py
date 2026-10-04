@@ -1,20 +1,16 @@
 """Database integrity under concurrent load, and WebSocket reconnection."""
 
 import asyncio
-import json
 import sqlite3
 import threading
 
 import pytest
-from fastapi.testclient import TestClient
 
 from agent.database.db import Database
 from agent.events import Event, EventBus
-from agent.main import create_app
 from agent.minecraft.process import MinecraftServer
-from agent.security.auth import hash_password
 
-PASSWORD = "correct horse battery"
+from .conftest import PASSWORD
 
 
 # ---------------------------------------------------------------- database
@@ -127,7 +123,7 @@ def test_metrics_pruning_bounds_growth(config):
     old = time.time() - 40 * 86400
     for n in range(100):
         db.insert("metrics", {"server_id": "test", "ts": old + n, "cpu_percent": 1.0})
-    for n in range(10):
+    for _ in range(10):
         db.insert("metrics", {"server_id": "test", "ts": time.time(), "cpu_percent": 1.0})
     db.prune(metrics_days=14)
     assert db.query_one("SELECT COUNT(*) AS n FROM metrics")["n"] == 10
@@ -150,15 +146,6 @@ def test_console_buffer_never_grows_without_bound(config):
 
 
 # ---------------------------------------------------------------- websocket
-@pytest.fixture
-def client(config, monkeypatch):
-    monkeypatch.setenv("MCSC_ADMIN_USERNAME", "admin")
-    monkeypatch.setenv("MCSC_ADMIN_PASSWORD_HASH", hash_password(PASSWORD, rounds=1000))
-    monkeypatch.delenv("MCSC_API_TOKEN", raising=False)
-    with TestClient(create_app(config)) as test_client:
-        yield test_client
-
-
 def token_for(client):
     return client.post("/api/auth/login",
                        json={"username": "admin", "password": PASSWORD}).json()["token"]
@@ -213,7 +200,6 @@ def test_websocket_cannot_perform_actions(client):
 def test_live_events_arrive_in_a_shape_the_dashboard_recognises(client):
     """Regression: events were sent as {"type": "event", **event}, so the
     event's own type overwrote "event" and the browser dropped every one."""
-    import asyncio
     token = token_for(client)
     core = client.app.state.core
     with client.websocket_connect("/ws") as ws:

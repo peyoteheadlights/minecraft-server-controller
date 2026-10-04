@@ -35,8 +35,8 @@ class ModrinthError(RuntimeError):
 
 class ModrinthClient:
     def __init__(self, config):
-        self.base = str(config.get("mods.modrinth_api", "https://api.modrinth.com/v2")).rstrip("/")
-        self.user_agent = str(config.get("mods.user_agent", "minecraft-server-control/1.0"))
+        self.base = config.mods.modrinth_api.rstrip("/")
+        self.user_agent = config.mods.user_agent
         self._client: httpx.AsyncClient | None = None
 
     async def _http(self) -> httpx.AsyncClient:

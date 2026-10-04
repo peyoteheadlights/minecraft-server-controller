@@ -26,21 +26,19 @@ from __future__ import annotations
 
 import datetime as dt
 import ipaddress
-import json
 import os
-import shutil
 import socket
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
 from cryptography import x509
-
-from ..winproc import NO_WINDOW
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
+
+from .. import tailscale
+from ..winproc import NO_WINDOW
 
 CA_VALID_DAYS = 3650      # the CA you trust once
 LEAF_VALID_DAYS = 398     # the maximum browsers accept for a server certificate
@@ -101,79 +99,15 @@ def _restrict_file(path: Path) -> None:
 
 
 # ----------------------------------------------------------------------
-# Tailscale
+# Tailscale-issued certificates
 # ----------------------------------------------------------------------
-def tailscale_binary() -> str | None:
-    found = shutil.which("tailscale")
-    if found:
-        return found
-    for candidate in (
-        r"C:\Program Files\Tailscale\tailscale.exe",
-        r"C:\Program Files (x86)\Tailscale\tailscale.exe",
-        "/usr/bin/tailscale", "/usr/local/bin/tailscale",
-        "/Applications/Tailscale.app/Contents/MacOS/Tailscale",
-    ):
-        if Path(candidate).is_file():
-            return candidate
-    return None
-
-
-def tailscale_status() -> dict[str, Any]:
-    """Ask the Tailscale CLI what it actually knows.
-
-    Source of truth: `tailscale status --json`. If the CLI is missing or the
-    call fails, every field stays unknown rather than being guessed.
-    """
-    result: dict[str, Any] = {
-        "cli_found": False, "binary": None, "backend_state": None,
-        "connected": None, "dns_name": None, "hostname": None,
-        "addresses": [], "magicdns": None, "https_available": None,
-        "tailnet": None, "error": None,
-    }
-    binary = tailscale_binary()
-    if not binary:
-        result["error"] = "The tailscale command was not found on this machine"
-        return result
-    result["cli_found"] = True
-    result["binary"] = binary
-    try:
-        proc = subprocess.run([binary, "status", "--json"],
-                              capture_output=True, text=True, timeout=20, creationflags=NO_WINDOW)
-    except (OSError, subprocess.SubprocessError) as exc:
-        result["error"] = f"tailscale status failed: {exc}"
-        return result
-    if proc.returncode != 0:
-        result["error"] = (proc.stderr or proc.stdout or "tailscale status returned an error").strip()[:300]
-        return result
-    try:
-        data = json.loads(proc.stdout)
-    except json.JSONDecodeError as exc:
-        result["error"] = f"tailscale status returned output that could not be read: {exc}"
-        return result
-
-    result["backend_state"] = data.get("BackendState")
-    result["connected"] = data.get("BackendState") == "Running"
-    self_node = data.get("Self") or {}
-    dns_name = (self_node.get("DNSName") or "").rstrip(".")
-    result["dns_name"] = dns_name or None
-    result["hostname"] = self_node.get("HostName")
-    result["addresses"] = list(self_node.get("TailscaleIPs") or [])
-    result["magicdns"] = bool(dns_name)
-    if dns_name and "." in dns_name:
-        result["tailnet"] = dns_name.split(".", 1)[1]
-    caps = self_node.get("CapMap") or {}
-    if isinstance(caps, dict) and caps:
-        result["https_available"] = "https" in " ".join(caps.keys()).lower()
-    return result
-
-
 def request_tailscale_certificate(dns_name: str, cert_dir: Path) -> dict[str, Any]:
     """Ask Tailscale for a publicly trusted certificate for this node.
 
     Returns a report. It never raises for an ordinary failure, because falling
     back to the local CA is a normal outcome, not an error.
     """
-    binary = tailscale_binary()
+    binary = tailscale.tailscale_binary()
     report: dict[str, Any] = {"strategy": "tailscale", "ok": False, "error": None,
                               "cert_path": None, "key_path": None}
     if not binary:
@@ -354,7 +288,7 @@ def provision(cert_dir: Path, extra_hostnames: list[str] | None = None,
     Tailscale was not used when that is the case.
     """
     report: dict[str, Any] = {"tailscale": None, "result": None}
-    status = tailscale_status()
+    status = tailscale.tailscale_status()
     report["tailscale"] = status
 
     if prefer_tailscale and status.get("connected") and status.get("dns_name"):

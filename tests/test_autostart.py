@@ -22,35 +22,6 @@ WORKDIR = r"C:\path\to\minecraft-server-control"
 ARGS = "-m agent.main --launched-by task"
 
 
-# ================================================================ the original bug
-def test_regression_service_class_is_never_registered_as___main__():
-    """The original fault: under `python -m installer.service install`,
-    __name__ is "__main__", so the service registered
-    "__main__.MinecraftControlService" and pythonservice.exe - a fresh
-    interpreter with an empty __main__ - could never find the class."""
-    import importlib.util
-
-    for module_name in ("__main__", "installer.service", "anything"):
-        spec = importlib.util.spec_from_file_location(
-            module_name if module_name != "__main__" else "_as_main_probe",
-            PROJECT / "installer" / "service.py")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        value = module.service_class_string()
-        assert not value.startswith("__main__."), value
-        assert value.endswith(".MinecraftControlService")
-        path_part = value.rsplit(".", 1)[0]
-        assert Path(path_part + ".py").is_file(), "must point at the real service.py"
-        assert Path(path_part).is_absolute()
-
-
-def test_service_start_no_longer_reports_success_blindly():
-    source = (PROJECT / "installer" / "service.py").read_text(encoding="utf-8")
-    body = source[source.index("def start() -> int:"):source.index("def stop() -> int:")]
-    assert "QueryServiceStatus" in body, "start() must check the service actually reached RUNNING"
-    assert 'print("Service starting.")\n    return 0' not in body
-
-
 # ================================================================ the task XML
 def parsed(mode="boot", user=r"HOST-PC\Alex", command=PY, workdir=WORKDIR):
     return autostart.parse_task_xml(

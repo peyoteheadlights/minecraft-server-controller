@@ -11,7 +11,9 @@ Any key you leave out uses its default. The defaults live in one place, the
 typed sections at the top of `agent/config.py`, and every value is checked
 when the agent starts: a number that isn't a number stops startup with the
 key's name (for example `thresholds.cpu_percent must be a number`), and the
-dashboard refuses to save one. An empty value (`jar:`) means empty text, an
+dashboard refuses to save one. On/off settings take `true`/`false`,
+`yes`/`no`, `on`/`off` or `1`/`0`; anything else (such as `maybe`) stops
+startup rather than being guessed at. An empty value (`jar:`) means empty text, an
 empty list or "off"; for a number it means the default.
 
 ## server

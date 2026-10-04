@@ -66,6 +66,19 @@ def test_a_bad_value_fails_at_load_with_its_name(tmp_path, monkeypatch):
         load(tmp_path, "thresholds:\n  cpu_percent: lots\n", monkeypatch)
 
 
+@pytest.mark.parametrize("value", ["maybe", "2", "[yes]"])
+def test_an_unrecognised_on_off_value_fails_instead_of_meaning_on(tmp_path, monkeypatch, value):
+    with pytest.raises(ConfigError, match="monitor.auto_restart must be true or false"):
+        load(tmp_path, f"monitor:\n  auto_restart: {value}\n", monkeypatch)
+
+
+@pytest.mark.parametrize(("value", "expected"), [("yes", True), ("off", False), ("1", True),
+                                                 ("0", False), ("true", True)])
+def test_recognised_on_off_values_still_work(tmp_path, monkeypatch, value, expected):
+    cfg = load(tmp_path, f"monitor:\n  auto_restart: {value}\n", monkeypatch)
+    assert cfg.monitor.auto_restart is expected
+
+
 def test_empty_yaml_values_mean_empty_not_the_word_none(tmp_path, monkeypatch):
     cfg = load(
         tmp_path,

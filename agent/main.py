@@ -33,6 +33,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from .api.errors import register_error_handlers
 from .api.routes import router
 from .api.ws import ws_router
 from .config import Config
@@ -183,6 +184,7 @@ def create_app(config: Config) -> FastAPI:
                                "Check mcsc-data/logs/agent-errors.log."},
         )
 
+    register_error_handlers(app)
     app.include_router(router)
     app.include_router(ws_router)
 

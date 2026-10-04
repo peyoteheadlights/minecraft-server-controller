@@ -41,10 +41,14 @@ def hash_password(password: str, salt: bytes | None = None, rounds: int = PBKDF2
         raise ValueError("The password must be at least 10 characters long")
     salt = salt or secrets.token_bytes(16)
     derived = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, rounds)
-    return "$".join([
-        "pbkdf2_sha256", str(rounds),
-        base64.b64encode(salt).decode(), base64.b64encode(derived).decode(),
-    ])
+    return "$".join(
+        [
+            "pbkdf2_sha256",
+            str(rounds),
+            base64.b64encode(salt).decode(),
+            base64.b64encode(derived).decode(),
+        ]
+    )
 
 
 def verify_password(password: str, encoded: str) -> bool:
@@ -155,10 +159,15 @@ class AuthManager:
         return None
 
     def _record_attempt(self, user: str, source_ip: str, success: bool) -> None:
-        self.db.insert("login_attempts", {
-            "ts": time.time(), "user": user, "source_ip": source_ip,
-            "success": 1 if success else 0,
-        })
+        self.db.insert(
+            "login_attempts",
+            {
+                "ts": time.time(),
+                "user": user,
+                "source_ip": source_ip,
+                "success": 1 if success else 0,
+            },
+        )
 
     def failed_login_count(self, hours: float = 24) -> int:
         row = self.db.query_one(
@@ -168,8 +177,9 @@ class AuthManager:
         return int(row["n"]) if row else 0
 
     # ------------------------------------------------------------------
-    def login(self, username: str, password: str, source_ip: str = "",
-              label: str = "") -> dict[str, Any]:
+    def login(
+        self, username: str, password: str, source_ip: str = "", label: str = ""
+    ) -> dict[str, Any]:
         username = (username or "").strip()[:64]
         self.login_rate.check(f"login:{source_ip or 'unknown'}")
         if not self.config.admin_password_hash:
@@ -181,8 +191,9 @@ class AuthManager:
         remaining = self._locked_out(username, source_ip)
         if remaining and remaining > 0:
             raise AuthError(
-                f"Too many failed attempts. Try again in {int(remaining/60)+1} minutes.",
-                status=429, retry_after=int(remaining),
+                f"Too many failed attempts. Try again in {int(remaining / 60) + 1} minutes.",
+                status=429,
+                retry_after=int(remaining),
             )
         expected_user = self.config.admin_username
         user_ok = hmac.compare_digest(username, expected_user)
@@ -192,22 +203,33 @@ class AuthManager:
             self.db.audit("login_failed", user=username, source_ip=source_ip, result="denied")
             if self.bus:
                 from ..events import Event
-                self.bus.publish_soon(Event(
-                    type="auth_failure", level="warn",
-                    message=f"Failed sign-in for '{username}' from {source_ip or 'unknown address'}",
-                    data={"username": username, "source_ip": source_ip},
-                ))
+
+                self.bus.publish_soon(
+                    Event(
+                        type="auth_failure",
+                        level="warn",
+                        message=f"Failed sign-in for '{username}' from {source_ip or 'unknown address'}",
+                        data={"username": username, "source_ip": source_ip},
+                    )
+                )
             raise AuthError("The username or password is not correct")
 
         self._record_attempt(username, source_ip, True)
         token = secrets.token_urlsafe(TOKEN_BYTES)
         hours = self.config.security.session_hours
         expires = time.time() + hours * 3600
-        self.db.insert("sessions", {
-            "token_hash": token_hash(token), "user": username,
-            "created_at": time.time(), "expires_at": expires,
-            "last_used": time.time(), "source_ip": source_ip, "label": label[:80],
-        })
+        self.db.insert(
+            "sessions",
+            {
+                "token_hash": token_hash(token),
+                "user": username,
+                "created_at": time.time(),
+                "expires_at": expires,
+                "last_used": time.time(),
+                "source_ip": source_ip,
+                "label": label[:80],
+            },
+        )
         self.db.audit("login", user=username, source_ip=source_ip)
         self.purge_expired()
         return {"token": token, "user": username, "expires_at": expires}
@@ -228,8 +250,9 @@ class AuthManager:
         self.db.execute(
             "UPDATE sessions SET last_used = ? WHERE token_hash = ?", (time.time(), digest)
         )
-        return Principal(user=row["user"], kind="session", token_hash=digest,
-                         expires_at=row["expires_at"])
+        return Principal(
+            user=row["user"], kind="session", token_hash=digest, expires_at=row["expires_at"]
+        )
 
     def rotate(self, principal: Principal, source_ip: str = "") -> dict[str, Any]:
         """Issue a fresh session token and invalidate the current one."""
@@ -238,11 +261,18 @@ class AuthManager:
         token = secrets.token_urlsafe(TOKEN_BYTES)
         hours = self.config.security.session_hours
         expires = time.time() + hours * 3600
-        self.db.insert("sessions", {
-            "token_hash": token_hash(token), "user": principal.user,
-            "created_at": time.time(), "expires_at": expires,
-            "last_used": time.time(), "source_ip": source_ip, "label": "rotated",
-        })
+        self.db.insert(
+            "sessions",
+            {
+                "token_hash": token_hash(token),
+                "user": principal.user,
+                "created_at": time.time(),
+                "expires_at": expires,
+                "last_used": time.time(),
+                "source_ip": source_ip,
+                "label": "rotated",
+            },
+        )
         self.db.execute("DELETE FROM sessions WHERE token_hash = ?", (principal.token_hash,))
         self.db.audit("token_rotate", user=principal.user, source_ip=source_ip)
         return {"token": token, "expires_at": expires}

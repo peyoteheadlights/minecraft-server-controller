@@ -107,8 +107,9 @@ def validate(command: str, confirm: bool = False) -> ValidatedCommand:
         raise CommandError(f"'{name}' needs confirmation. {reason}")
 
     # send without the leading slash; the server console does not use one
-    return ValidatedCommand(raw=text.lstrip("/"), name=name, args=args,
-                            dangerous=bool(reason), danger_reason=reason)
+    return ValidatedCommand(
+        raw=text.lstrip("/"), name=name, args=args, dangerous=bool(reason), danger_reason=reason
+    )
 
 
 def is_dangerous(command: str) -> bool:

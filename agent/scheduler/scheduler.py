@@ -30,8 +30,16 @@ TIME_RE = re.compile(r"^(?P<h>[01]?\d|2[0-3]):(?P<m>[0-5]\d)$")
 WEEKLY_RE = re.compile(r"^(?P<day>mon|tue|wed|thu|fri|sat|sun)\s+(?P<time>[0-2]?\d:[0-5]\d)$", re.I)
 INTERVAL_RE = re.compile(r"^(?P<n>\d+)(?P<unit>[smhd])$", re.I)
 
-TASKS = ("start", "stop", "restart", "backup", "log_cleanup", "notify",
-         "maintenance_on", "maintenance_off")
+TASKS = (
+    "start",
+    "stop",
+    "restart",
+    "backup",
+    "log_cleanup",
+    "notify",
+    "maintenance_on",
+    "maintenance_off",
+)
 
 
 class ScheduleError(ValueError):
@@ -47,8 +55,9 @@ def next_run(kind: str, expr: str, after: float | None = None) -> float:
         m = TIME_RE.match(expr)
         if not m:
             raise ScheduleError("A daily schedule needs a time like 23:00")
-        target = now.replace(hour=int(m.group("h")), minute=int(m.group("m")),
-                             second=0, microsecond=0)
+        target = now.replace(
+            hour=int(m.group("h")), minute=int(m.group("m")), second=0, microsecond=0
+        )
         if target <= now:
             target += timedelta(days=1)
         return target.timestamp()
@@ -70,7 +79,9 @@ def next_run(kind: str, expr: str, after: float | None = None) -> float:
         m = INTERVAL_RE.match(expr)
         if not m:
             raise ScheduleError("An interval needs a value like 6h, 90m or 45s")
-        seconds = int(m.group("n")) * {"s": 1, "m": 60, "h": 3600, "d": 86400}[m.group("unit").lower()]
+        seconds = (
+            int(m.group("n")) * {"s": 1, "m": 60, "h": 3600, "d": 86400}[m.group("unit").lower()]
+        )
         if seconds < 30:
             raise ScheduleError("The shortest interval is 30 seconds")
         return (now + timedelta(seconds=seconds)).timestamp()
@@ -109,17 +120,31 @@ class Scheduler:
             row["enabled"] = bool(row["enabled"])
         return rows
 
-    def add(self, name: str, task: str, kind: str, expr: str,
-            payload: dict | None = None, enabled: bool = True) -> dict[str, Any]:
+    def add(
+        self,
+        name: str,
+        task: str,
+        kind: str,
+        expr: str,
+        payload: dict | None = None,
+        enabled: bool = True,
+    ) -> dict[str, Any]:
         if task not in TASKS:
             raise ScheduleError(f"Unknown task '{task}'. Choose one of: {', '.join(TASKS)}")
         upcoming = next_run(kind, expr)
-        row_id = self.db.insert("schedules", {
-            "server_id": self.server.server_id, "name": name[:80], "task": task,
-            "kind": kind.lower(), "expr": expr.strip(),
-            "payload": json.dumps(payload or {}), "enabled": 1 if enabled else 0,
-            "next_run": upcoming,
-        })
+        row_id = self.db.insert(
+            "schedules",
+            {
+                "server_id": self.server.server_id,
+                "name": name[:80],
+                "task": task,
+                "kind": kind.lower(),
+                "expr": expr.strip(),
+                "payload": json.dumps(payload or {}),
+                "enabled": 1 if enabled else 0,
+                "next_run": upcoming,
+            },
+        )
         return self.get(row_id)
 
     def get(self, schedule_id: int) -> dict[str, Any]:
@@ -145,9 +170,16 @@ class Scheduler:
         self.db.execute(
             "UPDATE schedules SET name = ?, task = ?, kind = ?, expr = ?, payload = ?, "
             "enabled = ?, next_run = ? WHERE id = ?",
-            (changes.get("name", row["name"]), task, kind, expr,
-             json.dumps(changes.get("payload", row["payload"])),
-             1 if enabled else 0, upcoming, schedule_id),
+            (
+                changes.get("name", row["name"]),
+                task,
+                kind,
+                expr,
+                json.dumps(changes.get("payload", row["payload"])),
+                1 if enabled else 0,
+                upcoming,
+                schedule_id,
+            ),
         )
         return self.get(schedule_id)
 
@@ -156,7 +188,9 @@ class Scheduler:
         self.db.execute("DELETE FROM schedules WHERE id = ?", (schedule_id,))
 
     def seed_defaults(self) -> None:
-        if self.db.query_one("SELECT id FROM schedules WHERE server_id = ?", (self.server.server_id,)):
+        if self.db.query_one(
+            "SELECT id FROM schedules WHERE server_id = ?", (self.server.server_id,)
+        ):
             return
         self.add("Nightly backup", "backup", "daily", "23:00", enabled=True)
         self.add("Weekly restart", "restart", "weekly", "sun 04:00", enabled=False)
@@ -165,6 +199,7 @@ class Scheduler:
     # ------------------------------------------------------------------
     async def _task_start(self, payload: dict) -> str:
         from ..minecraft.process import ServerError
+
         try:
             await self.server.start(actor="scheduler")
             return "Server start requested"
@@ -174,6 +209,7 @@ class Scheduler:
     async def _task_stop(self, payload: dict) -> str:
         from ..minecraft.state import ExitReason
         from ..minecraft.process import ServerError
+
         warn = payload.get("warn_seconds", 60)
         try:
             if self.server.state.value == "ONLINE" and warn:
@@ -203,7 +239,7 @@ class Scheduler:
         if not self.backups:
             return "No backup manager is available"
         result = await self.backups.create(kind=payload.get("kind", "scheduled"), user="scheduler")
-        return f"Created {result['name']} ({result['size_bytes']/1024**3:.2f} GB)"
+        return f"Created {result['name']} ({result['size_bytes'] / 1024**3:.2f} GB)"
 
     async def _task_log_cleanup(self, payload: dict) -> str:
         days = int(payload.get("days", 30))
@@ -226,23 +262,27 @@ class Scheduler:
         return f"Removed {removed} old log file(s) and pruned old metrics"
 
     async def _task_notify(self, payload: dict) -> str:
-        await self.bus.publish(Event(
-            type="server_started" if payload.get("as") == "started" else "maintenance_mode",
-            message=payload.get("message", "Scheduled notification"),
-            level="info",
-        ))
+        await self.bus.publish(
+            Event(
+                type="server_started" if payload.get("as") == "started" else "maintenance_mode",
+                message=payload.get("message", "Scheduled notification"),
+                level="info",
+            )
+        )
         return "Notification published"
 
     async def _task_maintenance_on(self, payload: dict) -> str:
         self.server.maintenance = True
-        await self.bus.publish(Event(type="maintenance_mode", level="warn",
-                                     message="Maintenance mode on (scheduled)"))
+        await self.bus.publish(
+            Event(type="maintenance_mode", level="warn", message="Maintenance mode on (scheduled)")
+        )
         return "Maintenance mode on"
 
     async def _task_maintenance_off(self, payload: dict) -> str:
         self.server.maintenance = False
-        await self.bus.publish(Event(type="maintenance_mode", level="info",
-                                     message="Maintenance mode off (scheduled)"))
+        await self.bus.publish(
+            Event(type="maintenance_mode", level="info", message="Maintenance mode off (scheduled)")
+        )
         return "Maintenance mode off"
 
     # ------------------------------------------------------------------
@@ -262,11 +302,16 @@ class Scheduler:
             if blocked and row["task"] not in ("maintenance_off", "notify"):
                 self.db.execute(
                     "UPDATE schedules SET next_run = ?, last_result = ? WHERE id = ?",
-                    (next_run(row["kind"], row["expr"], now), "Skipped: maintenance mode", row["id"]),
+                    (
+                        next_run(row["kind"], row["expr"], now),
+                        "Skipped: maintenance mode",
+                        row["id"],
+                    ),
                 )
                 continue
-            await self.bus.publish(Event(type="schedule_running",
-                                         message=f"Running scheduled task: {row['name']}"))
+            await self.bus.publish(
+                Event(type="schedule_running", message=f"Running scheduled task: {row['name']}")
+            )
             try:
                 result = await self.run_task(row)
                 level = "info"
@@ -277,10 +322,12 @@ class Scheduler:
                 "UPDATE schedules SET last_run = ?, next_run = ?, last_result = ? WHERE id = ?",
                 (now, next_run(row["kind"], row["expr"], now), result[:300], row["id"]),
             )
-            self.db.add_event(self.server.server_id, "schedule",
-                              f"{row['name']}: {result}", level=level)
-            await self.bus.publish(Event(type="schedule_finished", level=level,
-                                         message=f"{row['name']}: {result}"))
+            self.db.add_event(
+                self.server.server_id, "schedule", f"{row['name']}: {result}", level=level
+            )
+            await self.bus.publish(
+                Event(type="schedule_finished", level=level, message=f"{row['name']}: {result}")
+            )
             results.append({"id": row["id"], "name": row["name"], "result": result})
         return results
 

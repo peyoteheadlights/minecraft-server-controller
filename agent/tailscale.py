@@ -26,7 +26,8 @@ def tailscale_binary() -> str | None:
     for candidate in (
         r"C:\Program Files\Tailscale\tailscale.exe",
         r"C:\Program Files (x86)\Tailscale\tailscale.exe",
-        "/usr/bin/tailscale", "/usr/local/bin/tailscale",
+        "/usr/bin/tailscale",
+        "/usr/local/bin/tailscale",
         "/Applications/Tailscale.app/Contents/MacOS/Tailscale",
     ):
         if Path(candidate).is_file():
@@ -41,10 +42,17 @@ def tailscale_status() -> dict[str, Any]:
     call fails, every field stays unknown rather than being guessed.
     """
     result: dict[str, Any] = {
-        "cli_found": False, "binary": None, "backend_state": None,
-        "connected": None, "dns_name": None, "hostname": None,
-        "addresses": [], "magicdns": None, "https_available": None,
-        "tailnet": None, "error": None,
+        "cli_found": False,
+        "binary": None,
+        "backend_state": None,
+        "connected": None,
+        "dns_name": None,
+        "hostname": None,
+        "addresses": [],
+        "magicdns": None,
+        "https_available": None,
+        "tailnet": None,
+        "error": None,
     }
     binary = tailscale_binary()
     if not binary:
@@ -53,13 +61,20 @@ def tailscale_status() -> dict[str, Any]:
     result["cli_found"] = True
     result["binary"] = binary
     try:
-        proc = subprocess.run([binary, "status", "--json"],
-                              capture_output=True, text=True, timeout=20, creationflags=NO_WINDOW)
+        proc = subprocess.run(
+            [binary, "status", "--json"],
+            capture_output=True,
+            text=True,
+            timeout=20,
+            creationflags=NO_WINDOW,
+        )
     except (OSError, subprocess.SubprocessError) as exc:
         result["error"] = f"tailscale status failed: {exc}"
         return result
     if proc.returncode != 0:
-        result["error"] = (proc.stderr or proc.stdout or "tailscale status returned an error").strip()[:300]
+        result["error"] = (
+            proc.stderr or proc.stdout or "tailscale status returned an error"
+        ).strip()[:300]
         return result
     try:
         data = json.loads(proc.stdout)
@@ -106,10 +121,11 @@ def connection_status() -> dict[str, Any]:
             "addresses": report.get("addresses") or [],
             "dns_name": report.get("dns_name"),
             "backend_state": report.get("backend_state"),
-            "detail": ("Verified through the Tailscale daemon"
-                       if report["connected"]
-                       else f"Tailscale is installed but not connected "
-                            f"({report.get('backend_state')})"),
+            "detail": (
+                "Verified through the Tailscale daemon"
+                if report["connected"]
+                else f"Tailscale is installed but not connected ({report.get('backend_state')})"
+            ),
         }
 
     # The CLI could not answer. Fall back to looking for an address, and be
@@ -118,10 +134,15 @@ def connection_status() -> dict[str, Any]:
     try:
         addrs = psutil.net_if_addrs()
     except Exception:  # pragma: no cover
-        return {"connected": None, "verified": False, "source": "unavailable",
-                "address": None, "addresses": [],
-                "detail": f"Could not verify: {cli_problem}, and the network "
-                          f"interfaces could not be read either."}
+        return {
+            "connected": None,
+            "verified": False,
+            "source": "unavailable",
+            "address": None,
+            "addresses": [],
+            "detail": f"Could not verify: {cli_problem}, and the network "
+            f"interfaces could not be read either.",
+        }
     for name, entries in addrs.items():
         for entry in entries:
             if entry.family != socket.AF_INET or not entry.address:
@@ -141,9 +162,11 @@ def connection_status() -> dict[str, Any]:
                     "address": entry.address,
                     "addresses": [entry.address],
                     "interface": name,
-                    "detail": (f"A Tailscale-style address ({entry.address}) is assigned to "
-                               f"interface {name}, but connectivity could not be confirmed "
-                               f"because {cli_problem}."),
+                    "detail": (
+                        f"A Tailscale-style address ({entry.address}) is assigned to "
+                        f"interface {name}, but connectivity could not be confirmed "
+                        f"because {cli_problem}."
+                    ),
                 }
     return {
         "connected": None,

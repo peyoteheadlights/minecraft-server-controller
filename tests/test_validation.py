@@ -17,24 +17,28 @@ def test_leading_slash_is_stripped():
     assert validate("/whitelist list", confirm=True).raw == "whitelist list"
 
 
-@pytest.mark.parametrize("bad", [
-    "say hi\nstop",            # newline injection: two commands in one
-    "say hi; shutdown -s",     # shell separator
-    "say `whoami`",            # backtick
-    "say $(rm -rf /)",         # command substitution
-    "say a && del C:\\",       # chained shell command
-    "",                        # empty
-    "   ",                     # whitespace only
-    "1say hi",                 # command name must start with a letter
-    "x" * 600,                 # too long
-])
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "say hi\nstop",  # newline injection: two commands in one
+        "say hi; shutdown -s",  # shell separator
+        "say `whoami`",  # backtick
+        "say $(rm -rf /)",  # command substitution
+        "say a && del C:\\",  # chained shell command
+        "",  # empty
+        "   ",  # whitespace only
+        "1say hi",  # command name must start with a letter
+        "x" * 600,  # too long
+    ],
+)
 def test_dangerous_shapes_are_refused(bad):
     with pytest.raises(CommandError):
         validate(bad)
 
 
-@pytest.mark.parametrize("command", ["stop", "ban Steve", "op Steve", "whitelist off",
-                                     "deop Steve", "ban-ip 1.2.3.4"])
+@pytest.mark.parametrize(
+    "command", ["stop", "ban Steve", "op Steve", "whitelist off", "deop Steve", "ban-ip 1.2.3.4"]
+)
 def test_dangerous_commands_need_confirmation(command):
     with pytest.raises(CommandError):
         validate(command)
@@ -87,8 +91,14 @@ def test_mixin_failure_is_identified():
 
 
 def test_port_conflict_and_eula_are_identified():
-    assert analyze(["[12:00:00] [Server thread/WARN]: FAILED TO BIND TO PORT!"]).category == "PortInUse"
-    assert analyze(["You need to agree to the EULA in order to run the server."]).category == "EulaNotAccepted"
+    assert (
+        analyze(["[12:00:00] [Server thread/WARN]: FAILED TO BIND TO PORT!"]).category
+        == "PortInUse"
+    )
+    assert (
+        analyze(["You need to agree to the EULA in order to run the server."]).category
+        == "EulaNotAccepted"
+    )
 
 
 def test_unknown_crash_admits_it_does_not_know():
@@ -99,19 +109,35 @@ def test_unknown_crash_admits_it_does_not_know():
 
 
 def test_java_version_mismatch_is_identified():
-    lines = ["java.lang.UnsupportedClassVersionError: net/minecraft/Main has been compiled by a "
-             "more recent version of the Java Runtime (class file version 65.0)"]
+    lines = [
+        "java.lang.UnsupportedClassVersionError: net/minecraft/Main has been compiled by a "
+        "more recent version of the Java Runtime (class file version 65.0)"
+    ]
     result = analyze(lines, exit_code=1)
     assert result.category == "JavaVersionIncompatible"
     assert "Java 21" in result.advice
 
 
 # ---------------------------------------------------------------- paths
-@pytest.mark.parametrize("bad", [
-    "../evil.jar", "..\\evil.jar", "mods/../../evil.jar", "sub/dir.jar",
-    "mod.exe", "mod.bat", "mod.ps1", "script.py", "CON.jar", "", ".", "..",
-    "trailing.jar ", "nul.jar",
-])
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "../evil.jar",
+        "..\\evil.jar",
+        "mods/../../evil.jar",
+        "sub/dir.jar",
+        "mod.exe",
+        "mod.bat",
+        "mod.ps1",
+        "script.py",
+        "CON.jar",
+        "",
+        ".",
+        "..",
+        "trailing.jar ",
+        "nul.jar",
+    ],
+)
 def test_unsafe_filenames_are_refused(bad):
     with pytest.raises(PathSafetyError):
         safe_filename(bad, {".jar"})
@@ -139,6 +165,7 @@ def test_is_inside_rejects_sibling_directories(tmp_path):
 
 def test_symlinked_jar_is_refused(tmp_path):
     from agent.security.paths import assert_not_symlink
+
     real = tmp_path / "real.jar"
     real.write_bytes(b"PK")
     link = tmp_path / "link.jar"
@@ -159,13 +186,21 @@ def test_daily_and_weekly_and_interval_parse():
 
 def test_daily_schedule_is_always_in_the_future():
     import time
+
     assert next_run("daily", "00:01", after=time.time()) > time.time()
 
 
-@pytest.mark.parametrize("kind,expr", [
-    ("daily", "25:00"), ("daily", "noon"), ("weekly", "funday 04:00"),
-    ("interval", "5s"), ("interval", "soon"), ("yearly", "01:00"),
-])
+@pytest.mark.parametrize(
+    "kind,expr",
+    [
+        ("daily", "25:00"),
+        ("daily", "noon"),
+        ("weekly", "funday 04:00"),
+        ("interval", "5s"),
+        ("interval", "soon"),
+        ("yearly", "01:00"),
+    ],
+)
 def test_bad_schedules_are_refused(kind, expr):
     with pytest.raises(ScheduleError):
         next_run(kind, expr)

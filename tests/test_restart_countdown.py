@@ -12,8 +12,9 @@ from agent.minecraft.state import ServerState
 
 
 def make(make_config, delay=30.0):
-    config = make_config(**{"monitor.auto_restart": True, "monitor.restart_delay": delay,
-                            "monitor.max_crashes": 10})
+    config = make_config(
+        **{"monitor.auto_restart": True, "monitor.restart_delay": delay, "monitor.max_crashes": 10}
+    )
     bus = EventBus()
     events = []
     bus.subscribe(lambda e: events.append(e))
@@ -82,7 +83,7 @@ async def test_cancel_keeps_the_server_stopped(make_config):
     assert server.state is ServerState.CRASHED
     assert server.status()["auto_restart_cancelled"] is True
     assert server.status()["restart_at"] is None
-    await asyncio.sleep(1.6)   # past the original deadline
+    await asyncio.sleep(1.6)  # past the original deadline
     assert server.state is ServerState.CRASHED, "a cancelled restart must not fire"
     assert any(e.type == "restart_cancelled" for e in events)
 
@@ -101,8 +102,12 @@ async def test_concurrent_requests_launch_exactly_one_process(make_config):
     await crash(server)
     before = launches(events)
     results = await asyncio.gather(
-        server.restart_now("a"), server.restart_now("b"), server.start("c"),
-        server.cancel_pending_restart("d"), return_exceptions=True)
+        server.restart_now("a"),
+        server.restart_now("b"),
+        server.start("c"),
+        server.cancel_pending_restart("d"),
+        return_exceptions=True,
+    )
     await asyncio.sleep(0.5)
     assert launches(events) - before <= 1, f"{launches(events) - before} launches for 4 requests"
     assert sum(1 for r in results if isinstance(r, ServerError)) >= 3
@@ -123,7 +128,7 @@ async def test_cancel_is_refused_once_the_restart_is_already_launching(make_conf
     server, _ = make(make_config)
     server.state = ServerState.RESTART_PENDING
     server._restart_task = asyncio.create_task(asyncio.sleep(5))
-    server._restart_sleeping = False           # the countdown has finished
+    server._restart_sleeping = False  # the countdown has finished
     try:
         with pytest.raises(ServerError, match="already starting"):
             await server.cancel_pending_restart()
@@ -135,10 +140,14 @@ def test_restart_endpoints_report_conflicts_in_plain_language(config, monkeypatc
     from fastapi.testclient import TestClient
     from agent.main import create_app
     from agent.security.auth import hash_password
-    monkeypatch.setenv("MCSC_ADMIN_PASSWORD_HASH", hash_password("long enough password", rounds=1000))
+
+    monkeypatch.setenv(
+        "MCSC_ADMIN_PASSWORD_HASH", hash_password("long enough password", rounds=1000)
+    )
     with TestClient(create_app(config)) as client:
-        token = client.post("/api/auth/login", json={"username": "admin",
-                                                     "password": "long enough password"}).json()["token"]
+        token = client.post(
+            "/api/auth/login", json={"username": "admin", "password": "long enough password"}
+        ).json()["token"]
         headers = {"Authorization": f"Bearer {token}"}
         for path in ("/api/server/restart-now", "/api/server/cancel-restart"):
             response = client.post(path, headers=headers)
@@ -151,6 +160,7 @@ async def test_mod_changes_are_refused_during_the_countdown(make_config):
     """A restart firing while a jar is half-written could corrupt the install."""
     from agent.database.db import Database
     from agent.mods.manager import ModError, ModManager
+
     server, _ = make(make_config, delay=30)
     db = Database(server.config.database_path)
     mods = ModManager(server.config, server.bus, db, server)
@@ -158,4 +168,4 @@ async def test_mod_changes_are_refused_during_the_countdown(make_config):
     with pytest.raises(ModError, match="Cancel it before"):
         mods._require_server_offline("install a mod")
     await server.cancel_pending_restart()
-    mods._require_server_offline("install a mod")   # allowed once cancelled
+    mods._require_server_offline("install a mod")  # allowed once cancelled

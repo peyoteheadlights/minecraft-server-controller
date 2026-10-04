@@ -35,18 +35,34 @@ def test_health_is_public_but_reveals_nothing_sensitive(client):
     assert "directory" not in body
 
 
-@pytest.mark.parametrize("path", [
-    "/api/status", "/api/mods", "/api/backups", "/api/players",
-    "/api/settings", "/api/security", "/api/events", "/api/crashes",
-])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/status",
+        "/api/mods",
+        "/api/backups",
+        "/api/players",
+        "/api/settings",
+        "/api/security",
+        "/api/events",
+        "/api/crashes",
+    ],
+)
 def test_every_data_route_requires_a_token(client, path):
     assert client.get(path).status_code == 401
 
 
-@pytest.mark.parametrize("path", [
-    "/api/server/start", "/api/server/stop", "/api/server/restart",
-    "/api/backups", "/api/mods/install", "/api/mods/remove",
-])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/server/start",
+        "/api/server/stop",
+        "/api/server/restart",
+        "/api/backups",
+        "/api/mods/install",
+        "/api/mods/remove",
+    ],
+)
 def test_every_action_route_requires_a_token(client, path):
     assert client.post(path, json={}).status_code == 401
 
@@ -113,18 +129,25 @@ def test_commands_are_refused_when_the_server_is_offline(client):
 def test_shell_injection_through_the_command_api_is_refused(client):
     token = token_for(client)
     for payload in ["say hi; shutdown /s", "say hi\nstop", "say `calc`"]:
-        response = client.post("/api/server/command",
-                               json={"command": payload, "confirm": True}, headers=auth(token))
+        response = client.post(
+            "/api/server/command", json={"command": payload, "confirm": True}, headers=auth(token)
+        )
         assert response.status_code == 400
 
 
 def test_settings_updates_are_limited_to_an_allow_list(client):
     token = token_for(client)
-    response = client.put("/api/settings", headers=auth(token), json={"updates": {
-        "thresholds.cpu_percent": 75,
-        "server.directory": "C:\\somewhere\\else",
-        "server.raw_command": ["cmd.exe", "/c", "calc"],
-    }})
+    response = client.put(
+        "/api/settings",
+        headers=auth(token),
+        json={
+            "updates": {
+                "thresholds.cpu_percent": 75,
+                "server.directory": "C:\\somewhere\\else",
+                "server.raw_command": ["cmd.exe", "/c", "calc"],
+            }
+        },
+    )
     body = response.json()
     assert body["applied"] == {"thresholds.cpu_percent": 75}
     assert "server.directory" in body["rejected"]
@@ -134,8 +157,9 @@ def test_settings_updates_are_limited_to_an_allow_list(client):
 def test_restore_returns_a_confirmation_payload_before_acting(client, config):
     token = token_for(client)
     created = client.post("/api/backups", json={}, headers=auth(token)).json()
-    response = client.post(f"/api/backups/{created['id']}/restore",
-                           json={"confirm": False}, headers=auth(token))
+    response = client.post(
+        f"/api/backups/{created['id']}/restore", json={"confirm": False}, headers=auth(token)
+    )
     body = response.json()
     assert body["confirmation_required"] is True
     assert any("safety backup" in step.lower() for step in body["will_happen"])
@@ -143,8 +167,11 @@ def test_restore_returns_a_confirmation_payload_before_acting(client, config):
 
 def test_mod_upload_rejects_an_executable(client):
     token = token_for(client)
-    response = client.post("/api/mods/upload", headers=auth(token),
-                           files={"file": ("payload.exe", b"MZ", "application/octet-stream")})
+    response = client.post(
+        "/api/mods/upload",
+        headers=auth(token),
+        files={"file": ("payload.exe", b"MZ", "application/octet-stream")},
+    )
     assert response.status_code == 400
 
 
@@ -184,8 +211,9 @@ def test_websocket_streams_after_authentication(client):
 def test_domain_errors_map_to_their_status_codes(client):
     token = token_for(client)
     # ServerError: the server is not running, so a command can't be sent.
-    response = client.post("/api/server/command", json={"command": "list", "confirm": True},
-                           headers=auth(token))
+    response = client.post(
+        "/api/server/command", json={"command": "list", "confirm": True}, headers=auth(token)
+    )
     assert response.status_code == 409
     # A lookup of something missing is a 404, with the manager's message.
     response = client.get("/api/backups/9999/verify", headers=auth(token))

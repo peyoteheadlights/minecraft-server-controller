@@ -40,8 +40,14 @@ async def require_auth(request: Request, core=Depends(get_core)) -> Principal:
     return principal
 
 
-def audit(core, request: Request, action: str, target: str | None = None,
-          result: str = "ok", detail: str | None = None) -> None:
+def audit(
+    core,
+    request: Request,
+    action: str,
+    target: str | None = None,
+    result: str = "ok",
+    detail: str | None = None,
+) -> None:
     principal = getattr(request.state, "principal", None)
     core.db.audit(
         action,

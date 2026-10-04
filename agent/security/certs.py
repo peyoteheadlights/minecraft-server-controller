@@ -40,8 +40,8 @@ from cryptography.x509.oid import NameOID
 from .. import tailscale
 from ..winproc import NO_WINDOW
 
-CA_VALID_DAYS = 3650      # the CA you trust once
-LEAF_VALID_DAYS = 398     # the maximum browsers accept for a server certificate
+CA_VALID_DAYS = 3650  # the CA you trust once
+LEAF_VALID_DAYS = 398  # the maximum browsers accept for a server certificate
 
 
 class CertificateError(RuntimeError):
@@ -63,11 +63,20 @@ def secure_directory(path: Path) -> Path:
         user = os.environ.get("USERNAME", "")
         try:
             subprocess.run(
-                ["icacls", str(path), "/inheritance:r",
-                 "/grant:r", "SYSTEM:(OI)(CI)F",
-                 "/grant:r", "Administrators:(OI)(CI)F",
-                 *(["/grant:r", f"{user}:(OI)(CI)F"] if user else [])],
-                check=False, capture_output=True, timeout=30, creationflags=NO_WINDOW,
+                [
+                    "icacls",
+                    str(path),
+                    "/inheritance:r",
+                    "/grant:r",
+                    "SYSTEM:(OI)(CI)F",
+                    "/grant:r",
+                    "Administrators:(OI)(CI)F",
+                    *(["/grant:r", f"{user}:(OI)(CI)F"] if user else []),
+                ],
+                check=False,
+                capture_output=True,
+                timeout=30,
+                creationflags=NO_WINDOW,
             )
         except (OSError, subprocess.SubprocessError):
             pass
@@ -84,10 +93,20 @@ def _restrict_file(path: Path) -> None:
         user = os.environ.get("USERNAME", "")
         try:
             subprocess.run(
-                ["icacls", str(path), "/inheritance:r",
-                 "/grant:r", "SYSTEM:F", "/grant:r", "Administrators:F",
-                 *(["/grant:r", f"{user}:F"] if user else [])],
-                check=False, capture_output=True, timeout=30, creationflags=NO_WINDOW,
+                [
+                    "icacls",
+                    str(path),
+                    "/inheritance:r",
+                    "/grant:r",
+                    "SYSTEM:F",
+                    "/grant:r",
+                    "Administrators:F",
+                    *(["/grant:r", f"{user}:F"] if user else []),
+                ],
+                check=False,
+                capture_output=True,
+                timeout=30,
+                creationflags=NO_WINDOW,
             )
         except (OSError, subprocess.SubprocessError):
             pass
@@ -108,8 +127,13 @@ def request_tailscale_certificate(dns_name: str, cert_dir: Path) -> dict[str, An
     back to the local CA is a normal outcome, not an error.
     """
     binary = tailscale.tailscale_binary()
-    report: dict[str, Any] = {"strategy": "tailscale", "ok": False, "error": None,
-                              "cert_path": None, "key_path": None}
+    report: dict[str, Any] = {
+        "strategy": "tailscale",
+        "ok": False,
+        "error": None,
+        "cert_path": None,
+        "key_path": None,
+    }
     if not binary:
         report["error"] = "The tailscale command was not found"
         return report
@@ -119,13 +143,18 @@ def request_tailscale_certificate(dns_name: str, cert_dir: Path) -> dict[str, An
     try:
         proc = subprocess.run(
             [binary, "cert", "--cert-file", str(cert_path), "--key-file", str(key_path), dns_name],
-            capture_output=True, text=True, timeout=180, creationflags=NO_WINDOW,
+            capture_output=True,
+            text=True,
+            timeout=180,
+            creationflags=NO_WINDOW,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         report["error"] = f"tailscale cert failed to run: {exc}"
         return report
     if proc.returncode != 0:
-        report["error"] = (proc.stderr or proc.stdout or "tailscale cert returned an error").strip()[:500]
+        report["error"] = (
+            proc.stderr or proc.stdout or "tailscale cert returned an error"
+        ).strip()[:500]
         return report
     if not cert_path.is_file() or not key_path.is_file():
         report["error"] = "tailscale cert reported success but the files were not written"
@@ -139,14 +168,20 @@ def request_tailscale_certificate(dns_name: str, cert_dir: Path) -> dict[str, An
 # Local CA
 # ----------------------------------------------------------------------
 def _name(common_name: str, organisation: str = "Minecraft Server Control") -> x509.Name:
-    return x509.Name([
-        x509.NameAttribute(NameOID.ORGANIZATION_NAME, organisation),
-        x509.NameAttribute(NameOID.COMMON_NAME, common_name),
-    ])
+    return x509.Name(
+        [
+            x509.NameAttribute(NameOID.ORGANIZATION_NAME, organisation),
+            x509.NameAttribute(NameOID.COMMON_NAME, common_name),
+        ]
+    )
 
 
-def create_ca(cert_dir: Path, common_name: str = "Minecraft Server Control local CA",
-              valid_days: int = CA_VALID_DAYS, overwrite: bool = False) -> tuple[Path, Path]:
+def create_ca(
+    cert_dir: Path,
+    common_name: str = "Minecraft Server Control local CA",
+    valid_days: int = CA_VALID_DAYS,
+    overwrite: bool = False,
+) -> tuple[Path, Path]:
     """Create the local CA, or return the existing one.
 
     The CA is only regenerated when you explicitly ask for it, because
@@ -171,28 +206,41 @@ def create_ca(cert_dir: Path, common_name: str = "Minecraft Server Control local
         .not_valid_after(now + dt.timedelta(days=valid_days))
         .add_extension(x509.BasicConstraints(ca=True, path_length=0), critical=True)
         .add_extension(
-            x509.KeyUsage(digital_signature=True, key_cert_sign=True, crl_sign=True,
-                          content_commitment=False, key_encipherment=False,
-                          data_encipherment=False, key_agreement=False,
-                          encipher_only=False, decipher_only=False),
+            x509.KeyUsage(
+                digital_signature=True,
+                key_cert_sign=True,
+                crl_sign=True,
+                content_commitment=False,
+                key_encipherment=False,
+                data_encipherment=False,
+                key_agreement=False,
+                encipher_only=False,
+                decipher_only=False,
+            ),
             critical=True,
         )
         .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False)
         .sign(key, hashes.SHA256())
     )
     ca_cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
-    ca_key_path.write_bytes(key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption(),
-    ))
+    ca_key_path.write_bytes(
+        key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+    )
     _restrict_file(ca_key_path)
     return ca_cert_path, ca_key_path
 
 
-def issue_server_certificate(cert_dir: Path, hostnames: list[str], ip_addresses: list[str],
-                             valid_days: int = LEAF_VALID_DAYS,
-                             file_stem: str = "agent") -> dict[str, Any]:
+def issue_server_certificate(
+    cert_dir: Path,
+    hostnames: list[str],
+    ip_addresses: list[str],
+    valid_days: int = LEAF_VALID_DAYS,
+    file_stem: str = "agent",
+) -> dict[str, Any]:
     """Issue a server certificate signed by the local CA.
 
     Every name the dashboard might be opened with must be in the SAN list, or
@@ -227,10 +275,17 @@ def issue_server_certificate(cert_dir: Path, hostnames: list[str], ip_addresses:
         .add_extension(x509.SubjectAlternativeName(alt_names), critical=False)
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
         .add_extension(
-            x509.KeyUsage(digital_signature=True, key_encipherment=True,
-                          content_commitment=False, data_encipherment=False,
-                          key_agreement=False, key_cert_sign=False, crl_sign=False,
-                          encipher_only=False, decipher_only=False),
+            x509.KeyUsage(
+                digital_signature=True,
+                key_encipherment=True,
+                content_commitment=False,
+                data_encipherment=False,
+                key_agreement=False,
+                key_cert_sign=False,
+                crl_sign=False,
+                encipher_only=False,
+                decipher_only=False,
+            ),
             critical=True,
         )
         .add_extension(
@@ -247,14 +302,14 @@ def issue_server_certificate(cert_dir: Path, hostnames: list[str], ip_addresses:
     key_path = cert_dir / f"{file_stem}.key"
     # The chain the agent serves: leaf first, then the CA, so a device that
     # already trusts the CA needs nothing else.
-    cert_path.write_bytes(
-        cert.public_bytes(serialization.Encoding.PEM) + ca_cert_path.read_bytes()
+    cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM) + ca_cert_path.read_bytes())
+    key_path.write_bytes(
+        key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
     )
-    key_path.write_bytes(key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption(),
-    ))
     _restrict_file(key_path)
     return {
         "strategy": "local_ca",
@@ -279,9 +334,12 @@ def local_hostnames() -> list[str]:
     return list(dict.fromkeys(n for n in names if n))
 
 
-def provision(cert_dir: Path, extra_hostnames: list[str] | None = None,
-              extra_ips: list[str] | None = None,
-              prefer_tailscale: bool = True) -> dict[str, Any]:
+def provision(
+    cert_dir: Path,
+    extra_hostnames: list[str] | None = None,
+    extra_ips: list[str] | None = None,
+    prefer_tailscale: bool = True,
+) -> dict[str, Any]:
     """Get a usable certificate, preferring Tailscale, falling back to the CA.
 
     Returns a report describing what was actually done, including why

@@ -65,8 +65,14 @@ def modrinth_slug_for(mod_id: str) -> str:
 
 def pretty_name(mod_id: str) -> str:
     """A readable fallback name when Modrinth cannot be asked."""
-    known = {"fabric-api": "Fabric API", "fabricloader": "Fabric Loader", "minecraft": "Minecraft",
-             "java": "Java", "cloth-config": "Cloth Config", "modmenu": "Mod Menu"}
+    known = {
+        "fabric-api": "Fabric API",
+        "fabricloader": "Fabric Loader",
+        "minecraft": "Minecraft",
+        "java": "Java",
+        "cloth-config": "Cloth Config",
+        "modmenu": "Mod Menu",
+    }
     if mod_id in known:
         return known[mod_id]
     return " ".join(part.capitalize() for part in re.split(r"[-_]", mod_id) if part) or mod_id
@@ -88,10 +94,15 @@ def describe_range(spec: str | None) -> str:
             clause = clause.strip()
             if not clause:
                 continue
-            for op, words in ((">=", "{} or newer"), ("<=", "{} or older"), (">", "newer than {}"),
-                              ("<", "older than {}"), ("=", "exactly {}")):
-                if clause.startswith(op) and clause[len(op):]:
-                    parts.append(words.format(clause[len(op):]))
+            for op, words in (
+                (">=", "{} or newer"),
+                ("<=", "{} or older"),
+                (">", "newer than {}"),
+                ("<", "older than {}"),
+                ("=", "exactly {}"),
+            ):
+                if clause.startswith(op) and clause[len(op) :]:
+                    parts.append(words.format(clause[len(op) :]))
                     break
             else:
                 if clause.startswith("~") and clause[1:]:
@@ -153,9 +164,12 @@ class DependencyResolver:
         Loader / Java: platform_ok or platform_incompatible.
         """
         installed = self._installed_index()
-        platform = {"minecraft": self.server.mc_version,
-                    "fabricloader": self.server.loader_version,
-                    "fabric-loader": self.server.loader_version, "java": None}
+        platform = {
+            "minecraft": self.server.mc_version,
+            "fabricloader": self.server.loader_version,
+            "fabric-loader": self.server.loader_version,
+            "java": None,
+        }
         groups = self._group_dependencies(self.manager.scan())
         for dep_id, group in groups.items():
             ranges = [r["range"] for r in group["required_by"]]
@@ -178,30 +192,43 @@ class DependencyResolver:
                 if dep.kind not in REQUIRED_KINDS | OPTIONAL_KINDS:
                     continue
                 kind = "required" if dep.kind in REQUIRED_KINDS else "optional"
-                group = groups.setdefault(dep.mod_id, {
-                    "mod_id": dep.mod_id,
-                    "name": pretty_name(dep.mod_id),
-                    "kind": kind,
-                    "platform": dep.mod_id in PLATFORM_IDS,
-                    "required_by": [],
-                    "status": None,
-                    "installed_version": None,
-                    "modrinth": None,
-                })
+                group = groups.setdefault(
+                    dep.mod_id,
+                    {
+                        "mod_id": dep.mod_id,
+                        "name": pretty_name(dep.mod_id),
+                        "kind": kind,
+                        "platform": dep.mod_id in PLATFORM_IDS,
+                        "required_by": [],
+                        "status": None,
+                        "installed_version": None,
+                        "modrinth": None,
+                    },
+                )
                 if kind == "required":
-                    group["kind"] = "required"   # required by anyone wins over optional
-                group["required_by"].append({
-                    "mod_id": mod.mod_id, "name": mod.name, "filename": mod.filename,
-                    "range": dep.version_range, "range_text": describe_range(dep.version_range),
-                    "kind": kind,
-                })
+                    group["kind"] = "required"  # required by anyone wins over optional
+                group["required_by"].append(
+                    {
+                        "mod_id": mod.mod_id,
+                        "name": mod.name,
+                        "filename": mod.filename,
+                        "range": dep.version_range,
+                        "range_text": describe_range(dep.version_range),
+                        "kind": kind,
+                    }
+                )
         return groups
 
     @staticmethod
     def _find_installed(dep_id: str, installed: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
         present = installed.get(dep_id)
         fabric_api = installed.get("fabric-api")
-        if present is None and dep_id.startswith("fabric-") and fabric_api and fabric_api["enabled"]:
+        if (
+            present is None
+            and dep_id.startswith("fabric-")
+            and fabric_api
+            and fabric_api["enabled"]
+        ):
             present = fabric_api  # Fabric API bundles its modules
         return present
 
@@ -212,18 +239,25 @@ class DependencyResolver:
         group["installed_version"] = actual
         if not actual:
             group["status"] = "unverified"
-            group["reason"] = (f"The {pretty_name(dep_id)} version is not known yet; it is "
-                               "read from the server console when the server starts.")
+            group["reason"] = (
+                f"The {pretty_name(dep_id)} version is not known yet; it is "
+                "read from the server console when the server starts."
+            )
             return
         verdict = combined_satisfies(actual, ranges)
-        group["status"] = {True: "platform_ok", False: "platform_incompatible",
-                           None: "unverified"}[verdict]
+        group["status"] = {True: "platform_ok", False: "platform_incompatible", None: "unverified"}[
+            verdict
+        ]
         if verdict is False:
-            group["reason"] = (f"This server runs {pretty_name(dep_id)} {actual}, which is "
-                               f"outside the required range ({group['range_text']}).")
+            group["reason"] = (
+                f"This server runs {pretty_name(dep_id)} {actual}, which is "
+                f"outside the required range ({group['range_text']})."
+            )
 
     @staticmethod
-    def _judge_mod(group: dict[str, Any], present: dict[str, Any] | None, ranges: list[str]) -> None:
+    def _judge_mod(
+        group: dict[str, Any], present: dict[str, Any] | None, ranges: list[str]
+    ) -> None:
         """Another mod: missing, disabled, or installed at a matching version."""
         if present is None:
             group["status"] = "missing"
@@ -238,23 +272,36 @@ class DependencyResolver:
         verdict = combined_satisfies(mod.version, ranges)
         group["status"] = {True: "satisfied", False: "incompatible", None: "unverified"}[verdict]
         if verdict is False:
-            group["reason"] = (f"{mod.name} {mod.version} is installed, but "
-                               f"{group['range_text']} is required. It was not replaced "
-                               "automatically; update or roll it back from the Mods page.")
+            group["reason"] = (
+                f"{mod.name} {mod.version} is installed, but "
+                f"{group['range_text']} is required. It was not replaced "
+                "automatically; update or roll it back from the Mods page."
+            )
 
     def _report(self, items: list[dict[str, Any]]) -> dict[str, Any]:
-        missing_required = [g for g in items if g["status"] == "missing" and g["kind"] == "required"]
+        missing_required = [
+            g for g in items if g["status"] == "missing" and g["kind"] == "required"
+        ]
         return {
             "items": items,
             "missing_required": [g["mod_id"] for g in missing_required],
             "counts": {
                 status: len([g for g in items if g["status"] == status])
-                for status in ("missing", "incompatible", "disabled", "unverified",
-                               "platform_incompatible", "satisfied", "platform_ok")
+                for status in (
+                    "missing",
+                    "incompatible",
+                    "disabled",
+                    "unverified",
+                    "platform_incompatible",
+                    "satisfied",
+                    "platform_ok",
+                )
             },
             "minecraft_version": self.server.mc_version,
-            "note": ("Only declared dependencies are checked. A mod can still need something "
-                     "it does not declare."),
+            "note": (
+                "Only declared dependencies are checked. A mod can still need something "
+                "it does not declare."
+            ),
         }
 
     # ------------------------------------------------------------------ Modrinth lookups
@@ -270,8 +317,12 @@ class DependencyResolver:
         project = None
         try:
             info = await self.modrinth.project(slug)
-            project = {"project_id": info["project_id"], "slug": info["slug"],
-                       "title": info["title"], "page": info["page"]}
+            project = {
+                "project_id": info["project_id"],
+                "slug": info["slug"],
+                "title": info["title"],
+                "page": info["page"],
+            }
         except ModrinthError as exc:
             if "not found" not in str(exc).lower():
                 raise
@@ -281,9 +332,16 @@ class DependencyResolver:
                 found = {"hits": []}
             wanted = re.sub(r"[^a-z0-9]", "", mod_id.lower())
             for hit in found.get("hits", []):
-                if hit.get("slug") == mod_id or re.sub(r"[^a-z0-9]", "", str(hit.get("title", "")).lower()) == wanted:
-                    project = {"project_id": hit["project_id"], "slug": hit["slug"],
-                               "title": hit["title"], "page": hit["page"]}
+                if (
+                    hit.get("slug") == mod_id
+                    or re.sub(r"[^a-z0-9]", "", str(hit.get("title", "")).lower()) == wanted
+                ):
+                    project = {
+                        "project_id": hit["project_id"],
+                        "slug": hit["slug"],
+                        "title": hit["title"],
+                        "page": hit["page"],
+                    }
                     break
         self.db.set_setting(cache_key, {"project": project, "cached_at": time.time()})
         return project
@@ -306,12 +364,21 @@ class DependencyResolver:
         return report
 
     # ------------------------------------------------------------------ planning
-    async def _pick_version(self, slug: str, ranges: list[str]) -> tuple[dict | None, bool | None, str]:
+    async def _pick_version(
+        self, slug: str, ranges: list[str]
+    ) -> tuple[dict | None, bool | None, str]:
         versions = await self.modrinth.versions(slug, self.server.mc_version)
         if not versions:
             mc = self.server.mc_version
-            return None, None, (f"No Fabric build was published for Minecraft {mc}" if mc
-                                else "No Fabric build was found")
+            return (
+                None,
+                None,
+                (
+                    f"No Fabric build was published for Minecraft {mc}"
+                    if mc
+                    else "No Fabric build was found"
+                ),
+            )
         undecided = None
         for version in versions:
             verdict = combined_satisfies(version.get("version_number") or "", ranges)
@@ -321,30 +388,50 @@ class DependencyResolver:
                 undecided = version
         if undecided is not None:
             return undecided, None, "The required range could not be checked against this version"
-        return None, False, (f"No published version satisfies {' and '.join(describe_range(r) for r in ranges)}")
+        return (
+            None,
+            False,
+            (f"No published version satisfies {' and '.join(describe_range(r) for r in ranges)}"),
+        )
 
     async def plan(self, mod_ids: list[str] | None = None) -> dict[str, Any]:
         """Work out everything to download, including dependencies of
         dependencies, without downloading anything."""
         wanted = self._wanted(self.analyse(), mod_ids)
         installed = self._installed_index()
-        queue = [(mod_id, [r["range"] for r in group["required_by"]],
-                  [r["name"] for r in group["required_by"]], 0) for mod_id, group in wanted.items()]
+        queue = [
+            (
+                mod_id,
+                [r["range"] for r in group["required_by"]],
+                [r["name"] for r in group["required_by"]],
+                0,
+            )
+            for mod_id, group in wanted.items()
+        ]
         result: dict[str, Any] = {"planned": {}, "unresolvable": [], "skipped": []}
         while queue:
             queue.extend(await self._plan_step(*queue.pop(0), installed, result))
 
         items = sorted(result["planned"].values(), key=lambda i: -i["depth"])  # deepest first
         for item in items:
-            item["range_text"] = " and ".join(sorted({describe_range(r) for r in item["ranges"]})) or "Any version"
-        return {"items": items, "unresolvable": result["unresolvable"], "skipped": result["skipped"],
-                "minecraft_version": self.server.mc_version}
+            item["range_text"] = (
+                " and ".join(sorted({describe_range(r) for r in item["ranges"]})) or "Any version"
+            )
+        return {
+            "items": items,
+            "unresolvable": result["unresolvable"],
+            "skipped": result["skipped"],
+            "minecraft_version": self.server.mc_version,
+        }
 
     @staticmethod
     def _wanted(report: dict[str, Any], mod_ids: list[str] | None) -> dict[str, dict[str, Any]]:
         """The missing required dependencies to plan for, optionally a chosen few."""
-        wanted = {g["mod_id"]: g for g in report["items"]
-                  if g["status"] == "missing" and g["kind"] == "required"}
+        wanted = {
+            g["mod_id"]: g
+            for g in report["items"]
+            if g["status"] == "missing" and g["kind"] == "required"
+        }
         if mod_ids:
             for mod_id in mod_ids:
                 if not valid_identifier(mod_id):
@@ -352,8 +439,15 @@ class DependencyResolver:
             wanted = {k: v for k, v in wanted.items() if k in set(mod_ids)}
         return wanted
 
-    async def _plan_step(self, mod_id: str, ranges: list[str], chain: list[str], depth: int,
-                         installed: dict[str, Any], result: dict[str, Any]) -> list[tuple]:
+    async def _plan_step(
+        self,
+        mod_id: str,
+        ranges: list[str],
+        chain: list[str],
+        depth: int,
+        installed: dict[str, Any],
+        result: dict[str, Any],
+    ) -> list[tuple]:
         """Plan one mod. Returns its own dependencies, to be planned next."""
         planned, unresolvable = result["planned"], result["unresolvable"]
         if depth > MAX_DEPTH:
@@ -365,8 +459,14 @@ class DependencyResolver:
             unresolvable.append({"mod_id": mod_id, "reason": str(exc)})
             return []
         if not project:
-            unresolvable.append({"mod_id": mod_id, "name": pretty_name(mod_id), "required_by": chain,
-                                 "reason": "Not found on Modrinth. Install it manually."})
+            unresolvable.append(
+                {
+                    "mod_id": mod_id,
+                    "name": pretty_name(mod_id),
+                    "required_by": chain,
+                    "reason": "Not found on Modrinth. Install it manually.",
+                }
+            )
             return []
         key = project["slug"]
         if key in planned:
@@ -374,36 +474,57 @@ class DependencyResolver:
             planned[key]["required_by"] = sorted(set(planned[key]["required_by"] + chain))
             return []
         if key in installed or mod_id in installed:
-            result["skipped"].append({"mod_id": mod_id, "name": project["title"],
-                                      "reason": "Already installed"})
+            result["skipped"].append(
+                {"mod_id": mod_id, "name": project["title"], "reason": "Already installed"}
+            )
             return []
         version, verified, note = await self._pick_version(key, ranges)
         if version is None:
-            unresolvable.append({"mod_id": mod_id, "name": project["title"], "required_by": chain,
-                                 "reason": note, "page": project["page"]})
+            unresolvable.append(
+                {
+                    "mod_id": mod_id,
+                    "name": project["title"],
+                    "required_by": chain,
+                    "reason": note,
+                    "page": project["page"],
+                }
+            )
             return []
         file_info = version.get("file") or {}
         planned[key] = {
-            "mod_id": mod_id, "slug": key, "project_id": project["project_id"],
-            "title": project["title"], "page": project["page"],
-            "version_id": version["version_id"], "version_number": version["version_number"],
+            "mod_id": mod_id,
+            "slug": key,
+            "project_id": project["project_id"],
+            "title": project["title"],
+            "page": project["page"],
+            "version_id": version["version_id"],
+            "version_number": version["version_number"],
             "release_type": version.get("release_type"),
-            "filename": file_info.get("filename"), "size": file_info.get("size"),
-            "ranges": list(ranges), "range_verified": verified, "note": note,
-            "required_by": sorted(set(chain)), "depth": depth,
+            "filename": file_info.get("filename"),
+            "size": file_info.get("size"),
+            "ranges": list(ranges),
+            "range_verified": verified,
+            "note": note,
+            "required_by": sorted(set(chain)),
+            "depth": depth,
         }
         return await self._required_by_version(version, project["title"], depth, unresolvable)
 
-    async def _required_by_version(self, version: dict[str, Any], title: str, depth: int,
-                                   unresolvable: list[dict[str, Any]]) -> list[tuple]:
+    async def _required_by_version(
+        self, version: dict[str, Any], title: str, depth: int, unresolvable: list[dict[str, Any]]
+    ) -> list[tuple]:
         """The required dependencies a Modrinth version declares, as queue entries."""
         found = []
         for sub in version.get("dependencies", []):
             if sub.get("type") != "required" or not sub.get("project_id"):
                 continue
             if not valid_identifier(sub["project_id"]):
-                unresolvable.append({"mod_id": str(sub["project_id"])[:40],
-                                     "reason": "Modrinth returned an invalid project id"})
+                unresolvable.append(
+                    {
+                        "mod_id": str(sub["project_id"])[:40],
+                        "reason": "Modrinth returned an invalid project id",
+                    }
+                )
                 continue
             try:
                 info = await self.modrinth.project(sub["project_id"])
@@ -419,16 +540,23 @@ class DependencyResolver:
         plan = await self.plan(mod_ids)
         results = []
         for item in plan["items"]:
-            if item["slug"] in self._installed_index():   # installed earlier in this run
-                results.append({"title": item["title"], "result": "skipped",
-                                "detail": "Already installed"})
+            if item["slug"] in self._installed_index():  # installed earlier in this run
+                results.append(
+                    {"title": item["title"], "result": "skipped", "detail": "Already installed"}
+                )
                 continue
             log.info("dependency_detected mod=%s version=%s", item["slug"], item["version_number"])
             try:
                 installed = await self.manager.install_from_modrinth(
-                    item["slug"], user, version_id=item["version_id"], install_dependencies=False)
-                results.append({"title": item["title"], "result": "installed",
-                                "version": installed["installed"]["version"]})
+                    item["slug"], user, version_id=item["version_id"], install_dependencies=False
+                )
+                results.append(
+                    {
+                        "title": item["title"],
+                        "result": "installed",
+                        "version": installed["installed"]["version"],
+                    }
+                )
                 log.info("dependency_installed mod=%s", item["slug"])
             except Exception as exc:
                 results.append({"title": item["title"], "result": "failed", "detail": str(exc)})
@@ -437,6 +565,7 @@ class DependencyResolver:
         return {
             "plan": plan,
             "results": results,
-            "still_missing": [g for g in after["items"]
-                              if g["status"] == "missing" and g["kind"] == "required"],
+            "still_missing": [
+                g for g in after["items"] if g["status"] == "missing" and g["kind"] == "required"
+            ],
         }

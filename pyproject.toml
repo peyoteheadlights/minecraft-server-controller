@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "minecraft-server-controller"
+dynamic = ["version"]
+description = "Run and watch a Minecraft server on a Windows PC from a private web dashboard over Tailscale."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+# Runtime and test requirements stay in requirements*.txt (setup.ps1 reads
+# them); requirements*.lock pins the exact tested versions.
+
+[tool.setuptools.dynamic]
+version = { attr = "agent.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["agent*", "installer*"]
+
+# ---------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["ui-shots"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # pycodestyle
+    "F",       # pyflakes
+    "I",       # import order
+    "B",       # bugbear
+    "UP",      # pyupgrade
+    "ASYNC",   # blocking calls in async code
+    "RUF100",  # unused noqa
+]
+ignore = [
+    "E501",     # the formatter handles line length; long strings are left alone
+    "ASYNC109", # timeout parameters are part of the managers' public API
+    "ASYNC240", # quick pathlib checks; real disk work already runs in threads
+    "UP042",    # StrEnum changes str() of the server states
+]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.File", "fastapi.Query", "fastapi.Body", "fastapi.Header"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B011"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+# ---------------------------------------------------------------- mypy
+[tool.mypy]
+python_version = "3.11"
+files = ["agent", "installer"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+check_untyped_defs = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+# winreg and ctypes.windll only exist on Windows; mypy checks on Linux in CI.
+module = ["installer.autostart"]
+disable_error_code = ["attr-defined"]

@@ -127,9 +127,9 @@ def _utc_timestamp(value: dt.datetime) -> float:
     return value.timestamp()
 
 
-def inspect_certificate(cert_path: str | Path | None,
-                        key_path: str | Path | None = None,
-                        now: float | None = None) -> CertificateInfo:
+def inspect_certificate(
+    cert_path: str | Path | None, key_path: str | Path | None = None, now: float | None = None
+) -> CertificateInfo:
     """Read a certificate (and optionally its key) and report what is true.
 
     Source of truth: the PEM files on disk. Nothing is inferred from the
@@ -154,7 +154,9 @@ def inspect_certificate(cert_path: str | Path | None,
             info.problems.append(f"Private key file not found: {key_path}")
 
     if not HAVE_CRYPTOGRAPHY:  # pragma: no cover
-        info.parse_error = "The 'cryptography' package is not installed, so the certificate could not be parsed"
+        info.parse_error = (
+            "The 'cryptography' package is not installed, so the certificate could not be parsed"
+        )
         info.problems.append(info.parse_error)
         return info
 
@@ -240,8 +242,13 @@ def _key_matches(key_file: Path, cert) -> tuple[bool | None, str | None]:
         del key
 
 
-def verify_endpoint(host: str, port: int, ca_file: str | Path | None = None,
-                    server_hostname: str | None = None, timeout: float = 5.0) -> dict[str, Any]:
+def verify_endpoint(
+    host: str,
+    port: int,
+    ca_file: str | Path | None = None,
+    server_hostname: str | None = None,
+    timeout: float = 5.0,
+) -> dict[str, Any]:
     """Actually complete a TLS handshake against the running agent.
 
     This is the only honest way to say "HTTPS works". Certificate verification
@@ -249,8 +256,12 @@ def verify_endpoint(host: str, port: int, ca_file: str | Path | None = None,
     than verification being switched off.
     """
     result: dict[str, Any] = {
-        "reachable": None, "handshake": None, "verified": None,
-        "protocol": None, "cipher": None, "error": None,
+        "reachable": None,
+        "handshake": None,
+        "verified": None,
+        "protocol": None,
+        "cipher": None,
+        "error": None,
         "hostname_checked": server_hostname or host,
     }
     context = ssl.create_default_context()

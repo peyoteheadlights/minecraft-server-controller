@@ -70,19 +70,37 @@ class PlayerTracker:
                 (now, now, uuid, self.server_id, username),
             )
         else:
-            self.db.insert("players", {
-                "server_id": self.server_id, "username": username, "uuid": uuid,
-                "first_seen": now, "last_seen": now, "total_seconds": 0,
-                "sessions": 1, "online": 1, "session_started": now,
-            })
-        self.db.insert("player_sessions", {
-            "server_id": self.server_id, "username": username,
-            "uuid": uuid, "joined_at": now, "left_at": None,
-        })
-        await self.bus.publish(Event(
-            type="player_joined", message=f"{username} joined",
-            data={"username": username, "uuid": uuid, "online": len(self.online())},
-        ))
+            self.db.insert(
+                "players",
+                {
+                    "server_id": self.server_id,
+                    "username": username,
+                    "uuid": uuid,
+                    "first_seen": now,
+                    "last_seen": now,
+                    "total_seconds": 0,
+                    "sessions": 1,
+                    "online": 1,
+                    "session_started": now,
+                },
+            )
+        self.db.insert(
+            "player_sessions",
+            {
+                "server_id": self.server_id,
+                "username": username,
+                "uuid": uuid,
+                "joined_at": now,
+                "left_at": None,
+            },
+        )
+        await self.bus.publish(
+            Event(
+                type="player_joined",
+                message=f"{username} joined",
+                data={"username": username, "uuid": uuid, "online": len(self.online())},
+            )
+        )
 
     async def player_left(self, username: str) -> None:
         now = time.time()
@@ -104,11 +122,17 @@ class PlayerTracker:
             "  ORDER BY joined_at DESC LIMIT 1)",
             (now, self.server_id, username),
         )
-        await self.bus.publish(Event(
-            type="player_left", message=f"{username} left",
-            data={"username": username, "session_seconds": session_seconds,
-                  "online": len(self.online())},
-        ))
+        await self.bus.publish(
+            Event(
+                type="player_left",
+                message=f"{username} left",
+                data={
+                    "username": username,
+                    "session_seconds": session_seconds,
+                    "online": len(self.online()),
+                },
+            )
+        )
 
     async def reconcile(self, usernames: list[str]) -> None:
         """Align stored state with an authoritative /list reply."""
@@ -139,7 +163,9 @@ class PlayerTracker:
         )
         now = time.time()
         for row in rows:
-            row["session_seconds"] = now - float(row["session_started"]) if row.get("session_started") else 0
+            row["session_seconds"] = (
+                now - float(row["session_started"]) if row.get("session_started") else 0
+            )
         return rows
 
     def all_players(self, limit: int = 200) -> list[dict[str, Any]]:

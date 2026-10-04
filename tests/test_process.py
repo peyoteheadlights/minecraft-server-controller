@@ -111,12 +111,14 @@ async def test_auto_restart_after_crash(make_config):
 
 
 async def test_crash_loop_protection_blocks_restart(make_config):
-    config = make_config(**{
-        "monitor.auto_restart": True,
-        "monitor.restart_delay": 0.05,
-        "monitor.max_crashes": 2,
-        "monitor.crash_window_minutes": 10,
-    })
+    config = make_config(
+        **{
+            "monitor.auto_restart": True,
+            "monitor.restart_delay": 0.05,
+            "monitor.max_crashes": 2,
+            "monitor.crash_window_minutes": 10,
+        }
+    )
     os.environ["FAKE_CRASH_ON_START"] = "1"
     bus = EventBus()
     events = collector(bus)

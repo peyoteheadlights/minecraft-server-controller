@@ -25,8 +25,10 @@ ARGS = "-m agent.main --launched-by task"
 # ================================================================ the task XML
 def parsed(mode="boot", user=r"HOST-PC\Alex", command=PY, workdir=WORKDIR):
     return autostart.parse_task_xml(
-        autostart.build_task_xml(mode, user, command, ARGS, workdir,
-                                 start_boundary="2026-09-21T00:00:00"))
+        autostart.build_task_xml(
+            mode, user, command, ARGS, workdir, start_boundary="2026-09-21T00:00:00"
+        )
+    )
 
 
 def test_boot_task_runs_the_exact_command_from_the_project_folder():
@@ -58,8 +60,9 @@ def test_task_is_kept_alive_without_duplicates():
     assert "BootTrigger" in kinds
     assert kinds["BootTrigger"]["delay"] == "PT30S"
     assert kinds["TimeTrigger"]["repeat_every"] == "PT5M"
-    assert task["multiple_instances"] == "IgnoreNew", \
+    assert task["multiple_instances"] == "IgnoreNew", (
         "the repeating trigger must never start a second copy"
+    )
 
 
 def test_task_is_never_killed_by_windows_defaults():
@@ -107,7 +110,11 @@ def test_wrong_working_directory_is_reported():
 
 
 def test_a_task_pointing_at_another_python_is_reported():
-    expected = {"command": r"C:\Python312\pythonw.exe", "arguments": ARGS, "working_directory": WORKDIR}
+    expected = {
+        "command": r"C:\Python312\pythonw.exe",
+        "arguments": ARGS,
+        "working_directory": WORKDIR,
+    }
     problems = autostart.compare_to_expected(parsed(), expected)
     assert any("interpreter" in p for p in problems)
 
@@ -129,27 +136,35 @@ def test_expected_launch_uses_absolute_pythonw(tmp_path):
 
 def test_expected_launch_falls_back_to_python_when_pythonw_is_missing(tmp_path):
     (tmp_path / "python.exe").write_bytes(b"")
-    assert autostart.expected_launch(str(tmp_path / "python.exe"))["command"] == \
-        str((tmp_path / "python.exe").resolve())
+    assert autostart.expected_launch(str(tmp_path / "python.exe"))["command"] == str(
+        (tmp_path / "python.exe").resolve()
+    )
 
 
 def test_store_python_is_refused():
     problems = autostart.interpreter_problems(
-        r"C:\Users\x\AppData\Local\Microsoft\WindowsApps\python.exe")
+        r"C:\Users\x\AppData\Local\Microsoft\WindowsApps\python.exe"
+    )
     assert any("Store" in p for p in problems)
 
 
 def test_task_runtime_fields_are_parsed_and_unknown_when_absent(monkeypatch):
-    sample = ("Folder: \\\nHostName: HOST-PC\nTaskName: \\Minecraft Server Control\n"
-              "Next Run Time: 21/09/2026 12:05:00\nStatus: Running\n"
-              "Last Run Time: 21/09/2026 12:00:31\nLast Result: 267009\n")
+    sample = (
+        "Folder: \\\nHostName: HOST-PC\nTaskName: \\Minecraft Server Control\n"
+        "Next Run Time: 21/09/2026 12:05:00\nStatus: Running\n"
+        "Last Run Time: 21/09/2026 12:00:31\nLast Result: 267009\n"
+    )
     monkeypatch.setattr(autostart, "run_tool", lambda args, timeout=60: (0, sample, ""))
     info = autostart.task_runtime()
     assert info["status"] == "Running"
     assert info["last_result"].startswith("267009")
     monkeypatch.setattr(autostart, "run_tool", lambda args, timeout=60: (1, "", "not found"))
-    assert autostart.task_runtime() == {"status": None, "last_run_time": None,
-                                        "last_result": None, "next_run_time": None}
+    assert autostart.task_runtime() == {
+        "status": None,
+        "last_run_time": None,
+        "last_result": None,
+        "next_run_time": None,
+    }
 
 
 def test_report_is_explicit_about_being_unsupported_off_windows(monkeypatch):
@@ -184,8 +199,11 @@ class FakeWindows:
         if tool == "schtasks.exe":
             return (0, "Status: Ready\n", "") if self.task_xml else (1, "", "not found")
         if tool == "sc.exe" and args[1] == "query":
-            return (0, "SERVICE_NAME: MinecraftServerControl\n STATE : 1 STOPPED\n", "") \
-                if self.legacy else (1060, "", "does not exist")
+            return (
+                (0, "SERVICE_NAME: MinecraftServerControl\n STATE : 1 STOPPED\n", "")
+                if self.legacy
+                else (1060, "", "does not exist")
+            )
         if tool == "sc.exe" and args[1] == "delete":
             self.legacy = False
             return 0, "[SC] DeleteService SUCCESS", ""
@@ -246,9 +264,11 @@ def test_disable_removes_the_task(windows):
 
 def test_report_after_enable_says_registered_correctly(windows, monkeypatch):
     autostart.enable("boot", pin_java=False, executable=windows.exe)
-    monkeypatch.setattr(autostart, "legacy_service",
-                        lambda: {"exists": False, "state": None, "python_class": None,
-                                 "python_class_valid": None})
+    monkeypatch.setattr(
+        autostart,
+        "legacy_service",
+        lambda: {"exists": False, "state": None, "python_class": None, "python_class_valid": None},
+    )
     data = autostart.report(executable=windows.exe)
     assert data["registered"] is True
     assert data["mechanism"] == "Task Scheduler"
@@ -257,10 +277,16 @@ def test_report_after_enable_says_registered_correctly(windows, monkeypatch):
 
 
 def test_report_flags_the_broken_legacy_service(windows, monkeypatch):
-    monkeypatch.setattr(autostart, "legacy_service",
-                        lambda: {"exists": True, "state": "1 STOPPED",
-                                 "python_class": "__main__.MinecraftControlService",
-                                 "python_class_valid": False})
+    monkeypatch.setattr(
+        autostart,
+        "legacy_service",
+        lambda: {
+            "exists": True,
+            "state": "1 STOPPED",
+            "python_class": "__main__.MinecraftControlService",
+            "python_class_valid": False,
+        },
+    )
     data = autostart.report(executable=windows.exe)
     assert data["registered"] is False
     assert data["mechanism"] == "Windows Service (legacy)"
@@ -269,8 +295,11 @@ def test_report_flags_the_broken_legacy_service(windows, monkeypatch):
 
 def test_pin_java_replaces_a_bare_name_with_an_absolute_path(tmp_path, monkeypatch):
     from agent.config import DEFAULTS, Config, _deep_merge
+
     cfg_path = tmp_path / "config.yaml"
-    Config(_deep_merge(DEFAULTS, {"server": {"java": "java", "raw_command": None}}), cfg_path).save()
+    Config(
+        _deep_merge(DEFAULTS, {"server": {"java": "java", "raw_command": None}}), cfg_path
+    ).save()
     fake_java = tmp_path / "bin" / "java"
     fake_java.parent.mkdir()
     fake_java.write_text("")
@@ -287,10 +316,15 @@ def test_startup_log_records_each_stage_with_timestamps(isolated_startup_log):
     startup_diag.record("config_loaded", source="x")
     startup_diag.record("controller_initialized", ok=True)
     startup_diag.finish("stopped", exit_code=0)
-    events = [json.loads(line) for line in
-              (isolated_startup_log / "startup.log").read_text().splitlines()]
-    assert [e["event"] for e in events] == ["process_started", "config_loaded",
-                                            "controller_initialized", "process_finished"]
+    events = [
+        json.loads(line) for line in (isolated_startup_log / "startup.log").read_text().splitlines()
+    ]
+    assert [e["event"] for e in events] == [
+        "process_started",
+        "config_loaded",
+        "controller_initialized",
+        "process_finished",
+    ]
     assert all("ts" in e and "pid" in e for e in events)
     first = events[0]
     assert first["launched_by"] == "task"
@@ -330,15 +364,19 @@ def test_missing_console_streams_are_redirected_to_a_file(isolated_startup_log, 
     assert "written with no console" in (isolated_startup_log / "console.log").read_text()
 
 
-def test_main_logs_a_refused_start_so_it_can_be_diagnosed(config, isolated_startup_log,
-                                                           monkeypatch, tmp_path):
+def test_main_logs_a_refused_start_so_it_can_be_diagnosed(
+    config, isolated_startup_log, monkeypatch, tmp_path
+):
     from agent.main import main
     from agent.security.auth import hash_password
+
     cfg = tmp_path / "config.yaml"
     config.set("tls.enabled", False)
     config.set("network.host", "100.101.102.103")
     config.save(cfg)
-    monkeypatch.setenv("MCSC_ADMIN_PASSWORD_HASH", hash_password("long enough password", rounds=1000))
+    monkeypatch.setenv(
+        "MCSC_ADMIN_PASSWORD_HASH", hash_password("long enough password", rounds=1000)
+    )
     assert main(["--config", str(cfg), "--no-tls", "--launched-by", "task"]) == 2
     events = [e["event"] for e in startup_diag.tail(20)]
     assert events[0] == "process_started"
@@ -350,6 +388,7 @@ def test_main_logs_a_refused_start_so_it_can_be_diagnosed(config, isolated_start
 
 def test_bind_wait_returns_at_once_for_loopback(isolated_startup_log):
     from agent.main import wait_for_bind_address
+
     assert wait_for_bind_address("127.0.0.1", timeout=0) is True
     assert startup_diag.tail(5) == []
 
@@ -358,6 +397,7 @@ def test_bind_wait_retries_then_reports_an_address_that_never_appears(isolated_s
     """The boot race: the Tailscale address is not assigned yet. 203.0.113.0/24
     is a documentation range, never assigned to a local interface."""
     from agent.main import wait_for_bind_address
+
     assert wait_for_bind_address("203.0.113.77", timeout=0.6, interval=0.1) is False
     events = [e["event"] for e in startup_diag.tail(20)]
     assert "bind_address_waiting" in events
@@ -369,8 +409,9 @@ def windows_export(*drop):
     """Our task XML as Windows exports it: elements equal to the Task Scheduler
     default are left out. Found by the live Windows CI run, where RunLevel came
     back missing."""
-    xml = autostart.build_task_xml("boot", r"HOST-PC\Alex", PY, ARGS, WORKDIR,
-                                   start_boundary="2026-09-21T00:00:00")
+    xml = autostart.build_task_xml(
+        "boot", r"HOST-PC\Alex", PY, ARGS, WORKDIR, start_boundary="2026-09-21T00:00:00"
+    )
     for element in ("RunLevel", "MultipleInstancesPolicy", *drop):
         start = xml.index(f"<{element}>")
         end = xml.index(f"</{element}>") + len(f"</{element}>")

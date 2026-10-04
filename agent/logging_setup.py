@@ -33,8 +33,7 @@ def setup_logging(log_dir: Path, level: str = "INFO", console: bool = True) -> l
     root.addHandler(file_handler)
 
     err_handler = logging.handlers.RotatingFileHandler(
-        log_dir / "agent-errors.log", maxBytes=2 * 1024 * 1024, backupCount=3,
-        encoding="utf-8"
+        log_dir / "agent-errors.log", maxBytes=2 * 1024 * 1024, backupCount=3, encoding="utf-8"
     )
     err_handler.setLevel(logging.WARNING)
     err_handler.setFormatter(fmt)

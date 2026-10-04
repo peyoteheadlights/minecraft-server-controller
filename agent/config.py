@@ -31,12 +31,22 @@ import yaml
 # self-contained so a later version can hold one per server.
 # --------------------------------------------------------------------------
 
+
 class ConfigError(RuntimeError):
     pass
 
 
-_BOOL_WORDS = {"1": True, "true": True, "yes": True, "on": True,
-               "0": False, "false": False, "no": False, "off": False, "": False}
+_BOOL_WORDS = {
+    "1": True,
+    "true": True,
+    "yes": True,
+    "on": True,
+    "0": False,
+    "false": False,
+    "no": False,
+    "off": False,
+    "": False,
+}
 
 
 _EMPTY: dict[Any, Any] = {str: str, list: list, dict: dict, bool: bool}
@@ -158,15 +168,15 @@ class TlsSettings(Section):
     # HTTPS is the production interface. Turning this off is only
     # appropriate for local development on 127.0.0.1.
     enabled: bool = True
-    certificate: str = "certs/agent.crt"   # relative paths resolve inside data_dir
+    certificate: str = "certs/agent.crt"  # relative paths resolve inside data_dir
     private_key: str = "certs/agent.key"
-    ca_certificate: str = "certs/ca.crt"   # empty when Tailscale issued the cert
+    ca_certificate: str = "certs/ca.crt"  # empty when Tailscale issued the cert
     # The name you actually type in the browser. Used to check that the
     # certificate covers it, and for the HTTPS self-test.
     hostname: str = ""
-    http_redirect: bool = True             # small HTTP listener that only redirects
+    http_redirect: bool = True  # small HTTP listener that only redirects
     http_redirect_port: int = 8080
-    hsts: bool = True                      # only ever sent over HTTPS, never over HTTP
+    hsts: bool = True  # only ever sent over HTTPS, never over HTTP
     hsts_max_age: int = 31536000
     hsts_include_subdomains: bool = False
     expiry_warn_days: float = 14
@@ -186,9 +196,16 @@ class SecuritySettings(Section):
 @dataclass(frozen=True)
 class BackupSettings(Section):
     directory: str = "backups"
-    include: list[str] = field(default_factory=lambda: [
-        "world", "world_nether", "world_the_end", "server.properties", "config", "mods",
-    ])
+    include: list[str] = field(
+        default_factory=lambda: [
+            "world",
+            "world_nether",
+            "world_the_end",
+            "server.properties",
+            "config",
+            "mods",
+        ]
+    )
     keep_daily: int = 7
     keep_weekly: int = 4
     keep_monthly: int = 3
@@ -225,29 +242,31 @@ class NotificationSettings(Section):
     discord_enabled: bool = False
     email_enabled: bool = False
     # Which events send an alert. An event type not listed here sends none.
-    events: dict[str, bool] = field(default_factory=lambda: {
-        "server_started": True,
-        "server_stopped": True,
-        "server_crashed": True,
-        "server_restarted": True,
-        "server_recovered": True,
-        "player_joined": True,
-        "player_left": False,
-        "high_ram": True,
-        "high_cpu": True,
-        "low_disk": True,
-        "low_tps": True,
-        "high_mspt": True,
-        "backup_completed": True,
-        "backup_failed": True,
-        "mod_installed": True,
-        "mod_removed": True,
-        "mod_updated": True,
-        "mod_dependency_problem": True,
-        "auth_failure": True,
-        "maintenance_mode": True,
-        "certificate_expiring": True,
-    })
+    events: dict[str, bool] = field(
+        default_factory=lambda: {
+            "server_started": True,
+            "server_stopped": True,
+            "server_crashed": True,
+            "server_restarted": True,
+            "server_recovered": True,
+            "player_joined": True,
+            "player_left": False,
+            "high_ram": True,
+            "high_cpu": True,
+            "low_disk": True,
+            "low_tps": True,
+            "high_mspt": True,
+            "backup_completed": True,
+            "backup_failed": True,
+            "mod_installed": True,
+            "mod_removed": True,
+            "mod_updated": True,
+            "mod_dependency_problem": True,
+            "auth_failure": True,
+            "maintenance_mode": True,
+            "certificate_expiring": True,
+        }
+    )
     email: EmailSettings = field(default_factory=EmailSettings)
     min_interval_seconds: float = 300
 
@@ -344,7 +363,9 @@ class Config:
 
     # -- loading ----------------------------------------------------------
     @classmethod
-    def load(cls, path: str | os.PathLike | None = None, env_file: str | os.PathLike | None = None) -> "Config":
+    def load(
+        cls, path: str | os.PathLike | None = None, env_file: str | os.PathLike | None = None
+    ) -> "Config":
         root = Path(__file__).resolve().parent.parent
         env_path = Path(env_file) if env_file else root / ".env"
         load_dotenv(env_path)
@@ -459,12 +480,18 @@ class Config:
     def as_dict(self, redact_secrets: bool = True) -> dict[str, Any]:
         data = copy.deepcopy(self._data)
         if redact_secrets:
-            data.setdefault("notifications", {})["discord_webhook_configured"] = bool(self.discord_webhook)
+            data.setdefault("notifications", {})["discord_webhook_configured"] = bool(
+                self.discord_webhook
+            )
             data["notifications"]["smtp_credentials_configured"] = bool(self.smtp_password)
         return data
 
     def save(self, path: str | os.PathLike | None = None) -> Path:
-        target = Path(path) if path else (self.source or Path(__file__).resolve().parent.parent / "config" / "config.yaml")
+        target = (
+            Path(path)
+            if path
+            else (self.source or Path(__file__).resolve().parent.parent / "config" / "config.yaml")
+        )
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(
             yaml.safe_dump(self._data, sort_keys=False, allow_unicode=True),
@@ -597,5 +624,11 @@ class Config:
         return f"{scheme}://{host}:{self.network.port}"
 
     def ensure_dirs(self) -> None:
-        for path in (self.data_dir, self.log_dir, self.backup_dir, self.mod_backup_dir, self.mod_trash_dir):
+        for path in (
+            self.data_dir,
+            self.log_dir,
+            self.backup_dir,
+            self.mod_backup_dir,
+            self.mod_trash_dir,
+        ):
             path.mkdir(parents=True, exist_ok=True)

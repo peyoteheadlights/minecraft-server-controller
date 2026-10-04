@@ -28,9 +28,10 @@ from ..security.paths import (
     safe_filename,
     safe_join,
 )
+from . import checks
 from .jarinfo import DISABLED_SUFFIX, ModInfo, read_mod_jar, sha256_file, version_satisfies
 from .modrinth import ModrinthClient, ModrinthError
-from .dependencies import DependencyResolver, describe_range, pretty_name
+from .dependencies import DependencyResolver
 
 log = logging.getLogger("msc.mods")
 
@@ -146,104 +147,17 @@ class ModManager:
         loader_version = self.server.loader_version
 
         per_mod: list[dict[str, Any]] = []
-        problems: list[dict[str, Any]] = []
-
-        seen_ids: dict[str, list[str]] = {}
-        for mod in enabled:
-            seen_ids.setdefault(mod.mod_id, []).append(mod.filename)
-        for mod_id, files in seen_ids.items():
-            if len(files) > 1:
-                problems.append({
-                    "kind": "duplicate_mod_id",
-                    "severity": "error",
-                    "mod_id": mod_id,
-                    "detail": f"{mod_id} is provided by {len(files)} enabled jars: {', '.join(files)}",
-                })
-
+        problems: list[dict[str, Any]] = checks.duplicate_ids(enabled)
         for mod in mods:
-            issues: list[dict[str, Any]] = []
-            for problem in mod.problems:
-                issues.append({"kind": "jar", "severity": "warn", "detail": problem})
-            if mod.loader == "forge":
-                issues.append({"kind": "loader_mismatch", "severity": "error",
-                               "detail": "Forge mod on a Fabric server. It will not load."})
+            issues = checks.jar_issues(mod)
             if not mod.enabled:
                 per_mod.append({"filename": mod.filename, "mod_id": mod.mod_id,
                                 "status": "disabled", "issues": issues})
                 continue
-
-            for dep in mod.dependencies:
-                if dep.kind != "depends":
-                    continue
-                if dep.mod_id in ("minecraft", "java", "fabricloader", "fabric-loader"):
-                    target = {"minecraft": mc_version, "java": None,
-                              "fabricloader": loader_version, "fabric-loader": loader_version}[dep.mod_id]
-                    if not target:
-                        continue
-                    ok = version_satisfies(target, dep.version_range)
-                    if ok is False:
-                        issues.append({
-                            "kind": "version_mismatch", "severity": "error",
-                            "detail": f"{mod.name} needs {dep.mod_id} {dep.version_range}, "
-                                      f"this server runs {target}",
-                        })
-                    elif ok is None:
-                        issues.append({
-                            "kind": "unverified", "severity": "info",
-                            "detail": f"Could not check {dep.mod_id} range '{dep.version_range}' "
-                                      f"against {target}",
-                        })
-                    continue
-                provider = installed.get(dep.mod_id)
-                if provider is None:
-                    # Fabric API ships many sub-modules under fabric-api
-                    if dep.mod_id.startswith("fabric-") and "fabric-api" in installed:
-                        continue
-                    issues.append({
-                        "kind": "missing_dependency", "severity": "error",
-                        "mod_id": dep.mod_id, "required": dep.version_range,
-                        "detail": f"{mod.name} needs {pretty_name(dep.mod_id)} "
-                                  f"({describe_range(dep.version_range)}), which is not installed "
-                                  f"or is disabled",
-                    })
-                    continue
-                ok = version_satisfies(provider.version, dep.version_range)
-                if ok is False:
-                    issues.append({
-                        "kind": "dependency_version", "severity": "error",
-                        "mod_id": dep.mod_id, "required": dep.version_range,
-                        "installed": provider.version,
-                        "detail": f"{mod.name} needs {pretty_name(dep.mod_id)} "
-                                  f"{describe_range(dep.version_range)}, but "
-                                  f"{provider.version} is installed",
-                    })
-                elif ok is None:
-                    issues.append({
-                        "kind": "unverified", "severity": "info",
-                        "detail": f"Could not check '{dep.version_range}' for {dep.mod_id} "
-                                  f"against installed {provider.version}",
-                    })
-
-            for bad in mod.breaks:
-                provider = installed.get(bad.mod_id)
-                if provider is None:
-                    continue
-                ok = version_satisfies(provider.version, bad.version_range)
-                if ok is not False:
-                    issues.append({
-                        "kind": "known_incompatibility", "severity": "error",
-                        "mod_id": bad.mod_id,
-                        "detail": f"{mod.name} declares it breaks with {bad.mod_id} "
-                                  f"{bad.version_range} (installed: {provider.version})",
-                    })
-
-            status = "ok"
-            if any(i["severity"] == "error" for i in issues):
-                status = "error"
-            elif any(i["severity"] == "warn" for i in issues):
-                status = "warn"
+            issues += checks.dependency_issues(mod, installed, mc_version, loader_version)
+            issues += checks.breaks_issues(mod, installed)
             per_mod.append({"filename": mod.filename, "mod_id": mod.mod_id,
-                            "status": status, "issues": issues})
+                            "status": checks.status_of(issues), "issues": issues})
             problems.extend({**i, "mod": mod.name, "filename": mod.filename}
                             for i in issues if i["severity"] == "error")
 

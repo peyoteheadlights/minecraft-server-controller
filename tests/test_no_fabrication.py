@@ -441,10 +441,9 @@ async def test_certificate_problem_raises_an_event_rather_than_a_false_ok(config
 # ---------------------------------------------------------------- API shape
 def test_control_responses_distinguish_requested_from_verified():
     """The route layer must not collapse 'sent' into 'succeeded'."""
-    from agent.api import routes
-    import inspect
+    from .conftest import api_routes_source
 
-    source = inspect.getsource(routes)
+    source = api_routes_source()
     assert '"result": "REQUESTED"' in source
     assert '"result": "VERIFIED" if stopped else "IN_PROGRESS"' in source
     assert '"ok": True, **result, "state": core.server.state.value' not in source
@@ -494,3 +493,16 @@ def test_diagnostics_create_nothing_for_an_unset_server_folder(tmp_path):
     report = run_diagnostics(cfg)
     assert any(c.name == "Minecraft directory" and c.status == "FAIL" for c in report.failures)
     assert not cfg.server_dir.exists(), "the diagnostic must not create the placeholder folder"
+
+
+def test_diagnostics_never_report_another_drives_free_space(tmp_path):
+    from agent.config import DEFAULTS, Config, _deep_merge
+    from agent.diagnostics import Report, _storage
+    cfg = Config(_deep_merge(DEFAULTS, {"server": {"directory": str(tmp_path / "missing")},
+                                        "paths": {"data_dir": str(tmp_path / "data")},
+                                        "tls": {"enabled": False}}))
+    report = Report()
+    _storage(report, cfg)
+    disk = next(c for c in report.sections["Storage"] if c.name == "Disk space")
+    assert disk.status == "UNKNOWN"
+    assert "GB" not in disk.value

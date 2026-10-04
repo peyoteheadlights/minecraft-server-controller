@@ -41,6 +41,12 @@ why a Discord outage or a slow mail server cannot stall the console reader or
 the Minecraft server. Fire-and-forget publishes (`publish_soon`) are held by
 the bus until they have run.
 
+The database writer works the same way: publishing appends the event to a
+list, and a background task writes whatever has collected once a second, in
+one transaction, in a worker thread. Other slow calls (`tailscale status`,
+`java -version`, the health checks' TCP probe, the storage walk) also run in
+worker threads, never on the event loop.
+
 ## Why a crash is not a shutdown
 
 Getting this wrong means 3am alerts every time you stop the server. The
@@ -89,7 +95,9 @@ agent/
   logging_setup.py     rotating agent logs
   main.py              FastAPI app, security headers, error handlers, entrypoint
   tailscale.py         what the Tailscale client reports about this machine
-  api/                 deps.py, errors.py (domain error -> HTTP status), routes.py, ws.py
+  api/                 deps.py, errors.py (domain error -> HTTP status), ws.py,
+                       routes/ (one router per area: server, console, players,
+                       mods, backups, schedules, settings, security, system)
   backups/manager.py
   database/db.py       schema + migrations
   minecraft/           state, process, console, commands, analyzer, crash
@@ -98,7 +106,7 @@ agent/
   notifications/dispatcher.py
   scheduler/scheduler.py
   security/            auth, paths
-  web/                 index.html, app.js, styles.css
+  web/                 index.html, styles.css, theme.js, js/ (ES modules: main.js, pages/, panels/)
 installer/             setup_tool, autostart, make_certs, make_secrets, firewall.ps1
 tests/                 the suite, plus a fake Minecraft server
 ```
@@ -114,3 +122,19 @@ It is plain HTML, CSS and JavaScript served by the agent itself. That means:
 
 The trade-off is no component framework. For eleven pages of tables, that is a
 trade worth making.
+
+The JavaScript is split into native ES modules that the browser loads
+directly, so there is still nothing to compile. `index.html` loads one module,
+`js/main.js`, which imports the rest:
+
+- `state.js` holds shared state and the page registry; it imports nothing.
+- `ui.js` has the DOM helpers (`el`, `card`, `table`, `toast`, …).
+- `api.js`, `auth.js`, `live.js` (WebSocket and status), `nav.js` (sidebar and
+  page switching), `charts.js` and `appearance.js` do one job each.
+- `pages/*.js` each register a renderer for one page; `panels/*.js` are the
+  TPS and dependency panels those pages embed.
+
+The CSP allows no inline styles, so styling goes in `styles.css`. For a value
+computed at runtime (a bar width, an indent), pass `el()` a style object; it is
+applied through the CSSOM, which the CSP allows. `tests/test_dashboard_assets.py`
+enforces this.

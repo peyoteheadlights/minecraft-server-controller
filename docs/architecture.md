@@ -82,12 +82,14 @@ would be the wrong trade.
 
 ```
 agent/
-  config.py            layered config, secrets from env only
+  config.py            layered config as typed sections (one place for
+                       every default), secrets from env only
   core.py              wiring and lifecycle
   events.py            event bus
   logging_setup.py     rotating agent logs
-  main.py              FastAPI app, security headers, entrypoint
-  api/                 deps.py, routes.py, ws.py
+  main.py              FastAPI app, security headers, error handlers, entrypoint
+  tailscale.py         what the Tailscale client reports about this machine
+  api/                 deps.py, errors.py (domain error -> HTTP status), routes.py, ws.py
   backups/manager.py
   database/db.py       schema + migrations
   minecraft/           state, process, console, commands, analyzer, crash
@@ -97,7 +99,7 @@ agent/
   scheduler/scheduler.py
   security/            auth, paths
   web/                 index.html, app.js, styles.css
-installer/             service.py, make_secrets.py
+installer/             setup_tool, autostart, make_certs, make_secrets, firewall.ps1
 tests/                 the suite, plus a fake Minecraft server
 ```
 

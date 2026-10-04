@@ -22,7 +22,6 @@ import json
 import os
 import signal
 import socket
-import ssl
 import struct
 import subprocess
 import sys

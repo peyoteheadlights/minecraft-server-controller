@@ -20,12 +20,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from agent.config import Config  # noqa: E402
 from agent.security.certs import (  # noqa: E402
-    issue_server_certificate,
-    local_hostnames,
     provision,
     secure_directory,
-    tailscale_status,
 )
+from agent.tailscale import tailscale_status  # noqa: E402
 from agent.security.tls import fingerprint, inspect_certificate  # noqa: E402
 
 
@@ -152,7 +150,7 @@ def main(argv: list[str] | None = None) -> int:
           f"{f'{info.days_remaining:.0f} days' if info.days_remaining is not None else 'unknown'}")
     print(f"  Covers {hostname:<11}: {info.covers(hostname)}")
     print(f"\n  Updated {saved}")
-    print(f"  Dashboard URL     : https://{hostname}:{config.get('network.port')}")
+    print(f"  Dashboard URL     : https://{hostname}:{config.network.port}")
     print("\n  Next: set network.host to this machine's Tailscale address in config.yaml,")
     print("        then run: python -m agent.main --check")
     return 0 if info.parsed and info.key_matches_certificate else 1

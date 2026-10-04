@@ -82,7 +82,7 @@ class TpsMonitor:
 
     # ------------------------------------------------------------------ state
     def mode(self) -> str:
-        value = str(self.config.get("monitor.tps_command", "auto") or "").strip()
+        value = str(self.config.monitor.tps_command or "").strip()
         if value.lower() in ("", "off", "none", "disabled"):
             return "disabled"
         if value.lower() == "auto":
@@ -90,7 +90,7 @@ class TpsMonitor:
         return "manual"
 
     def configured_command(self) -> str | None:
-        return str(self.config.get("monitor.tps_command")).strip() if self.mode() == "manual" else None
+        return self.config.monitor.tps_command.strip() if self.mode() == "manual" else None
 
     def reset_status(self) -> None:
         self.status_data: dict[str, Any] = {
@@ -115,7 +115,7 @@ class TpsMonitor:
         data["tps"] = self.server.tps
         data["mspt"] = self.server.mspt
         data["last_reading_at"] = self.server.tps_updated
-        data["poll_interval"] = float(self.config.get("monitor.tps_poll_interval", 60))
+        data["poll_interval"] = self.config.monitor.tps_poll_interval
         data["server_state"] = self.server.state.value
         return data
 
@@ -244,7 +244,7 @@ class TpsMonitor:
             result = await self.detect()
             if result["state"] != "active":
                 return  # not retried until the next server start or a manual request
-            interval = max(float(self.config.get("monitor.tps_poll_interval", 60)), 10.0)
+            interval = max(self.config.monitor.tps_poll_interval, 10.0)
             command = result["command"]
             while self.server.state.value == "ONLINE":
                 await asyncio.sleep(interval)

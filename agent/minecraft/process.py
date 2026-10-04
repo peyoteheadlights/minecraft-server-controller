@@ -18,9 +18,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-import os
 import shutil
-import subprocess
 import time
 from collections import deque
 from pathlib import Path
@@ -55,7 +53,7 @@ class MinecraftServer:
         self.config = config
         self.bus = bus
         self.db = db
-        self.server_id: str = config.get("server.id", "main")
+        self.server_id: str = config.server.id
 
         self.console = ConsoleBuffer(maxlen=2000)
         # UNKNOWN until verify_state() has actually looked. The agent has
@@ -156,7 +154,7 @@ class MinecraftServer:
                 return status.get("message")
             if status.get("state") == "active":
                 return f"Waiting for the first reading from '{status.get('command')}'."
-        command = str(self.config.get("monitor.tps_command", "")).strip()
+        command = self.config.monitor.tps_command.strip()
         if command.lower() == "auto":
             return "No TPS command has been detected yet."
         if not command or command.lower() == "off":
@@ -187,7 +185,7 @@ class MinecraftServer:
     def detect_java(self):
         """Detect the Java runtime. Source of truth: `java -version` output."""
         from .java import detect_java as _detect
-        self.java_info = _detect(str(self.config.get("server.java", "java")))
+        self.java_info = _detect(self.config.server.java)
         self.java_version = self.java_info.version_string
         return self.java_info
 
@@ -198,13 +196,13 @@ class MinecraftServer:
         return check_compatibility(self.java_info, self.mc_version)
 
     def build_command(self) -> list[str]:
-        raw = self.config.get("server.raw_command")
+        raw = self.config.server.raw_command
         if raw:
             return [str(x) for x in raw]
-        java = str(self.config.get("server.java", "java"))
-        jvm = [str(a) for a in self.config.get("server.jvm_args", [])]
-        jar = str(self.config.get("server.jar"))
-        args = [str(a) for a in self.config.get("server.server_args", [])]
+        java = self.config.server.java
+        jvm = [str(a) for a in self.config.server.jvm_args]
+        jar = self.config.server.jar
+        args = [str(a) for a in self.config.server.server_args]
         return [java, *jvm, "-jar", jar, *args]
 
     def preflight(self) -> PreflightResult:
@@ -219,11 +217,11 @@ class MinecraftServer:
         if not directory.is_dir():
             result.problems.append(f"Server directory not found: {directory}")
             return result
-        if not self.config.get("server.raw_command"):
-            jar = directory / str(self.config.get("server.jar"))
+        if not self.config.server.raw_command:
+            jar = directory / self.config.server.jar
             if not jar.is_file():
                 result.problems.append(f"Server jar not found: {jar}")
-            java = str(self.config.get("server.java", "java"))
+            java = self.config.server.java
             if not (Path(java).is_file() or shutil.which(java)):
                 result.problems.append(f"Java not found on this machine: {java}")
             else:
@@ -245,21 +243,16 @@ class MinecraftServer:
             free_gb = shutil.disk_usage(directory).free / 1024**3
             if free_gb < 2:
                 result.problems.append(f"Only {free_gb:.1f} GB free on the server drive")
-            elif free_gb < float(self.config.get("thresholds.disk_free_gb", 20)):
+            elif free_gb < self.config.thresholds.disk_free_gb:
                 result.warnings.append(f"Low disk space: {free_gb:.1f} GB free")
         except OSError as exc:  # pragma: no cover
             result.warnings.append(f"Could not read disk usage: {exc}")
         return result
 
-    def detect_java_version(self) -> str | None:
-        """Backwards-compatible wrapper around detect_java()."""
-        info = self.detect_java()
-        return info.version_string
-
     def status(self) -> dict[str, Any]:
         return {
             "server_id": self.server_id,
-            "name": self.config.get("server.name"),
+            "name": self.config.server.name,
             "state": self.state.value,
             "state_verified": self.state is not ServerState.UNKNOWN,
             "state_verified_at": self.state_verified_at,
@@ -278,10 +271,10 @@ class MinecraftServer:
             "java_version": self.java_version,
             "java": self.java_info.to_dict() if self.java_info else None,
             "java_compatibility": self.java_compatibility(),
-            "port": self.detected_port or self.config.get("server.port"),
+            "port": self.detected_port or self.config.server.port,
             "directory": str(self.config.server_dir),
-            "memory": " ".join(str(a) for a in self.config.get("server.jvm_args", [])),
-            "max_players": self.config.get("server.max_players"),
+            "memory": " ".join(str(a) for a in self.config.server.jvm_args),
+            "max_players": self.config.server.max_players,
             "mod_count": self.mod_count,
             "tps": self.tps,
             "mspt": self.mspt,
@@ -289,7 +282,7 @@ class MinecraftServer:
             "tps_source": self.tps_source,
             "tps_status": self.tps_status,
             "tps_unavailable_reason": self.tps_unavailable_reason(),
-            "auto_restart": bool(self.config.get("monitor.auto_restart")),
+            "auto_restart": self.config.monitor.auto_restart,
             "auto_restart_blocked": self.auto_restart_blocked,
             "auto_restart_block_reason": self.auto_restart_block_reason,
             "restart_at": self.restart_at,
@@ -389,7 +382,7 @@ class MinecraftServer:
             return {"pid": self.pid, "command": cmd}
 
     async def wait_online(self, timeout: float | None = None) -> bool:
-        timeout = timeout or float(self.config.get("server.start_timeout", 300))
+        timeout = timeout or self.config.server.start_timeout
         try:
             await asyncio.wait_for(self._online_event.wait(), timeout=timeout)
             return True
@@ -441,7 +434,7 @@ class MinecraftServer:
             self.mod_count = sig.mod_count
         if sig.tps is not None:
             self.tps, self.tps_updated = sig.tps, time.time()
-            self.tps_source = str(self.config.get('monitor.tps_command', 'console reply'))
+            self.tps_source = self.config.monitor.tps_command
         if sig.target_tps is not None:
             self._target_tps = sig.target_tps
         if sig.mspt is not None:
@@ -451,7 +444,7 @@ class MinecraftServer:
                 # 1000/target ms per tick cannot reach its target rate.
                 self.tps = round(min(self._target_tps, 1000.0 / sig.mspt), 2)
             self.tps_source = self.tps_source or str(
-                self.config.get('monitor.tps_command', 'console reply'))
+                self.config.monitor.tps_command)
 
         if sig.done_seconds is not None and self.state == ServerState.STARTING:
             self.startup_seconds = sig.done_seconds
@@ -484,7 +477,7 @@ class MinecraftServer:
                    timeout: float | None = None, restart: bool = False) -> dict[str, Any]:
         if not self.running:
             raise ServerError("Server is not running")
-        timeout = timeout if timeout is not None else float(self.config.get("server.stop_timeout", 90))
+        timeout = timeout if timeout is not None else self.config.server.stop_timeout
         self._stop_requested = True
         self._stop_reason = reason
         self._restart_after_stop = restart
@@ -634,21 +627,21 @@ class MinecraftServer:
         self._restart_task = asyncio.create_task(self._maybe_auto_restart())
 
     def recent_crash_count(self) -> int:
-        window = float(self.config.get("monitor.crash_window_minutes", 10)) * 60
+        window = self.config.monitor.crash_window_minutes * 60
         cutoff = time.time() - window
         return len([t for t in self._crash_times if t >= cutoff])
 
     async def _maybe_auto_restart(self) -> None:
-        if not self.config.get("monitor.auto_restart", True) or self.auto_restart_blocked:
+        if not self.config.monitor.auto_restart or self.auto_restart_blocked:
             return
-        if self.maintenance and self.config.get("maintenance.block_auto_restart", True):
+        if self.maintenance and self.config.maintenance.block_auto_restart:
             await self.bus.publish(
                 Event(type="auto_restart_skipped",
                       message="Automatic restart skipped: maintenance mode is on", level="warn")
             )
             return
-        max_crashes = int(self.config.get("monitor.max_crashes", 5))
-        window_min = float(self.config.get("monitor.crash_window_minutes", 10))
+        max_crashes = self.config.monitor.max_crashes
+        window_min = self.config.monitor.crash_window_minutes
         recent = self.recent_crash_count()
         if recent >= max_crashes:
             self.auto_restart_blocked = True
@@ -660,7 +653,7 @@ class MinecraftServer:
                       data={"crashes": recent, "window_minutes": window_min, "max_crashes": max_crashes})
             )
             return
-        delay = float(self.config.get("monitor.restart_delay", 10))
+        delay = self.config.monitor.restart_delay
         self.restart_delay = delay
         self.restart_at = time.time() + delay
         await self._set_state(ServerState.RESTART_PENDING,

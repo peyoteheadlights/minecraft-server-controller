@@ -1,19 +1,8 @@
 import pytest
-from fastapi.testclient import TestClient
 
-from agent.main import create_app
 from agent.security.auth import hash_password, verify_password
 
-PASSWORD = "correct horse battery"
-
-
-@pytest.fixture
-def client(config, monkeypatch):
-    monkeypatch.setenv("MCSC_ADMIN_USERNAME", "admin")
-    monkeypatch.setenv("MCSC_ADMIN_PASSWORD_HASH", hash_password(PASSWORD, rounds=1000))
-    monkeypatch.delenv("MCSC_API_TOKEN", raising=False)
-    with TestClient(create_app(config)) as test_client:
-        yield test_client
+from .conftest import PASSWORD
 
 
 def token_for(client) -> str:
@@ -142,6 +131,17 @@ def test_settings_updates_are_limited_to_an_allow_list(client):
     assert "server.raw_command" in body["rejected"]
 
 
+def test_settings_reject_a_nonsense_on_off_value(client, config):
+    token = token_for(client)
+    before = config.monitor.auto_restart
+    response = client.put("/api/settings", headers=auth(token),
+                          json={"updates": {"monitor.auto_restart": "maybe"}})
+    body = response.json()
+    assert "monitor.auto_restart" not in body.get("applied", {})
+    assert "monitor.auto_restart" in body["rejected"]
+    assert config.monitor.auto_restart is before
+
+
 def test_restore_returns_a_confirmation_payload_before_acting(client, config):
     token = token_for(client)
     created = client.post("/api/backups", json={}, headers=auth(token)).json()
@@ -189,3 +189,25 @@ def test_websocket_streams_after_authentication(client):
         assert "status" in ready
         ws.send_json({"type": "tail", "lines": 5})
         assert ws.receive_json()["type"] == "console_tail"
+
+
+# ---------------------------------------------------------------- error handlers
+def test_domain_errors_map_to_their_status_codes(client):
+    token = token_for(client)
+    # ServerError: the server is not running, so a command can't be sent.
+    response = client.post("/api/server/command", json={"command": "list", "confirm": True},
+                           headers=auth(token))
+    assert response.status_code == 409
+    # A lookup of something missing is a 404, with the manager's message.
+    response = client.get("/api/backups/9999/verify", headers=auth(token))
+    assert response.status_code == 404
+    assert response.json()["detail"]
+
+
+def test_a_refused_control_action_is_audited(client):
+    token = token_for(client)
+    core = client.app.state.core
+    response = client.post("/api/server/cancel-restart", headers=auth(token))
+    assert response.status_code == 409
+    rows = core.db.query("SELECT * FROM audit_log WHERE action = 'cancel_restart'")
+    assert rows and rows[-1]["result"] == "refused"

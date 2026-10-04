@@ -851,7 +851,8 @@
       ["Java", fmt.java(s.java_version)],
       ["Port", known(s.port) ? String(s.port) : null],
       ["Mods loaded", known(s.mod_count) ? String(s.mod_count) : (s.state === "ONLINE" ? null : "Reported at startup")],
-      ["Disk free", known(m.disk_free_gb) ? fmt.gb(m.disk_free_gb) : null],
+      ["Disk free", known(m.disk_free_gb) ? fmt.gb(m.disk_free_gb)
+        : (m.disk_unknown_reason ? `Unknown: ${m.disk_unknown_reason}` : null)],
     ]));
   }
 
@@ -1246,7 +1247,9 @@
         { bar: current.cpu_percent }),
       metric("RAM", fmt.pct(current.ram_percent), `threshold ${data.thresholds.ram_percent}%`,
         { bar: current.ram_percent }),
-      metric("Disk free", fmt.gb(current.disk_free_gb), `alert under ${data.thresholds.disk_free_gb} GB`),
+      metric("Disk free", fmt.gb(current.disk_free_gb),
+        known(current.disk_free_gb) || !current.disk_unknown_reason
+          ? `alert under ${data.thresholds.disk_free_gb} GB` : current.disk_unknown_reason),
       metric("Network", `${(current.net_recv_mb_s || 0).toFixed(2)}`, "MB/s received", {})));
 
     holder.append(el("div", { class: "gap-section" },
@@ -1284,7 +1287,8 @@
         ["Mods", fmt.gb(data.storage.mods_gb)],
         ["Logs", fmt.gb(data.storage.logs_gb)],
         ["Other server files", fmt.gb(data.storage.other_gb)],
-        ["Free on drive", fmt.gb(data.storage.free_gb)],
+        ["Free on drive", data.storage.free_gb === null && data.storage.free_unknown_reason
+          ? `Unknown: ${data.storage.free_unknown_reason}` : fmt.gb(data.storage.free_gb)],
       ]))));
     return holder;
   });

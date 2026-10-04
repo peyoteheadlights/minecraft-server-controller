@@ -12,7 +12,6 @@ import logging
 import shutil
 import socket
 import time
-from pathlib import Path
 from typing import Any
 
 import psutil
@@ -35,6 +34,7 @@ class MetricsMonitor:
         self._net_baseline = self._net_counters()
         self._net_baseline_ts = time.time()
         self._storage_cache: tuple[float, dict] | None = None
+        self._storage_lock = asyncio.Lock()
 
     # ------------------------------------------------------------------
     @staticmethod
@@ -57,10 +57,7 @@ class MetricsMonitor:
     def snapshot(self, include_process: bool = True) -> dict[str, Any]:
         now = time.time()
         vm = psutil.virtual_memory()
-        try:
-            disk = shutil.disk_usage(self.config.server_dir)
-        except OSError:
-            disk = shutil.disk_usage(Path.home())
+        disk, disk_reason = self._server_disk_usage()
         sent, recv = self._net_counters()
         elapsed = max(now - self._net_baseline_ts, 0.001)
         net_sent_mb = (sent - self._net_baseline[0]) / 1024**2 / elapsed
@@ -86,9 +83,10 @@ class MetricsMonitor:
             "ram_total_mb": vm.total / 1024**2,
             "ram_percent": vm.percent,
             "proc_ram_mb": proc_ram,
-            "disk_free_gb": disk.free / 1024**3,
-            "disk_total_gb": disk.total / 1024**3,
-            "disk_percent": (disk.used / disk.total * 100) if disk.total else 0.0,
+            "disk_free_gb": disk.free / 1024**3 if disk else None,
+            "disk_total_gb": disk.total / 1024**3 if disk else None,
+            "disk_percent": (disk.used / disk.total * 100) if disk and disk.total else None,
+            "disk_unknown_reason": disk_reason,
             "net_sent_mb_s": max(net_sent_mb, 0.0),
             "net_recv_mb_s": max(net_recv_mb, 0.0),
             "tps": self.server.tps,
@@ -99,11 +97,40 @@ class MetricsMonitor:
         self.last = data
         return data
 
+    def _server_disk_usage(self) -> tuple[Any, str | None]:
+        """Usage of the drive holding the server folder, or (None, reason).
+
+        Never falls back to another drive: that drive's free space is not the
+        server's free space.
+        """
+        try:
+            return shutil.disk_usage(self.config.server_dir), None
+        except OSError as exc:
+            return None, f"The server folder's drive could not be read: {exc}"
+
     # ------------------------------------------------------------------
-    def storage_breakdown(self, max_age: float = 120.0) -> dict[str, Any]:
-        """Disk usage by category. Cached: walking a 40 GB world is slow."""
+    async def storage(self, max_age: float = 120.0) -> dict[str, Any]:
+        """Disk usage by category, measured in a worker thread and cached.
+
+        Walking a 40 GB world takes seconds, so it never runs on the event
+        loop, and concurrent callers share one walk.
+        """
         if self._storage_cache and time.time() - self._storage_cache[0] < max_age:
             return self._storage_cache[1]
+        async with self._storage_lock:
+            if self._storage_cache and time.time() - self._storage_cache[0] < max_age:
+                return self._storage_cache[1]
+            result = await asyncio.to_thread(self.storage_breakdown)
+            self._storage_cache = (time.time(), result)
+            return result
+
+    def storage_breakdown(self) -> dict[str, Any]:
+        """Measure disk usage by category (blocking; use storage() from async code).
+
+        The agent's data folder (backups, mod backups, the database) is
+        counted under Backups only, never again under Other, even when it
+        lives inside the server folder.
+        """
         base = self.config.server_dir
         worlds = 0
         for name in ("world", "world_nether", "world_the_end"):
@@ -112,24 +139,20 @@ class MetricsMonitor:
         mods = directory_size(self.config.mods_dir)
         backups = directory_size(self.config.backup_dir)
         mod_backups = directory_size(self.config.mod_backup_dir)
-        total_dir = directory_size(base)
+        excluded = [self.config.data_dir, self.config.backup_dir, self.config.mod_backup_dir]
+        total_dir = directory_size(base, exclude=excluded)
         other = max(total_dir - worlds - logs - mods, 0)
-        try:
-            disk = shutil.disk_usage(base)
-            free_gb = disk.free / 1024**3
-        except OSError:
-            free_gb = 0.0
-        result = {
+        disk, disk_reason = self._server_disk_usage()
+        return {
             "worlds_gb": worlds / 1024**3,
             "backups_gb": (backups + mod_backups) / 1024**3,
             "logs_gb": logs / 1024**3,
             "mods_gb": mods / 1024**3,
             "other_gb": other / 1024**3,
-            "free_gb": free_gb,
+            "free_gb": disk.free / 1024**3 if disk else None,
+            "free_unknown_reason": disk_reason,
             "measured_at": time.time(),
         }
-        self._storage_cache = (time.time(), result)
-        return result
 
     # ------------------------------------------------------------------
     def port_listening(self, port: int | None = None, host: str = "127.0.0.1") -> bool:
@@ -302,9 +325,13 @@ class MetricsMonitor:
                 f"Actual process memory. Allocation limit is "
                 f"{' '.join(str(a) for a in self.config.get('server.jvm_args', [])) or 'not set'}",
                 source="psutil process RSS")
-        add("Disk space", snap["disk_free_gb"] > float(th.get("disk_free_gb", 20)),
-            round(snap["disk_free_gb"], 1), th.get("disk_free_gb"),
-            "Free space on the server drive, GB", source="filesystem query")
+        if snap["disk_free_gb"] is None:
+            add("Disk space", True, None, th.get("disk_free_gb"), unknown=True,
+                detail=snap["disk_unknown_reason"], source="filesystem query failed")
+        else:
+            add("Disk space", snap["disk_free_gb"] > float(th.get("disk_free_gb", 20)),
+                round(snap["disk_free_gb"], 1), th.get("disk_free_gb"),
+                "Free space on the server drive, GB", source="filesystem query")
 
         tailscale = self.tailscale_status()
         if tailscale["connected"] is None:
@@ -391,7 +418,8 @@ class MetricsMonitor:
                         f"RAM at {sample['ram_percent']:.0f}% "
                         f"({sample['ram_used_mb']/1024:.1f} of {sample['ram_total_mb']/1024:.1f} GB)",
                         {"value": sample["ram_percent"], "threshold": th.get("ram_percent")})
-        if sample["disk_free_gb"] <= float(th.get("disk_free_gb", 20)):
+        if (sample["disk_free_gb"] is not None
+                and sample["disk_free_gb"] <= float(th.get("disk_free_gb", 20))):
             await alert("disk", "low_disk",
                         f"Only {sample['disk_free_gb']:.1f} GB free "
                         f"(threshold {th.get('disk_free_gb')} GB)",

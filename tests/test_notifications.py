@@ -33,6 +33,7 @@ async def test_a_failing_webhook_never_raises(parts, monkeypatch):
     notifier = Notifier(config, bus, db, server)
 
     await notifier.handle(Event(type="server_crashed", message="boom", level="error"))
+    await notifier.drain()
 
     history = notifier.history()
     assert history[0]["status"] == "failed"
@@ -50,7 +51,9 @@ async def test_failure_is_published_as_an_event(parts, monkeypatch):
         raise httpx.ConnectError("no network")
 
     monkeypatch.setattr(httpx.AsyncClient, "post", explode)
-    await Notifier(config, bus, db, server).handle(Event(type="server_crashed", message="boom"))
+    notifier = Notifier(config, bus, db, server)
+    await notifier.handle(Event(type="server_crashed", message="boom"))
+    await notifier.drain()
     assert "notification_failed" in seen
 
 
@@ -60,6 +63,7 @@ async def test_missing_webhook_is_skipped_not_failed(parts, monkeypatch):
     monkeypatch.delenv("MCSC_DISCORD_WEBHOOK", raising=False)
     notifier = Notifier(config, bus, db, server)
     await notifier.handle(Event(type="server_started", message="up"))
+    await notifier.drain()
     assert notifier.history()[0]["status"] == "skipped"
 
 
@@ -70,6 +74,7 @@ async def test_disabled_events_are_not_sent(parts, monkeypatch):
     monkeypatch.setenv("MCSC_DISCORD_WEBHOOK", "https://discord.example/webhook")
     notifier = Notifier(config, bus, db, server)
     await notifier.handle(Event(type="player_left", message="Steve left"))
+    await notifier.drain()
     assert notifier.history() == []
 
 
@@ -88,6 +93,7 @@ async def test_repeat_alerts_are_throttled(parts, monkeypatch):
     notifier = Notifier(config, bus, db, server)
     for _ in range(4):
         await notifier.handle(Event(type="high_ram", message="RAM at 95%"))
+    await notifier.drain()
     assert len(sent) == 1
 
 
@@ -109,10 +115,75 @@ async def test_crash_notification_carries_the_analysis(parts, monkeypatch):
             "category": "OutOfMemoryError", "confidence": "likely",
             "summary": "Ran out of heap", "evidence": ["java.lang.OutOfMemoryError"]}},
     ))
+    await notifier.drain()
     fields = captured["embeds"][0]["fields"]
     names = " ".join(f["name"] for f in fields)
     assert "Likely cause" in names
     assert "Evidence" in names
+
+
+async def test_a_slow_alert_never_stalls_the_console(parts, monkeypatch):
+    """A Discord send that hangs must not stop console lines from flowing."""
+    config, bus, db, server = parts
+    config.set("notifications.discord_enabled", True)
+    monkeypatch.setenv("MCSC_DISCORD_WEBHOOK", "https://discord.example/webhook")
+    release = asyncio.Event()
+
+    async def hang(self, url, **kwargs):
+        await release.wait()
+        return httpx.Response(204, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", hang)
+    notifier = Notifier(config, bus, db, server)
+    bus.subscribe(notifier.handle)
+    seen = []
+    queue = bus.queue()
+
+    # Start the real fake server: its startup line publishes server_started,
+    # which triggers the hanging Discord send, while the console keeps going.
+    await server.start()
+    try:
+        assert await server.wait_online(10)
+        await asyncio.wait_for(server.send_command("list"), 5)
+        deadline = asyncio.get_running_loop().time() + 5
+        while asyncio.get_running_loop().time() < deadline:
+            try:
+                event = await asyncio.wait_for(queue.get(), 0.5)
+            except asyncio.TimeoutError:
+                continue
+            if event.type == "console":
+                seen.append(event.message)
+                if any("players online" in line for line in seen):
+                    break
+        assert any("players online" in line for line in seen), seen
+        assert not release.is_set()
+    finally:
+        release.set()
+        await server.stop()
+        await notifier.stop()
+
+
+async def test_publish_returns_before_a_slow_alert_is_sent(parts, monkeypatch):
+    config, bus, db, server = parts
+    config.set("notifications.discord_enabled", True)
+    monkeypatch.setenv("MCSC_DISCORD_WEBHOOK", "https://discord.example/webhook")
+    release = asyncio.Event()
+    sent = []
+
+    async def hang(self, url, **kwargs):
+        await release.wait()
+        sent.append(url)
+        return httpx.Response(204, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", hang)
+    notifier = Notifier(config, bus, db, server)
+    bus.subscribe(notifier.handle)
+    await asyncio.wait_for(bus.publish(Event(type="server_crashed", message="boom")), 1)
+    assert sent == []
+    release.set()
+    await notifier.drain()
+    assert len(sent) == 1
+    await notifier.stop()
 
 
 # ---------------------------------------------------------------- health honesty

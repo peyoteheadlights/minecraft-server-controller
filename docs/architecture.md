@@ -33,8 +33,13 @@ Subscribers: the database writer, the notifier, and every open WebSocket.
 
 Each WebSocket gets its **own bounded queue**. If a phone on a weak connection
 falls behind, its oldest events are dropped — the agent is never slowed down by
-a slow consumer. A subscriber that raises is logged and ignored, which is why a
-Discord outage cannot affect the Minecraft server.
+a slow consumer. A subscriber that raises is logged and ignored.
+
+The notifier never sends from inside `publish`: it queues the alert and returns
+at once, and its own background task does the Discord and email sends. That is
+why a Discord outage or a slow mail server cannot stall the console reader or
+the Minecraft server. Fire-and-forget publishes (`publish_soon`) are held by
+the bus until they have run.
 
 ## Why a crash is not a shutdown
 
@@ -61,8 +66,9 @@ Only the last two collect evidence, run the analyzer, and trigger auto-restart.
   logs, backup zips, archived mod jars. The database stores paths to them.
 
 Migrations are forward-only and numbered in `agent/database/db.py`. The runner
-applies anything newer than the recorded version at startup, inside the same
-connection, and records what it applied.
+applies anything newer than the recorded version at startup. Each migration and
+the row recording it run in one transaction, so a migration that fails part way
+leaves the database exactly as it was.
 
 ## Multi-server groundwork
 

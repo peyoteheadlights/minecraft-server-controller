@@ -3,6 +3,10 @@
 Nothing in this module may take the agent down. Every send is wrapped, every
 failure is recorded in notifications_log and published as an event, and the
 caller never sees an exception.
+
+Alerts are queued and sent from the notifier's own background task, so the
+event bus (and the console reader that publishes on it) never waits on a slow
+Discord or SMTP server.
 """
 
 from __future__ import annotations
@@ -52,7 +56,15 @@ EVENT_MAP: dict[str, tuple[str, str, int, str]] = {
 }
 
 
+THROTTLED = {"high_ram", "high_cpu", "low_disk", "low_tps", "high_mspt",
+             "auth_failure", "certificate_expiring"}
+
+
 class Notifier:
+    # Alerts waiting to be sent. If the network is down for long enough to
+    # fill this, the oldest waiting alert is dropped (and logged).
+    QUEUE_SIZE = 100
+
     def __init__(self, config, bus: EventBus, db, server=None, metrics=None):
         self.config = config
         self.bus = bus
@@ -60,6 +72,8 @@ class Notifier:
         self.server = server
         self.metrics = metrics
         self._last_sent: dict[str, float] = {}
+        self._queue: asyncio.Queue[Event] = asyncio.Queue(maxsize=self.QUEUE_SIZE)
+        self._worker: asyncio.Task | None = None
 
     # ------------------------------------------------------------------
     def enabled_for(self, event_type: str) -> bool:
@@ -108,12 +122,14 @@ class Notifier:
         if self.metrics and event.type in ("server_crashed", "high_ram", "high_cpu", "low_disk"):
             snap = self.metrics.last or {}
             if snap:
+                disk_free = snap.get("disk_free_gb")
+                disk = f"{disk_free:.1f} GB free" if disk_free is not None else "unknown"
                 fields.append({
                     "name": "Machine",
                     "value": (f"RAM {snap.get('ram_used_mb', 0)/1024:.1f} / "
                               f"{snap.get('ram_total_mb', 0)/1024:.1f} GB\n"
                               f"CPU {snap.get('cpu_percent', 0):.0f}%\n"
-                              f"Disk {snap.get('disk_free_gb', 0):.1f} GB free"),
+                              f"Disk {disk}"),
                     "inline": True,
                 })
         for key in ("username", "value", "threshold", "name", "size_bytes"):
@@ -252,17 +268,40 @@ class Notifier:
 
     # ------------------------------------------------------------------
     async def handle(self, event: Event) -> None:
-        """Event bus subscriber. Never raises."""
+        """Event bus subscriber. Queues the alert and returns at once; never raises."""
         try:
             if event.type not in EVENT_MAP or not self.enabled_for(event.type):
                 return
             min_interval = float(self.config.get("notifications.min_interval_seconds", 300))
-            throttled = {"high_ram", "high_cpu", "low_disk", "low_tps", "high_mspt",
-                         "auth_failure", "certificate_expiring"}
-            if event.type in throttled:
+            if event.type in THROTTLED:
                 if time.time() - self._last_sent.get(event.type, 0) < min_interval:
                     return
             self._last_sent[event.type] = time.time()
+            if self._queue.full():
+                dropped = self._queue.get_nowait()
+                self._queue.task_done()
+                log.warning("notification queue full; dropped %s alert", dropped.type)
+            self._queue.put_nowait(event)
+            self._ensure_worker()
+        except Exception:
+            log.exception("notification dispatch failed for %s", event.type)
+
+    def _ensure_worker(self) -> None:
+        if self._worker is None or self._worker.done():
+            self._worker = asyncio.get_running_loop().create_task(
+                self._run(), name="notifier")
+
+    async def _run(self) -> None:
+        while True:
+            event = await self._queue.get()
+            try:
+                await self.deliver(event)
+            finally:
+                self._queue.task_done()
+
+    async def deliver(self, event: Event) -> None:
+        """Send one alert to every enabled channel. Never raises."""
+        try:
             tasks = []
             if self.config.get("notifications.discord_enabled"):
                 tasks.append(self.send_discord(event))
@@ -272,6 +311,25 @@ class Notifier:
                 await asyncio.gather(*tasks, return_exceptions=True)
         except Exception:
             log.exception("notification dispatch failed for %s", event.type)
+
+    async def drain(self) -> None:
+        """Wait until every queued alert has been attempted."""
+        await self._queue.join()
+
+    async def stop(self, drain_timeout: float = 10.0) -> None:
+        """Give queued alerts a short chance to go out, then stop the sender."""
+        if self._worker and not self._worker.done() and drain_timeout > 0:
+            try:
+                await asyncio.wait_for(self.drain(), drain_timeout)
+            except asyncio.TimeoutError:
+                log.warning("stopping with %d alert(s) unsent", self._queue.qsize())
+        if self._worker:
+            self._worker.cancel()
+            try:
+                await self._worker
+            except asyncio.CancelledError:
+                pass
+            self._worker = None
 
     async def test(self, channel: str) -> dict[str, Any]:
         event = Event(type="server_started", level="success",

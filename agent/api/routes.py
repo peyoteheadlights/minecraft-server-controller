@@ -151,7 +151,7 @@ async def server_info(principal: Principal = Depends(require_auth), core=Depends
     import platform
     import psutil
     status = core.server.status()
-    storage = core.metrics.storage_breakdown()
+    storage = await core.metrics.storage()
     return {
         "server": status,
         "java": core.server.java_info.to_dict() if core.server.java_info else None,
@@ -392,7 +392,7 @@ async def performance(hours: float = 6, principal: Principal = Depends(require_a
         "current": core.metrics.snapshot(),
         "history": core.metrics.history(hours=max(0.1, min(hours, 168))),
         "thresholds": core.config.get("thresholds", {}),
-        "storage": core.metrics.storage_breakdown(),
+        "storage": await core.metrics.storage(),
     }
 
 

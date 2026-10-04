@@ -336,6 +336,60 @@ def test_clean_mod_check_does_not_claim_there_are_no_conflicts(mods, config):
     assert "is not the same as" in checks["claim_note"]
 
 
+# ---------------------------------------------------------------- disk space
+def _unreadable_disk(path):
+    raise OSError("drive not ready")
+
+
+def test_disk_free_is_unknown_when_the_server_drive_cannot_be_read(parts, monkeypatch):
+    """Never report another drive's free space (such as the home folder's)."""
+    config, bus, db, server = parts
+    monkeypatch.setattr("agent.monitoring.metrics.shutil.disk_usage", _unreadable_disk)
+    metrics = MetricsMonitor(config, bus, db, server)
+    snap = metrics.snapshot()
+    assert snap["disk_free_gb"] is None
+    assert snap["disk_total_gb"] is None
+    assert snap["disk_percent"] is None
+    assert "drive not ready" in snap["disk_unknown_reason"]
+    disk = next(c for c in metrics.health()["checks"] if c["name"] == "Disk space")
+    assert disk["status"] == "unknown"
+    assert disk["value"] is None
+
+
+def test_storage_free_space_is_unknown_not_zero_when_the_query_fails(parts, monkeypatch):
+    config, bus, db, server = parts
+    monkeypatch.setattr("agent.monitoring.metrics.shutil.disk_usage", _unreadable_disk)
+    storage = MetricsMonitor(config, bus, db, server).storage_breakdown()
+    assert storage["free_gb"] is None, "a failed check must not read as 0 GB free"
+    assert "drive not ready" in storage["free_unknown_reason"]
+
+
+async def test_unknown_disk_space_raises_no_low_disk_alert(parts, monkeypatch):
+    config, bus, db, server = parts
+    monkeypatch.setattr("agent.monitoring.metrics.shutil.disk_usage", _unreadable_disk)
+    seen = []
+    bus.subscribe(lambda event: seen.append(event.type))
+    await MetricsMonitor(config, bus, db, server).sample_once(player_count=0)
+    assert "low_disk" not in seen
+
+
+def test_dashboard_shows_why_disk_space_is_unknown():
+    """Every place the dashboard shows disk_free_gb must also show the reason
+    when it is unknown, not a bare "Unknown"."""
+    import re
+    from pathlib import Path
+
+    web = Path(__file__).resolve().parent.parent / "agent" / "web"
+    shown = 0
+    for script in web.rglob("*.js"):
+        source = script.read_text(encoding="utf-8")
+        for name in re.findall(r"fmt\.gb\((\w+)\.disk_free_gb\)", source):
+            shown += 1
+            assert f"{name}.disk_unknown_reason" in source, (
+                f"{script.name} shows {name}.disk_free_gb without its unknown reason")
+    assert shown, "the dashboard no longer shows disk_free_gb; update this test"
+
+
 # ---------------------------------------------------------------- tailscale / TLS
 def test_tailscale_is_unknown_when_the_cli_cannot_be_asked(parts, monkeypatch):
     config, bus, db, server = parts

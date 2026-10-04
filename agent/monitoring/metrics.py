@@ -17,6 +17,7 @@ from typing import Any
 import psutil
 
 from .. import tailscale
+from . import health
 from ..events import Event, EventBus
 from ..security.paths import directory_size
 
@@ -190,137 +191,27 @@ class MetricsMonitor:
         """
         snap = self.snapshot()
         th = self.config.thresholds
-        checks: list[dict[str, Any]] = []
-
-        def add(name, ok, value, threshold=None, detail="", source="", unknown=False):
-            checks.append({
-                "name": name,
-                "status": "unknown" if unknown else ("ok" if ok else "warn"),
-                "value": value,
-                "threshold": threshold,
-                "detail": detail,
-                "source": source,
-            })
-
         state = self.server.state.value
-        if state == "UNKNOWN":
-            add("Minecraft process", False, "UNKNOWN", "ONLINE", unknown=True,
-                detail="The agent has not yet verified whether Minecraft is running.",
-                source="not checked")
-        else:
-            add("Minecraft process", state in ("ONLINE", "STARTING"), state, "ONLINE",
-                detail=f"State is {state}", source=self.server._state_source())
-
-        if self.server.tps is None:
-            add("TPS", True, None, th.tps_min, unknown=True,
-                detail=self.server.tps_unavailable_reason() or "No tick-rate source available",
-                source="no provider answered")
-        else:
-            add("TPS", self.server.tps >= th.tps_min, round(self.server.tps, 2),
-                th.tps_min, f"Minimum acceptable is {th.tps_min}",
-                source=self.server.tps_source or "server console reply")
-
-        if self.server.mspt is None:
-            add("MSPT", True, None, th.mspt_max, unknown=True,
-                detail="No tick-time report has been received from the server.",
-                source="no provider answered")
-        else:
-            add("MSPT", self.server.mspt <= th.mspt_max, round(self.server.mspt, 1),
-                th.mspt_max, f"Maximum acceptable is {th.mspt_max} ms",
-                source=self.server.tps_source or "server console reply")
-
-        if player_count is None:
-            add("Players", True, None, None, unknown=True,
-                detail="The player list has not been established yet. It becomes known when a "
-                       "player joins or leaves, when /list is answered, or when the server stops.",
-                source="not established")
-        else:
-            add("Players", True, player_count, self.config.server.max_players,
-                detail="Players currently connected", source="console join/leave and /list")
-
-        add("CPU", snap["cpu_percent"] < th.cpu_percent,
-            round(snap["cpu_percent"], 1), th.cpu_percent,
-            "Whole-machine CPU use, percent", source="psutil (operating system)")
-        add("System RAM", snap["ram_percent"] < th.ram_percent,
-            round(snap["ram_percent"], 1), th.ram_percent,
-            f"{snap['ram_used_mb']/1024:.1f} of {snap['ram_total_mb']/1024:.1f} GB used",
-            source="psutil (operating system)")
-        if snap["proc_ram_mb"] is None:
-            add("Minecraft RAM", True, None, None, unknown=True,
-                detail="The Minecraft process is not running, or its memory could not be read. "
-                       "The -Xmx value is an allocation limit, not a measurement, so it is not "
-                       "shown here.",
-                source="not measured")
-        else:
-            add("Minecraft RAM", True, round(snap["proc_ram_mb"] / 1024, 2), None,
-                f"Actual process memory. Allocation limit is "
-                f"{' '.join(str(a) for a in self.config.server.jvm_args) or 'not set'}",
-                source="psutil process RSS")
-        if snap["disk_free_gb"] is None:
-            add("Disk space", True, None, th.disk_free_gb, unknown=True,
-                detail=snap["disk_unknown_reason"], source="filesystem query failed")
-        else:
-            add("Disk space", snap["disk_free_gb"] > th.disk_free_gb,
-                round(snap["disk_free_gb"], 1), th.disk_free_gb,
-                "Free space on the server drive, GB", source="filesystem query")
-
-        ts = self.tailscale_status()
-        if ts["connected"] is None:
-            add("Tailscale", True, None, None, unknown=True,
-                detail=ts["detail"], source=ts["source"])
-        else:
-            add("Tailscale", ts["connected"],
-                ts.get("dns_name") or ts.get("address") or "connected",
-                None, ts["detail"], source=ts["source"])
-
         port = int(self.server.detected_port or self.config.server.port)
-        if state != "ONLINE":
-            add(f"Port {port}", True, None, "listening", unknown=True,
-                detail="Not checked: the server is not online, so the port is not expected to "
-                       "be listening.",
-                source="not checked")
-        else:
-            listening = self.port_listening(port)
-            add(f"Port {port}", listening, "listening" if listening else "not listening",
-                "listening", "Minecraft accepts connections when the server is online",
-                source="TCP connect attempt")
-
+        checks = [
+            health.process(self.server),
+            health.tps(self.server, th),
+            health.mspt(self.server, th),
+            health.players(player_count, self.config.server.max_players),
+            health.cpu(snap, th),
+            health.system_ram(snap, th),
+            health.minecraft_ram(snap, self.config.server.jvm_args),
+            health.disk(snap, th),
+            health.tailscale(self.tailscale_status()),
+            health.port(port, state, self.port_listening(port) if state == "ONLINE" else None),
+        ]
         if self.config.tls_enabled:
-            cert = self.certificate_status()
-            if not cert.get("parsed"):
-                add("TLS certificate", False, "not readable", None,
-                    cert.get("parse_error") or "The certificate file could not be read",
-                    source="certificate file")
-            else:
-                days = cert.get("days_remaining")
-                severity = cert.get("expiry_severity")
-                add("TLS certificate", severity == "ok",
-                    f"{days:.0f} days remaining" if days is not None else None,
-                    self.config.tls.expiry_warn_days,
-                    f"Issued by {cert.get('issuer')}",
-                    source="certificate file", unknown=days is None)
-
-        recent = self.server.recent_crash_count()
-        window = self.config.monitor.crash_window_minutes
-        add("Recent crashes", recent == 0, recent, 0,
-            f"Crashes in the last {window} minutes", source="agent crash records")
-
-        unknown = [c["name"] for c in checks if c["status"] == "unknown"]
-        warnings = [c["name"] for c in checks if c["status"] == "warn"]
-        if warnings:
-            overall = "ATTENTION NEEDED"
-        elif unknown:
-            overall = "PARTIALLY VERIFIED"
-        else:
-            overall = "ALL CHECKS VERIFIED"
-
+            checks.append(health.certificate(self.certificate_status(),
+                                             self.config.tls.expiry_warn_days))
+        checks.append(health.recent_crashes(self.server.recent_crash_count(),
+                                            self.config.monitor.crash_window_minutes))
         return {
-            "overall": overall,
-            "verified_count": len([c for c in checks if c["status"] != "unknown"]),
-            "unverified": unknown,
-            "warnings": warnings,
-            "note": ("Some values could not be measured and are reported as unknown. "
-                     "They are not counted as passing.") if unknown else "",
+            **health.summarize(checks),
             "checks": checks,
             "metrics": snap,
             "players": player_count,

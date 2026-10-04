@@ -89,7 +89,9 @@ agent/
   logging_setup.py     rotating agent logs
   main.py              FastAPI app, security headers, error handlers, entrypoint
   tailscale.py         what the Tailscale client reports about this machine
-  api/                 deps.py, errors.py (domain error -> HTTP status), routes.py, ws.py
+  api/                 deps.py, errors.py (domain error -> HTTP status), ws.py,
+                       routes/ (one router per area: server, console, players,
+                       mods, backups, schedules, settings, security, system)
   backups/manager.py
   database/db.py       schema + migrations
   minecraft/           state, process, console, commands, analyzer, crash

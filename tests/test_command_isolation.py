@@ -64,9 +64,9 @@ def test_every_subprocess_call_uses_an_argument_list():
 
 def test_the_api_exposes_no_general_execution_endpoint():
     """Only the predefined operations exist. There is no /execute."""
-    from agent.api import routes
+    from .conftest import api_routes_source
 
-    source = inspect.getsource(routes)
+    source = api_routes_source()
     for forbidden in ("/execute", "/shell", "/run", "/cmd", "/powershell", "/system"):
         assert f'"{forbidden}"' not in source, f"an execution-style route exists: {forbidden}"
     # the one place free text reaches the OS is the Minecraft console, and it

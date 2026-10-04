@@ -424,10 +424,9 @@ async def test_certificate_problem_raises_an_event_rather_than_a_false_ok(config
 # ---------------------------------------------------------------- API shape
 def test_control_responses_distinguish_requested_from_verified():
     """The route layer must not collapse 'sent' into 'succeeded'."""
-    from agent.api import routes
-    import inspect
+    from .conftest import api_routes_source
 
-    source = inspect.getsource(routes)
+    source = api_routes_source()
     assert '"result": "REQUESTED"' in source
     assert '"result": "VERIFIED" if stopped else "IN_PROGRESS"' in source
     assert '"ok": True, **result, "state": core.server.state.value' not in source

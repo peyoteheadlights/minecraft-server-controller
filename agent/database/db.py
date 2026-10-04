@@ -281,6 +281,18 @@ class Database:
             },
         )
 
+    def recent_events(self, server_id: str, limit: int = 100) -> list[dict]:
+        return self.query(
+            "SELECT * FROM events WHERE server_id = ? ORDER BY ts DESC LIMIT ?",
+            (server_id, limit),
+        )
+
+    def list_servers(self) -> list[dict]:
+        return self.query("SELECT * FROM servers")
+
+    def audit_entries(self, limit: int = 100) -> list[dict]:
+        return self.query("SELECT * FROM audit_log ORDER BY ts DESC LIMIT ?", (limit,))
+
     def audit(
         self,
         action: str,

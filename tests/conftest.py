@@ -13,6 +13,14 @@ FAKE_SERVER = Path(__file__).resolve().parent / "fixtures" / "fake_server.py"
 PASSWORD = "correct horse battery"
 
 
+def api_routes_source() -> str:
+    """The source of every API router, for tests that inspect route code."""
+    import inspect
+
+    from agent.api import routes
+    return "\n".join(inspect.getsource(module) for module in (routes, *routes.MODULES))
+
+
 def build_config(tmp_path: Path, **overrides) -> Config:
     """A config pointing at a throwaway 'Minecraft Server' folder.
 

@@ -106,7 +106,7 @@ agent/
   notifications/dispatcher.py
   scheduler/scheduler.py
   security/            auth, paths
-  web/                 index.html, app.js, styles.css
+  web/                 index.html, styles.css, theme.js, js/ (ES modules: main.js, pages/, panels/)
 installer/             setup_tool, autostart, make_certs, make_secrets, firewall.ps1
 tests/                 the suite, plus a fake Minecraft server
 ```

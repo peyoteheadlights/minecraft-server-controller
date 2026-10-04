@@ -3,6 +3,8 @@ performance, health, worlds and TPS monitoring."""
 
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ...minecraft.commands import CommandError, validate
@@ -181,7 +183,10 @@ async def performance(hours: float = 6, principal: Principal = Depends(require_a
 async def server_health(principal: Principal = Depends(require_auth), core=Depends(get_core)):
     # online_count() returns None when the player list has not been
     # established, and the health page renders that as unknown.
-    return core.metrics.health(player_count=core.players.online_count())
+    # The checks include `tailscale status` and a TCP connect, so they run
+    # in a worker thread.
+    return await asyncio.to_thread(core.metrics.health,
+                                   player_count=core.players.online_count())
 
 
 @router.get("/worlds")

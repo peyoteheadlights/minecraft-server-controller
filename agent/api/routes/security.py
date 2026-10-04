@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, Depends, Request
 
 from ...security.auth import Principal
@@ -17,7 +19,7 @@ async def security_overview(principal: Principal = Depends(require_auth), core=D
         "tls": core.metrics.certificate_status(),
         "https_enabled": core.config.tls_enabled,
         "dashboard_hostname": core.config.dashboard_hostname or None,
-        "tailscale": core.metrics.tailscale_status(),
+        "tailscale": await asyncio.to_thread(core.metrics.tailscale_status),
         "authentication": {
             "enabled": core.auth.configured,
             "session_hours": core.config.security.session_hours,

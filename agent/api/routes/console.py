@@ -54,6 +54,7 @@ async def clear_console(request: Request, principal: Principal = Depends(require
 async def events(limit: int = 100, principal: Principal = Depends(require_auth),
                  core=Depends(get_core)):
     limit = max(1, min(int(limit), 500))
+    await core.events.flush()
     return {"events": core.db.recent_events(core.server.server_id, limit)}
 
 

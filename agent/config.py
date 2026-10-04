@@ -56,7 +56,7 @@ def _coerce(name: str, hint: Any, value: Any) -> Any:
     """Turn a YAML value into the field's declared type, or raise ConfigError."""
     if value is None:
         return None
-    if isinstance(hint, type) and dataclasses.is_dataclass(hint):
+    if isinstance(hint, type) and issubclass(hint, Section):
         if not isinstance(value, dict):
             raise ConfigError(f"{name} must be a mapping")
         return hint.from_dict(value, prefix=name)
@@ -365,7 +365,7 @@ class Config:
     @classmethod
     def load(
         cls, path: str | os.PathLike | None = None, env_file: str | os.PathLike | None = None
-    ) -> "Config":
+    ) -> Config:
         root = Path(__file__).resolve().parent.parent
         env_path = Path(env_file) if env_file else root / ".env"
         load_dotenv(env_path)

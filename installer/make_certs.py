@@ -18,13 +18,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from agent.config import Config  # noqa: E402
-from agent.security.certs import (  # noqa: E402
+from agent.config import Config
+from agent.security.certs import (
     provision,
     secure_directory,
 )
-from agent.tailscale import tailscale_status  # noqa: E402
-from agent.security.tls import fingerprint, inspect_certificate  # noqa: E402
+from agent.security.tls import fingerprint, inspect_certificate
+from agent.tailscale import tailscale_status
 
 
 def show(config: Config) -> int:

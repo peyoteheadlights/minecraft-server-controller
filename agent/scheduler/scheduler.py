@@ -18,8 +18,9 @@ import json
 import logging
 import re
 import time
+from collections.abc import Callable
 from datetime import datetime, timedelta
-from typing import Any, Callable
+from typing import Any
 
 from ..events import Event, EventBus
 
@@ -207,8 +208,8 @@ class Scheduler:
             return f"Skipped: {exc}"
 
     async def _task_stop(self, payload: dict) -> str:
-        from ..minecraft.state import ExitReason
         from ..minecraft.process import ServerError
+        from ..minecraft.state import ExitReason
 
         warn = payload.get("warn_seconds", 60)
         try:

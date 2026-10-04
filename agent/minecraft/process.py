@@ -21,12 +21,16 @@ import logging
 import shutil
 import time
 from collections import deque
+from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..events import Event, EventBus
 from .console import ConsoleBuffer, ConsoleLine, extract_signals
 from .state import NORMAL_REASONS, ExitReason, ServerState
+
+if TYPE_CHECKING:
+    from .java import JavaInfo
 
 log = logging.getLogger("msc.process")
 
@@ -86,7 +90,7 @@ class MinecraftServer:
         self.tps_status: dict | None = None  # published by TpsMonitor
         self._target_tps: float | None = None  # vanilla's configured rate, not a measurement
         self.tps_asked_at: float | None = None
-        self.java_info = None  # agent.minecraft.java.JavaInfo once detected
+        self.java_info: JavaInfo | None = None
         self.startup_confirmed = False  # True only after 'Done (..)!' was seen
 
         self._stop_requested = False
@@ -110,8 +114,8 @@ class MinecraftServer:
         self.auto_restart_blocked = False
         self.auto_restart_block_reason: str | None = None
 
-        self.signal_hook = None  # PlayerTracker / metrics
-        self.crash_hook = None  # CrashReporter
+        self.signal_hook: Callable[..., Awaitable[Any]] | None = None  # PlayerTracker / metrics
+        self.crash_hook: Callable[..., Awaitable[Any]] | None = None  # CrashReporter
         self.maintenance = False
 
     # ------------------------------------------------------------------
@@ -405,14 +409,14 @@ class MinecraftServer:
         try:
             await asyncio.wait_for(self._online_event.wait(), timeout=timeout)
             return True
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return False
 
     async def wait_exit(self, timeout: float = 60) -> bool:
         try:
             await asyncio.wait_for(self._exited_event.wait(), timeout=timeout)
             return True
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return False
 
     # ------------------------------------------------------------------
@@ -512,9 +516,10 @@ class MinecraftServer:
 
         sent = await self.send_command("stop", internal=True)
         forced = False
+        assert self.process is not None  # self.running checked above
         try:
             await asyncio.wait_for(self.process.wait(), timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             forced = True
             self._emit_console(
                 f"[agent] graceful stop timed out after {timeout:.0f}s, terminating process"
@@ -531,7 +536,7 @@ class MinecraftServer:
             self.process.terminate()
         try:
             await asyncio.wait_for(self.process.wait(), timeout=20)
-        except asyncio.TimeoutError:  # pragma: no cover
+        except TimeoutError:  # pragma: no cover
             with contextlib.suppress(ProcessLookupError, OSError):
                 self.process.kill()
             with contextlib.suppress(asyncio.TimeoutError):

@@ -62,7 +62,8 @@ def start_agent(tmp: Path):
     (mc / "world" / "level.dat").write_bytes(b"x" * 4096)
     (mc / "server.properties").write_text("server-port=25565\n")
     # a mod with a dependency that is not installed, as SkinsRestorer/cloud was
-    import json as _json, zipfile as _zip
+    import json as _json
+    import zipfile as _zip
 
     with _zip.ZipFile(mc / "mods" / "skinsrestorer.jar", "w") as zf:
         zf.writestr(

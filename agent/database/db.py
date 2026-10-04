@@ -10,8 +10,9 @@ import json
 import sqlite3
 import threading
 import time
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 MIGRATIONS: list[tuple[int, str]] = [
     (
@@ -254,7 +255,7 @@ class Database:
         cols = ", ".join(values)
         marks = ", ".join("?" for _ in values)
         cur = self.execute(f"INSERT INTO {table} ({cols}) VALUES ({marks})", list(values.values()))
-        return int(cur.lastrowid)
+        return int(cur.lastrowid or 0)
 
     def close(self) -> None:
         with self._lock:

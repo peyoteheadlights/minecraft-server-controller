@@ -13,6 +13,7 @@ import logging
 import time
 from typing import Any
 
+from . import __version__
 from .backups.manager import BackupManager
 from .database.db import Database
 from .database.event_writer import EventWriter
@@ -228,7 +229,7 @@ class AgentCore:
         status["agent"] = {
             "started_at": self.started_at,
             "uptime": time.time() - self.started_at,
-            "version": "1.0.0",
+            "version": __version__,
             "database_version": self.db.version,
             "maintenance": self.server.maintenance,
             "maintenance_message": self.config.maintenance.message,

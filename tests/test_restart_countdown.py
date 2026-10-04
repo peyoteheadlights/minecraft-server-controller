@@ -138,6 +138,7 @@ async def test_cancel_is_refused_once_the_restart_is_already_launching(make_conf
 
 def test_restart_endpoints_report_conflicts_in_plain_language(config, monkeypatch):
     from fastapi.testclient import TestClient
+
     from agent.main import create_app
     from agent.security.auth import hash_password
 

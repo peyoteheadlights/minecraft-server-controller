@@ -189,7 +189,7 @@ class Notifier:
         if not webhook:
             self._log("discord", event.type, "skipped", "No webhook URL is configured")
             return False
-        emoji, colour, title = EVENT_MAP.get(event.type, ("", 0x5865F2, event.type))[1:]
+        emoji, colour, title = EVENT_MAP.get(event.type, (event.type, "", 0x5865F2, event.type))[1:]
         server_name = self.config.server.name
         payload = {
             "username": "Minecraft Control",
@@ -221,7 +221,7 @@ class Notifier:
     # ------------------------------------------------------------------
     def _build_email(self, event: Event) -> EmailMessage:
         cfg = self.config.notifications.email
-        emoji, _, title = EVENT_MAP.get(event.type, ("", 0, event.type))[1:]
+        emoji, _, title = EVENT_MAP.get(event.type, (event.type, "", 0, event.type))[1:]
         server_name = self.config.server.name
         message = EmailMessage()
         message["Subject"] = f"[{server_name}] {emoji} {title}"
@@ -244,7 +244,7 @@ class Notifier:
                 continue
             lines.append(f"{key}: {value}")
         lines += ["", f"Sent by Minecraft Server Control at {time.strftime('%Y-%m-%d %H:%M:%S')}"]
-        message.set_content("\n".join(str(l) for l in lines))
+        message.set_content("\n".join(str(line) for line in lines))
 
         if cfg.attach_crash_report and data.get("crash_report"):
             self._attach(message, Path(data["crash_report"]))
@@ -267,6 +267,7 @@ class Notifier:
         host = cfg.host
         port = cfg.port
         timeout = 25
+        server: smtplib.SMTP
         if cfg.use_ssl:
             server = smtplib.SMTP_SSL(host, port, timeout=timeout)
         else:
@@ -367,7 +368,7 @@ class Notifier:
         if self._worker and not self._worker.done() and drain_timeout > 0:
             try:
                 await asyncio.wait_for(self.drain(), drain_timeout)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 log.warning("stopping with %d alert(s) unsent", self._queue.qsize())
         if self._worker:
             self._worker.cancel()

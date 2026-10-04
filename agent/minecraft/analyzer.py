@@ -20,8 +20,9 @@ in the matched evidence, which is a different and weaker statement.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any, Iterable
+from typing import Any
 
 CATEGORIES = [
     "OutOfMemoryError",

@@ -23,8 +23,8 @@ from pathlib import Path
 from typing import Any
 
 from .minecraft.java import detect_java
-from .tailscale import tailscale_status
 from .security.tls import inspect_certificate, verify_endpoint
+from .tailscale import tailscale_status
 
 OK, WARN, FAIL, UNKNOWN, SKIP = "OK", "WARN", "FAIL", "UNKNOWN", "SKIP"
 

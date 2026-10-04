@@ -514,7 +514,7 @@ class DependencyResolver:
         self, version: dict[str, Any], title: str, depth: int, unresolvable: list[dict[str, Any]]
     ) -> list[tuple]:
         """The required dependencies a Modrinth version declares, as queue entries."""
-        found = []
+        found: list[tuple] = []
         for sub in version.get("dependencies", []):
             if sub.get("type") != "required" or not sub.get("project_id"):
                 continue

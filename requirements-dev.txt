@@ -3,3 +3,7 @@
 pytest>=8.0
 pytest-asyncio>=0.23
 playwright>=1.40      # then run: python -m playwright install chromium
+ruff>=0.16            # lint and format (settings in pyproject.toml)
+mypy>=2.4             # type check (settings in pyproject.toml)
+types-PyYAML
+types-psutil

@@ -13,11 +13,11 @@ from ...security.auth import Principal
 from ..deps import audit, get_core, require_auth
 from ..errors import DOMAIN_ERRORS, audit_failure, respond_as
 from .models import (
-    ModInstallRequest,
-    ModFileRequest,
-    ModUpdateRequest,
-    ModRollbackRequest,
     DependencyInstallRequest,
+    ModFileRequest,
+    ModInstallRequest,
+    ModRollbackRequest,
+    ModUpdateRequest,
 )
 
 router = APIRouter()

@@ -266,6 +266,7 @@ def parse_task_xml(xml_text: str) -> dict[str, Any]:
             kind = trig.tag.split("}")[-1]
             interval = trig.find("t:Repetition/t:Interval", ns)
             enabled = trig.find("t:Enabled", ns)
+            delay = trig.find("t:Delay", ns)
             triggers.append(
                 {
                     "type": kind,
@@ -275,11 +276,7 @@ def parse_task_xml(xml_text: str) -> dict[str, Any]:
                     "repeat_every": interval.text.strip()
                     if interval is not None and interval.text
                     else None,
-                    "delay": (
-                        trig.find("t:Delay", ns).text.strip()
-                        if trig.find("t:Delay", ns) is not None and trig.find("t:Delay", ns).text
-                        else None
-                    ),
+                    "delay": delay.text.strip() if delay is not None and delay.text else None,
                 }
             )
 
@@ -289,7 +286,7 @@ def parse_task_xml(xml_text: str) -> dict[str, Any]:
         mode = "boot"
     elif any(t["type"] == "LogonTrigger" for t in triggers):
         mode = "logon"
-    enabled = find("t:Settings/t:Enabled")
+    task_enabled = find("t:Settings/t:Enabled")
 
     return {
         "command": find("t:Actions/t:Exec/t:Command"),
@@ -301,7 +298,7 @@ def parse_task_xml(xml_text: str) -> dict[str, Any]:
         # default when it exports a task, so an absent element means the
         # default applies - it does not mean "unknown".
         "run_level": find("t:Principals/t:Principal/t:RunLevel") or TASK_DEFAULTS["run_level"],
-        "enabled": (enabled or "true").lower() != "false",
+        "enabled": (task_enabled or "true").lower() != "false",
         "multiple_instances": (
             find("t:Settings/t:MultipleInstancesPolicy") or TASK_DEFAULTS["multiple_instances"]
         ),

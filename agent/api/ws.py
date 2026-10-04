@@ -62,7 +62,7 @@ async def websocket_endpoint(ws: WebSocket) -> None:
         if message.get("type") != "auth" or not message.get("token"):
             raise AuthError("The first message must be an auth message")
         principal = core.auth.authenticate(message["token"], source_ip=client_ip)
-    except (asyncio.TimeoutError, json.JSONDecodeError, KeyError, TypeError):
+    except (TimeoutError, json.JSONDecodeError, KeyError, TypeError):
         await _send(ws, {"type": "error", "message": "Authentication failed"})
         await ws.close(code=1008)
         return
@@ -117,7 +117,7 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                         ws,
                         {
                             "type": "console_tail",
-                            "lines": [l.to_dict() for l in core.server.console.tail(count)],
+                            "lines": [line.to_dict() for line in core.server.console.tail(count)],
                         },
                     )
                 elif message.get("type") == "status":
@@ -130,9 +130,9 @@ async def websocket_endpoint(ws: WebSocket) -> None:
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await task
         for task in done:
-            exc = task.exception()
-            if exc and not isinstance(exc, WebSocketDisconnect):
-                log.debug("websocket task ended: %s", exc)
+            error = task.exception()
+            if error and not isinstance(error, WebSocketDisconnect):
+                log.debug("websocket task ended: %s", error)
     except WebSocketDisconnect:
         pass
     except Exception:  # pragma: no cover

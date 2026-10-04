@@ -33,6 +33,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from . import startup_diag
 from .api.errors import register_error_handlers
 from .api.routes import router
 from .api.ws import ws_router
@@ -41,7 +42,6 @@ from .core import AgentCore
 from .diagnostics import run_diagnostics
 from .logging_setup import setup_logging
 from .security.tls import inspect_certificate
-from . import startup_diag
 
 log = logging.getLogger("msc.main")
 
@@ -429,7 +429,8 @@ def _main(argv: list[str] | None = None) -> int:
             startup_diag.record("tls_failed", error=str(exc))
             print(f"\nHTTPS cannot start:\n{exc}\n", file=sys.stderr)
             return 2
-        startup_diag.record("tls_ready", certificate=ssl_files[0])
+        if ssl_files:
+            startup_diag.record("tls_ready", certificate=ssl_files[0])
     else:
         if host not in LOOPBACK:
             log.error(
@@ -483,7 +484,7 @@ def _main(argv: list[str] | None = None) -> int:
         ssl_certfile=ssl_files[0] if ssl_files else None,
         ssl_keyfile=ssl_files[1] if ssl_files else None,
         # TLS 1.2 is the floor; anything older is long broken.
-        ssl_version=ssl.PROTOCOL_TLS_SERVER if ssl_files else None,
+        ssl_version=ssl.PROTOCOL_TLS_SERVER,
     )
     return 0
 

@@ -194,7 +194,7 @@ def create_ca(
         return ca_cert_path, ca_key_path
 
     key = rsa.generate_private_key(public_exponent=65537, key_size=4096)
-    now = dt.datetime.now(dt.timezone.utc)
+    now = dt.datetime.now(dt.UTC)
     subject = _name(common_name)
     cert = (
         x509.CertificateBuilder()
@@ -262,7 +262,7 @@ def issue_server_certificate(
         raise CertificateError("No usable hostname or IP address was supplied")
 
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    now = dt.datetime.now(dt.timezone.utc)
+    now = dt.datetime.now(dt.UTC)
     common_name = hostnames[0] if hostnames else ip_addresses[0]
     cert = (
         x509.CertificateBuilder()
@@ -294,9 +294,10 @@ def issue_server_certificate(
         )
         .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False)
         .add_extension(
-            x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_cert.public_key()), critical=False
+            x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_cert.public_key()),  # type: ignore[arg-type]
+            critical=False,
         )
-        .sign(ca_key, hashes.SHA256())
+        .sign(ca_key, hashes.SHA256())  # type: ignore[arg-type]
     )
     cert_path = cert_dir / f"{file_stem}.crt"
     key_path = cert_dir / f"{file_stem}.key"

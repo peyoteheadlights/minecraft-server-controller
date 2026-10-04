@@ -357,6 +357,7 @@ async def test_installing_is_refused_while_the_server_runs(mods, config):
 
 def test_dependency_endpoints(config, monkeypatch):
     from fastapi.testclient import TestClient
+
     from agent.main import create_app
     from agent.security.auth import hash_password
 

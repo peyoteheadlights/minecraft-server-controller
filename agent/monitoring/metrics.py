@@ -17,9 +17,9 @@ from typing import Any
 import psutil
 
 from .. import tailscale
-from . import health
 from ..events import Event, EventBus
 from ..security.paths import directory_size
+from . import health
 
 log = logging.getLogger("msc.metrics")
 

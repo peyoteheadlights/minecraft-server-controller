@@ -17,8 +17,8 @@ import uvicorn
 from agent.main import TLSConfigError, create_app, create_redirect_app, main, resolve_tls
 from agent.security.auth import hash_password
 from agent.security.certs import create_ca, issue_server_certificate, provision
-from agent.tailscale import tailscale_status
 from agent.security.tls import inspect_certificate, verify_endpoint
+from agent.tailscale import tailscale_status
 
 PASSWORD = "correct horse battery"
 

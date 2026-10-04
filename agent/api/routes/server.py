@@ -25,6 +25,7 @@ async def status(principal: Principal = Depends(require_auth), core=Depends(get_
 @router.get("/info")
 async def server_info(principal: Principal = Depends(require_auth), core=Depends(get_core)):
     import platform
+
     import psutil
 
     status = core.server.status()

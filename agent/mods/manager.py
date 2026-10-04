@@ -29,9 +29,9 @@ from ..security.paths import (
     safe_join,
 )
 from . import checks
+from .dependencies import DependencyResolver
 from .jarinfo import DISABLED_SUFFIX, ModInfo, read_mod_jar, sha256_file, version_satisfies
 from .modrinth import ModrinthClient, ModrinthError
-from .dependencies import DependencyResolver
 
 log = logging.getLogger("msc.mods")
 
@@ -236,21 +236,22 @@ class ModManager:
                 ),
             }
         declared = None
-        if mod and mod.minecraft_range:
-            declared = version_satisfies(mc_version, mod.minecraft_range)
+        mc_range = mod.minecraft_range if mod else None
+        if mc_range:
+            declared = version_satisfies(mc_version, mc_range)
         listed = None
         if modrinth_version:
             listed = mc_version in (modrinth_version.get("game_versions") or [])
         if declared is False:
             return {
                 "verdict": "incompatible",
-                "detail": f"The jar declares it needs Minecraft {mod.minecraft_range}, "
+                "detail": f"The jar declares it needs Minecraft {mc_range}, "
                 f"but this server runs {mc_version}.",
             }
         if declared is True and listed is not False:
             return {
                 "verdict": "verified_metadata",
-                "detail": f"The jar declares support for {mod.minecraft_range}, which "
+                "detail": f"The jar declares support for {mc_range}, which "
                 f"includes {mc_version}. Metadata only - not a test.",
             }
         if listed:
@@ -382,6 +383,7 @@ class ModManager:
         self._require_server_offline("install a mod")
         mc_version = minecraft_version or self.server.mc_version
 
+        version: dict[str, Any] | None
         if version_id:
             version = await self.modrinth.version(version_id)
         else:
@@ -396,7 +398,7 @@ class ModManager:
                 f"{version['version_number']} supports {', '.join(version['game_versions'][:6])}, "
                 f"not {mc_version}. Pick a different version."
             )
-        if "fabric" not in [l.lower() for l in version["loaders"]]:
+        if "fabric" not in [loader.lower() for loader in version["loaders"]]:
             raise ModError(f"This file targets {', '.join(version['loaders'])}, not Fabric")
 
         filename = version["file"]["filename"]
@@ -681,6 +683,7 @@ class ModManager:
         archived = self.archive(old_path, mod, source="pre-update")
         source = self.db.get_setting(f"mod_source:{mod.mod_id}") or {}
         project = source.get("modrinth_project") or mod.modrinth_project or mod.mod_id
+        version: dict[str, Any] | None
         if version_id:
             version = await self.modrinth.version(version_id)
         else:

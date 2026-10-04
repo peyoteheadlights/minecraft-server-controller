@@ -25,9 +25,9 @@ import re
 import secrets
 import shutil
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -299,8 +299,8 @@ def step_config(ctx: Context) -> Step:
     placeholder = "path\\to" in directory or "path/to" in directory
     problem = _valid_server_dir(directory) if directory and not placeholder else "not set"
     if problem and ctx.writing:
-        directory = _ask_server_dir(ctx, problem)
-        if directory is None:
+        answer = _ask_server_dir(ctx, problem)
+        if answer is None:
             return ctx.add(
                 Step(
                     "Configuration",
@@ -309,7 +309,7 @@ def step_config(ctx: Context) -> Step:
                     "Set it in config/config.yaml, or run setup.ps1 interactively.",
                 )
             )
-        _edit_config(ctx, {"server.directory": directory})
+        _edit_config(ctx, {"server.directory": answer})
         config = _load_config(ctx)
         problem = None
     if problem:

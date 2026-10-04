@@ -217,7 +217,7 @@ class TpsMonitor:
             )
         )
         if mode == "manual":
-            order = [self.configured_command()]
+            order = [self.configured_command() or ""]
         else:
             remembered = (self.db.get_setting(SETTING_KEY) or {}).get("command")
             order = candidates_for(self.server.mc_version, remembered)

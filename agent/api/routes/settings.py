@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from ...config import ConfigError
 from ...security.auth import Principal
 from ..deps import audit, get_core, require_auth
-from .models import SettingsRequest, MaintenanceRequest
+from .models import MaintenanceRequest, SettingsRequest
 
 router = APIRouter()
 

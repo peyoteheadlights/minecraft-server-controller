@@ -65,7 +65,7 @@ class EventWriter:
         while True:
             try:
                 await asyncio.wait_for(self._wake.wait(), self.INTERVAL)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 pass
             self._wake.clear()
             await self.flush()

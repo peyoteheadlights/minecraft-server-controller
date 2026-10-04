@@ -159,7 +159,7 @@ async def test_a_slow_alert_never_stalls_the_console(parts, monkeypatch):
         while asyncio.get_running_loop().time() < deadline:
             try:
                 event = await asyncio.wait_for(queue.get(), 0.5)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
             if event.type == "console":
                 seen.append(event.message)
@@ -257,8 +257,7 @@ async def test_uuid_is_captured_from_the_console_line(parts):
     config, bus, db, server = parts
     tracker = PlayerTracker(config, bus, db, "test")
     server.signal_hook = tracker.handle_signals
-    from agent.minecraft.console import parse_line
-    from agent.minecraft.console import extract_signals
+    from agent.minecraft.console import extract_signals, parse_line
 
     uuid_line = parse_line(
         "[10:00:00] [User Authenticator #1/INFO]: UUID of player Steve is "

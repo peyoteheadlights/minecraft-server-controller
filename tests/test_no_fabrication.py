@@ -93,9 +93,9 @@ def test_tps_reason_names_the_command_that_went_unanswered(parts):
 
 def test_tps_records_its_source_when_a_provider_answers(parts):
     config, bus, db, server = parts
-    from agent.minecraft.console import parse_line
-
     import asyncio
+
+    from agent.minecraft.console import parse_line
 
     line = parse_line("[10:00:00] [Server thread/INFO]: TPS: 19.8 MSPT: 12.400", 1)
     asyncio.get_event_loop().run_until_complete(server._handle_signals(line)) if False else None
@@ -162,6 +162,7 @@ def test_minecraft_and_fabric_versions_start_unknown(parts):
 def test_versions_are_only_set_from_console_output(parts):
     config, bus, db, server = parts
     import asyncio
+
     from agent.minecraft.console import parse_line
 
     line = parse_line(

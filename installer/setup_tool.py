@@ -250,7 +250,7 @@ def step_config(ctx: Context) -> Step:
         return ctx.add(Step("Configuration", "FAIL", f"config.yaml could not be read: {exc}",
                             "Fix the YAML syntax, or rename the file and run setup again."))
 
-    directory = str(config.get("server.directory") or "").strip()
+    directory = str(config.server.directory or "").strip()
     placeholder = "path\\to" in directory or "path/to" in directory
     problem = _valid_server_dir(directory) if directory and not placeholder else "not set"
     if problem and ctx.writing:
@@ -265,13 +265,13 @@ def step_config(ctx: Context) -> Step:
         return ctx.add(Step("Configuration", "FAIL", f"server.directory: {problem}",
                             "Set server.directory in config/config.yaml to your server folder."))
 
-    jar = config.server_dir / str(config.get("server.jar"))
-    if not config.get("server.raw_command") and not jar.is_file():
+    jar = config.server_dir / config.server.jar
+    if not config.server.raw_command and not jar.is_file():
         return ctx.add(Step("Configuration", "FAIL", f"server jar not found: {jar}",
                             "Set server.jar in config/config.yaml to the jar's file name."))
 
-    java = str(config.get("server.java", "java"))
-    if not config.get("server.raw_command") and not Path(java).is_absolute():
+    java = config.server.java
+    if not config.server.raw_command and not Path(java).is_absolute():
         resolved = shutil.which(java)
         if resolved and ctx.writing:
             # Pinned so the startup task does not depend on the PATH it gets.
@@ -422,8 +422,8 @@ def step_firewall(ctx: Context) -> Step:
     config = _load_config(ctx)
     code, out = _run_powershell(["-ExecutionPolicy", "Bypass", "-File",
                                  str(ctx.root / "installer" / "firewall.ps1"),
-                                 "-Port", str(int(config.get("network.port", 8765))),
-                                 "-RedirectPort", str(int(config.get("tls.http_redirect_port", 8080)))])
+                                 "-Port", str(config.network.port),
+                                 "-RedirectPort", str(config.tls.http_redirect_port)])
     if code != 0:
         return ctx.add(Step("Firewall", "FAIL", f"the rule could not be created: {out[:200]}",
                             "Run setup.ps1 as Administrator. The firewall itself is left enabled."))

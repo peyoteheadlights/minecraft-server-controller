@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
 from ..backups.manager import BackupError
+from ..config import ConfigError
 from ..minecraft.commands import CommandError, validate
 from ..minecraft.process import ServerError
 from ..minecraft.state import ExitReason
@@ -375,7 +376,7 @@ async def players(principal: Principal = Depends(require_auth), core=Depends(get
         "verified": core.players.verified,
         "source": core.players.verified_source,
         "known": core.players.all_players(),
-        "max_players": core.config.get("server.max_players"),
+        "max_players": core.config.server.max_players,
     }
 
 
@@ -391,7 +392,7 @@ async def performance(hours: float = 6, principal: Principal = Depends(require_a
     return {
         "current": core.metrics.snapshot(),
         "history": core.metrics.history(hours=max(0.1, min(hours, 168))),
-        "thresholds": core.config.get("thresholds", {}),
+        "thresholds": core.config.thresholds.to_dict(),
         "storage": await core.metrics.storage(),
     }
 
@@ -429,9 +430,9 @@ async def list_backups(principal: Principal = Depends(require_auth), core=Depend
     return {"backups": core.backups.list_backups(),
             "directory": str(core.config.backup_dir),
             "retention": {
-                "daily": core.config.get("backups.keep_daily"),
-                "weekly": core.config.get("backups.keep_weekly"),
-                "monthly": core.config.get("backups.keep_monthly"),
+                "daily": core.config.backups.keep_daily,
+                "weekly": core.config.backups.keep_weekly,
+                "monthly": core.config.backups.keep_monthly,
             }}
 
 
@@ -836,7 +837,14 @@ async def update_settings(payload: SettingsRequest, request: Request,
         if not any(key == p or key.startswith(p) for p in SETTABLE_PREFIXES):
             rejected[key] = "This setting cannot be changed from the dashboard"
             continue
+        previous = core.config.get(key)
         core.config.set(key, value)
+        try:
+            core.config.section(key.split(".", 1)[0])
+        except ConfigError as exc:
+            core.config.set(key, previous)
+            rejected[key] = str(exc)
+            continue
         applied[key] = value
     if applied:
         try:
@@ -883,12 +891,12 @@ async def security_overview(principal: Principal = Depends(require_auth), core=D
         "tailscale": core.metrics.tailscale_status(),
         "authentication": {
             "enabled": core.auth.configured,
-            "session_hours": core.config.get("security.session_hours"),
+            "session_hours": core.config.security.session_hours,
             "api_token_configured": bool(core.config.api_token),
         },
         "active_sessions": core.auth.active_sessions(),
         "failed_logins_24h": core.auth.failed_login_count(24),
-        "bind_address": f"{core.config.get('network.host')}:{core.config.get('network.port')}",
+        "bind_address": f"{core.config.network.host}:{core.config.network.port}",
     }
 
 
@@ -933,8 +941,8 @@ async def tls_status(principal: Principal = Depends(require_auth), core=Depends(
         "enabled": core.config.tls_enabled,
         "certificate": core.metrics.certificate_status(),
         "hostname": core.config.dashboard_hostname or None,
-        "hsts": bool(core.config.get("tls.hsts")),
-        "http_redirect": bool(core.config.get("tls.http_redirect")),
+        "hsts": core.config.tls.hsts,
+        "http_redirect": core.config.tls.http_redirect,
         "renewal": "Run 'python -m installer.make_certs --renew' on the server PC. "
                    "Tailscale-issued certificates renew automatically.",
     }

@@ -508,8 +508,8 @@ def pin_java_path(config_path: Path) -> str | None:
     """
     from agent.config import Config
     config = Config.load(config_path)
-    current = str(config.get("server.java", "java"))
-    if config.get("server.raw_command") or Path(current).is_absolute():
+    current = config.server.java
+    if config.server.raw_command or Path(current).is_absolute():
         return None
     resolved = shutil.which(current)
     if not resolved:

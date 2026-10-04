@@ -16,7 +16,7 @@ def get_core(request: Request):
 
 def client_ip(request: Request) -> str:
     core = getattr(request.app.state, "core", None)
-    if core and core.config.get("network.trust_proxy_headers", False):
+    if core and core.config.network.trust_proxy_headers:
         forwarded = request.headers.get("x-forwarded-for")
         if forwarded:
             return forwarded.split(",")[0].strip()[:64]

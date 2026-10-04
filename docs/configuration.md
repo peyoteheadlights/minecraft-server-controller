@@ -7,6 +7,13 @@ Two files, both in the project folder:
 
 Settings changed in the dashboard are written back to `config.yaml`.
 
+Any key you leave out uses its default. The defaults live in one place, the
+typed sections at the top of `agent/config.py`, and every value is checked
+when the agent starts: a number that isn't a number stops startup with the
+key's name (for example `thresholds.cpu_percent must be a number`), and the
+dashboard refuses to save one. An empty value (`jar:`) means empty text, an
+empty list or "off"; for a number it means the default.
+
 ## server
 
 | Key | Default | Meaning |

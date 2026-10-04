@@ -81,7 +81,7 @@ class Notifier:
         if not mapping:
             return False
         key = mapping[0]
-        return bool(self.config.get(f"notifications.events.{key}", False))
+        return self.config.notifications.event_enabled(key)
 
     def _log(self, channel: str, event: str, status: str, detail: str = "") -> None:
         try:
@@ -116,7 +116,7 @@ class Notifier:
             if data.get("players_online"):
                 fields.append({"name": "Players online at the time",
                                "value": ", ".join(data["players_online"])[:200], "inline": False})
-            auto = self.config.get("monitor.auto_restart", True)
+            auto = self.config.monitor.auto_restart
             fields.append({"name": "Automatic restart",
                            "value": "Enabled" if auto else "Disabled", "inline": True})
         if self.metrics and event.type in ("server_crashed", "high_ram", "high_cpu", "low_disk"):
@@ -148,7 +148,7 @@ class Notifier:
             self._log("discord", event.type, "skipped", "No webhook URL is configured")
             return False
         emoji, colour, title = EVENT_MAP.get(event.type, ("", 0x5865F2, event.type))[1:]
-        server_name = self.config.get("server.name", "Minecraft server")
+        server_name = self.config.server.name
         payload = {
             "username": "Minecraft Control",
             "embeds": [{
@@ -176,13 +176,13 @@ class Notifier:
 
     # ------------------------------------------------------------------
     def _build_email(self, event: Event) -> EmailMessage:
-        cfg = self.config.get("notifications.email", {})
+        cfg = self.config.notifications.email
         emoji, _, title = EVENT_MAP.get(event.type, ("", 0, event.type))[1:]
-        server_name = self.config.get("server.name", "Minecraft server")
+        server_name = self.config.server.name
         message = EmailMessage()
         message["Subject"] = f"[{server_name}] {emoji} {title}"
-        message["From"] = cfg.get("from_address") or self.config.smtp_username
-        message["To"] = ", ".join(cfg.get("to_addresses") or [])
+        message["From"] = cfg.from_address or self.config.smtp_username
+        message["To"] = ", ".join(cfg.to_addresses)
         lines = [title, "", event.message, ""]
         data = event.data or {}
         analysis = data.get("analysis") or {}
@@ -202,9 +202,9 @@ class Notifier:
         lines += ["", f"Sent by Minecraft Server Control at {time.strftime('%Y-%m-%d %H:%M:%S')}"]
         message.set_content("\n".join(str(l) for l in lines))
 
-        if cfg.get("attach_crash_report") and data.get("crash_report"):
+        if cfg.attach_crash_report and data.get("crash_report"):
             self._attach(message, Path(data["crash_report"]))
-        if cfg.get("attach_log_tail") and data.get("console_file"):
+        if cfg.attach_log_tail and data.get("console_file"):
             self._attach(message, Path(data["console_file"]))
         return message
 
@@ -219,17 +219,17 @@ class Notifier:
             log.warning("could not attach %s", path, exc_info=True)
 
     def _send_email_sync(self, message: EmailMessage) -> None:
-        cfg = self.config.get("notifications.email", {})
-        host = cfg.get("host")
-        port = int(cfg.get("port", 587))
+        cfg = self.config.notifications.email
+        host = cfg.host
+        port = cfg.port
         timeout = 25
-        if cfg.get("use_ssl"):
+        if cfg.use_ssl:
             server = smtplib.SMTP_SSL(host, port, timeout=timeout)
         else:
             server = smtplib.SMTP(host, port, timeout=timeout)
         try:
             server.ehlo()
-            if cfg.get("use_tls") and not cfg.get("use_ssl"):
+            if cfg.use_tls and not cfg.use_ssl:
                 server.starttls()
                 server.ehlo()
             if self.config.smtp_username:
@@ -242,8 +242,8 @@ class Notifier:
                 pass
 
     async def send_email(self, event: Event) -> bool:
-        cfg = self.config.get("notifications.email", {})
-        if not cfg.get("host") or not cfg.get("to_addresses"):
+        cfg = self.config.notifications.email
+        if not cfg.host or not cfg.to_addresses:
             self._log("email", event.type, "skipped", "SMTP host or recipient is not configured")
             return False
         try:
@@ -272,7 +272,7 @@ class Notifier:
         try:
             if event.type not in EVENT_MAP or not self.enabled_for(event.type):
                 return
-            min_interval = float(self.config.get("notifications.min_interval_seconds", 300))
+            min_interval = self.config.notifications.min_interval_seconds
             if event.type in THROTTLED:
                 if time.time() - self._last_sent.get(event.type, 0) < min_interval:
                     return
@@ -303,9 +303,9 @@ class Notifier:
         """Send one alert to every enabled channel. Never raises."""
         try:
             tasks = []
-            if self.config.get("notifications.discord_enabled"):
+            if self.config.notifications.discord_enabled:
                 tasks.append(self.send_discord(event))
-            if self.config.get("notifications.email_enabled"):
+            if self.config.notifications.email_enabled:
                 tasks.append(self.send_email(event))
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)

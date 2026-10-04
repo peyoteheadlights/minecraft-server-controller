@@ -1284,7 +1284,8 @@
         ["Mods", fmt.gb(data.storage.mods_gb)],
         ["Logs", fmt.gb(data.storage.logs_gb)],
         ["Other server files", fmt.gb(data.storage.other_gb)],
-        ["Free on drive", fmt.gb(data.storage.free_gb)],
+        ["Free on drive", data.storage.free_gb === null && data.storage.free_unknown_reason
+          ? `Unknown: ${data.storage.free_unknown_reason}` : fmt.gb(data.storage.free_gb)],
       ]))));
     return holder;
   });

@@ -183,6 +183,7 @@ class AgentCore:
         await self.scheduler.stop()
         await self.mods.close()
         await self.server.shutdown()
+        await self.notifier.stop()
         self.db.close()
 
     # ------------------------------------------------------------------

@@ -29,6 +29,30 @@ def test_schema_migrations_are_idempotent(config):
     reopened.close()
 
 
+def test_a_failed_migration_leaves_no_half_applied_schema(config, monkeypatch):
+    from agent.database import db as db_module
+
+    db = Database(config.database_path)
+    version = db.version
+    db.close()
+    broken = (version + 1, """
+        CREATE TABLE half_done (id INTEGER);
+        CREATE TABLE half_done (id INTEGER);
+    """)
+    monkeypatch.setattr(db_module, "MIGRATIONS", [*db_module.MIGRATIONS, broken])
+    with pytest.raises(sqlite3.Error):
+        Database(config.database_path)
+
+    conn = sqlite3.connect(str(config.database_path))
+    try:
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        recorded = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
+    finally:
+        conn.close()
+    assert "half_done" not in tables
+    assert recorded == version
+
+
 def test_wal_mode_is_active(config):
     db = Database(config.database_path)
     mode = db.query_one("PRAGMA journal_mode")
@@ -201,3 +225,18 @@ def test_live_events_arrive_in_a_shape_the_dashboard_recognises(client):
         assert message["type"] == "event"
         assert message["event"]["type"] == "console"
         assert message["event"]["message"] == "[10:00:00] hello"
+
+
+async def test_fire_and_forget_publishes_are_kept_until_they_run():
+    import gc
+
+    bus = EventBus()
+    seen = []
+    bus.subscribe(lambda event: seen.append(event.type))
+    bus.publish_soon(Event(type="ping"))
+    assert len(bus._pending) == 1
+    gc.collect()
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+    assert seen == ["ping"]
+    assert not bus._pending

@@ -22,6 +22,7 @@ import hmac
 import logging
 import secrets
 import time
+from collections import deque
 from dataclasses import dataclass
 from typing import Any
 
@@ -84,26 +85,44 @@ class AuthError(Exception):
 
 
 class RateLimiter:
-    """Fixed-window counter keyed by caller identity."""
+    """Sliding-window limit: at most ``limit`` accepted requests per caller
+    in any ``window`` seconds.
+
+    Rejected requests are not counted, so a client that keeps retrying is
+    let back in as soon as its oldest accepted request leaves the window.
+    Callers with no recent requests are forgotten.
+    """
+
+    # Sweep idle callers out at most this often.
+    SWEEP_INTERVAL = 60.0
 
     def __init__(self, limit: int, window: float):
         self.limit = limit
         self.window = window
-        self._hits: dict[str, list[float]] = {}
+        self._hits: dict[str, deque[float]] = {}
+        self._last_sweep = time.time()
 
     def check(self, key: str) -> None:
         now = time.time()
-        hits = [t for t in self._hits.get(key, []) if now - t < self.window]
+        self._sweep(now)
+        hits = self._hits.setdefault(key, deque())
+        while hits and now - hits[0] >= self.window:
+            hits.popleft()
         if len(hits) >= self.limit:
             retry = int(self.window - (now - hits[0])) + 1
-            hits.append(now)
-            self._hits[key] = hits
             raise AuthError("Too many requests. Slow down.", status=429, retry_after=retry)
         hits.append(now)
-        self._hits[key] = hits
 
     def reset(self, key: str) -> None:
         self._hits.pop(key, None)
+
+    def _sweep(self, now: float) -> None:
+        if now - self._last_sweep < self.SWEEP_INTERVAL:
+            return
+        self._last_sweep = now
+        stale = [k for k, hits in self._hits.items() if not hits or now - hits[-1] >= self.window]
+        for key in stale:
+            del self._hits[key]
 
 
 class AuthManager:

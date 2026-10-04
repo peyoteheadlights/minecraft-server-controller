@@ -97,6 +97,7 @@ class MinecraftServer:
         self._reader_task: asyncio.Task | None = None
         self._waiter_task: asyncio.Task | None = None
         self._restart_task: asyncio.Task | None = None
+        self._recovery_task: asyncio.Task | None = None
         self._lock = asyncio.Lock()
         self._online_event = asyncio.Event()
         self._exited_event = asyncio.Event()
@@ -699,7 +700,7 @@ class MinecraftServer:
         await self.bus.publish(Event(type="restart_started", level="info",
                                      message="Starting the server after the crash",
                                      data={"actor": actor, "forced": forced}))
-        asyncio.create_task(self._announce_recovery())
+        self._recovery_task = asyncio.create_task(self._announce_recovery(), name="mc-recovery")
         return result
 
     async def _announce_recovery(self) -> None:

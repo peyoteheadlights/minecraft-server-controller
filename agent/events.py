@@ -43,6 +43,9 @@ class EventBus:
     def __init__(self) -> None:
         self._handlers: list[Handler] = []
         self._queues: set[asyncio.Queue] = set()
+        # The event loop only holds weak references to tasks, so a
+        # fire-and-forget publish is kept here until it has run.
+        self._pending: set[asyncio.Task] = set()
 
     def subscribe(self, handler: Handler) -> Handler:
         self._handlers.append(handler)
@@ -89,4 +92,6 @@ class EventBus:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             return
-        loop.create_task(self.publish(event))
+        task = loop.create_task(self.publish(event))
+        self._pending.add(task)
+        task.add_done_callback(self._pending.discard)

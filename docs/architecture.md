@@ -41,6 +41,12 @@ why a Discord outage or a slow mail server cannot stall the console reader or
 the Minecraft server. Fire-and-forget publishes (`publish_soon`) are held by
 the bus until they have run.
 
+The database writer works the same way: publishing appends the event to a
+list, and a background task writes whatever has collected once a second, in
+one transaction, in a worker thread. Other slow calls (`tailscale status`,
+`java -version`, the health checks' TCP probe, the storage walk) also run in
+worker threads, never on the event loop.
+
 ## Why a crash is not a shutdown
 
 Getting this wrong means 3am alerts every time you stop the server. The

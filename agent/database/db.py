@@ -198,21 +198,36 @@ class Database:
 
     # -- core -------------------------------------------------------------
     def migrate(self) -> int:
+        """Apply pending migrations, each in its own transaction.
+
+        A migration and its schema_version row commit together or not at
+        all, so a failure never leaves a half-applied schema behind.
+        """
         with self._lock:
             self._conn.execute(
                 "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY, applied_at REAL NOT NULL)"
             )
+            self._conn.commit()
             row = self._conn.execute("SELECT MAX(version) AS v FROM schema_version").fetchone()
             current = row["v"] or 0
             for version, script in MIGRATIONS:
-                if version > current:
-                    self._conn.executescript(script)
-                    self._conn.execute(
-                        "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
-                        (version, time.time()),
+                if version <= current:
+                    continue
+                # executescript commits anything pending and then runs the
+                # script as-is, so the transaction is opened and closed
+                # inside the script itself.
+                try:
+                    self._conn.executescript(
+                        "BEGIN;\n"
+                        f"{script}\n;"
+                        "INSERT INTO schema_version (version, applied_at) "
+                        f"VALUES ({int(version)}, {time.time()!r});\n"
+                        "COMMIT;"
                     )
-                    current = version
-            self._conn.commit()
+                except sqlite3.Error:
+                    self._conn.rollback()
+                    raise
+                current = version
             return current
 
     @property

@@ -12,8 +12,9 @@ Why Task Scheduler, and not a Windows Service
 The command proven to work on this PC is `python -m agent.main`. The task runs
 exactly that, with the working directory set to the project folder. A pywin32
 service instead runs the code inside pythonservice.exe as LocalSystem, with a
-different interpreter host, different PATH and different profile - and the
-original service registration was broken (see installer/service.py).
+different interpreter host, different PATH and different profile. Setup still
+removes the old "MinecraftServerControl" service once if an earlier version
+left one behind (see remove_legacy_service).
 
 How the task is built
 ---------------------

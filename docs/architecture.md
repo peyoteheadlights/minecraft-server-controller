@@ -97,7 +97,7 @@ agent/
   scheduler/scheduler.py
   security/            auth, paths
   web/                 index.html, app.js, styles.css
-installer/             service.py, make_secrets.py
+installer/             setup_tool, autostart, make_certs, make_secrets, firewall.ps1
 tests/                 the suite, plus a fake Minecraft server
 ```
 

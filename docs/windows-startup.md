@@ -95,27 +95,13 @@ assign its address, and the agent now waits up to
 
 Anything printed goes to `logs\console.log`.
 
-## What was wrong before
+## The old Windows Service
 
-The old Windows Service registered its Python class as
-`__main__.MinecraftControlService`. That value comes from `__name__`, which is
-`"__main__"` when you run `python -m installer.service install`. Windows starts
-the service in a fresh `pythonservice.exe` process whose `__main__` is empty,
-so the class was never found and the service stopped immediately - at boot and
-when started by hand. `installer.service start` then printed "Service
-starting." without checking, which hid it.
-
-Two further problems would have appeared once that was fixed:
-
-- the agent binds to your Tailscale address, which often does not exist yet in
-  the first seconds of boot; the bind failed, uvicorn exited cleanly, and
-  Windows does not restart a service that exits cleanly
-- with no console, Windows gives `java.exe` a console window of its own, and
-  closing that window kills Minecraft
-
-All three are fixed. The service code is still there (`installer/service.py`,
-now with the correct registration) but the scheduled task is the supported
-method. The two refuse to be installed together.
+Earlier versions also offered a pywin32 Windows Service. It has been removed;
+the scheduled task is the only supported way to start with Windows. If an old
+`MinecraftServerControl` service is still registered, `autostart enable`
+removes it once, because it would fight the task for the same port, and
+`autostart test` reports it if it is still there.
 
 ## Permissions
 

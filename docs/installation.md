@@ -157,5 +157,4 @@ python -m installer.autostart run
 - [HTTPS and certificates](https.md)
 - [Remote access over Tailscale](tailscale.md)
 - [Windows Firewall rules](firewall.md)
-- [Run it as a Windows Service](windows-service.md)
 - [Set up Discord or email alerts](notifications.md)

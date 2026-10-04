@@ -61,8 +61,14 @@ def detect_java(java: str = "java", timeout: float = 20.0) -> JavaInfo:
     info.path = resolved
     try:
         from ..winproc import NO_WINDOW
-        proc = subprocess.run([resolved, "-version"], capture_output=True, text=True,
-                              timeout=timeout, creationflags=NO_WINDOW)
+
+        proc = subprocess.run(
+            [resolved, "-version"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            creationflags=NO_WINDOW,
+        )
     except (OSError, subprocess.SubprocessError) as exc:
         info.error = f"java -version could not be run: {exc}"
         return info
@@ -126,28 +132,37 @@ def check_compatibility(java: JavaInfo, minecraft_version: str | None) -> dict[s
         return {
             "verdict": "unknown",
             "detail": java.error or "The installed Java version could not be detected",
-            "java_major": None, "required": needed, "minecraft_version": minecraft_version,
+            "java_major": None,
+            "required": needed,
+            "minecraft_version": minecraft_version,
         }
     if needed is None:
         return {
             "verdict": "unknown",
-            "detail": ("The Minecraft version is not known yet, so the Java requirement cannot be "
-                       "checked. It is detected from the server console on first start."),
-            "java_major": java.version_major, "required": None,
+            "detail": (
+                "The Minecraft version is not known yet, so the Java requirement cannot be "
+                "checked. It is detected from the server console on first start."
+            ),
+            "java_major": java.version_major,
+            "required": None,
             "minecraft_version": minecraft_version,
         }
     if java.version_major >= needed:
         return {
             "verdict": "compatible",
             "detail": f"Minecraft {minecraft_version} needs Java {needed}; Java {java.version_major} is installed",
-            "java_major": java.version_major, "required": needed,
+            "java_major": java.version_major,
+            "required": needed,
             "minecraft_version": minecraft_version,
         }
     return {
         "verdict": "incompatible",
-        "detail": (f"Minecraft {minecraft_version} needs Java {needed} or newer, but Java "
-                   f"{java.version_major} is installed. Install the right JDK, or point "
-                   f"server.java at it."),
-        "java_major": java.version_major, "required": needed,
+        "detail": (
+            f"Minecraft {minecraft_version} needs Java {needed} or newer, but Java "
+            f"{java.version_major} is installed. Install the right JDK, or point "
+            f"server.java at it."
+        ),
+        "java_major": java.version_major,
+        "required": needed,
         "minecraft_version": minecraft_version,
     }

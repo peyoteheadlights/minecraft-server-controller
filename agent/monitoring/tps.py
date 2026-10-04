@@ -170,30 +170,52 @@ class TpsMonitor:
                 for line in self.server.console.since(start_seq, limit=200):
                     sig = extract_signals(line)
                     if sig.tps is not None or sig.mspt is not None:
-                        return {"command": command, "result": "ok",
-                                "detail": line.message or line.raw,
-                                "tps": sig.tps, "mspt": sig.mspt}
+                        return {
+                            "command": command,
+                            "result": "ok",
+                            "detail": line.message or line.raw,
+                            "tps": sig.tps,
+                            "mspt": sig.mspt,
+                        }
                     if sig.unknown_command:
-                        return {"command": command, "result": "rejected",
-                                "detail": "The server does not recognise this command."}
-            return {"command": command, "result": "silent",
-                    "detail": f"No TPS or MSPT figures appeared within {timeout:.0f} seconds."}
+                        return {
+                            "command": command,
+                            "result": "rejected",
+                            "detail": "The server does not recognise this command.",
+                        }
+            return {
+                "command": command,
+                "result": "silent",
+                "detail": f"No TPS or MSPT figures appeared within {timeout:.0f} seconds.",
+            }
 
     async def detect(self) -> dict[str, Any]:
         """Find a working command. Runs once per server start."""
         mode = self.mode()
-        self.status_data.update(state="detecting", tried=[], command=None,
-                                message="Checking which TPS command this server supports…")
+        self.status_data.update(
+            state="detecting",
+            tried=[],
+            command=None,
+            message="Checking which TPS command this server supports…",
+        )
         self._publish_status()
 
         if mode == "disabled":
-            self.status_data.update(state="disabled", detection=None,
-                                    message="TPS monitoring is turned off (monitor.tps_command is empty).")
+            self.status_data.update(
+                state="disabled",
+                detection=None,
+                message="TPS monitoring is turned off (monitor.tps_command is empty).",
+            )
             self._publish_status()
             return self.status()
 
-        await self.bus.publish(Event(type="tps_detection_started", message="Detecting the TPS command",
-                                     data={"mode": mode}))
+        await self.bus.publish(
+            Event(
+                type="tps_detection_started",
+                message="Detecting the TPS command",
+                data={"mode": mode},
+            )
+        )
         if mode == "manual":
             order = [self.configured_command()]
         else:
@@ -204,38 +226,66 @@ class TpsMonitor:
             if self.server.state.value != "ONLINE":
                 break
             result = await self.probe(command)
-            self.status_data["tried"].append({"command": command, "result": result["result"],
-                                              "detail": result["detail"]})
+            self.status_data["tried"].append(
+                {"command": command, "result": result["result"], "detail": result["detail"]}
+            )
             log.info("tps probe %r: %s", command, result["result"])
             if result["result"] == "ok":
                 remembered = (self.db.get_setting(SETTING_KEY) or {}).get("command")
-                detection = "manual" if mode == "manual" else (
-                    "remembered" if command == remembered else "automatic")
-                self.status_data.update(state="active", command=command, detection=detection,
-                                        detected_at=time.time(),
-                                        message=f"Reading TPS with '{command}'.")
+                detection = (
+                    "manual"
+                    if mode == "manual"
+                    else ("remembered" if command == remembered else "automatic")
+                )
+                self.status_data.update(
+                    state="active",
+                    command=command,
+                    detection=detection,
+                    detected_at=time.time(),
+                    message=f"Reading TPS with '{command}'.",
+                )
                 self.server.tps_source = command
                 self._publish_status()
                 if mode == "auto":
-                    self.db.set_setting(SETTING_KEY, {"command": command,
-                                                      "minecraft_version": self.server.mc_version,
-                                                      "detected_at": time.time()})
-                await self.bus.publish(Event(type="tps_command_detected", level="info",
-                                             message=f"TPS will be read with '{command}'",
-                                             data={"command": command, "detection": detection}))
+                    self.db.set_setting(
+                        SETTING_KEY,
+                        {
+                            "command": command,
+                            "minecraft_version": self.server.mc_version,
+                            "detected_at": time.time(),
+                        },
+                    )
+                await self.bus.publish(
+                    Event(
+                        type="tps_command_detected",
+                        level="info",
+                        message=f"TPS will be read with '{command}'",
+                        data={"command": command, "detection": detection},
+                    )
+                )
                 return self.status()
 
         tried = ", ".join(f"'{t['command']}'" for t in self.status_data["tried"]) or "nothing"
         if mode == "manual":
-            message = (f"The configured command '{self.configured_command()}' did not report TPS. "
-                       "Check the command, or switch to automatic detection.")
+            message = (
+                f"The configured command '{self.configured_command()}' did not report TPS. "
+                "Check the command, or switch to automatic detection."
+            )
         else:
-            message = ("The server does not appear to support a TPS command. Tried "
-                       f"{tried}. Install Carpet or spark, or use Minecraft 1.20.3 or newer.")
+            message = (
+                "The server does not appear to support a TPS command. Tried "
+                f"{tried}. Install Carpet or spark, or use Minecraft 1.20.3 or newer."
+            )
         self.status_data.update(state="unavailable", command=None, detection=None, message=message)
         self._publish_status()
-        await self.bus.publish(Event(type="tps_detection_failed", level="warn", message=message,
-                                     data={"tried": self.status_data["tried"]}))
+        await self.bus.publish(
+            Event(
+                type="tps_detection_failed",
+                level="warn",
+                message=message,
+                data={"tried": self.status_data["tried"]},
+            )
+        )
         return self.status()
 
     async def _run(self) -> None:
@@ -259,8 +309,10 @@ class TpsMonitor:
             raise
         except Exception:
             log.exception("TPS monitor failed")
-            self.status_data.update(state="unavailable",
-                                    message="TPS detection hit an unexpected error; see the agent log.")
+            self.status_data.update(
+                state="unavailable",
+                message="TPS detection hit an unexpected error; see the agent log.",
+            )
             self._publish_status()
 
     # ------------------------------------------------------------------ override

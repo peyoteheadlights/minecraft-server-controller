@@ -41,6 +41,8 @@ def set_log_dir(path: Path) -> None:
     LAST_STARTUP = STARTUP_LOG_DIR / "last_startup.json"
     CONSOLE_LOG = STARTUP_LOG_DIR / "console.log"
     _session.clear()
+
+
 MAX_LOG_BYTES = 2_000_000
 
 _lock = threading.Lock()
@@ -76,8 +78,11 @@ def record(event: str, **fields: Any) -> None:
             if _session.get("outcome") not in (None, "in progress"):
                 return  # this process's startup record is closed; keep it as written
             _session.setdefault("events", []).append(
-                {"ts": entry["ts"], "event": event,
-                 **{k: v for k, v in fields.items() if k in ("detail", "error", "ok")}}
+                {
+                    "ts": entry["ts"],
+                    "event": event,
+                    **{k: v for k, v in fields.items() if k in ("detail", "error", "ok")},
+                }
             )
             _session["last_event"] = event
             _session["last_event_ts"] = entry["ts"]
@@ -110,29 +115,33 @@ def begin(argv: list[str], launched_by: str) -> None:
     """First thing main() does. Captures the facts needed to debug a launch
     that happened with nobody watching."""
     _session.clear()
-    _session.update({
-        "started_at": _now(),
-        "pid": os.getpid(),
-        "launched_by": launched_by,
-        "executable": sys.executable,
-        "cwd": os.getcwd(),
-        "argv": list(argv),
-        "project_root": str(PROJECT_ROOT),
-        "user": os.environ.get("USERNAME") or os.environ.get("USER"),
-        "session_name": os.environ.get("SESSIONNAME"),
-        "stdout_attached": sys.stdout is not None,
-        "outcome": "in progress",
-        "events": [],
-    })
-    record("process_started",
-           launched_by=launched_by,
-           executable=sys.executable,
-           cwd=os.getcwd(),
-           argv=list(argv),
-           python=sys.version.split()[0],
-           user=_session["user"],
-           session_name=_session["session_name"],
-           path_env=os.environ.get("PATH", "")[:2000])
+    _session.update(
+        {
+            "started_at": _now(),
+            "pid": os.getpid(),
+            "launched_by": launched_by,
+            "executable": sys.executable,
+            "cwd": os.getcwd(),
+            "argv": list(argv),
+            "project_root": str(PROJECT_ROOT),
+            "user": os.environ.get("USERNAME") or os.environ.get("USER"),
+            "session_name": os.environ.get("SESSIONNAME"),
+            "stdout_attached": sys.stdout is not None,
+            "outcome": "in progress",
+            "events": [],
+        }
+    )
+    record(
+        "process_started",
+        launched_by=launched_by,
+        executable=sys.executable,
+        cwd=os.getcwd(),
+        argv=list(argv),
+        python=sys.version.split()[0],
+        user=_session["user"],
+        session_name=_session["session_name"],
+        path_env=os.environ.get("PATH", "")[:2000],
+    )
 
 
 def finish(outcome: str, **fields: Any) -> None:
@@ -148,8 +157,12 @@ def finish(outcome: str, **fields: Any) -> None:
 
 
 def record_exception(where: str, exc: BaseException) -> None:
-    record("exception", where=where, error=f"{type(exc).__name__}: {exc}",
-           traceback="".join(traceback.format_exception(type(exc), exc, exc.__traceback__))[-6000:])
+    record(
+        "exception",
+        where=where,
+        error=f"{type(exc).__name__}: {exc}",
+        traceback="".join(traceback.format_exception(type(exc), exc, exc.__traceback__))[-6000:],
+    )
 
 
 def attach_streams_if_missing() -> bool:
@@ -178,16 +191,22 @@ def install_excepthook() -> None:
 
     def hook(exc_type, exc, tb):
         try:
-            record("unhandled_exception", error=f"{exc_type.__name__}: {exc}",
-                   traceback="".join(traceback.format_exception(exc_type, exc, tb))[-6000:])
+            record(
+                "unhandled_exception",
+                error=f"{exc_type.__name__}: {exc}",
+                traceback="".join(traceback.format_exception(exc_type, exc, tb))[-6000:],
+            )
         finally:
             previous(exc_type, exc, tb)
 
     sys.excepthook = hook
 
     def thread_hook(args):
-        record("unhandled_thread_exception", thread=getattr(args.thread, "name", "?"),
-               error=f"{args.exc_type.__name__}: {args.exc_value}")
+        record(
+            "unhandled_thread_exception",
+            thread=getattr(args.thread, "name", "?"),
+            error=f"{args.exc_type.__name__}: {args.exc_value}",
+        )
 
     threading.excepthook = thread_hook
 

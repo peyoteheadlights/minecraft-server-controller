@@ -31,10 +31,13 @@ def test_a_failed_migration_leaves_no_half_applied_schema(config, monkeypatch):
     db = Database(config.database_path)
     version = db.version
     db.close()
-    broken = (version + 1, """
+    broken = (
+        version + 1,
+        """
         CREATE TABLE half_done (id INTEGER);
         CREATE TABLE half_done (id INTEGER);
-    """)
+    """,
+    )
     monkeypatch.setattr(db_module, "MIGRATIONS", [*db_module.MIGRATIONS, broken])
     with pytest.raises(sqlite3.Error):
         Database(config.database_path)
@@ -67,8 +70,10 @@ def test_concurrent_writers_do_not_corrupt_the_database(config):
         try:
             for n in range(40):
                 db.add_event("test", "load_test", f"writer {index} row {n}")
-                db.insert("metrics", {"server_id": "test", "ts": float(n),
-                                      "cpu_percent": 1.0, "players": None})
+                db.insert(
+                    "metrics",
+                    {"server_id": "test", "ts": float(n), "cpu_percent": 1.0, "players": None},
+                )
         except Exception as exc:  # pragma: no cover
             errors.append(f"{type(exc).__name__}: {exc}")
 
@@ -94,8 +99,10 @@ def test_database_survives_reopening_after_an_abrupt_close(config):
     db._conn.close()  # simulate the process disappearing without a clean stop
 
     reopened = Database(config.database_path)
-    assert reopened.query_one(
-        "SELECT COUNT(*) AS n FROM events WHERE type = 'before_restart'")["n"] == 50
+    assert (
+        reopened.query_one("SELECT COUNT(*) AS n FROM events WHERE type = 'before_restart'")["n"]
+        == 50
+    )
     assert list(reopened.query_one("PRAGMA integrity_check").values())[0] == "ok"
     reopened.close()
 
@@ -105,14 +112,14 @@ async def test_events_during_a_crash_are_all_recorded(config):
     db = Database(config.database_path)
     db.register_server("test", "Test", str(config.server_dir))
     bus = EventBus()
-    bus.subscribe(lambda event: db.add_event("test", event.type, event.message,
-                                             level=event.level))
-    await asyncio.gather(*[
-        bus.publish(Event(type="server_crashed", message=f"crash {i}", level="error"))
-        for i in range(25)
-    ])
-    assert db.query_one(
-        "SELECT COUNT(*) AS n FROM events WHERE type = 'server_crashed'")["n"] == 25
+    bus.subscribe(lambda event: db.add_event("test", event.type, event.message, level=event.level))
+    await asyncio.gather(
+        *[
+            bus.publish(Event(type="server_crashed", message=f"crash {i}", level="error"))
+            for i in range(25)
+        ]
+    )
+    assert db.query_one("SELECT COUNT(*) AS n FROM events WHERE type = 'server_crashed'")["n"] == 25
     db.close()
 
 
@@ -120,6 +127,7 @@ def test_metrics_pruning_bounds_growth(config):
     db = Database(config.database_path)
     db.register_server("test", "Test", str(config.server_dir))
     import time
+
     old = time.time() - 40 * 86400
     for n in range(100):
         db.insert("metrics", {"server_id": "test", "ts": old + n, "cpu_percent": 1.0})
@@ -140,15 +148,17 @@ def test_console_buffer_never_grows_without_bound(config):
     assert len(server.console.tail(10_000)) == 2000, "tail is capped by the buffer"
     db = Database(config.database_path)
     db.register_server("test", "Test", str(config.server_dir))
-    assert db.query_one("SELECT COUNT(*) AS n FROM events")["n"] == 0, \
+    assert db.query_one("SELECT COUNT(*) AS n FROM events")["n"] == 0, (
         "console lines must not be written to the database"
+    )
     db.close()
 
 
 # ---------------------------------------------------------------- websocket
 def token_for(client):
-    return client.post("/api/auth/login",
-                       json={"username": "admin", "password": PASSWORD}).json()["token"]
+    return client.post("/api/auth/login", json={"username": "admin", "password": PASSWORD}).json()[
+        "token"
+    ]
 
 
 def test_websocket_can_reconnect_after_a_drop(client):
@@ -167,6 +177,7 @@ def test_websocket_can_reconnect_after_a_drop(client):
         if core.bus.subscriber_count == before:
             break
         import time
+
         time.sleep(0.05)
     assert core.bus.subscriber_count == before, "queues leaked after disconnects"
 
@@ -205,8 +216,10 @@ def test_live_events_arrive_in_a_shape_the_dashboard_recognises(client):
     with client.websocket_connect("/ws") as ws:
         ws.send_json({"type": "auth", "token": token})
         assert ws.receive_json()["type"] == "ready"
-        client.portal.call(core.bus.publish, Event(type="console", message="[10:00:00] hello",
-                                                    data={"raw": "[10:00:00] hello"}))
+        client.portal.call(
+            core.bus.publish,
+            Event(type="console", message="[10:00:00] hello", data={"raw": "[10:00:00] hello"}),
+        )
         message = ws.receive_json()
         assert message["type"] == "event"
         assert message["event"]["type"] == "console"

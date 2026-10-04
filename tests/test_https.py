@@ -36,8 +36,9 @@ def tls_config(config, monkeypatch):
     monkeypatch.setenv("MCSC_ADMIN_PASSWORD_HASH", hash_password(PASSWORD, rounds=1000))
     monkeypatch.delenv("MCSC_API_TOKEN", raising=False)
     cert_dir = config.cert_dir
-    result = issue_server_certificate(cert_dir, ["localhost", "minecraft-pc.tailnet.ts.net"],
-                                      ["127.0.0.1"])
+    result = issue_server_certificate(
+        cert_dir, ["localhost", "minecraft-pc.tailnet.ts.net"], ["127.0.0.1"]
+    )
     config.set("tls.enabled", True)
     config.set("tls.certificate", result["cert_path"])
     config.set("tls.private_key", result["key_path"])
@@ -50,9 +51,11 @@ def tls_config(config, monkeypatch):
 
 # ---------------------------------------------------------------- generation
 def test_generated_certificate_has_the_right_names(config):
-    result = issue_server_certificate(config.cert_dir,
-                                      ["minecraft-pc.tailnet.ts.net", "localhost"],
-                                      ["100.101.102.103", "127.0.0.1"])
+    result = issue_server_certificate(
+        config.cert_dir,
+        ["minecraft-pc.tailnet.ts.net", "localhost"],
+        ["100.101.102.103", "127.0.0.1"],
+    )
     info = inspect_certificate(result["cert_path"], result["key_path"])
     assert info.parsed is True
     assert info.covers("minecraft-pc.tailnet.ts.net") is True
@@ -180,9 +183,13 @@ class TLSServer:
         certfile, keyfile = resolve_tls(config)
         self.port = int(config.get("network.port"))
         uvicorn_config = uvicorn.Config(
-            create_app(config), host="127.0.0.1", port=self.port,
-            ssl_certfile=certfile, ssl_keyfile=keyfile,
-            log_level="warning", access_log=False,
+            create_app(config),
+            host="127.0.0.1",
+            port=self.port,
+            ssl_certfile=certfile,
+            ssl_keyfile=keyfile,
+            log_level="warning",
+            access_log=False,
         )
         self.server = uvicorn.Server(uvicorn_config)
         self.thread = threading.Thread(target=self.server.run, daemon=True)
@@ -230,16 +237,21 @@ def test_untrusted_client_rejects_the_private_ca(live_tls):
 
 def test_tls_handshake_self_check_verifies(live_tls):
     config, port = live_tls
-    result = verify_endpoint("127.0.0.1", port, config.tls_ca_certificate,
-                             server_hostname="localhost")
+    result = verify_endpoint(
+        "127.0.0.1", port, config.tls_ca_certificate, server_hostname="localhost"
+    )
     assert result["verified"] is True
     assert result["protocol"].startswith("TLSv1.")
 
 
 def test_tls_self_check_reports_a_hostname_mismatch_honestly(live_tls):
     config, port = live_tls
-    result = verify_endpoint("127.0.0.1", port, config.tls_ca_certificate,
-                             server_hostname="not-in-the-certificate.example")
+    result = verify_endpoint(
+        "127.0.0.1",
+        port,
+        config.tls_ca_certificate,
+        server_hostname="not-in-the-certificate.example",
+    )
     assert result["verified"] is False
     assert "not trusted" in result["error"] or "match" in result["error"].lower()
 
@@ -250,8 +262,9 @@ def test_hsts_is_sent_over_https_but_not_on_loopback(live_tls):
     with httpx.Client(verify=str(config.tls_ca_certificate)) as client:
         loopback = client.get(f"https://localhost:{port}/api/health")
         assert "Strict-Transport-Security" not in loopback.headers
-        named = client.get(f"https://localhost:{port}/api/health",
-                           headers={"Host": "minecraft-pc.tailnet.ts.net"})
+        named = client.get(
+            f"https://localhost:{port}/api/health", headers={"Host": "minecraft-pc.tailnet.ts.net"}
+        )
         assert "Strict-Transport-Security" in named.headers
         assert "max-age=" in named.headers["Strict-Transport-Security"]
 
@@ -276,13 +289,13 @@ def test_authentication_still_enforced_over_https(live_tls):
     base = f"https://localhost:{port}"
     with httpx.Client(verify=str(config.tls_ca_certificate)) as client:
         assert client.get(f"{base}/api/status").status_code == 401
-        token = client.post(f"{base}/api/auth/login",
-                            json={"username": "admin", "password": PASSWORD}).json()["token"]
+        token = client.post(
+            f"{base}/api/auth/login", json={"username": "admin", "password": PASSWORD}
+        ).json()["token"]
         auth = {"Authorization": f"Bearer {token}"}
         assert client.get(f"{base}/api/status", headers=auth).status_code == 200
         # dangerous command still needs confirmation, over HTTPS too
-        refused = client.post(f"{base}/api/server/command", headers=auth,
-                              json={"command": "stop"})
+        refused = client.post(f"{base}/api/server/command", headers=auth, json={"command": "stop"})
         assert refused.status_code == 400
         assert "confirmation" in refused.json()["detail"]
 
@@ -293,8 +306,10 @@ def test_wss_streams_events_after_authentication(live_tls):
     import json
 
     with httpx.Client(verify=str(config.tls_ca_certificate)) as client:
-        token = client.post(f"https://localhost:{port}/api/auth/login",
-                            json={"username": "admin", "password": PASSWORD}).json()["token"]
+        token = client.post(
+            f"https://localhost:{port}/api/auth/login",
+            json={"username": "admin", "password": PASSWORD},
+        ).json()["token"]
 
     context = ssl.create_default_context(cafile=str(config.tls_ca_certificate))
     from websockets.sync.client import connect

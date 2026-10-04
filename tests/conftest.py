@@ -18,6 +18,7 @@ def api_routes_source() -> str:
     import inspect
 
     from agent.api import routes
+
     return "\n".join(inspect.getsource(module) for module in (routes, *routes.MODULES))
 
 
@@ -29,12 +30,24 @@ def build_config(tmp_path: Path, **overrides) -> Config:
     world folder.
     """
     mc_dir = tmp_path / "Minecraft Server"
-    for sub in ("mods", "config", "world", "world_nether", "world_the_end", "logs", "crash-reports"):
+    for sub in (
+        "mods",
+        "config",
+        "world",
+        "world_nether",
+        "world_the_end",
+        "logs",
+        "crash-reports",
+    ):
         (mc_dir / sub).mkdir(parents=True, exist_ok=True)
     (mc_dir / "fabric-server-launch.jar").write_bytes(b"not a real jar")
-    (mc_dir / "server.properties").write_text("server-port=25565\nmax-players=20\n", encoding="utf-8")
+    (mc_dir / "server.properties").write_text(
+        "server-port=25565\nmax-players=20\n", encoding="utf-8"
+    )
     (mc_dir / "world" / "level.dat").write_bytes(b"x" * 2048)
-    (mc_dir / "logs" / "latest.log").write_text("[10:00:00] [Server thread/INFO]: hello\n", encoding="utf-8")
+    (mc_dir / "logs" / "latest.log").write_text(
+        "[10:00:00] [Server thread/INFO]: hello\n", encoding="utf-8"
+    )
 
     data = {
         "server": {
@@ -73,6 +86,7 @@ def config(tmp_path):
 def make_config(tmp_path):
     def _make(**overrides):
         return build_config(tmp_path, **overrides)
+
     return _make
 
 
@@ -95,6 +109,7 @@ def client(config, monkeypatch):
 def isolated_startup_log(tmp_path_factory, monkeypatch):
     """Never let a test write into the project's real logs/startup.log."""
     from agent import startup_diag
+
     directory = tmp_path_factory.mktemp("startup-logs")
     monkeypatch.setenv("MCSC_STARTUP_LOG_DIR", str(directory))
     startup_diag.set_log_dir(directory)

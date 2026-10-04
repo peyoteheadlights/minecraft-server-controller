@@ -78,14 +78,18 @@ def test_corrupt_jar_does_not_raise(manager, config):
 
 # ---------------------------------------------------------------- checks
 def test_missing_dependency_is_reported(manager, config):
-    make_jar(config.mods_dir / "needy.jar", "needy", "1.0.0",
-             depends={"fabric-api": ">=0.90.0", "minecraft": ">=1.20"})
+    make_jar(
+        config.mods_dir / "needy.jar",
+        "needy",
+        "1.0.0",
+        depends={"fabric-api": ">=0.90.0", "minecraft": ">=1.20"},
+    )
     problems = manager.check_all()["problems"]
     kinds = {p["kind"] for p in problems}
     assert "missing_dependency" in kinds
     detail = next(p["detail"] for p in problems if p["kind"] == "missing_dependency")
-    assert "Fabric API" in detail            # a readable name, not the raw id
-    assert "0.90.0 or newer" in detail       # the range in words, not ">=0.90.0"
+    assert "Fabric API" in detail  # a readable name, not the raw id
+    assert "0.90.0 or newer" in detail  # the range in words, not ">=0.90.0"
     assert ">=" not in detail
 
 
@@ -184,7 +188,9 @@ async def test_upload_refuses_path_traversal(manager):
 
 async def test_upload_installs_a_valid_fabric_jar(manager, config, tmp_path):
     source = make_jar(tmp_path / "build.jar", "cooltech", "2.1.0")
-    result = await manager.install_local_file("cooltech-2.1.0.jar", source.read_bytes(), user="tester")
+    result = await manager.install_local_file(
+        "cooltech-2.1.0.jar", source.read_bytes(), user="tester"
+    )
     assert result["installed"]["mod_id"] == "cooltech"
     assert (config.mods_dir / "cooltech-2.1.0.jar").is_file()
 
@@ -253,30 +259,42 @@ async def test_download_verifies_the_published_checksum(config):
 
 
 async def test_download_refuses_a_checksum_mismatch(config):
-    version = {"file": {"filename": "x.jar",
-                        "url": "https://cdn.modrinth.com/data/A/versions/B/x.jar",
-                        "sha512": hashlib.sha512(b"expected").hexdigest()}}
-    client = modrinth_with_transport(config, lambda request: httpx.Response(200, content=b"PK\x03\x04different"))
+    version = {
+        "file": {
+            "filename": "x.jar",
+            "url": "https://cdn.modrinth.com/data/A/versions/B/x.jar",
+            "sha512": hashlib.sha512(b"expected").hexdigest(),
+        }
+    }
+    client = modrinth_with_transport(
+        config, lambda request: httpx.Response(200, content=b"PK\x03\x04different")
+    )
     with pytest.raises(ModrinthError, match="SHA-512"):
         await client.download(version)
     await client.close()
 
 
 async def test_download_refuses_a_file_with_no_checksum(config):
-    version = {"file": {"filename": "x.jar",
-                        "url": "https://cdn.modrinth.com/data/A/versions/B/x.jar"}}
-    client = modrinth_with_transport(config, lambda request: httpx.Response(200, content=b"PK\x03\x04"))
+    version = {
+        "file": {"filename": "x.jar", "url": "https://cdn.modrinth.com/data/A/versions/B/x.jar"}
+    }
+    client = modrinth_with_transport(
+        config, lambda request: httpx.Response(200, content=b"PK\x03\x04")
+    )
     with pytest.raises(ModrinthError, match="no checksum"):
         await client.download(version)
     await client.close()
 
 
-@pytest.mark.parametrize("url,filename", [
-    ("https://evil.example.com/sodium.jar", "sodium.jar"),      # wrong host
-    ("http://cdn.modrinth.com/sodium.jar", "sodium.jar"),       # not https
-    ("https://cdn.modrinth.com/payload.exe", "payload.exe"),    # executable
-    ("https://cdn.modrinth.com/../escape.jar", "../escape.jar"),  # traversal
-])
+@pytest.mark.parametrize(
+    "url,filename",
+    [
+        ("https://evil.example.com/sodium.jar", "sodium.jar"),  # wrong host
+        ("http://cdn.modrinth.com/sodium.jar", "sodium.jar"),  # not https
+        ("https://cdn.modrinth.com/payload.exe", "payload.exe"),  # executable
+        ("https://cdn.modrinth.com/../escape.jar", "../escape.jar"),  # traversal
+    ],
+)
 async def test_download_refuses_unsafe_sources(config, url, filename):
     version = {"file": {"filename": filename, "url": url, "sha512": "x" * 128}}
     client = modrinth_with_transport(config, lambda request: httpx.Response(200, content=b"PK"))
@@ -287,9 +305,13 @@ async def test_download_refuses_unsafe_sources(config, url, filename):
 
 async def test_download_refuses_content_that_is_not_an_archive(config):
     payload = b"MZ windows executable"
-    version = {"file": {"filename": "x.jar",
-                        "url": "https://cdn.modrinth.com/data/A/versions/B/x.jar",
-                        "sha512": hashlib.sha512(payload).hexdigest()}}
+    version = {
+        "file": {
+            "filename": "x.jar",
+            "url": "https://cdn.modrinth.com/data/A/versions/B/x.jar",
+            "sha512": hashlib.sha512(payload).hexdigest(),
+        }
+    }
     client = modrinth_with_transport(config, lambda request: httpx.Response(200, content=payload))
     with pytest.raises(ModrinthError, match="not a zip"):
         await client.download(version)

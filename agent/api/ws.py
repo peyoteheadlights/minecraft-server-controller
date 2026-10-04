@@ -77,13 +77,16 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     core.db.audit("websocket_open", user=principal.user, source_ip=client_ip)
 
     try:
-        await _send(ws, {
-            "type": "ready",
-            "user": principal.user,
-            "status": core.status(),
-            "console": [line.to_dict() for line in core.server.console.tail(200)],
-            "ts": time.time(),
-        })
+        await _send(
+            ws,
+            {
+                "type": "ready",
+                "user": principal.user,
+                "status": core.status(),
+                "console": [line.to_dict() for line in core.server.console.tail(200)],
+                "ts": time.time(),
+            },
+        )
 
         async def pump() -> None:
             while True:
@@ -110,10 +113,13 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                     continue
                 if message.get("type") == "tail":
                     count = min(int(message.get("lines", 100) or 100), 500)
-                    await _send(ws, {
-                        "type": "console_tail",
-                        "lines": [l.to_dict() for l in core.server.console.tail(count)],
-                    })
+                    await _send(
+                        ws,
+                        {
+                            "type": "console_tail",
+                            "lines": [l.to_dict() for l in core.server.console.tail(count)],
+                        },
+                    )
                 elif message.get("type") == "status":
                     await _send(ws, {"type": "status", "status": core.status()})
 

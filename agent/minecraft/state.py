@@ -17,12 +17,12 @@ class ServerState(str, Enum):
 
 
 class ExitReason(str, Enum):
-    USER_STOP = "user_stop"              # operator pressed STOP / RESTART
-    SCHEDULED_STOP = "scheduled_stop"    # a scheduled task asked for it
-    CLEAN_EXIT = "clean_exit"            # server shut itself down cleanly
-    CRASH = "crash"                      # died while running
+    USER_STOP = "user_stop"  # operator pressed STOP / RESTART
+    SCHEDULED_STOP = "scheduled_stop"  # a scheduled task asked for it
+    CLEAN_EXIT = "clean_exit"  # server shut itself down cleanly
+    CRASH = "crash"  # died while running
     STARTUP_FAILURE = "startup_failure"  # died before "Done (..)!"
-    FORCE_KILLED = "force_killed"        # graceful stop timed out / kill requested
+    FORCE_KILLED = "force_killed"  # graceful stop timed out / kill requested
     UNKNOWN = "unknown"
 
 

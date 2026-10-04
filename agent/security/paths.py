@@ -19,13 +19,32 @@ from pathlib import Path
 
 SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+\-() ]{0,190}$")
 WINDOWS_RESERVED = {
-    "CON", "PRN", "AUX", "NUL",
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
     *{f"COM{i}" for i in range(1, 10)},
     *{f"LPT{i}" for i in range(1, 10)},
 }
 EXECUTABLE_EXTENSIONS = {
-    ".exe", ".bat", ".cmd", ".ps1", ".sh", ".msi", ".scr", ".com", ".vbs",
-    ".js", ".jse", ".wsf", ".wsh", ".dll", ".lnk", ".reg", ".py", ".jsp",
+    ".exe",
+    ".bat",
+    ".cmd",
+    ".ps1",
+    ".sh",
+    ".msi",
+    ".scr",
+    ".com",
+    ".vbs",
+    ".js",
+    ".jse",
+    ".wsf",
+    ".wsh",
+    ".dll",
+    ".lnk",
+    ".reg",
+    ".py",
+    ".jsp",
 }
 
 
@@ -50,7 +69,9 @@ def safe_filename(name: str, allowed_extensions: set[str] | None = None) -> str:
         raise PathSafetyError(f"{suffix} files are never downloaded or written by this agent")
     if allowed_extensions is not None and suffix not in allowed_extensions:
         allowed = ", ".join(sorted(allowed_extensions))
-        raise PathSafetyError(f"Only {allowed} files are allowed here, got {suffix or 'no extension'}")
+        raise PathSafetyError(
+            f"Only {allowed} files are allowed here, got {suffix or 'no extension'}"
+        )
     return name
 
 
@@ -114,9 +135,12 @@ def directory_size(path: Path, exclude: Iterable[Path] = ()) -> int:
         return path.stat().st_size
     skip = {os.path.normcase(os.path.abspath(p)) for p in exclude}
     for root, dirs, files in os.walk(path, followlinks=False):
-        dirs[:] = [d for d in dirs
-                   if not os.path.islink(os.path.join(root, d))
-                   and os.path.normcase(os.path.abspath(os.path.join(root, d))) not in skip]
+        dirs[:] = [
+            d
+            for d in dirs
+            if not os.path.islink(os.path.join(root, d))
+            and os.path.normcase(os.path.abspath(os.path.join(root, d))) not in skip
+        ]
         for name in files:
             full = os.path.join(root, name)
             if os.path.islink(full):

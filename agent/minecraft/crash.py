@@ -103,9 +103,11 @@ class CrashReporter:
         analysis_lines = list(console_lines)
         if report_path and Path(report_path).is_file():
             try:
-                analysis_lines += Path(report_path).read_text(
-                    encoding="utf-8", errors="replace"
-                ).splitlines()[:400]
+                analysis_lines += (
+                    Path(report_path)
+                    .read_text(encoding="utf-8", errors="replace")
+                    .splitlines()[:400]
+                )
             except OSError:
                 pass
 
@@ -166,8 +168,10 @@ class CrashReporter:
             )
             context["id"] = crash_row
             self.db.add_event(
-                self.server.server_id, "server_crashed",
-                f"Crash: {analysis.category} ({analysis.confidence})", level="error",
+                self.server.server_id,
+                "server_crashed",
+                f"Crash: {analysis.category} ({analysis.confidence})",
+                level="error",
                 data={"crash_id": crash_row, "category": analysis.category},
             )
         except Exception:  # pragma: no cover
@@ -194,9 +198,9 @@ class CrashReporter:
         path = row.get("log_path")
         if path and Path(path).is_file():
             try:
-                row["log_tail"] = Path(path).read_text(
-                    encoding="utf-8", errors="replace"
-                ).splitlines()[-200:]
+                row["log_tail"] = (
+                    Path(path).read_text(encoding="utf-8", errors="replace").splitlines()[-200:]
+                )
             except OSError:
                 row["log_tail"] = []
         return row

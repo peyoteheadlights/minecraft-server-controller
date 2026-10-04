@@ -268,7 +268,14 @@ class Database:
             (server_id, name, directory, time.time()),
         )
 
-    def add_event(self, server_id: str, type_: str, message: str, level: str = "info", data: dict | None = None) -> int:
+    def add_event(
+        self,
+        server_id: str,
+        type_: str,
+        message: str,
+        level: str = "info",
+        data: dict | None = None,
+    ) -> int:
         return self.insert(
             "events",
             {

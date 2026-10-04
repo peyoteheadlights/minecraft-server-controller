@@ -23,7 +23,10 @@ async def players(principal: Principal = Depends(require_auth), core=Depends(get
 
 
 @router.get("/players/sessions")
-async def player_sessions(username: str = "", limit: int = 100,
-                          principal: Principal = Depends(require_auth), core=Depends(get_core)):
+async def player_sessions(
+    username: str = "",
+    limit: int = 100,
+    principal: Principal = Depends(require_auth),
+    core=Depends(get_core),
+):
     return {"sessions": core.players.sessions(username or None, max(1, min(limit, 500)))}
-

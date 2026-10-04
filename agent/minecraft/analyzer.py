@@ -50,7 +50,7 @@ QUOTED_MOD_RE = re.compile(r"'([a-z0-9_\-]{2,40})'")
 @dataclass
 class Rule:
     category: str
-    confidence: str          # confirmed | likely | possible
+    confidence: str  # confirmed | likely | possible
     summary: str
     patterns: list[re.Pattern]
     advice: str = ""
@@ -72,143 +72,192 @@ def _p(*patterns: str) -> list[re.Pattern]:
 
 RULES: list[Rule] = [
     Rule(
-        "OutOfMemoryError", "confirmed",
+        "OutOfMemoryError",
+        "confirmed",
         "The server ran out of memory allocated to the Java heap.",
         _p(r"java\.lang\.OutOfMemoryError", r"GC overhead limit exceeded"),
         advice="Raise -Xmx (currently set in the launch arguments), or reduce view distance, "
-               "entity counts and memory-heavy mods.",
+        "entity counts and memory-heavy mods.",
         weight=100,
     ),
     Rule(
-        "JavaHeapError", "confirmed",
+        "JavaHeapError",
+        "confirmed",
         "The Java heap could not be allocated or sized.",
-        _p(r"Could not reserve enough space for .* object heap",
-           r"Error occurred during initialization of VM",
-           r"Invalid maximum heap size"),
+        _p(
+            r"Could not reserve enough space for .* object heap",
+            r"Error occurred during initialization of VM",
+            r"Invalid maximum heap size",
+        ),
         advice="The -Xmx value is larger than the memory Windows can give the JVM. "
-               "Lower it, or install more RAM.",
+        "Lower it, or install more RAM.",
         weight=95,
     ),
     Rule(
-        "JavaVersionIncompatible", "confirmed",
+        "JavaVersionIncompatible",
+        "confirmed",
         "The Java version does not match what this Minecraft or Fabric build needs.",
-        _p(r"UnsupportedClassVersionError",
-           r"has been compiled by a more recent version of the Java Runtime",
-           r"requires Java (\d+)",
-           r"class file version \d+\.\d+"),
+        _p(
+            r"UnsupportedClassVersionError",
+            r"has been compiled by a more recent version of the Java Runtime",
+            r"requires Java (\d+)",
+            r"class file version \d+\.\d+",
+        ),
         advice="Minecraft 1.20.5+ needs Java 21; 1.17-1.20.4 needs Java 17. "
-               "Point server.java at the right JDK.",
+        "Point server.java at the right JDK.",
         weight=95,
     ),
     Rule(
-        "ModDependencyError", "likely",
+        "ModDependencyError",
+        "likely",
         "A mod is missing a dependency, or a dependency version does not match.",
-        _p(r"requires (?:any )?version",
-           r"which is missing",
-           r"Incompatible mods found",
-           r"ModResolutionException",
-           r"unmet dependency listing",
-           r"requires .* of .*, which is missing"),
+        _p(
+            r"requires (?:any )?version",
+            r"which is missing",
+            r"Incompatible mods found",
+            r"ModResolutionException",
+            r"unmet dependency listing",
+            r"requires .* of .*, which is missing",
+        ),
         advice="Install the required dependency at the version shown, or remove the mod that needs it.",
         weight=90,
     ),
     Rule(
-        "MissingMod", "likely",
+        "MissingMod",
+        "likely",
         "A mod was referenced but is not installed.",
         _p(r"Could not find required mod", r"Missing mod", r"mod .* is missing"),
         advice="Install the named mod, or remove whatever depends on it.",
         weight=85,
     ),
     Rule(
-        "IncompatibleMod", "likely",
+        "IncompatibleMod",
+        "likely",
         "Two mods declared that they cannot run together, or a mod refuses this Minecraft version.",
-        _p(r"is incompatible with", r"breaks mod", r"conflicts with",
-           r"Mod .* requires minecraft [^,]*, which is incompatible"),
+        _p(
+            r"is incompatible with",
+            r"breaks mod",
+            r"conflicts with",
+            r"Mod .* requires minecraft [^,]*, which is incompatible",
+        ),
         advice="Remove or downgrade one of the two mods named in the evidence.",
         weight=85,
     ),
     Rule(
-        "MixinError", "likely",
+        "MixinError",
+        "likely",
         "A mod's Mixin failed to apply. This usually means the mod does not match this "
         "Minecraft version, or two mods patched the same code.",
-        _p(r"org\.spongepowered\.asm\.mixin",
-           r"Mixin apply for mod",
-           r"InjectionError",
-           r"MixinApplyError",
-           r"MixinTransformerError",
-           r"was not found in "),
+        _p(
+            r"org\.spongepowered\.asm\.mixin",
+            r"Mixin apply for mod",
+            r"InjectionError",
+            r"MixinApplyError",
+            r"MixinTransformerError",
+            r"was not found in ",
+        ),
         advice="Update the mod named in the mixin line, or disable it to confirm.",
         weight=88,
     ),
     Rule(
-        "FabricLoaderError", "likely",
+        "FabricLoaderError",
+        "likely",
         "Fabric Loader itself refused to start the server.",
-        _p(r"net\.fabricmc\.loader\.impl\.FormattedException",
-           r"Fabric Loader .* is not compatible",
-           r"An error occurred while loading mods",
-           r"FabricMC .* crashed"),
+        _p(
+            r"net\.fabricmc\.loader\.impl\.FormattedException",
+            r"Fabric Loader .* is not compatible",
+            r"An error occurred while loading mods",
+            r"FabricMC .* crashed",
+        ),
         advice="Check the Fabric Loader version against the Minecraft version, then check mod compatibility.",
         weight=80,
     ),
     Rule(
-        "ClassNotFoundException", "possible",
+        "ClassNotFoundException",
+        "possible",
         "A class was missing at runtime, which usually points at a version mismatch between mods.",
         _p(r"ClassNotFoundException", r"NoClassDefFoundError"),
         advice="Usually a mod built for a different Minecraft or Fabric API version.",
         weight=60,
     ),
     Rule(
-        "NoSuchMethodError", "possible",
+        "NoSuchMethodError",
+        "possible",
         "A method was missing at runtime, which usually points at mismatched mod versions.",
         _p(r"NoSuchMethodError", r"NoSuchFieldError", r"AbstractMethodError"),
         advice="Update Fabric API and the mods listed in the stack trace to matching versions.",
         weight=60,
     ),
     Rule(
-        "WorldChunkError", "possible",
+        "WorldChunkError",
+        "possible",
         "The crash happened while loading or saving world data.",
-        _p(r"Exception (?:generating|loading|saving) new chunk",
-           r"ChunkSerializer", r"Chunk file at .* is missing",
-           r"Failed to save chunk", r"level\.dat", r"ReportedException: (?:Loading|Saving) entity"),
+        _p(
+            r"Exception (?:generating|loading|saving) new chunk",
+            r"ChunkSerializer",
+            r"Chunk file at .* is missing",
+            r"Failed to save chunk",
+            r"level\.dat",
+            r"ReportedException: (?:Loading|Saving) entity",
+        ),
         advice="A chunk or region file may be damaged. Restore a backup of the affected dimension.",
         weight=55,
     ),
     Rule(
-        "DiskStorageError", "confirmed",
+        "DiskStorageError",
+        "confirmed",
         "The server could not write to disk.",
-        _p(r"No space left on device", r"There is not enough space on the disk",
-           r"IOException.*(?:disk|space)", r"Failed to write.*lock", r"Access is denied"),
+        _p(
+            r"No space left on device",
+            r"There is not enough space on the disk",
+            r"IOException.*(?:disk|space)",
+            r"Failed to write.*lock",
+            r"Access is denied",
+        ),
         advice="Free disk space on the server drive, or check that the agent has write permission.",
         weight=90,
     ),
     Rule(
-        "PortInUse", "confirmed",
+        "PortInUse",
+        "confirmed",
         "The Minecraft port is already in use, so the server could not bind it.",
         _p(r"Address already in use", r"FAILED TO BIND TO PORT", r"BindException"),
         advice="Another Minecraft process is probably still running. Check for a stray java.exe.",
         weight=95,
     ),
     Rule(
-        "EulaNotAccepted", "confirmed",
+        "EulaNotAccepted",
+        "confirmed",
         "The Minecraft EULA has not been accepted.",
         _p(r"You need to agree to the EULA", r"eula\.txt"),
         advice="Set eula=true in eula.txt in the server folder.",
         weight=95,
     ),
     Rule(
-        "NetworkError", "possible",
+        "NetworkError",
+        "possible",
         "A networking problem appeared around the crash.",
-        _p(r"java\.net\.(?:SocketException|ConnectException|UnknownHostException)",
-           r"Connection reset by peer", r"Internal Exception: io\.netty"),
+        _p(
+            r"java\.net\.(?:SocketException|ConnectException|UnknownHostException)",
+            r"Connection reset by peer",
+            r"Internal Exception: io\.netty",
+        ),
         advice="Often harmless on its own; look for another cause before acting on this.",
         weight=35,
     ),
     Rule(
-        "ServerThreadCrash", "possible",
+        "ServerThreadCrash",
+        "possible",
         "The main server thread threw an exception.",
-        _p(r"Exception in server tick loop", r"Encountered an unexpected exception",
-           r"ReportedException", r"Exception in thread \"Server thread\"",
-           r"The game crashed whilst", r"watchdog", r"Considering it to be crashed"),
+        _p(
+            r"Exception in server tick loop",
+            r"Encountered an unexpected exception",
+            r"ReportedException",
+            r"Exception in thread \"Server thread\"",
+            r"The game crashed whilst",
+            r"watchdog",
+            r"Considering it to be crashed",
+        ),
         advice="Read the stack trace for the mod package that appears first.",
         weight=45,
     ),
@@ -218,7 +267,7 @@ RULES: list[Rule] = [
 @dataclass
 class Analysis:
     category: str = "Unknown"
-    confidence: str = "unknown"      # confirmed | likely | possible | unknown
+    confidence: str = "unknown"  # confirmed | likely | possible | unknown
     summary: str = "The cause could not be determined from the available logs."
     advice: str = ""
     evidence: list[str] = field(default_factory=list)
@@ -245,7 +294,9 @@ class Analysis:
         }
 
 
-EXCEPTION_RE = re.compile(r"((?:[a-z][a-z0-9_]*\.)+[A-Z][A-Za-z0-9_$]*(?:Error|Exception))(?::\s*(.*))?")
+EXCEPTION_RE = re.compile(
+    r"((?:[a-z][a-z0-9_]*\.)+[A-Z][A-Za-z0-9_$]*(?:Error|Exception))(?::\s*(.*))?"
+)
 
 
 def find_exception(lines: Iterable[str]) -> str | None:
@@ -278,8 +329,9 @@ def guess_mods(lines: Iterable[str], known_mod_ids: Iterable[str] = ()) -> list[
     return found[:5]
 
 
-def analyze(lines: Iterable[str], exit_code: int | None = None,
-            known_mod_ids: Iterable[str] = ()) -> Analysis:
+def analyze(
+    lines: Iterable[str], exit_code: int | None = None, known_mod_ids: Iterable[str] = ()
+) -> Analysis:
     lines = [ln for ln in lines if ln and ln.strip()]
     scored: list[tuple[int, Rule, list[str]]] = []
     for rule in RULES:
@@ -299,9 +351,7 @@ def analyze(lines: Iterable[str], exit_code: int | None = None,
             )
         analysis.evidence = [ln for ln in lines if "ERROR" in ln.upper()][-8:]
         analysis.suspect_mods = guess_mods(analysis.evidence, known_mod_ids)
-        analysis.evidence_basis = (
-            "No known pattern matched. No cause is being claimed."
-        )
+        analysis.evidence_basis = "No known pattern matched. No cause is being claimed."
         return analysis
 
     _, best, hits = scored[0]
@@ -312,11 +362,11 @@ def analyze(lines: Iterable[str], exit_code: int | None = None,
     analysis.evidence = hits[-6:]
     analysis.evidence_basis = {
         "confirmed": "The error itself appears in the log, so the category is certain. "
-                     "What triggered it may still be a separate question.",
+        "What triggered it may still be a separate question.",
         "likely": "Strong evidence, but the printed error is often a symptom of a "
-                  "different underlying problem.",
+        "different underlying problem.",
         "possible": "The pattern matched, but it is frequently incidental. "
-                    "Look for another cause before acting on it.",
+        "Look for another cause before acting on it.",
     }.get(best.confidence, "")
     # Stack frames name the mod package far more often than the matched line
     # does, so they are included in the scan.

@@ -178,3 +178,25 @@ def test_websocket_streams_after_authentication(client):
         assert "status" in ready
         ws.send_json({"type": "tail", "lines": 5})
         assert ws.receive_json()["type"] == "console_tail"
+
+
+# ---------------------------------------------------------------- error handlers
+def test_domain_errors_map_to_their_status_codes(client):
+    token = token_for(client)
+    # ServerError: the server is not running, so a command can't be sent.
+    response = client.post("/api/server/command", json={"command": "list", "confirm": True},
+                           headers=auth(token))
+    assert response.status_code == 409
+    # A lookup of something missing is a 404, with the manager's message.
+    response = client.get("/api/backups/9999/verify", headers=auth(token))
+    assert response.status_code == 404
+    assert response.json()["detail"]
+
+
+def test_a_refused_control_action_is_audited(client):
+    token = token_for(client)
+    core = client.app.state.core
+    response = client.post("/api/server/cancel-restart", headers=auth(token))
+    assert response.status_code == 409
+    rows = core.db.query("SELECT * FROM audit_log WHERE action = 'cancel_restart'")
+    assert rows and rows[-1]["result"] == "refused"

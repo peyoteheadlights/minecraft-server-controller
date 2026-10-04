@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import Depends, HTTPException, Request
 
-from ..security.auth import AuthError, Principal
+from ..security.auth import Principal
 
 
 def get_core(request: Request):
@@ -31,13 +31,10 @@ def bearer_token(request: Request) -> str | None:
 
 
 async def require_auth(request: Request, core=Depends(get_core)) -> Principal:
+    # An AuthError raised here is turned into a 401/429 by its handler.
     ip = client_ip(request)
-    try:
-        core.auth.api_rate.check(f"api:{ip}")
-        principal = core.auth.authenticate(bearer_token(request), source_ip=ip)
-    except AuthError as exc:
-        headers = {"Retry-After": str(exc.retry_after)} if exc.retry_after else None
-        raise HTTPException(status_code=exc.status, detail=exc.message, headers=headers) from exc
+    core.auth.api_rate.check(f"api:{ip}")
+    principal = core.auth.authenticate(bearer_token(request), source_ip=ip)
     request.state.principal = principal
     request.state.client_ip = ip
     return principal

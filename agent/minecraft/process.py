@@ -18,9 +18,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-import os
 import shutil
-import subprocess
 import time
 from collections import deque
 from pathlib import Path
@@ -250,11 +248,6 @@ class MinecraftServer:
         except OSError as exc:  # pragma: no cover
             result.warnings.append(f"Could not read disk usage: {exc}")
         return result
-
-    def detect_java_version(self) -> str | None:
-        """Backwards-compatible wrapper around detect_java()."""
-        info = self.detect_java()
-        return info.version_string
 
     def status(self) -> dict[str, Any]:
         return {

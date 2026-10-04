@@ -20,12 +20,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from agent.config import Config  # noqa: E402
 from agent.security.certs import (  # noqa: E402
-    issue_server_certificate,
-    local_hostnames,
     provision,
     secure_directory,
-    tailscale_status,
 )
+from agent.tailscale import tailscale_status  # noqa: E402
 from agent.security.tls import fingerprint, inspect_certificate  # noqa: E402
 
 

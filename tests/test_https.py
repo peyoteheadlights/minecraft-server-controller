@@ -5,7 +5,6 @@ uvicorn TLS listener, and a real client that **verifies** the certificate
 against the CA. Nothing here sets verify=False.
 """
 
-import datetime as dt
 import socket
 import ssl
 import threading
@@ -17,8 +16,9 @@ import uvicorn
 
 from agent.main import TLSConfigError, create_app, create_redirect_app, main, resolve_tls
 from agent.security.auth import hash_password
-from agent.security.certs import create_ca, issue_server_certificate, provision, tailscale_status
-from agent.security.tls import CertificateInfo, inspect_certificate, verify_endpoint
+from agent.security.certs import create_ca, issue_server_certificate, provision
+from agent.tailscale import tailscale_status
+from agent.security.tls import inspect_certificate, verify_endpoint
 
 PASSWORD = "correct horse battery"
 
@@ -70,7 +70,7 @@ def test_certificate_lifetime_is_browser_acceptable(config):
 
 def test_reissuing_keeps_the_same_ca(config):
     """Renewal must not force you to re-trust the CA on every device."""
-    first = issue_server_certificate(config.cert_dir, ["localhost"], ["127.0.0.1"])
+    issue_server_certificate(config.cert_dir, ["localhost"], ["127.0.0.1"])
     ca_bytes = (config.cert_dir / "ca.crt").read_bytes()
     second = issue_server_certificate(config.cert_dir, ["localhost"], ["127.0.0.1"])
     assert (config.cert_dir / "ca.crt").read_bytes() == ca_bytes
@@ -127,7 +127,7 @@ def test_certificate_info_never_carries_key_material(config):
 
 
 def test_tailscale_status_is_unknown_when_cli_is_absent(monkeypatch):
-    monkeypatch.setattr("agent.security.certs.tailscale_binary", lambda: None)
+    monkeypatch.setattr("agent.tailscale.tailscale_binary", lambda: None)
     status = tailscale_status()
     assert status["cli_found"] is False
     assert status["connected"] is None, "absence of the CLI must not read as 'not connected'"
@@ -135,7 +135,7 @@ def test_tailscale_status_is_unknown_when_cli_is_absent(monkeypatch):
 
 
 def test_provision_falls_back_to_local_ca_without_tailscale(config, monkeypatch):
-    monkeypatch.setattr("agent.security.certs.tailscale_binary", lambda: None)
+    monkeypatch.setattr("agent.tailscale.tailscale_binary", lambda: None)
     report = provision(config.cert_dir)
     assert report["result"]["strategy"] == "local_ca"
     assert report["tailscale"]["cli_found"] is False

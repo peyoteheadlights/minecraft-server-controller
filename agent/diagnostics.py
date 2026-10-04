@@ -17,15 +17,13 @@ from __future__ import annotations
 
 import os
 import shutil
-import socket
-import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from .minecraft.java import detect_java
-from .security.certs import tailscale_status
+from .tailscale import tailscale_status
 from .security.tls import inspect_certificate, verify_endpoint
 
 OK, WARN, FAIL, UNKNOWN, SKIP = "OK", "WARN", "FAIL", "UNKNOWN", "SKIP"

@@ -15,16 +15,11 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
-from ..backups.manager import BackupError
 from ..config import ConfigError
 from ..minecraft.commands import CommandError, validate
-from ..minecraft.process import ServerError
 from ..minecraft.state import ExitReason
-from ..mods.manager import ModError
 from ..mods.modrinth import ModrinthError
-from ..scheduler.scheduler import ScheduleError
-from ..security.auth import AuthError, Principal
-from ..security.paths import PathSafetyError
+from ..security.auth import Principal
 from ..mods.dependencies import DependencyError
 from .deps import audit, client_ip, get_core, require_auth
 from .errors import DOMAIN_ERRORS, audit_failure, respond_as

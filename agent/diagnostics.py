@@ -153,7 +153,7 @@ def run_diagnostics(config, deep: bool = False) -> Report:
                                   "Set server.directory in config/config.yaml."))
         # everything below depends on it, but keep checking what we can
 
-    raw_command = config.get("server.raw_command")
+    raw_command = config.server.raw_command
     if not config.server_dir_configured:
         # Nothing else in this section can be checked without the folder, and
         # nothing may be created under a path that has not been chosen.
@@ -163,7 +163,7 @@ def run_diagnostics(config, deep: bool = False) -> Report:
         report.add(section, Check("Launch command", OK, " ".join(str(a) for a in raw_command),
                                   "server.raw_command is set, so jar and java settings are not used."))
     else:
-        jar = server_dir / str(config.get("server.jar"))
+        jar = server_dir / config.server.jar
         if jar.is_file():
             report.add(section, Check("Server JAR", OK, jar.name,
                                       f"{jar.stat().st_size / 1024**2:.1f} MB"))
@@ -199,12 +199,12 @@ def run_diagnostics(config, deep: bool = False) -> Report:
 
     # ---------------- Java ----------------
     section = "Java"
-    java = detect_java(str(config.get("server.java", "java")))
+    java = detect_java(config.server.java)
     if raw_command:
         report.add(section, Check("Java", SKIP, "",
                                   "server.raw_command is set, so the agent does not choose the runtime."))
     elif java.executable_found is False:
-        report.add(section, Check("Java executable", FAIL, str(config.get("server.java")),
+        report.add(section, Check("Java executable", FAIL, config.server.java,
                                   "Java was not found. Install a JDK or set server.java to the "
                                   "full path of java.exe."))
     elif java.version_major is None:
@@ -237,7 +237,7 @@ def run_diagnostics(config, deep: bool = False) -> Report:
     try:
         usage = shutil.disk_usage(server_dir if server_dir.is_dir() else Path.home())
         free_gb = usage.free / 1024**3
-        threshold = float(config.get("thresholds.disk_free_gb", 20))
+        threshold = config.thresholds.disk_free_gb
         report.add(section, Check(
             "Disk space", OK if free_gb > threshold else WARN, f"{free_gb:.1f} GB free",
             f"Alert threshold is {threshold} GB"))
@@ -247,8 +247,8 @@ def run_diagnostics(config, deep: bool = False) -> Report:
 
     # ---------------- HTTPS ----------------
     section = "HTTPS"
-    host = str(config.get("network.host", "127.0.0.1"))
-    port = int(config.get("network.port", 8765))
+    host = config.network.host
+    port = config.network.port
     if not config.tls_enabled:
         report.add(section, Check("TLS", WARN, "disabled",
                                   "tls.enabled is false, so the dashboard is served over plain HTTP. "
@@ -322,16 +322,16 @@ def run_diagnostics(config, deep: bool = False) -> Report:
             report.add(section, Check("Bind scope", WARN, host,
                                       "Binding to every interface. Prefer the Tailscale address so "
                                       "the dashboard is not reachable from your LAN or a forwarded port."))
-        if config.get("tls.http_redirect"):
+        if config.tls.http_redirect:
             report.add(section, Check("HTTP redirect", OK,
-                                      f"http://{host}:{config.get('tls.http_redirect_port')}",
+                                      f"http://{host}:{config.tls.http_redirect_port}",
                                       "Redirect-only listener: it answers 308 to HTTPS and serves "
                                       "no API, no data and no session."))
         else:
             report.add(section, Check("HTTP redirect", SKIP, "disabled",
                                       "Plain HTTP is not served at all."))
-        report.add(section, Check("HSTS", OK if config.get("tls.hsts") else SKIP,
-                                  f"max-age={config.get('tls.hsts_max_age')}" if config.get("tls.hsts") else "off",
+        report.add(section, Check("HSTS", OK if config.tls.hsts else SKIP,
+                                  f"max-age={config.tls.hsts_max_age}" if config.tls.hsts else "off",
                                   "Sent on HTTPS responses only, never over HTTP, and never on "
                                   "loopback, so local development is unaffected."))
         report.add(section, Check("WebSocket", OK, "wss://",
@@ -404,7 +404,7 @@ def run_diagnostics(config, deep: bool = False) -> Report:
 
     # ---------------- notifications ----------------
     section = "Notifications"
-    if config.get("notifications.discord_enabled"):
+    if config.notifications.discord_enabled:
         if config.discord_webhook:
             report.add(section, Check("Discord", OK, "enabled, webhook configured",
                                       "Delivery is only proven by Settings -> Send test."))
@@ -413,10 +413,10 @@ def run_diagnostics(config, deep: bool = False) -> Report:
                                       "Set MCSC_DISCORD_WEBHOOK in .env."))
     else:
         report.add(section, Check("Discord", SKIP, "disabled"))
-    if config.get("notifications.email_enabled"):
-        email = config.get("notifications.email", {})
-        missing = [k for k in ("host", "from_address") if not email.get(k)]
-        if not email.get("to_addresses"):
+    if config.notifications.email_enabled:
+        email = config.notifications.email
+        missing = [k for k in ("host", "from_address") if not getattr(email, k)]
+        if not email.to_addresses:
             missing.append("to_addresses")
         if missing:
             report.add(section, Check("Email", FAIL, "enabled but incomplete",
@@ -425,7 +425,7 @@ def run_diagnostics(config, deep: bool = False) -> Report:
             report.add(section, Check("Email", WARN, "no SMTP password",
                                       "Set MCSC_SMTP_PASSWORD in .env if your server needs a login."))
         else:
-            report.add(section, Check("Email", OK, f"{email['host']}:{email.get('port')}",
+            report.add(section, Check("Email", OK, f"{email.host}:{email.port}",
                                       "Delivery is only proven by Settings -> Send test."))
     else:
         report.add(section, Check("Email", SKIP, "disabled"))

@@ -134,7 +134,7 @@ def create_app(config: Config) -> FastAPI:
     # CORS stays off: the dashboard is served by this same process, so every
     # request is same-origin. If you ever host the UI elsewhere, list its exact
     # origin - never "*", which would be an open door on authenticated routes.
-    origins = [str(o) for o in config.get("network.allowed_origins", [])]
+    origins = [str(o) for o in config.network.allowed_origins]
     if origins:
         from fastapi.middleware.cors import CORSMiddleware
         app.add_middleware(
@@ -145,9 +145,9 @@ def create_app(config: Config) -> FastAPI:
             allow_headers=["Authorization", "Content-Type"],
         )
 
-    hsts_enabled = bool(config.get("tls.hsts", True)) and config.tls_enabled
-    hsts_value = f"max-age={int(config.get('tls.hsts_max_age', 31536000))}"
-    if config.get("tls.hsts_include_subdomains"):
+    hsts_enabled = config.tls.hsts and config.tls_enabled
+    hsts_value = f"max-age={config.tls.hsts_max_age}"
+    if config.tls.hsts_include_subdomains:
         hsts_value += "; includeSubDomains"
 
     @app.middleware("http")
@@ -342,9 +342,9 @@ def _main(argv: list[str] | None = None) -> int:
                             server_directory=str(config.server_dir),
                             server_directory_exists=config.server_dir.is_dir(),
                             data_directory=str(config.data_dir),
-                            java=str(config.get("server.java")),
-                            host=str(config.get("network.host")),
-                            port=int(config.get("network.port", 8765)),
+                            java=config.server.java,
+                            host=config.network.host,
+                            port=config.network.port,
                             tls=config.tls_enabled,
                             password_configured=bool(config.admin_password_hash))
     if args.host:
@@ -355,8 +355,8 @@ def _main(argv: list[str] | None = None) -> int:
         config.set("tls.enabled", False)
     config.ensure_dirs()
 
-    host = str(config.get("network.host", "127.0.0.1"))
-    port = int(config.get("network.port", 8765))
+    host = config.network.host
+    port = config.network.port
 
     if args.check:
         report = run_diagnostics(config, deep=args.deep)
@@ -367,7 +367,7 @@ def _main(argv: list[str] | None = None) -> int:
             print(report.render())
         return 0 if not report.failures else 1
 
-    setup_logging(config.log_dir, level=str(config.get("logging.level", "INFO")))
+    setup_logging(config.log_dir, level=config.logging.level)
 
     if not config.admin_password_hash and not config.api_token:
         log.error("No MCSC_ADMIN_PASSWORD_HASH or MCSC_API_TOKEN is set. Every API call will be "
@@ -397,7 +397,7 @@ def _main(argv: list[str] | None = None) -> int:
         log.warning("Binding to %s exposes the dashboard on every interface, including your LAN. "
                     "Prefer this machine's Tailscale address.", host)
 
-    bind_wait = float(config.get("network.bind_wait_seconds", 300))
+    bind_wait = config.network.bind_wait_seconds
     if not wait_for_bind_address(host, bind_wait):
         log.error("The address %s never became available (waited %.0fs). Is Tailscale running?",
                   host, bind_wait)
@@ -406,8 +406,8 @@ def _main(argv: list[str] | None = None) -> int:
               file=sys.stderr)
         return 3
 
-    if ssl_files and config.get("tls.http_redirect"):
-        _run_redirect_listener(host, int(config.get("tls.http_redirect_port", 8080)), port)
+    if ssl_files and config.tls.http_redirect:
+        _run_redirect_listener(host, config.tls.http_redirect_port, port)
 
     app = create_app(config)
     startup_diag.record("server_binding", host=host, port=port, tls=bool(ssl_files))

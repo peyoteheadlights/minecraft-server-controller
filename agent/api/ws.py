@@ -48,7 +48,7 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     # cross-site JS cannot forge it. This blocks a malicious page in another
     # tab from opening a socket to the agent.
     origin = ws.headers.get("origin")
-    allowed = [str(o) for o in core.config.get("network.allowed_origins", [])]
+    allowed = [str(o) for o in core.config.network.allowed_origins]
     if origin and allowed and origin not in allowed:
         await ws.close(code=1008)
         return

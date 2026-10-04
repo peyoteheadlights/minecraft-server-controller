@@ -6,15 +6,12 @@ import sqlite3
 import threading
 
 import pytest
-from fastapi.testclient import TestClient
 
 from agent.database.db import Database
 from agent.events import Event, EventBus
-from agent.main import create_app
 from agent.minecraft.process import MinecraftServer
-from agent.security.auth import hash_password
 
-PASSWORD = "correct horse battery"
+from .conftest import PASSWORD
 
 
 # ---------------------------------------------------------------- database
@@ -150,15 +147,6 @@ def test_console_buffer_never_grows_without_bound(config):
 
 
 # ---------------------------------------------------------------- websocket
-@pytest.fixture
-def client(config, monkeypatch):
-    monkeypatch.setenv("MCSC_ADMIN_USERNAME", "admin")
-    monkeypatch.setenv("MCSC_ADMIN_PASSWORD_HASH", hash_password(PASSWORD, rounds=1000))
-    monkeypatch.delenv("MCSC_API_TOKEN", raising=False)
-    with TestClient(create_app(config)) as test_client:
-        yield test_client
-
-
 def token_for(client):
     return client.post("/api/auth/login",
                        json={"username": "admin", "password": PASSWORD}).json()["token"]

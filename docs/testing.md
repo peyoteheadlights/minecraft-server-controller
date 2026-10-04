@@ -1,7 +1,7 @@
 # Testing
 
 ```powershell
-pip install -r requirements-dev.txt
+pip install -r requirements-dev.lock
 python -m playwright install chromium    # only needed for the browser checks
 python -m pytest -q
 ```
@@ -13,7 +13,37 @@ python scripts/ui_flows.py     # clicks through every server state and control
 python scripts/ui_check.py     # screenshots every page at five sizes, light and dark
 ```
 
-244 tests, about 50 seconds.
+`ui_check.py` exits non-zero when it finds a JavaScript or console error, a
+failed request or sideways scrolling; CI runs `ui_check.py --quick` on every
+pull request.
+
+About 380 tests, a little over a minute.
+
+## Lint, format and type check
+
+Settings live in `pyproject.toml`.
+
+```powershell
+python -m ruff check .            # add --fix for the safe fixes
+python -m ruff format .
+python -m mypy
+```
+
+To run these before every commit: `pip install pre-commit`, then
+`pre-commit install`. `.git-blame-ignore-revs` lists the one-time reformat so
+`git blame` skips it.
+
+## Pinned versions
+
+`requirements.txt` and `requirements-dev.txt` list what the project needs.
+`requirements.lock` and `requirements-dev.lock` pin the exact versions (with
+hashes) that CI tests, for every platform and Python 3.11+. After changing a
+requirements file, regenerate both:
+
+```powershell
+uv pip compile requirements.txt --universal --python-version 3.11 --generate-hashes -o requirements.lock
+uv pip compile requirements-dev.txt --universal --python-version 3.11 --generate-hashes -o requirements-dev.lock
+```
 
 ## What is safe about the tests
 

@@ -223,7 +223,8 @@ def main():
     print(f"failed requests: {len(report['failed_requests'])}")
     for r in report["failed_requests"][:10]:
         print("   ", r)
-    return 0
+    # Non-zero when anything was found, so CI fails on it.
+    return 1 if report["errors"] or report["overflow"] or report["failed_requests"] else 0
 
 
 if __name__ == "__main__":

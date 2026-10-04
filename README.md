@@ -162,11 +162,25 @@ tests/              automated tests, with a fake Minecraft server
 ## Tests
 
 ```powershell
-pip install -r requirements-dev.txt
+pip install -r requirements-dev.lock
 python -m pytest -q
+python -m ruff check . ; python -m ruff format --check . ; python -m mypy
 ```
 
-See [docs/testing.md](docs/testing.md) for the browser and end-to-end checks.
+See [docs/testing.md](docs/testing.md) for the browser and end-to-end checks,
+the lock files and pre-commit.
+
+### CI
+
+`.github/workflows/ci.yml` runs on every push and pull request:
+
+- **Lint and type check**: `ruff check`, `ruff format --check` and `mypy`,
+  with the settings in `pyproject.toml`.
+- **Unit tests** on both Linux and Windows.
+- **Dashboard in a real browser**: `scripts/ui_check.py --quick` signs in and
+  visits every page in headless Chromium, and fails on any JavaScript or
+  console error, failed request or sideways scrolling. The screenshots are
+  kept as a build artifact.
 
 ### Windows CI
 
@@ -181,7 +195,6 @@ GitHub's `windows-latest` runners:
   another folder, twice (to prove repeat runs keep existing settings), with
   Python missing, with a dependency removed, through `setup.cmd`, and
   `--check` — and checks the password never appears in output or files.
-- **Unit tests** on Linux.
 
 ## License
 

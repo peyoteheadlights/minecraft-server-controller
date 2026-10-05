@@ -3,8 +3,9 @@ import { signOut } from "./auth.js";
 import { navigate, render, renderRail } from "./nav.js";
 import { appendConsoleLine, renderConsoleLines } from "./pages/console.js";
 import { loadLatestCrash, overviewConsoleAppend, overviewUpdate } from "./pages/overview.js";
-import { handleJobEvent, loadServers, selectServer, serverName, updateJobsLine } from "./servers.js";
-import { STATES, state } from "./state.js";
+import { handleJobEvent, loadServers, selectServer, serverName, updateJobs } from "./servers.js";
+import { stateInfo, state } from "./state.js";
+import { t } from "./strings.js";
 import { $, announce, el, known, toast } from "./ui.js";
 
 export function connectSocket() {
@@ -21,7 +22,7 @@ export function connectSocket() {
     if (message.type === "ready") {
       setLink(true);
       state.reconnectDelay = 1000;
-      if (message.servers) state.servers = message.servers;
+      if (message.servers) mergeServers(message.servers);
       if (message.server_id !== state.serverId) return;  // switched while connecting
       state.status = message.status;
       state.console = message.console || [];
@@ -48,17 +49,23 @@ export function connectSocket() {
   socket.onerror = () => socket.close();
 }
 
+/* The socket's server list has states but not colors; keep what we have. */
+function mergeServers(rows) {
+  const known_ = Object.fromEntries(state.servers.map((s) => [s.id, s]));
+  state.servers = rows.map((row) => Object.assign({}, known_[row.id] || {}, row));
+}
+
 export function setLink(connected) {
   if (state.connected !== connected) {
-    announce(connected ? "Connected to the server agent." : "Connection to the agent lost. Reconnecting.");
+    announce(connected ? t("live.connected_announce") : t("live.lost_announce"));
   }
   state.connected = connected;
   const node = $("#connection");
   if (!node) return;
   node.replaceChildren(
     el("span", { class: `status-dot tone-${connected ? "success" : "warning"}` }),
-    el("span", { class: "label" }, connected ? "Connected" : "Reconnecting…"));
-  node.title = connected ? "Live updates are connected" : "Reconnecting to the agent";
+    el("span", { class: "label" }, connected ? t("live.connected") : t("live.reconnecting")));
+  node.title = connected ? t("live.connected_title") : t("live.reconnecting_title");
 }
 
 export const NOTABLE = {
@@ -75,28 +82,30 @@ export const NOTABLE = {
 export function friendly(event) {
   const data = event.data || {};
   switch (event.type) {
-    case "server_started": return "The server is online.";
-    case "server_stopped": return "The server stopped.";
-    case "server_crashed": {
-      const code = known(data.exit_code) ? ` Exit code ${data.exit_code}.` : "";
-      return `The server stopped unexpectedly.${code}`;
-    }
-    case "server_recovered": return "The server restarted after a crash and is online again.";
-    case "crash_loop": return "Automatic restart is paused: the server crashed repeatedly.";
+    case "server_started": return t("event.server_started");
+    case "server_stopped": return t("event.server_stopped");
+    case "server_crashed":
+      return known(data.exit_code) ? t("event.server_crashed_code", { code: data.exit_code })
+        : t("event.server_crashed");
+    case "server_recovered": return t("event.server_recovered");
+    case "crash_loop": return t("event.crash_loop");
     default: return event.message || event.type;
   }
 }
 
-/* Events from a server other than the one on screen: keep the server list
+/* Events from a server other than the one on screen: keep its tab
    current, and make a crash impossible to miss. */
 function otherServerEvent(event) {
   const row = state.servers.find((s) => s.id === event.server_id);
-  if (event.type === "state" && row) row.state = (event.data || {}).state;
+  if (event.type === "state" && row) {
+    row.state = (event.data || {}).state;
+    renderRail();
+  }
   if (event.type === "server_crashed" || event.type === "crash_loop") {
     state.crashedElsewhere.add(event.server_id);
     const name = serverName(event.server_id);
-    toast(event.type === "crash_loop" ? `${name} keeps crashing` : `${name} crashed`, "error", 9000,
-      { label: `Show ${name}`, onClick: () => selectServer(event.server_id) });
+    toast(t(event.type === "crash_loop" ? "event.other_crash_loop" : "event.other_crashed", { name }),
+      "error", 9000, { label: t("event.show_server", { name }), onClick: () => selectServer(event.server_id, "dashboard") });
     renderRail();
   }
   if (state.page === "servers" && ["state", "server_started", "server_stopped",
@@ -114,10 +123,12 @@ function scheduleServersRender() {
 export function handleEvent(event) {
   const data = event.data || {};
   if (event.type === "job") { handleJobEvent(event); return; }
-  if (event.type === "server_added" || event.type === "server_removed") {
-    loadServers().then(() => { renderRail(); if (["servers", "settings"].includes(state.page)) render(); })
-      .catch(() => {});
-    toast(event.message, "info");
+  if (["server_added", "server_removed", "server_changed"].includes(event.type)) {
+    loadServers().then(() => {
+      renderRail();
+      if (["servers", "settings", "add-server"].includes(state.page)) render();
+    }).catch(() => {});
+    if (event.type !== "server_changed") toast(event.message, "info");
     return;
   }
   if (event.server_id && event.server_id !== state.serverId) { otherServerEvent(event); return; }
@@ -142,9 +153,12 @@ export function handleEvent(event) {
       if (data.state === "CRASHED") state.latestCrash = null;
       if (data.state === "ONLINE") state.latestCrash = null;
     }
+    const row = state.servers.find((s) => s.id === state.serverId);
+    if (row) row.state = data.state;
     if (data.state === "STARTING") state.startingSince = event.ts;
-    announce(`Server ${(STATES[data.state] || STATES.UNKNOWN).label.replace("…", "")}.`);
+    announce(t("live.state_announce", { state: t(stateInfo(data.state).label) }));
     updateStatusViews();
+    renderRail();
     scheduleRefresh();
     return;
   }
@@ -171,7 +185,7 @@ export function handleEvent(event) {
   const level = NOTABLE[event.type];
   if (level) {
     const action = event.type === "server_crashed" || event.type === "crash_loop"
-      ? { label: "View details", onClick: () => navigate("crashes") } : null;
+      ? { label: t("action.view_details"), onClick: () => navigate("crashes") } : null;
     toast(friendly(event), level, level === "error" ? 9000 : 5200, action);
     scheduleRefresh();
     if (["events", "crashes", "mods", "backups"].includes(state.page)) render();
@@ -193,17 +207,21 @@ export async function refreshStatus() {
 
 export function renderStatus() { updateStatusViews(); }
 
+/* The sheet's status line: the state, and while it runs, who is on. */
 export function updateStatusViews() {
   const status = state.status || {};
-  const info = STATES[status.state] || STATES.UNKNOWN;
-  const line = $("#sidebar-state");
+  const info = stateInfo(status.state);
+  const line = $("#sheet-state");
   if (line) {
-    line.replaceChildren(
-      el("span", { class: `status-dot tone-${info.tone}${info.busy ? " pulse" : ""}` }),
-      info.label);
+    const parts = [el("span", { class: `status-dot tone-${info.tone}${info.busy ? " pulse" : ""}` }),
+      t(info.label)];
+    if (status.state === "ONLINE" && known(status.players_online)) {
+      parts.push(el("span", { class: "sep", "aria-hidden": "true" }, "·"),
+        t(status.players_online === 1 ? "head.players.one" : "head.players.other",
+          { count: status.players_online }));
+    }
+    line.replaceChildren(...parts);
   }
-  const nameNode = $("#sidebar-name");
-  if (nameNode && status.name) nameNode.textContent = status.name;
-  updateJobsLine();
+  updateJobs();
   if (state.page === "dashboard") overviewUpdate();
 }

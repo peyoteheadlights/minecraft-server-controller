@@ -1,3 +1,5 @@
+import { t, technical } from "./strings.js";
+
 export const $ = (sel) => document.querySelector(sel);
 
 export function el(tag, props = {}, ...children) {
@@ -33,11 +35,13 @@ export const ICONS = {
   events: [["path", { d: "M8.5 6.5h12M8.5 12h12M8.5 17.5h12" }], ["path", { d: "M4 6.5h.01M4 12h.01M4 17.5h.01" }]],
   crashes: [["path", { d: "M12 3.8 21 19.5H3z" }], ["path", { d: "M12 10v4" }], ["path", { d: "M12 16.8h.01" }]],
   settings: [["path", { d: "M4 7h9M17 7h3M4 17h3M11 17h9" }], ["circle", { cx: 15, cy: 7, r: 2 }], ["circle", { cx: 9, cy: 17, r: 2 }]],
+  gear: [["circle", { cx: 12, cy: 12, r: 3 }],
+         ["path", { d: "M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" }],
+         ["circle", { cx: 12, cy: 12, r: 6.2 }]],
   security: [["path", { d: "M12 3l7.5 3v5.5c0 4.5-3.1 8.2-7.5 9.5-4.4-1.3-7.5-5-7.5-9.5V6z" }], ["path", { d: "M9 12l2 2 4-4" }]],
-  system: [["circle", { cx: 12, cy: 12, r: 8 }], ["path", { d: "M12 4a8 8 0 0 1 0 16z", fill: "currentColor", stroke: "none" }]],
-  sun: [["circle", { cx: 12, cy: 12, r: 3.8 }], ["path", { d: "M12 2.8v2M12 19.2v2M2.8 12h2M19.2 12h2M5.5 5.5l1.4 1.4M17.1 17.1l1.4 1.4M5.5 18.5l1.4-1.4M17.1 6.9l1.4-1.4" }]],
-  moon: [["path", { d: "M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z" }]],
-  menu: [["path", { d: "M4 7h16M4 12h16M4 17h16" }]],
+  plus: [["path", { d: "M12 5v14M5 12h14" }]],
+  info: [["circle", { cx: 12, cy: 12, r: 8.5 }], ["path", { d: "M12 11v5.5M12 7.8h.01" }]],
+  chevron: [["path", { d: "M9 6l6 6-6 6" }]],
   search: [["circle", { cx: 11, cy: 11, r: 6.5 }], ["path", { d: "M16 16l4.5 4.5" }]],
   copy: [["rect", { x: 8.5, y: 8.5, width: 11, height: 11, rx: 2 }], ["path", { d: "M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5" }]],
   download: [["path", { d: "M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14" }]],
@@ -60,42 +64,49 @@ export function icon(name) {
   return svg;
 }
 
+export const known = (v) => v !== null && v !== undefined;
+
+const unknown = () => t("value.unknown");
+
 export const fmt = {
   bytes(n) {
-    if (n === null || n === undefined) return "Unknown";
+    if (!known(n)) return unknown();
     const units = ["B", "KB", "MB", "GB", "TB"];
     let value = Number(n), i = 0;
     while (value >= 1024 && i < units.length - 1) { value /= 1024; i++; }
     return `${value.toFixed(value >= 100 || i === 0 ? 0 : 1)} ${units[i]}`;
   },
-  gb(n) { return n === null || n === undefined ? "Unknown" : `${Number(n).toFixed(1)} GB`; },
-  pct(n) { return n === null || n === undefined ? "Unknown" : `${Number(n).toFixed(0)}%`; },
+  gb(n) { return known(n) ? `${Number(n).toFixed(1)} GB` : unknown(); },
+  pct(n) { return known(n) ? `${Number(n).toFixed(0)}%` : unknown(); },
   memory(mb) {
-    if (mb === null || mb === undefined) return null;
+    if (!known(mb)) return null;
     return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${Math.round(mb)} MB`;
   },
   duration(seconds) {
-    if (seconds === null || seconds === undefined) return "Unknown";
+    if (!known(seconds)) return unknown();
     const s = Math.max(0, Math.floor(seconds));
     const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600);
     const m = Math.floor((s % 3600) / 60);
-    if (d) return `${d}d ${h}h`;
-    if (h) return `${h}h ${m}m`;
-    if (m) return `${m}m ${s % 60}s`;
-    return `${s}s`;
+    if (d) return t("time.days_hours", { d, h });
+    if (h) return t("time.hours_minutes", { h, m });
+    if (m) return t("time.minutes", { m });
+    return t("time.seconds", { s });
   },
   time(ts) {
-    if (!ts) return "Never";
+    if (!ts) return t("time.never");
     return new Date(ts * 1000).toLocaleString(undefined,
-      { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   },
   clock(ts) {
     return new Date(ts * 1000).toLocaleTimeString(undefined,
       { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
   },
   ago(ts) {
-    if (!ts) return "never";
-    return `${fmt.duration(Date.now() / 1000 - ts)} ago`;
+    if (!ts) return t("time.never");
+    return t("time.ago", { duration: fmt.duration(Date.now() / 1000 - ts) });
+  },
+  until(ts) {
+    return t("time.in", { duration: fmt.duration(ts - Date.now() / 1000) });
   },
   xmx(memory) {
     const m = /-Xmx(\d+)([GgMm])/.exec(memory || "");
@@ -108,14 +119,13 @@ export const fmt = {
   },
 };
 
-export const known = (v) => v !== null && v !== undefined;
-
 export function announce(text) {
   const node = $("#announcer");
   node.textContent = "";
   setTimeout(() => { node.textContent = text; }, 50);
 }
 
+/* "This just happened": a short note in the corner that goes by itself. */
 export function toast(message, level = "info", ms = 5200, action = null) {
   const tone = { error: "danger", warn: "warning", success: "success", info: "neutral" }[level] || "neutral";
   const node = el("div", { class: "toast", role: level === "error" ? "alert" : "status" },
@@ -129,11 +139,10 @@ export function toast(message, level = "info", ms = 5200, action = null) {
   setTimeout(() => node.remove(), ms);
 }
 
-/* An Apple-style alert. Body may be a string (shown as text, never parsed
-   as markup) or a DOM node. Resolves true when confirmed. */
-export function confirmDialog({ title, body, confirmLabel = "Confirm", danger = false, extra = null,
-                         cancelLabel = "Cancel", wide = false }) {
-  const acknowledge = confirmLabel === "Close" || confirmLabel === "OK";
+/* A dialog. Body may be a string (shown as text, never parsed as markup)
+   or a DOM node. Resolves true when confirmed. */
+export function confirmDialog({ title, body, confirmLabel = null, danger = false, extra = null,
+                         cancelLabel = null, wide = false, acknowledge = false }) {
   return new Promise((resolve) => {
     const root = $("#modal-root");
     const previous = document.activeElement;
@@ -142,20 +151,21 @@ export function confirmDialog({ title, body, confirmLabel = "Confirm", danger = 
     else if (body) bodyNode.append(body);
     const close = (value) => {
       document.removeEventListener("keydown", onKey, true);
-      root.innerHTML = "";
+      root.replaceChildren();
       if (previous && previous.focus) previous.focus();
       resolve(value);
     };
     const cancel = acknowledge ? null
-      : el("button", { class: "btn", type: "button", onclick: () => close(false) }, cancelLabel);
+      : el("button", { class: "btn", type: "button", onclick: () => close(false) },
+        cancelLabel || t("action.cancel"));
     const confirm = el("button", {
       class: `btn ${danger ? "danger-filled" : "primary"}`, type: "button",
       onclick: () => close(true),
-    }, confirmLabel);
+    }, confirmLabel || (acknowledge ? t("action.close") : t("action.confirm")));
     const onKey = (event) => {
       if (event.key === "Escape") { event.preventDefault(); close(false); }
       if (event.key === "Tab") {  // keep focus inside the dialog
-        const focusable = [...root.querySelectorAll("button, input, select, textarea, a[href]")];
+        const focusable = [...root.querySelectorAll("button, input, select, textarea, a[href], summary")];
         if (!focusable.length) return;
         const first = focusable[0], last = focusable[focusable.length - 1];
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
@@ -174,7 +184,7 @@ export function confirmDialog({ title, body, confirmLabel = "Confirm", danger = 
       bodyNode,
       extra,
       el("div", { class: "actions" }, cancel, confirm))));
-    // A destructive action starts on Cancel, as macOS does.
+    // A destructive action starts on Cancel.
     (danger && cancel ? cancel : confirm).focus();
   });
 }
@@ -198,47 +208,107 @@ export async function busy(button, label, fn) {
   }
 }
 
-/* A titled group in the macOS "grouped form" style: the heading sits
-   above the box, not inside it. Used by every page. */
+/* A titled group: the heading sits above the box. aside is an optional
+   node on the heading's right (a link or small button). */
 export function card(title, ...children) {
+  return section(title, null, ...children);
+}
+
+export function section(title, aside, ...children) {
   return el("section", { class: "section" },
-    title ? el("div", { class: "section-head" }, el("h2", {}, title)) : null,
+    title ? el("div", { class: "section-head" }, el("h2", {}, title),
+      aside ? el("div", { class: "grow" }) : null, aside) : null,
     el("div", { class: "group-box" }, ...children));
 }
 
-/* A small statistic. Unknown values are shown as "Unknown", never as 0. */
+/* Detail most people never need: collapsed in Simple mode, open in
+   Technical mode, with a way to switch from right there. */
+export function advanced(title, ...children) {
+  const open = technical();
+  return el("details", { class: "advanced", open: open ? "open" : false },
+    el("summary", {}, el("span", { class: "chev", "aria-hidden": "true" }, icon("chevron")), title),
+    el("div", { class: "advanced-body" }, ...children));
+}
+
+/* A short, honest "we don't know yet" line, in place of a value. */
+export function unknownNote(reason) {
+  return el("span", { class: "unknown-note" }, reason || t("value.unknown"));
+}
+
+/* A small statistic. Unknown values say so, never 0. opts.summary, when
+   given, builds a short summary shown on hover, tap or keyboard focus. */
 export function metric(label, value, note, opts = {}) {
-  const unknown = !known(value);
-  return el("div", { class: "stat" },
+  const isUnknown = !known(value);
+  const tip = opts.summary ? el("div", { class: "stat-summary", role: "tooltip" }) : null;
+  const node = el("div", {
+    class: `stat${opts.summary ? " has-summary" : ""}`,
+    tabindex: opts.summary ? "0" : null,
+  },
     el("div", { class: "label" }, label),
-    el("div", { class: `value ${unknown ? "unknown" : ""}` },
-      unknown ? "Unknown" : value,
-      opts.unit && !unknown ? el("small", {}, ` ${opts.unit}`) : null),
+    el("div", { class: `value${isUnknown ? " unknown" : ""}` },
+      isUnknown ? t("value.unknown") : value,
+      opts.unit && !isUnknown ? el("small", {}, ` ${opts.unit}`) : null),
     note ? el("div", { class: "note", title: note }, note) : null,
-    opts.bar !== undefined && !unknown
+    opts.bar !== undefined && opts.bar !== null && !isUnknown
       ? el("div", { class: `meter ${opts.barLevel || ""}` },
           el("span", { style: { width: `${Math.min(100, Math.max(0, opts.bar))}%` } }))
-      : null);
+      : null,
+    tip);
+  if (tip) {
+    const id = `summary-${Math.random().toString(36).slice(2, 9)}`;
+    tip.id = id;
+    node.setAttribute("aria-describedby", id);
+    const fill = () => {
+      const content = opts.summary();
+      tip.replaceChildren(...(Array.isArray(content) ? content : [content]));
+    };
+    node.addEventListener("mouseenter", fill);
+    node.addEventListener("focus", fill);
+    // a tap on a phone toggles it
+    node.addEventListener("click", () => { fill(); node.classList.toggle("show-summary"); });
+    node.addEventListener("blur", () => node.classList.remove("show-summary"));
+    fill();
+  }
+  return node;
 }
 
 export function emptyState(title, detail) {
   return el("div", { class: "empty" }, el("strong", {}, title), detail || null);
 }
 
+/* An error, in one plain sentence, with what to do and the technical
+   detail behind "Show details" (open in Technical mode). */
+export function problem(message, detail = null, action = null) {
+  return el("div", { class: "banner error", role: "alert" },
+    el("div", { class: "grow" }, message,
+      detail ? advanced(t("action.show_details"), el("pre", { class: "detail mono" }, detail)) : null),
+    action);
+}
+
 export async function loadInto(node, loader) {
-  node.append(el("div", { class: "empty", "aria-busy": "true" }, "Loading…"));
+  node.append(el("div", { class: "empty", "aria-busy": "true" }, t("status.loading")));
   try {
     const content = await loader();
     node.replaceChildren(content);
   } catch (err) {
-    node.replaceChildren(el("div", { class: "banner error", role: "alert" }, err.message));
+    node.replaceChildren(problem(err.message));
   }
 }
 
-export function table(headers, rows) {
+export function table(headers, rows, opts = {}) {
   // wrapped so a wide table scrolls inside its box instead of widening the page
-  return el("div", { class: "table-wrap" }, el("table", {},
+  return el("div", { class: "table-wrap" }, el("table", { class: opts.class || null },
     el("thead", {}, el("tr", {}, headers.map((h) => el("th", {}, h)))),
     el("tbody", {}, rows.map((cells) => el("tr", {}, cells.map((cell) =>
       el("td", {}, cell instanceof Node ? cell : String(cell ?? "—"))))))));
+}
+
+/* A row of label/value pairs. Values that are null show as not known. */
+export function detailRows(pairs) {
+  return el("div", { class: "rows" }, pairs.filter(Boolean).map(([label, value, mono]) =>
+    el("div", { class: "row" },
+      el("span", { class: "row-label" }, label),
+      el("span", { class: `row-value${mono ? " mono" : ""}${known(value) ? "" : " unknown"}`,
+        title: typeof value === "string" ? value : "" },
+        known(value) ? value : t("value.unknown")))));
 }

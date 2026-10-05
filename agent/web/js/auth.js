@@ -1,6 +1,8 @@
 import { api } from "./api.js";
 import { clearTimers } from "./nav.js";
+import { applyServerColor } from "./colors.js";
 import { state } from "./state.js";
+import { t } from "./strings.js";
 import { $ } from "./ui.js";
 
 export function signOut(expired) {
@@ -12,10 +14,11 @@ export function signOut(expired) {
   state.token = "";
   sessionStorage.removeItem("mcsc_token");
   clearTimers();
+  applyServerColor(null);
   $("#app").classList.remove("visible");
-  $("#login").style.display = "grid";
+  $("#login").hidden = false;
   if (expired) {
-    $("#login-error").textContent = "Your session ended. Sign in again.";
+    $("#login-error").textContent = t("error.session_ended");
     $("#login-error").hidden = false;
   }
 }

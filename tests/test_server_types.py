@@ -112,8 +112,12 @@ def fake_sources(
                 return _json(
                     [{"version": "0.16.5", "stable": True}, {"version": "0.16.6", "stable": False}]
                 )
-            if path.endswith("/server/jar"):
+            if path.endswith("/versions/installer"):
+                return _json([{"version": "1.0.1", "stable": True}])
+            if path.endswith("/0.16.5/1.0.1/server/jar"):
                 return httpx.Response(200, content=SERVER_JAR)
+            if path.endswith("/server/jar"):
+                return httpx.Response(404)  # without the installer version
         if host == "meta.quiltmc.org":
             if path.endswith("/versions/game"):
                 return _json([{"version": MC, "stable": True}])
@@ -241,17 +245,22 @@ def fake_installer(monkeypatch):
     real = asyncio.create_subprocess_exec
 
     async def fake(*args, **kwargs):
-        if "--installServer" not in args:
+        if "--installServer" not in args and "install" not in args:
             return await real(*args, **kwargs)
         calls.append({"argv": list(args), **kwargs})
         folder = kwargs["cwd"]
-        target = os.path.join(folder, "libraries", "net", "neoforged", "neoforge")
-        os.makedirs(target, exist_ok=True)
-        Path(target, "win_args.txt").write_text(
-            "-cp libraries/everything.jar net.minecraft.server.Main\n", encoding="utf-8"
-        )
-        # the Quilt installer leaves a launcher jar behind
-        Path(folder, "quilt-server-launch.jar").write_bytes(SERVER_JAR)
+        if "install" in args:
+            # the Quilt installer leaves a launcher jar behind
+            Path(folder, "quilt-server-launch.jar").write_bytes(SERVER_JAR)
+        else:
+            # Forge and NeoForge write an argument file for each system
+            target = os.path.join(folder, "libraries", "net", "neoforged", "neoforge")
+            os.makedirs(target, exist_ok=True)
+            for name, separator in (("win_args.txt", ";"), ("unix_args.txt", ":")):
+                Path(target, name).write_text(
+                    f"-p libraries/a.jar{separator}libraries/b.jar net.minecraft.server.Main\n",
+                    encoding="utf-8",
+                )
 
         class Done:
             returncode = 0
@@ -371,6 +380,72 @@ async def test_neoforge_versions_map_onto_their_minecraft_version(network):
     found = {v.minecraft: v for v in await versions_module.list_versions("neoforge")}
     assert found["1.21.1"].loaders == ["21.1.9"]
     assert found["1.20.4"].loaders == ["20.4.100"]
+
+
+@pytest.mark.parametrize(
+    "build, minecraft",
+    [
+        ("21.1.9", "1.21.1"),
+        ("21.0.3-beta", "1.21"),
+        ("26.1.0.5", "26.1"),  # year-based Minecraft versions
+        ("26.1.1.2", "26.1.1"),
+        ("0.25w14a.3-beta", "25w14a"),  # a snapshot build
+    ],
+)
+def test_each_neoforge_build_names_the_right_minecraft_version(build, minecraft):
+    assert versions_module._neoforge_minecraft(build) == minecraft
+
+
+def test_versions_sort_by_number_not_by_the_order_a_source_sends():
+    names = ["1.21", "1.21.10", "1.20.1", "1.21.2", "1.21-pre1"]
+    assert sorted(names, key=versions_module.version_key, reverse=True) == [
+        "1.21.10",
+        "1.21.2",
+        "1.21",
+        "1.21-pre1",
+        "1.20.1",
+    ]
+
+
+async def test_forge_older_than_1_17_is_not_offered(network, monkeypatch):
+    """Forge only writes the argument file the app starts it from since
+    Minecraft 1.17, so older Forge versions could never be launched."""
+
+    async def xml(url, max_bytes=0):
+        return (
+            "<metadata><versioning><versions>"
+            "<version>1.12.2-14.23.5.2860</version><version>1.20.1-47.2.0</version>"
+            "<version>1.20.1-47.10.0</version>"
+            "</versions></versioning></metadata>"
+        )
+
+    monkeypatch.setattr(downloads, "fetch_text", xml)
+    found = {v.minecraft: v for v in await versions_module.list_versions("forge")}
+    assert "1.12.2" not in found
+    assert found["1.20.1"].loaders[0] == "1.20.1-47.10.0"  # newest build first, by number
+
+
+async def test_the_fabric_launcher_address_names_the_installer_version(network):
+    plan = await versions_module.make_plan("fabric", MC, "0.16.5")
+    assert plan.downloads[0].spec.url.endswith(f"/{MC}/0.16.5/1.0.1/server/jar")
+
+
+async def test_quilt_is_installed_with_its_own_install_command(ctx, network, fake_installer):
+    plan = await versions_module.make_plan("quilt", MC, "0.26.0")
+    result = await install_module.install_plan(ctx, plan, ctx.config.server_dir)
+    call = fake_installer[0]
+    assert call["argv"][1:] == [
+        "-jar",
+        "quilt-installer.jar",
+        "install",
+        "server",
+        MC,
+        "0.26.0",
+        "--download-server",
+        "--install-dir=.",
+    ]
+    assert call["cwd"] == str(ctx.config.server_dir)
+    assert result["jar"] == "quilt-server-launch.jar"
 
 
 async def test_paper_and_purpur_versions_come_from_their_apis(network):
@@ -494,7 +569,9 @@ async def test_neoforge_is_installed_by_running_its_installer_once(ctx, network,
     assert call["stdin"] == asyncio.subprocess.DEVNULL
     # It leaves the argument file the server is launched from, and its own
     # output is kept as a log.
-    assert result["args_file"].endswith("win_args.txt")
+    # the argument file for this system: unix_args.txt separates paths
+    # with ":", which Java on Windows can't read
+    assert result["args_file"].endswith("win_args.txt" if os.name == "nt" else "unix_args.txt")
     assert result["jar"] == ""
     install_log = Path(result["install_log"]).read_text(encoding="utf-8")
     assert "installed successfully" in install_log

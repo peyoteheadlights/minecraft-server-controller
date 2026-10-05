@@ -52,6 +52,10 @@ class ServerType:
     jar: str = "server.jar"
     # Runs an installer once after downloading ("forge", "neoforge", "quilt").
     installer: str | None = None
+    # The installer's own arguments after "java -jar <installer>". Only
+    # "{minecraft}" and "{loader}" are filled in, from versions the official
+    # source listed (see install.installer_command).
+    installer_args: tuple[str, ...] = ()
     # Where the version list comes from, for the Technical view.
     version_source: str = ""
     version_host: str = ""
@@ -154,6 +158,16 @@ TYPES: dict[str, ServerType] = {
             snapshots=True,
             jar="quilt-server-launch.jar",
             installer="quilt",
+            # Quilt's installer: install server <minecraft> <loader>, into
+            # the current folder, fetching Mojang's server jar as well.
+            installer_args=(
+                "install",
+                "server",
+                "{minecraft}",
+                "{loader}",
+                "--download-server",
+                "--install-dir=.",
+            ),
             version_source="Quilt meta API",
             version_host="meta.quiltmc.org",
             backup_extra=("mods", "config"),
@@ -179,6 +193,7 @@ TYPES: dict[str, ServerType] = {
             launch="args_file",
             jar="",
             installer="forge",
+            installer_args=("--installServer",),
             version_source="Forge Maven",
             version_host="maven.minecraftforge.net",
             tps_commands=("forge tps", "tick query", "spark tps"),
@@ -205,6 +220,7 @@ TYPES: dict[str, ServerType] = {
             launch="args_file",
             jar="",
             installer="neoforge",
+            installer_args=("--installServer",),
             version_source="NeoForged Maven",
             version_host="maven.neoforged.net",
             tps_commands=("neoforge tps", "tick query", "spark tps"),

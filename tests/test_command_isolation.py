@@ -318,8 +318,10 @@ def test_the_installer_is_run_as_an_argument_list_with_no_shell():
     from agent.servertypes import install
 
     source = inspect.getsource(install.run_installer)
-    # the whole command is built here, from values this app controls
-    assert 'command = [java, "-jar", installer, "--installServer"]' in source
+    # the whole command is built from values this app controls
+    assert "command = installer_command(java, installer, plan)" in source
+    builder = inspect.getsource(install.installer_command)
+    assert "check_version(" in builder and "installer_args" in builder
     assert "*command," in source
     assert "shell" not in source
     # the working directory is fixed to the server's own folder, and the
@@ -341,6 +343,36 @@ def test_the_installer_file_name_is_never_taken_from_a_request():
     assert "run_installer" not in inspect.getsource(routes), (
         "the API must never run the installer directly: it goes through install.py"
     )
+
+
+def test_each_installer_gets_only_its_own_fixed_arguments():
+    """Forge and NeoForge get --installServer; Quilt gets its install
+    command into the current folder. Only checked versions are filled in."""
+    from agent.servertypes.install import installer_command
+    from agent.servertypes.versions import Plan, VersionError
+
+    forge = Plan("forge", "1.20.1", "1.20.1-47.3.0", [], installer="forge-installer.jar")
+    assert installer_command("java", "forge-installer.jar", forge) == [
+        "java",
+        "-jar",
+        "forge-installer.jar",
+        "--installServer",
+    ]
+    quilt = Plan("quilt", "1.21.1", "0.26.0", [], installer="quilt-installer.jar")
+    assert installer_command("java", "quilt-installer.jar", quilt) == [
+        "java",
+        "-jar",
+        "quilt-installer.jar",
+        "install",
+        "server",
+        "1.21.1",
+        "0.26.0",
+        "--download-server",
+        "--install-dir=.",
+    ]
+    sneaky = Plan("quilt", "1.21.1 --install-dir=C:/", "0.26.0", [], installer="q.jar")
+    with pytest.raises(VersionError):
+        installer_command("java", "q.jar", sneaky)
 
 
 @pytest.mark.parametrize(

@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import shutil
 import time
 from pathlib import Path
@@ -97,19 +98,39 @@ def _log_path(ctx: ServerContext) -> Path:
     return folder / f"{time.strftime('%Y%m%d-%H%M%S')}-install.log"
 
 
+def installer_command(java: str, installer: str, plan: Plan) -> list[str]:
+    """The installer's argument list. Each type's arguments come from its
+    capabilities; the only values filled in are the Minecraft and loader
+    versions, which make_plan already matched against the official list."""
+    from .versions import check_version
+
+    server_type = servertypes.get(plan.type_id)
+    values = {
+        "minecraft": check_version(plan.minecraft, "Minecraft version"),
+        "loader": check_version(plan.loader or "", f"{server_type.name} version"),
+    }
+    args = []
+    for arg in server_type.installer_args or ("--installServer",):
+        for key, value in values.items():
+            arg = arg.replace("{" + key + "}", value)
+        args.append(arg)
+    return [java, "-jar", installer, *args]
+
+
 async def run_installer(
     ctx: ServerContext,
-    installer: str,
+    plan: Plan,
     java: str,
     directory: Path,
     job: JobHandle | None = None,
 ) -> Path:
     """Run a downloaded installer once, as an argument list, in the server
     folder. Returns the path of its captured log."""
+    installer = plan.installer or ""
     path = directory / installer
-    if not is_inside(directory, path.resolve()) or not path.is_file():
+    if not installer or not is_inside(directory, path.resolve()) or not path.is_file():
         raise InstallError("The setup file is missing, so nothing was installed.")
-    command = [java, "-jar", installer, "--installServer"]
+    command = installer_command(java, installer, plan)
     log_file = _log_path(ctx)
     if job:
         job.step("Setting the server up (this can take a few minutes)")
@@ -146,7 +167,11 @@ def find_args_file(directory: Path, type_id: str) -> str | None:
     libraries = directory / "libraries"
     if not libraries.is_dir():
         return None
-    candidates = sorted(libraries.rglob("*_args.txt"))
+    # The installer writes both: win_args.txt separates paths with ";" and
+    # unix_args.txt with ":". The wrong one leaves Java unable to find the
+    # server's libraries, so only the one for this system is used.
+    wanted = "win_args.txt" if os.name == "nt" else "unix_args.txt"
+    candidates = sorted(libraries.rglob(wanted))
     preferred = [p for p in candidates if type_id in str(p).lower()] or candidates
     for path in preferred:
         try:
@@ -185,9 +210,7 @@ async def install_plan(
     jar = plan.jar
     args_file = ""
     if plan.installer:
-        install_log = await run_installer(
-            ctx, plan.installer, ctx.config.server.java, directory, job=job
-        )
+        install_log = await run_installer(ctx, plan, ctx.config.server.java, directory, job=job)
         (directory / plan.installer).unlink(missing_ok=True)
         if server_type.launch == "args_file":
             found = find_args_file(directory, server_type.id)

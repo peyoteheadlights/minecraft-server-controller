@@ -53,7 +53,12 @@ class ServerContext:
         self.config.ensure_dirs()
         self.bus = ServerBus(core.bus, server_id)
         self.db = ServerDb(core.db, server_id)
-        core.db.register_server(server_id, self.config.server.name, str(self.config.server_dir))
+        core.db.register_server(
+            server_id,
+            self.config.server.name,
+            str(self.config.server_dir),
+            self.config.server.type,
+        )
         if not core.db.server_color(server_id):
             taken = [other.color for other in core.servers.values() if other is not self]
             core.db.set_server_color(server_id, colors.next_unused(taken))

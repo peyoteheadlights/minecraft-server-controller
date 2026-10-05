@@ -8,13 +8,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from .dependencies import describe_range, pretty_name
-from .jarinfo import ModInfo, version_satisfies
+from .dependencies import PLATFORM_IDS, describe_range, pretty_name
+from .jarinfo import ModInfo, range_satisfies, wrong_loader_reason
 
 Issue = dict[str, Any]
-
-# Dependencies on the platform rather than on another mod.
-PLATFORM_IDS = ("minecraft", "java", "fabricloader", "fabric-loader")
 
 
 def duplicate_ids(enabled: list[ModInfo]) -> list[Issue]:
@@ -34,33 +31,29 @@ def duplicate_ids(enabled: list[ModInfo]) -> list[Issue]:
     ]
 
 
-def jar_issues(mod: ModInfo) -> list[Issue]:
+def jar_issues(mod: ModInfo, server_type=None) -> list[Issue]:
     """Problems reading the jar, and mods built for another loader."""
     issues = [{"kind": "jar", "severity": "warn", "detail": p} for p in mod.problems]
-    if mod.loader == "forge":
-        issues.append(
-            {
-                "kind": "loader_mismatch",
-                "severity": "error",
-                "detail": "Forge mod on a Fabric server. It will not load.",
-            }
-        )
+    if server_type is not None and mod.loaders != ["unknown"]:
+        reason = wrong_loader_reason(mod, server_type.accepts, server_type.name)
+        if reason:
+            issues.append({"kind": "loader_mismatch", "severity": "error", "detail": reason})
     return issues
 
 
 def platform_dependency_issue(
     mod: ModInfo, dep, mc_version: str | None, loader_version: str | None
 ) -> Issue | None:
-    """A required Minecraft, Java or Fabric Loader version."""
-    target = {
-        "minecraft": mc_version,
-        "java": None,
-        "fabricloader": loader_version,
-        "fabric-loader": loader_version,
-    }[dep.mod_id]
+    """A required Minecraft, Java or loader version."""
+    if dep.mod_id == "minecraft":
+        target = mc_version
+    elif dep.mod_id == "java":
+        target = None
+    else:
+        target = loader_version
     if not target:
         return None  # not known yet, so nothing to compare against
-    ok = version_satisfies(target, dep.version_range)
+    ok = range_satisfies(target, dep.version_range, dep.syntax)
     if ok is False:
         return {
             "kind": "version_mismatch",
@@ -93,7 +86,7 @@ def mod_dependency_issue(mod: ModInfo, dep, installed: dict[str, ModInfo]) -> Is
             f"({describe_range(dep.version_range)}), which is not installed "
             f"or is disabled",
         }
-    ok = version_satisfies(provider.version, dep.version_range)
+    ok = range_satisfies(provider.version, dep.version_range, dep.syntax)
     if ok is False:
         return {
             "kind": "dependency_version",
@@ -138,7 +131,7 @@ def breaks_issues(mod: ModInfo, installed: dict[str, ModInfo]) -> list[Issue]:
         provider = installed.get(bad.mod_id)
         if provider is None:
             continue
-        if version_satisfies(provider.version, bad.version_range) is not False:
+        if range_satisfies(provider.version, bad.version_range, bad.syntax) is not False:
             issues.append(
                 {
                     "kind": "known_incompatibility",

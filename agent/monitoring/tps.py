@@ -51,18 +51,24 @@ def _version_tuple(version: str | None) -> tuple[int, ...] | None:
     return tuple(int(part) for part in match.group(1).split("."))
 
 
-def candidates_for(minecraft_version: str | None, remembered: str | None = None) -> list[str]:
+def candidates_for(
+    minecraft_version: str | None,
+    remembered: str | None = None,
+    candidates: tuple[str, ...] = CANDIDATES,
+) -> list[str]:
     """Candidate commands in the order they should be tried.
 
-    `tick query` is skipped on versions known to predate it (1.20.3), so an
-    older server is not sent a command it cannot understand. When the version
-    is unknown it is tried anyway: a rejected command costs one console line.
+    ``candidates`` comes from the server type (Paper answers `tps` itself,
+    vanilla only `tick query`). `tick query` is skipped on versions known to
+    predate it (1.20.3), so an older server is not sent a command it cannot
+    understand. When the version is unknown it is tried anyway: a rejected
+    command costs one console line.
     """
     version = _version_tuple(minecraft_version)
     ordered = []
     if remembered:
         ordered.append(remembered)
-    for command in CANDIDATES:
+    for command in candidates:
         if command == "tick query" and version is not None and version < (1, 20, 3):
             continue
         if command not in ordered:
@@ -220,7 +226,9 @@ class TpsMonitor:
             order = [self.configured_command() or ""]
         else:
             remembered = (self.db.get_setting(SETTING_KEY) or {}).get("command")
-            order = candidates_for(self.server.mc_version, remembered)
+            order = candidates_for(
+                self.server.mc_version, remembered, self.server.tps_candidates
+            )
 
         for command in order:
             if self.server.state.value != "ONLINE":

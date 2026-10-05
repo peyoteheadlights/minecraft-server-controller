@@ -311,14 +311,14 @@ async def test_installing_a_mod_does_not_claim_it_is_loaded(mods, config, tmp_pa
 def test_compatibility_is_unknown_without_a_detected_minecraft_version(mods, config):
     verdict = mods.compatibility_verdict({"game_versions": ["1.20.1"]}, None)
     assert verdict["verdict"] == "unknown"
-    assert "not been observed" in verdict["detail"]
+    assert "hasn't been seen yet" in verdict["detail"]
 
 
 def test_modrinth_listing_alone_is_only_likely(mods, config):
     mods.server.mc_version = "1.20.1"
     verdict = mods.compatibility_verdict({"game_versions": ["1.20.1"]}, None)
     assert verdict["verdict"] == "likely"
-    assert "publisher's claim" in verdict["detail"]
+    assert "what the author says, not a test" in verdict["detail"]
 
 
 def test_declared_metadata_gives_the_strongest_available_verdict(mods, config):
@@ -334,8 +334,8 @@ def test_clean_mod_check_does_not_claim_there_are_no_conflicts(mods, config):
     make_jar(config.mods_dir / "solo.jar", "solo", "1.0.0")
     checks = mods.check_all()
     assert checks["problems"] == []
-    assert checks["claim"] == "No declared conflicts detected"
-    assert "is not the same as" in checks["claim_note"]
+    assert checks["claim"] == "No problems found in what the files say"
+    assert "can still clash" in checks["claim_note"]
 
 
 # ---------------------------------------------------------------- disk space

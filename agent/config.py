@@ -122,7 +122,15 @@ class ServerSettings(Section):
     # No default: the folder differs on every machine, and guessing one
     # would silently manage the wrong place. Set it in config/config.yaml.
     directory: str = ""
+    # What kind of server this is (agent/servertypes): vanilla, fabric,
+    # quilt, forge, neoforge, paper or purpur. Servers from before server
+    # types are Fabric.
+    type: str = "fabric"
     jar: str = "fabric-server-launch.jar"
+    # Forge and NeoForge are launched from the argument file their
+    # installer writes (java @libraries/.../win_args.txt) instead of -jar.
+    # Set by the app when it installs them; empty means "-jar <jar>".
+    args_file: str = ""
     java: str = "java"
     jvm_args: list[str] = field(default_factory=lambda: ["-Xmx6G"])
     server_args: list[str] = field(default_factory=lambda: ["nogui"])
@@ -138,6 +146,10 @@ class ServerSettings(Section):
     # Logical CPU cores this server may use, counted from 0 (Task Manager's
     # "Set affinity" order). Empty: every core. See agent/minecraft/cpu.py.
     cpu_cores: list[int] = field(default_factory=list)
+    # Let Bedrock players join through Geyser and Floodgate, and the UDP
+    # port Geyser listens on (0: none picked yet). See agent/crossplay.py.
+    crossplay: bool = False
+    bedrock_port: int = 0
 
 
 @dataclass(frozen=True)
@@ -627,7 +639,15 @@ class Config:
         base = {k: v for k, v in entry.items() if k not in SERVER_OVERRIDES}
         settings = ServerSettings.from_dict(base, prefix=prefix)
         check_server_id(settings.id)
+        from . import servertypes
         from .minecraft.cpu import shape_problems
+
+        try:
+            servertypes.check(settings.type)
+        except servertypes.UnknownServerType as exc:
+            raise ConfigError(f"{prefix}.type: {exc}") from None
+        if settings.bedrock_port and not 0 < settings.bedrock_port < 65536:
+            raise ConfigError(f"{prefix}.bedrock_port must be a port number from 1 to 65535")
 
         problems = shape_problems(settings.cpu_cores, f"{prefix}.cpu_cores")
         if problems:
@@ -860,6 +880,11 @@ class Config:
         return self.for_server(self.default_server_id)
 
     @property
+    def server_type(self) -> Any:
+        """The first server's type and its capabilities."""
+        return self._first.server_type
+
+    @property
     def server_dir_configured(self) -> bool:
         return self._first.server_dir_configured
 
@@ -1063,8 +1088,22 @@ class ServerConfig:
         return self.resolve_data(self.backups.directory)
 
     @property
+    def server_type(self) -> Any:
+        """This server's type and its capabilities (agent/servertypes)."""
+        from . import servertypes
+
+        return servertypes.get(self.server.type)
+
+    @property
     def mods_dir(self) -> Path:
-        return self.resolve_server(self.mods.directory)
+        """Where this server's mods or plugins live. mods.directory, unless
+        it is left at its default and the type keeps them elsewhere (Paper
+        and Purpur use plugins/)."""
+        folder = self.mods.directory
+        content_folder = self.server_type.content_folder
+        if folder == ModSettings.directory and content_folder:
+            folder = content_folder
+        return self.resolve_server(folder)
 
     @property
     def mod_backup_dir(self) -> Path:

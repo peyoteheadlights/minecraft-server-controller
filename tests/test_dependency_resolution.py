@@ -17,7 +17,7 @@ from agent.events import EventBus
 from agent.minecraft.process import MinecraftServer
 from agent.mods.dependencies import describe_range, valid_identifier
 from agent.mods.manager import ModError, ModManager
-from agent.mods.modrinth import ModrinthError
+from agent.mods.modrinth import ModrinthError, ModrinthNotFound
 
 from .test_mods import make_jar
 
@@ -61,7 +61,7 @@ class FakeModrinth:
     async def project(self, id_or_slug):
         slug = self.by_id.get(id_or_slug, id_or_slug)
         if slug not in self.projects:
-            raise ModrinthError("Not found on Modrinth")
+            raise ModrinthNotFound("Modrinth doesn't have that.")
         return self._info(slug)
 
     async def search(self, query, minecraft_version=None, limit=10, offset=0):
@@ -85,7 +85,7 @@ class FakeModrinth:
             },
         }
 
-    async def versions(self, id_or_slug, minecraft_version=None, loader="fabric"):
+    async def versions(self, id_or_slug, minecraft_version=None, loaders=None):
         slug = self.by_id.get(id_or_slug, id_or_slug)
         return [self._version(slug, *v) for v in self.projects[slug]["versions"]]
 
@@ -94,9 +94,9 @@ class FakeModrinth:
             for v in await self.versions(slug):
                 if v["version_id"] == version_id:
                     return v
-        raise ModrinthError("Not found on Modrinth")
+        raise ModrinthNotFound("Modrinth doesn't have that.")
 
-    async def latest_for(self, id_or_slug, minecraft_version, loader="fabric"):
+    async def latest_for(self, id_or_slug, minecraft_version, loaders=None):
         return (await self.versions(id_or_slug))[0]
 
     async def download(self, version):
@@ -184,7 +184,7 @@ def test_an_incompatible_version_is_reported_not_replaced(mods, config):
     make_jar(config.mods_dir / "lib.jar", "lib", "1.4")
     dep = item(mods.deps.analyse(), "lib")
     assert dep["status"] == "incompatible"
-    assert "not replaced automatically" in dep["reason"]
+    assert "wasn't replaced automatically" in dep["reason"]
     assert dep["installed_version"] == "1.4"
 
 

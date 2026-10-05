@@ -1,7 +1,10 @@
-"""The Fabric mod manager.
+"""The mod and plugin manager.
 
-Everything that touches the mods folder goes through this class, and every
-write is:
+Mods (Fabric, Quilt, Forge, NeoForge) live in mods/; plugins (Paper,
+Purpur) live in plugins/. Which one, which loaders are accepted and which
+Modrinth listings fit come from the server type's capabilities
+(agent/servertypes). Everything that touches that folder goes through this
+class, and every write is:
 
   * confined to the mods folder by agent.security.paths
   * limited to .jar (and .jar.disabled) files
@@ -30,7 +33,14 @@ from ..security.paths import (
 )
 from . import checks
 from .dependencies import DependencyResolver
-from .jarinfo import DISABLED_SUFFIX, ModInfo, read_mod_jar, sha256_file, version_satisfies
+from .jarinfo import (
+    DISABLED_SUFFIX,
+    ModInfo,
+    range_satisfies,
+    read_mod_jar,
+    sha256_file,
+    wrong_loader_reason,
+)
 from .modrinth import ModrinthClient, ModrinthError
 
 log = logging.getLogger("msc.mods")
@@ -54,6 +64,31 @@ class ModManager:
         self._cache: tuple[float, list[ModInfo]] | None = None
 
     # ------------------------------------------------------------------
+    # the server's type
+    # ------------------------------------------------------------------
+    @property
+    def server_type(self):
+        return self.config.server_type
+
+    @property
+    def word(self) -> str:
+        """ "mod" or "plugin", for messages."""
+        return "plugin" if self.server_type.content == "plugins" else "mod"
+
+    def _require_content(self) -> None:
+        if not self.server_type.has_content:
+            raise ModError(
+                f"{self.server_type.name} servers don't use mods or plugins. Change the "
+                "server type in Server settings to add some."
+            )
+
+    def _check_loader(self, info: ModInfo, discarded: bool = True) -> None:
+        """Refuse a jar built for another loader, in plain words."""
+        reason = wrong_loader_reason(info, self.server_type.accepts, self.server_type.name)
+        if reason:
+            raise ModError(reason + (" It wasn't installed." if discarded else ""))
+
+    # ------------------------------------------------------------------
     # directories
     # ------------------------------------------------------------------
     @property
@@ -61,7 +96,7 @@ class ModManager:
         path = self.config.mods_dir
         if not self.config.server_dir_configured:
             raise ModError(
-                "The Minecraft server folder is not set. "
+                "The Minecraft server folder isn't set. "
                 "Set server.directory in config/config.yaml."
             )
         path.mkdir(parents=True, exist_ok=True)
@@ -85,6 +120,8 @@ class ModManager:
     def scan(self, use_cache: bool = False, max_age: float = 10.0) -> list[ModInfo]:
         if use_cache and self._cache and time.time() - self._cache[0] < max_age:
             return self._cache[1]
+        if not self.server_type.has_content:
+            return []
         mods: list[ModInfo] = []
         for entry in sorted(self.mods_dir.iterdir()):
             if not entry.is_file() or entry.is_symlink():
@@ -124,7 +161,7 @@ class ModManager:
         for mod in self.scan():
             if mod.filename == name:
                 return mod
-        raise ModError(f"{filename} is not in the mods folder")
+        raise ModError(f"{filename} isn't in the {self.server_type.content} folder.")
 
     def find_by_id(self, mod_id: str) -> ModInfo | None:
         for mod in self.scan():
@@ -151,7 +188,7 @@ class ModManager:
         per_mod: list[dict[str, Any]] = []
         problems: list[dict[str, Any]] = checks.duplicate_ids(enabled)
         for mod in mods:
-            issues = checks.jar_issues(mod)
+            issues = checks.jar_issues(mod, self.server_type)
             if not mod.enabled:
                 per_mod.append(
                     {
@@ -183,21 +220,25 @@ class ModManager:
             "problems": problems,
             "minecraft_version": mc_version,
             "fabric_loader": loader_version,
+            "loader_version": loader_version,
+            "loader_name": self.server_type.loader_name,
             "checked_at": time.time(),
             "claim": (
-                "No declared conflicts detected"
+                "No problems found in what the files say"
                 if not problems
-                else f"{len(problems)} declared problem(s) detected"
+                else f"{len(problems)} problem(s) found in what the files say"
             ),
             "claim_note": (
-                "'No declared conflicts detected' is not the same as 'no conflicts "
-                "exist'. Only metadata was read; nothing was executed or tested."
+                "This only reads what each file says it needs. Nothing was run or tested, "
+                "so two files can still clash in ways neither one mentions."
             ),
             "limitations": [
-                "Only declared metadata is checked (fabric.mod.json).",
-                "Mods can still conflict at runtime with nothing declared in their metadata.",
-                "Minecraft and Fabric versions are read from the server console, so they are "
-                "only known after the server has started at least once.",
+                "Only what each file declares is checked ("
+                + ", ".join(self.server_type.metadata_files)
+                + ").",
+                f"{self.word.capitalize()}s can still clash with nothing declared in their files.",
+                "The Minecraft and loader versions are read from the server console, so they're "
+                "only known after the server has started once.",
             ],
         }
 
@@ -215,10 +256,10 @@ class ModManager:
 
         Four verdicts, and none of them is "it works":
 
-          verified_metadata  the mod's own fabric.mod.json declares this
+          verified_metadata  the file's own information declares this
                              Minecraft version, and Modrinth agrees
           likely             Modrinth lists this Minecraft version, but the
-                             jar's own metadata could not confirm it
+                             file's own information could not confirm it
           unknown            the server's Minecraft version has not been
                              observed yet, so nothing can be compared
           incompatible       a declared requirement is not met
@@ -231,28 +272,32 @@ class ModManager:
             return {
                 "verdict": "unknown",
                 "detail": (
-                    "The server's Minecraft version has not been observed yet. It is read "
-                    "from the console on first start, so compatibility cannot be checked."
+                    "The server's Minecraft version hasn't been seen yet. It's read from "
+                    "the console the first time the server starts, so this can't be checked yet."
                 ),
             }
         declared = None
         mc_range = mod.minecraft_range if mod else None
         if mc_range:
-            declared = version_satisfies(mc_version, mc_range)
+            syntax = next(
+                (d.syntax for d in (mod.dependencies if mod else []) if d.mod_id == "minecraft"),
+                "fabric",
+            )
+            declared = range_satisfies(mc_version, mc_range, syntax)
         listed = None
         if modrinth_version:
             listed = mc_version in (modrinth_version.get("game_versions") or [])
         if declared is False:
             return {
                 "verdict": "incompatible",
-                "detail": f"The jar declares it needs Minecraft {mc_range}, "
+                "detail": f"This {self.word} says it needs Minecraft {mc_range}, "
                 f"but this server runs {mc_version}.",
             }
         if declared is True and listed is not False:
             return {
                 "verdict": "verified_metadata",
-                "detail": f"The jar declares support for {mc_range}, which "
-                f"includes {mc_version}. Metadata only - not a test.",
+                "detail": f"This {self.word} says it works with {mc_range}, which "
+                f"includes {mc_version}. That's what the file says, not a test.",
             }
         if listed:
             return {
@@ -359,8 +404,9 @@ class ModManager:
             raise ModError(f"An automatic restart is counting down. Cancel it before you {action}.")
         if self.server.running:
             raise ModError(
-                f"The server is {self.server.state.value}. Stop it before you {action}: "
-                "Fabric locks mod jars while it runs and changing them mid-session can corrupt state."
+                f"The server is {self.server.state.value.lower()}. Stop it before you {action}: "
+                f"it keeps {self.word} files open while it runs, and changing them mid-game "
+                "can damage the world."
             )
 
     async def _emit(self, type_: str, message: str, level: str = "info", **data) -> None:
@@ -379,9 +425,11 @@ class ModManager:
         allow_replace: bool = False,
         install_dependencies: bool = False,
     ) -> dict[str, Any]:
-        """Download and install a mod. Returns a report of what changed."""
-        self._require_server_offline("install a mod")
+        """Download and install a mod or plugin. Returns what changed."""
+        self._require_content()
+        self._require_server_offline(f"install a {self.word}")
         mc_version = minecraft_version or self.server.mc_version
+        kind = self.server_type.name
 
         version: dict[str, Any] | None
         if version_id:
@@ -390,23 +438,27 @@ class ModManager:
             version = await self.modrinth.latest_for(project, mc_version)
         if not version:
             raise ModError(
-                f"No Fabric build of '{project}' was published"
-                + (f" for Minecraft {mc_version}" if mc_version else "")
+                f"There's no {kind} version of '{project}'"
+                + (f" for Minecraft {mc_version}." if mc_version else ".")
             )
         if mc_version and mc_version not in version["game_versions"]:
             raise ModError(
-                f"{version['version_number']} supports {', '.join(version['game_versions'][:6])}, "
-                f"not {mc_version}. Pick a different version."
+                f"{version['version_number']} is for Minecraft "
+                f"{', '.join(version['game_versions'][:6])}, not {mc_version}. "
+                "Pick another version."
             )
-        if "fabric" not in [loader.lower() for loader in version["loaders"]]:
-            raise ModError(f"This file targets {', '.join(version['loaders'])}, not Fabric")
+        if not self.server_type.accepts_any([loader.lower() for loader in version["loaders"]]):
+            raise ModError(
+                f"That file is for {', '.join(version['loaders'])}, not {kind}, "
+                "so it wasn't installed."
+            )
 
         filename = version["file"]["filename"]
         target = safe_join(self.mods_dir, filename, allowed_extensions=JAR_EXT)
         if target.exists() and not allow_replace:
             raise ModError(
-                f"{filename} is already in the mods folder. "
-                "Nothing was overwritten. Use the update action, or confirm replacement."
+                f"{filename} is already in the {self.server_type.content} folder, so nothing "
+                "was changed. Use Update, or confirm that you want to replace it."
             )
 
         data, filename, sha256 = await self.modrinth.download(version)
@@ -414,10 +466,7 @@ class ModManager:
         temp.write_bytes(data)
         try:
             info = read_mod_jar(temp, compute_hash=False)
-            if info.loader == "forge":
-                raise ModError("The downloaded file is a Forge mod. It was discarded.")
-            if info.loader == "unknown":
-                raise ModError("The downloaded file has no fabric.mod.json. It was discarded.")
+            self._check_loader(info)
             replaced = None
             if target.exists():
                 assert_not_symlink(target)
@@ -460,13 +509,13 @@ class ModManager:
 
         report: dict[str, Any] = {
             "installed": installed.to_dict(),
-            # Writing a jar into the mods folder is not the same as Fabric
-            # loading it. That is only known after the server has started and
-            # reported the mod, so it stays unverified until then.
+            # Writing a jar into the folder is not the same as the server
+            # loading it. That is only known once the server has started and
+            # reported it, so it stays unverified until then.
             "loaded_by_minecraft": "not verified",
             "loaded_detail": (
-                "The file is in the mods folder. Start the server to find out "
-                "whether Fabric loads it."
+                f"The file is in the {self.server_type.content} folder. Start the server "
+                "to find out whether it loads."
             ),
             "compatibility": self.compatibility_verdict(version, installed),
             "replaced": replaced,
@@ -508,23 +557,21 @@ class ModManager:
         self, filename: str, data: bytes, user: str, allow_replace: bool = False
     ) -> dict[str, Any]:
         """Install an uploaded jar. Same rules as a Modrinth install."""
-        self._require_server_offline("install a mod")
+        self._require_content()
+        self._require_server_offline(f"install a {self.word}")
         safe_filename(filename, JAR_EXT)
         if not data.startswith(b"PK"):
-            raise ModError("That file is not a jar archive")
+            raise ModError("That file isn't a .jar file.")
         if len(data) > 300 * 1024 * 1024:
-            raise ModError("That file is larger than the 300 MB limit")
+            raise ModError("That file is bigger than the 300 MB limit.")
         target = safe_join(self.mods_dir, filename, allowed_extensions=JAR_EXT)
         if target.exists() and not allow_replace:
-            raise ModError(f"{filename} already exists. Nothing was overwritten.")
+            raise ModError(f"{filename} is already there, so nothing was changed.")
         temp = self.mods_dir / f".{filename}.part"
         temp.write_bytes(data)
         try:
             info = read_mod_jar(temp, compute_hash=True)
-            if info.loader in ("forge", "unknown"):
-                raise ModError(
-                    "That jar has no fabric.mod.json, so it is not a Fabric mod. It was discarded."
-                )
+            self._check_loader(info)
             if target.exists():
                 old = read_mod_jar(target)
                 self.archive(target, old, source="replaced-on-upload")
@@ -547,8 +594,8 @@ class ModManager:
             "installed": installed.to_dict(),
             "loaded_by_minecraft": "not verified",
             "loaded_detail": (
-                "The file is in the mods folder. Start the server to find out "
-                "whether Fabric loads it."
+                f"The file is in the {self.server_type.content} folder. Start the server "
+                "to find out whether it loads."
             ),
         }
 
@@ -573,7 +620,7 @@ class ModManager:
             "mod": mod.to_dict(),
             "dependents": dependents,
             "warning": (
-                f"{len(dependents)} installed mod(s) declare {mod.mod_id} as a required dependency. "
+                f"{len(dependents)} other {self.word}(s) say they need {mod.mod_id}. "
                 "Removing it may stop the server from starting."
             )
             if dependents
@@ -581,12 +628,14 @@ class ModManager:
         }
 
     async def remove(self, filename: str, user: str, backup: bool = True) -> dict[str, Any]:
-        self._require_server_offline("remove a mod")
+        self._require_server_offline(f"remove a {self.word}")
         mod = self.find(filename)
         path = Path(mod.path)
         assert_not_symlink(path)
         if not is_inside(self.mods_dir, path):
-            raise PathSafetyError("That file is not inside the mods folder")
+            raise PathSafetyError(
+                f"That file isn't inside the {self.server_type.content} folder."
+            )
         archived = None
         if backup:
             archived = str(self.archive(path, mod, source="removed"))
@@ -608,7 +657,7 @@ class ModManager:
         return {"removed": mod.to_dict(), "archived": archived, "trash": str(trash_target)}
 
     async def set_enabled(self, filename: str, enabled: bool, user: str) -> dict[str, Any]:
-        self._require_server_offline("enable or disable a mod")
+        self._require_server_offline(f"turn a {self.word} on or off")
         mod = self.find(filename)
         path = Path(mod.path)
         assert_not_symlink(path)
@@ -622,9 +671,11 @@ class ModManager:
             new_name = path.name + DISABLED_SUFFIX
         target = self.mods_dir / new_name
         if not is_inside(self.mods_dir, target):
-            raise PathSafetyError("Refusing to write outside the mods folder")
+            raise PathSafetyError(
+                f"Refusing to write outside the {self.server_type.content} folder."
+            )
         if target.exists():
-            raise ModError(f"{new_name} already exists in the mods folder")
+            raise ModError(f"{new_name} is already in the {self.server_type.content} folder.")
         path.rename(target)
         self._cache = None
         updated = read_mod_jar(target)
@@ -677,7 +728,7 @@ class ModManager:
     async def update(
         self, filename: str, user: str, version_id: str | None = None
     ) -> dict[str, Any]:
-        self._require_server_offline("update a mod")
+        self._require_server_offline(f"update a {self.word}")
         mod = self.find(filename)
         old_path = Path(mod.path)
         archived = self.archive(old_path, mod, source="pre-update")
@@ -689,7 +740,9 @@ class ModManager:
         else:
             version = await self.modrinth.latest_for(project, self.server.mc_version)
         if not version:
-            raise ModError(f"No newer Fabric build of {mod.name} was found on Modrinth")
+            raise ModError(
+                f"Modrinth has no newer {self.server_type.name} version of {mod.name}."
+            )
 
         data, new_filename, sha256 = await self.modrinth.download(version)
         target = safe_join(self.mods_dir, new_filename, allowed_extensions=JAR_EXT)
@@ -697,8 +750,7 @@ class ModManager:
         temp.write_bytes(data)
         try:
             probe = read_mod_jar(temp, compute_hash=False)
-            if probe.loader != "fabric":
-                raise ModError("The downloaded file is not a Fabric mod. Nothing was changed.")
+            self._check_loader(probe, discarded=False)
             old_path.unlink()
             temp.replace(target)
         except Exception:
@@ -740,29 +792,29 @@ class ModManager:
             "rollback_archive": str(archived),
             "loaded_by_minecraft": "not verified",
             "loaded_detail": (
-                "The new jar is in place. Start the server to find out whether "
-                "Fabric loads it. If startup fails, roll back from History."
+                "The new file is in place. Start the server to find out whether it loads. "
+                "If the server won't start, go back to the old version from Versions."
             ),
         }
 
     async def rollback(self, mod_id: str, archive_path: str, user: str) -> dict[str, Any]:
-        self._require_server_offline("roll a mod back")
+        self._require_server_offline(f"go back to an older {self.word}")
         row = self.db.query_one(
             "SELECT * FROM mod_versions WHERE server_id = ? AND mod_id = ? AND archive_path = ?",
             (self.server.server_id, mod_id, archive_path),
         )
         if not row:
-            raise ModError("That archived version is not in this server's mod history")
+            raise ModError(f"That saved version isn't in this server's {self.word} history.")
         source = Path(row["archive_path"])
         if not source.is_file():
-            raise ModError("The archived jar file is missing from mod-backups")
+            raise ModError("The saved copy of that version is missing from the backups folder.")
         if not is_inside(self.backup_dir, source):
-            raise PathSafetyError("The archive path is outside the mod backup folder")
+            raise PathSafetyError(f"That path is outside the saved {self.word} folder.")
         if row.get("sha256"):
             actual = sha256_file(source)
             if actual != row["sha256"]:
                 raise ModError(
-                    "The archived jar no longer matches its recorded SHA-256. Refusing to use it."
+                    "The saved copy has changed since it was saved, so it wasn't used."
                 )
 
         current = self.find_by_id(mod_id)

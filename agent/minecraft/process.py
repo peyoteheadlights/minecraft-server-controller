@@ -2,8 +2,11 @@
 
 Responsibilities:
 
-* launch ``java -Xmx6G -jar fabric-server-launch.jar nogui`` as a real child
-  process - argv list, **never** a shell, fixed working directory
+* launch the server as a real child process - argv list, **never** a
+  shell, fixed working directory. Most types run
+  ``java -Xmx6G -jar <jar> nogui``; Forge and NeoForge run
+  ``java -Xmx6G @libraries/.../win_args.txt nogui`` from the argument file
+  their installer wrote (``server.args_file``)
 * stream its console into a bounded buffer
 * write validated Minecraft commands to its stdin
 * tell the difference between a graceful stop, a clean self-shutdown, a
@@ -78,6 +81,15 @@ class MinecraftServer:
 
         self.mc_version: str | None = None
         self.loader_version: str | None = None
+        # The loader the console named ("Paper", "Fabric Loader"), and the
+        # type that implies, so a wrongly set type can be reported. Never
+        # used to change the configured type by itself.
+        self.loader_name: str | None = None
+        self.detected_type: str | None = None
+        # The version the app is installing or has just installed, shown as
+        # "pending" until the console reports the new version.
+        self.pending_version: dict[str, Any] | None = None
+        self.eula_required = False
         self.java_version: str | None = None
         self.detected_port: int | None = None
         self.mod_count: int | None = None
@@ -156,6 +168,11 @@ class MinecraftServer:
             return "process running, transition in progress"
         return "process exit observed by the agent"
 
+    @property
+    def tps_candidates(self) -> tuple[str, ...]:
+        """The TPS commands this server's type answers, in order."""
+        return self.config.server_type.tps_commands
+
     def tps_unavailable_reason(self) -> str | None:
         """Why TPS is unknown, or None when it is actually known."""
         if self.tps is not None:
@@ -179,8 +196,8 @@ class MinecraftServer:
             return f"The agent has not yet asked for the tick rate ('{command}')."
         return (
             f"'{command}' was sent but nothing answered with a tick rate. "
-            "Vanilla Fabric has no such command; install Carpet or spark, or use "
-            "'tick query' on Minecraft 1.20.3 and newer."
+            f"A {self.config.server_type.name} server may need the spark mod for this, "
+            "or Minecraft 1.20.3 and newer answer 'tick query'."
         )
 
     def verify_state(self) -> ServerState:
@@ -216,15 +233,49 @@ class MinecraftServer:
         return check_compatibility(self.java_info, self.mc_version)
 
     def build_command(self) -> list[str]:
+        """The launch command, from configuration only. Forge and NeoForge
+        are launched from the argument file their installer wrote."""
         raw = self.config.server.raw_command
         if raw:
             return [str(x) for x in raw]
         java = self.config.server.java
         jvm = [str(a) for a in self.config.server.jvm_args]
         jvm += cpu.jvm_args(self.config.server.cpu_cores, jvm)
-        jar = self.config.server.jar
         args = [str(a) for a in self.config.server.server_args]
-        return [java, *jvm, "-jar", jar, *args]
+        args_file = self.config.server.args_file.strip()
+        if self.config.server_type.launch == "args_file" and args_file:
+            # The path is written by the installer this app ran, and is
+            # always inside the server folder (checked in preflight).
+            return [java, *jvm, f"@{args_file}", *args]
+        return [java, *jvm, "-jar", self.config.server.jar, *args]
+
+    def launch_problem(self) -> str | None:
+        """Why this server cannot be launched as configured, or None. Forge
+        and NeoForge need their argument file; the others need their jar."""
+        from ..security.paths import is_inside
+
+        directory = self.config.server_dir
+        server_type = self.config.server_type
+        if server_type.launch == "args_file":
+            relative = self.config.server.args_file.strip()
+            if not relative:
+                return (
+                    f"This {server_type.name} server hasn't been set up yet. Use Change "
+                    "version in Server settings to install it."
+                )
+            path = (directory / relative).resolve()
+            if not is_inside(directory, path):
+                return "The server's start file isn't inside its own folder, so it wasn't used."
+            if not path.is_file():
+                return (
+                    f"{server_type.name}'s start file is missing: {path}. Reinstall this "
+                    "version from Server settings."
+                )
+            return None
+        jar = directory / self.config.server.jar
+        if not jar.is_file():
+            return f"The server file is missing: {jar}"
+        return None
 
     def preflight(self) -> PreflightResult:
         result = PreflightResult()
@@ -245,9 +296,9 @@ class MinecraftServer:
             result.problems.append(f"Server directory not found: {directory}")
             return result
         if not self.config.server.raw_command:
-            jar = directory / self.config.server.jar
-            if not jar.is_file():
-                result.problems.append(f"Server jar not found: {jar}")
+            problem = self.launch_problem()
+            if problem:
+                result.problems.append(problem)
             java = self.config.server.java
             if not (Path(java).is_file() or shutil.which(java)):
                 result.problems.append(f"Java not found on this machine: {java}")
@@ -274,8 +325,17 @@ class MinecraftServer:
             result.problems.extend(self.start_guard())
         if self.start_warnings:
             result.warnings.extend(self.start_warnings())
-        if not self.config.mods_dir.is_dir():
-            result.warnings.append(f"Mods folder missing: {self.config.mods_dir}")
+        content = self.config.server_type.content
+        if content and not self.config.mods_dir.is_dir():
+            result.warnings.append(f"The {content} folder is missing: {self.config.mods_dir}")
+        eula = directory / "eula.txt"
+        if eula.is_file():
+            text = eula.read_text(encoding="utf-8", errors="replace").lower()
+            if "eula=true" not in text:
+                result.problems.append(
+                    "Minecraft's rules (the EULA) haven't been accepted for this server yet, "
+                    "so it won't start. Accept them in Server settings."
+                )
         try:
             free_gb = shutil.disk_usage(directory).free / 1024**3
             if free_gb < 2:
@@ -301,10 +361,17 @@ class MinecraftServer:
             "startup_seconds": self.startup_seconds,
             "last_exit_code": self.last_exit_code,
             "last_exit_reason": self.last_exit_reason.value if self.last_exit_reason else None,
+            "server_type": self.config.server.type,
+            "server_type_name": self.config.server_type.name,
+            "server_type_detected": self.detected_type,
             "minecraft_version": self.mc_version,
             "minecraft_version_source": "server console" if self.mc_version else None,
+            "pending_version": self.pending_version,
             "fabric_loader": self.loader_version,
             "fabric_loader_source": "server console" if self.loader_version else None,
+            "loader_version": self.loader_version,
+            "loader_name": self.loader_name or self.config.server_type.loader_name,
+            "eula_required": self.eula_required,
             "java_version": self.java_version,
             "java": self.java_info.to_dict() if self.java_info else None,
             "java_compatibility": self.java_compatibility(),
@@ -511,6 +578,13 @@ class MinecraftServer:
             self.mc_version = sig.mc_version
         if sig.loader_version:
             self.loader_version = sig.loader_version
+        if sig.loader_name:
+            from .. import servertypes
+
+            self.loader_name = sig.loader_name
+            self.detected_type = servertypes.detected_type(sig.loader_name)
+        if sig.eula_required:
+            self.eula_required = True
         if sig.port:
             self.detected_port = sig.port
         if sig.mod_count is not None:
@@ -527,6 +601,20 @@ class MinecraftServer:
                 # 1000/target ms per tick cannot reach its target rate.
                 self.tps = round(min(self._target_tps, 1000.0 / sig.mspt), 2)
             self.tps_source = self.tps_source or str(self.config.monitor.tps_command)
+
+        # A version change is only done once the console reports the new
+        # version. Until then the dashboard shows it as pending.
+        pending = self.pending_version
+        if pending and self.mc_version and self.mc_version == pending.get("minecraft_version"):
+            self.pending_version = None
+            await self.bus.publish(
+                Event(
+                    type="version_confirmed",
+                    level="success",
+                    message=f"The server is now running Minecraft {self.mc_version}",
+                    data={**pending, "confirmed_by": "server console"},
+                )
+            )
 
         if sig.done_seconds is not None and self.state == ServerState.STARTING:
             self.startup_seconds = sig.done_seconds

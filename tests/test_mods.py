@@ -5,6 +5,7 @@ import zipfile
 import httpx
 import pytest
 
+from agent import downloads
 from agent.database.db import Database
 from agent.events import EventBus
 from agent.minecraft.process import MinecraftServer
@@ -61,13 +62,20 @@ def test_scan_reads_fabric_metadata(manager, config):
     assert mods[0].sha256
 
 
-def test_non_fabric_jars_are_flagged(manager, config):
+def test_jars_for_another_loader_are_flagged(manager, config):
+    """A Forge mod reads as a Forge mod, and the check against this
+    server's type (Fabric) is what reports it as wrong."""
     make_jar(config.mods_dir / "forgemod.jar", "forgemod", loader="forge")
     make_jar(config.mods_dir / "mystery.jar", "mystery", loader="none")
-    problems = {m.filename: m for m in manager.scan()}
-    assert problems["forgemod.jar"].loader == "forge"
-    assert "Forge" in problems["forgemod.jar"].problems[0]
-    assert problems["mystery.jar"].loader == "unknown"
+    found = {m.filename: m for m in manager.scan()}
+    assert found["forgemod.jar"].loader == "forge"
+    assert found["mystery.jar"].loader == "unknown"
+    assert found["mystery.jar"].problems
+
+    per_mod = {m["filename"]: m for m in manager.check_all()["per_mod"]}
+    issues = [i["detail"] for i in per_mod["forgemod.jar"]["issues"]]
+    assert any("Forge" in detail and "Fabric" in detail for detail in issues)
+    assert per_mod["forgemod.jar"]["status"] == "error"
 
 
 def test_corrupt_jar_does_not_raise(manager, config):
@@ -121,7 +129,11 @@ def test_declared_incompatibility_is_reported(manager, config):
 
 
 def test_checker_states_its_limitations(manager):
-    assert any("runtime" in text for text in manager.check_all()["limitations"])
+    limitations = manager.check_all()["limitations"]
+    assert any("clash" in text for text in limitations)
+    assert any("fabric.mod.json" in text for text in limitations), (
+        "the limits must name the file this type's metadata is read from"
+    )
 
 
 def test_unverifiable_version_range_is_not_claimed_as_pass():
@@ -198,7 +210,7 @@ async def test_upload_installs_a_valid_fabric_jar(manager, config, tmp_path):
 async def test_upload_does_not_silently_overwrite(manager, config, tmp_path):
     make_jar(config.mods_dir / "cooltech.jar", "cooltech", "1.0.0")
     source = make_jar(tmp_path / "new.jar", "cooltech", "2.0.0")
-    with pytest.raises(ModError, match="already exists"):
+    with pytest.raises(ModError, match="already there"):
         await manager.install_local_file("cooltech.jar", source.read_bytes(), user="tester")
 
 
@@ -221,7 +233,7 @@ async def test_rollback_refuses_a_tampered_archive(manager, config):
     info = read_mod_jar(config.mods_dir / "cooltech.jar")
     archive = manager.archive(config.mods_dir / "cooltech.jar", info, source="test")
     archive.write_bytes(b"PK\x03\x04tampered")
-    with pytest.raises(ModError, match="SHA-256"):
+    with pytest.raises(ModError, match="changed since it was saved"):
         await manager.rollback("cooltech", str(archive), user="tester")
 
 
@@ -233,13 +245,26 @@ async def test_rollback_refuses_paths_outside_the_backup_folder(manager, config,
 
 
 # ---------------------------------------------------------------- downloads
-def modrinth_with_transport(config, handler):
+@pytest.fixture(autouse=True)
+def no_real_network(monkeypatch):
+    """The safe downloader always goes through a fake network in tests, so
+    nothing can leave the machine."""
+
+    def refuse(request):
+        raise AssertionError(f"unexpected request to {request.url}")
+
+    monkeypatch.setattr(downloads, "TRANSPORT", httpx.MockTransport(refuse))
+
+
+def modrinth_with_transport(config, handler, monkeypatch=None):
     client = ModrinthClient(config)
     client._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    if monkeypatch is not None:
+        monkeypatch.setattr(downloads, "TRANSPORT", httpx.MockTransport(handler))
     return client
 
 
-async def test_download_verifies_the_published_checksum(config):
+async def test_download_verifies_the_published_checksum(config, monkeypatch):
     payload = b"PK\x03\x04" + b"jar contents"
     version = {
         "file": {
@@ -250,7 +275,9 @@ async def test_download_verifies_the_published_checksum(config):
             "sha512": hashlib.sha512(payload).hexdigest(),
         }
     }
-    client = modrinth_with_transport(config, lambda request: httpx.Response(200, content=payload))
+    client = modrinth_with_transport(
+        config, lambda request: httpx.Response(200, content=payload), monkeypatch
+    )
     data, filename, digest = await client.download(version)
     assert data == payload
     assert filename == "sodium-0.5.8.jar"
@@ -258,7 +285,7 @@ async def test_download_verifies_the_published_checksum(config):
     await client.close()
 
 
-async def test_download_refuses_a_checksum_mismatch(config):
+async def test_download_refuses_a_checksum_mismatch(config, monkeypatch):
     version = {
         "file": {
             "filename": "x.jar",
@@ -267,19 +294,19 @@ async def test_download_refuses_a_checksum_mismatch(config):
         }
     }
     client = modrinth_with_transport(
-        config, lambda request: httpx.Response(200, content=b"PK\x03\x04different")
+        config, lambda request: httpx.Response(200, content=b"PK\x03\x04different"), monkeypatch
     )
-    with pytest.raises(ModrinthError, match="SHA-512"):
+    with pytest.raises(ModrinthError, match="checksum"):
         await client.download(version)
     await client.close()
 
 
-async def test_download_refuses_a_file_with_no_checksum(config):
+async def test_download_refuses_a_file_with_no_checksum(config, monkeypatch):
     version = {
         "file": {"filename": "x.jar", "url": "https://cdn.modrinth.com/data/A/versions/B/x.jar"}
     }
     client = modrinth_with_transport(
-        config, lambda request: httpx.Response(200, content=b"PK\x03\x04")
+        config, lambda request: httpx.Response(200, content=b"PK\x03\x04"), monkeypatch
     )
     with pytest.raises(ModrinthError, match="no checksum"):
         await client.download(version)
@@ -295,15 +322,17 @@ async def test_download_refuses_a_file_with_no_checksum(config):
         ("https://cdn.modrinth.com/../escape.jar", "../escape.jar"),  # traversal
     ],
 )
-async def test_download_refuses_unsafe_sources(config, url, filename):
+async def test_download_refuses_unsafe_sources(config, monkeypatch, url, filename):
     version = {"file": {"filename": filename, "url": url, "sha512": "x" * 128}}
-    client = modrinth_with_transport(config, lambda request: httpx.Response(200, content=b"PK"))
+    client = modrinth_with_transport(
+        config, lambda request: httpx.Response(200, content=b"PK"), monkeypatch
+    )
     with pytest.raises(ModrinthError):
         await client.download(version)
     await client.close()
 
 
-async def test_download_refuses_content_that_is_not_an_archive(config):
+async def test_download_refuses_content_that_is_not_an_archive(config, monkeypatch):
     payload = b"MZ windows executable"
     version = {
         "file": {
@@ -312,7 +341,9 @@ async def test_download_refuses_content_that_is_not_an_archive(config):
             "sha512": hashlib.sha512(payload).hexdigest(),
         }
     }
-    client = modrinth_with_transport(config, lambda request: httpx.Response(200, content=payload))
-    with pytest.raises(ModrinthError, match="not a zip"):
+    client = modrinth_with_transport(
+        config, lambda request: httpx.Response(200, content=payload), monkeypatch
+    )
+    with pytest.raises(ModrinthError, match="isn't a mod"):
         await client.download(version)
     await client.close()

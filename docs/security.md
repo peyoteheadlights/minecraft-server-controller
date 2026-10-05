@@ -56,6 +56,24 @@ followed.
 Backup restore also validates every member of a zip before extracting, so a
 crafted archive can't write outside the server folder (zip-slip).
 
+The one route that takes a folder path is adding a server (`POST
+/api/servers`). `check_server_folder` requires an existing, absolute, real
+folder (no symlink or reparse point) that holds the named `.jar`, is not a
+drive root, the home folder or a system folder, and does not overlap the
+agent's own folders or another server's. Registering a folder changes nothing
+in it and starts nothing. The Java program and any launch command are never
+taken from the dashboard: a new server uses the first server's `java`, and
+`raw_command` is config-file only. Removing a server only takes it off the
+list; its folder is never deleted.
+
+## Permissions
+
+Every REST route declares the permission it needs (`server.control`,
+`backups.restore`, `servers.manage`, …, listed in
+`agent/security/permissions.py`), and a test fails if a route is added without
+one. WebSocket messages are checked the same way. Today every signed-in
+account has every permission; this is the hook helper accounts will use.
+
 ## Downloads
 
 Mod downloads are HTTPS-only, restricted to Modrinth's CDN, verified

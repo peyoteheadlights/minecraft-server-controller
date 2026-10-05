@@ -107,7 +107,7 @@ happens:
 Only needed for strategy 2. You install **`ca.crt`** — never `ca.key`, which
 must stay on the server PC.
 
-The file is at `…\Minecraft Server\mcsc-data\certs\ca.crt`. Verify you are
+The file is at `C:\ProgramData\Minecraft Server Controller\certs\ca.crt` (before multi-server: `…\Minecraft Server\mcsc-data\certs\ca.crt`). Verify you are
 trusting the right file by comparing fingerprints:
 
 ```powershell
@@ -119,7 +119,7 @@ python -m installer.make_certs --show
 Administrator PowerShell:
 
 ```powershell
-Import-Certificate -FilePath "C:\path\to\Minecraft Server\mcsc-data\certs\ca.crt" `
+Import-Certificate -FilePath "C:\ProgramData\Minecraft Server Controller\certs\ca.crt" `
   -CertStoreLocation Cert:\LocalMachine\Root
 ```
 

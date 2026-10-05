@@ -143,3 +143,38 @@ class CrossplayRequest(BaseModel):
     enabled: bool
     # The UDP port Bedrock players use. Empty: the port manager picks a free one.
     port: int | None = Field(default=None, ge=1, le=65535)
+
+
+class GameSettingsRequest(BaseModel):
+    values: dict[str, Any] = Field(max_length=40)
+
+
+class GameSettingsRawRequest(BaseModel):
+    text: str = Field(max_length=256 * 1024)
+
+
+class PlayerActionRequest(BaseModel):
+    action: Literal["whitelist_add", "whitelist_remove", "op", "deop", "kick", "ban", "pardon"]
+    name: str = Field(min_length=1, max_length=17)
+    reason: str | None = Field(default=None, max_length=100)
+    confirm: bool = False
+
+
+class DuplicateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    directory: str = Field(min_length=1, max_length=400)
+    world: Literal["copy", "fresh"]
+
+
+class ModpackNewRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    directory: str = Field(min_length=1, max_length=400)
+    memory_mb: int | None = Field(default=None, ge=512, le=65536)
+    color: str | None = Field(default=None, max_length=16)
+    # True only when the person ticked the box themselves.
+    eula_accepted: bool = False
+
+
+class ModpackIntoRequest(BaseModel):
+    token: str = Field(min_length=32, max_length=32)
+    confirm: bool = False

@@ -26,6 +26,7 @@ from .database.event_writer import EventWriter
 from .events import AGENT_SCOPE, Event, EventBus, ServerBus
 from .jobs import JobConflict, JobHandle, JobTracker
 from .minecraft.crash import CrashReporter
+from .minecraft.playeractions import PlayerActions
 from .minecraft.process import MinecraftServer, ServerError
 from .mods.manager import ModManager
 from .monitoring.metrics import MetricsMonitor
@@ -76,12 +77,18 @@ class ServerContext:
             self.config, self.bus, self.db, self.server, self.backups, core.notifier
         )
 
-        self.server.signal_hook = self.players.handle_signals
+        self.player_actions = PlayerActions(self.server, self.bus)
+
+        self.server.signal_hook = self._console_signals
         self.server.crash_hook = self.crashes.collect
         self.server.maintenance = core.config.maintenance.enabled
         self.server.start_guard = lambda: core.ports.start_conflicts(self)
         self.server.start_warnings = lambda: core.ports.start_warnings(self)
         self._update_task: asyncio.Task | None = None
+
+    async def _console_signals(self, sig, line) -> None:
+        await self.players.handle_signals(sig, line)
+        await self.player_actions.handle(sig, line)
 
     @property
     def name(self) -> str:

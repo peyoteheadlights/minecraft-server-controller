@@ -361,6 +361,9 @@ export const STRINGS = /* strings-table */ {
   "alert_event.certificate_expiring": ["HTTPS certificate expiring soon", "TLS certificate expiring"],
   "alert_event.servers_changed": ["Server added or removed", "A server was added or removed"],
   "alert_event.cpu_cores_failed": ["CPU core setting failed", "CPU affinity could not be applied"],
+  "alert_event.game_settings_changed": ["Game settings changed", "server.properties changed"],
+  "alert_event.player_managed": ["Player whitelisted, made operator, kicked or banned", "Whitelist, op, kick or ban confirmed by the console"],
+  "alert_event.modpack_imported": ["Modpack imported", "Modpack (.mrpack) imported"],
 
   "startup.registered_correctly": ["Starts with Windows", "Registered correctly"],
   "startup.not_registered": ["Doesn't start with Windows", "Not registered"],

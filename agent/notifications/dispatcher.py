@@ -81,6 +81,15 @@ EVENT_MAP: dict[str, tuple[str, str, int, str]] = {
     ),
     "server_added": ("servers_changed", "➕", 0x5865F2, "Server added: {server}"),
     "server_removed": ("servers_changed", "➖", 0x9AA0A6, "Server removed: {server}"),
+    "server_duplicated": ("servers_changed", "➕", 0x5865F2, "Server copied: {server}"),
+    "game_settings_changed": (
+        "game_settings_changed",
+        "⚙️",
+        0x5865F2,
+        "{server}: game settings changed",
+    ),
+    "player_action": ("player_managed", "👤", 0x5865F2, "{server}: player list changed"),
+    "modpack_imported": ("modpack_imported", "📦", 0x3BA55D, "{server}: modpack imported"),
     "cpu_cores_failed": (
         "cpu_cores_failed",
         "⚠️",

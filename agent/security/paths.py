@@ -100,6 +100,35 @@ def safe_join(base: Path, *parts: str, allowed_extensions: set[str] | None = Non
     return candidate
 
 
+def check_archive_member(base: Path, member: str, is_symlink: bool = False) -> Path:
+    """Where an archive member would be written under ``base``, or raise.
+
+    The zip-slip check every extraction uses (backup restore, modpack
+    overrides): a member that is absolute, has a drive letter, climbs out
+    with "..", or is a link to somewhere else is refused, and the resolved
+    path must stay inside ``base``.
+    """
+    name = str(member or "")
+    if not name or "\0" in name:
+        raise PathSafetyError("The archive has an entry without a usable name.")
+    if is_symlink:
+        raise PathSafetyError(f"The archive has a shortcut in it ({name}), which isn't allowed.")
+    normalised = name.replace("\\", "/")
+    if normalised.startswith("/") or re.match(r"^[A-Za-z]:", normalised):
+        raise PathSafetyError(f"The archive contains an unsafe path: {name}")
+    if any(part == ".." for part in normalised.split("/")):
+        raise PathSafetyError(f"The archive contains an unsafe path: {name}")
+    target = (Path(base) / normalised).resolve()
+    if not is_inside(base, target):
+        raise PathSafetyError(f"The archive contains an unsafe path: {name}")
+    return target
+
+
+def zip_member_is_symlink(info) -> bool:
+    """True for a zip entry that stores a Unix symbolic link."""
+    return stat_module.S_ISLNK(info.external_attr >> 16)
+
+
 def assert_not_symlink(path: Path) -> Path:
     p = Path(path)
     if p.is_symlink():

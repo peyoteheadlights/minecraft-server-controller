@@ -1,12 +1,14 @@
-"""Who is online and who has played."""
+"""Who is online and who has played, and the Players page's buttons."""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request
 
+from ...minecraft import playeractions
 from ...security.auth import Principal
-from ...security.permissions import SERVER_VIEW, require
-from ..deps import get_server
+from ...security.permissions import PLAYERS_MANAGE, SERVER_VIEW, require
+from ..deps import audit, get_server
+from .models import PlayerActionRequest
 
 router = APIRouter()
 
@@ -20,6 +22,11 @@ async def players(principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depe
         "source": ctx.players.verified_source,
         "known": ctx.players.all_players(),
         "max_players": ctx.config.server.max_players,
+        # Who is on the whitelist, an operator or banned, from Minecraft's
+        # own files. null with a reason when a file isn't there yet.
+        "lists": playeractions.lists(ctx.config.server_dir),
+        "running": ctx.server.running and ctx.server.state.value == "ONLINE",
+        "actions": [a.to_dict() for a in ctx.player_actions.recent()[:10]],
     }
 
 
@@ -31,3 +38,32 @@ async def player_sessions(
     ctx=Depends(get_server),
 ):
     return {"sessions": ctx.players.sessions(username or None, max(1, min(limit, 500)))}
+
+
+@router.post("/players/actions")
+async def player_action(
+    payload: PlayerActionRequest,
+    request: Request,
+    principal: Principal = Depends(require(PLAYERS_MANAGE)),
+    ctx=Depends(get_server),
+):
+    """Send whitelist, op, kick, ban or unban for one player. The answer is
+    "sent"; it becomes "done" once the server's console confirms it."""
+    pending = await ctx.player_actions.send(
+        payload.action, payload.name, payload.reason or "", confirm=payload.confirm
+    )
+    audit(ctx, request, f"player_{payload.action}", target=pending.name, detail=pending.command)
+    return {"result": "SENT", "action": pending.to_dict()}
+
+
+@router.get("/players/actions/{action_id}")
+async def player_action_status(
+    action_id: str,
+    principal: Principal = Depends(require(SERVER_VIEW)),
+    ctx=Depends(get_server),
+):
+    """Whether the server has confirmed an action yet."""
+    pending = ctx.player_actions.get(action_id)
+    if pending is None:
+        raise HTTPException(status_code=404, detail="That action isn't on the list any more.")
+    return {"action": pending.to_dict()}

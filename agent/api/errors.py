@@ -18,9 +18,13 @@ from ..config import ConfigError
 from ..core import UnknownServer
 from ..crossplay import CrossplayError
 from ..downloads import DownloadError
+from ..duplicate import DuplicateError
 from ..jobs import JobConflict, JobNotFound
 from ..minecraft.commands import CommandError
+from ..minecraft.playeractions import PlayerActionError
 from ..minecraft.process import ServerError
+from ..minecraft.properties import FormError, PropertiesError
+from ..modpack import ModpackError
 from ..mods.dependencies import DependencyError
 from ..mods.manager import ModError
 from ..mods.modrinth import ModrinthError
@@ -53,6 +57,10 @@ ERROR_STATUS: dict[type[Exception], int] = {
     DownloadError: 502,  # the download failed, not the request
     InstallError: 400,
     CrossplayError: 400,
+    PlayerActionError: 400,
+    PropertiesError: 400,
+    DuplicateError: 400,
+    ModpackError: 400,
 }
 DOMAIN_ERRORS: tuple[type[Exception], ...] = tuple(ERROR_STATUS)
 
@@ -70,9 +78,16 @@ async def _auth_handler(request: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(status_code=exc.status, content={"detail": exc.message}, headers=headers)
 
 
+async def _form_handler(request: Request, exc: Exception) -> JSONResponse:
+    """A form with several refused values: each one's reason, by key."""
+    assert isinstance(exc, FormError)
+    return JSONResponse(status_code=400, content={"detail": str(exc), "problems": exc.problems})
+
+
 def register_error_handlers(app: FastAPI) -> None:
     for exc_type, status in ERROR_STATUS.items():
         app.add_exception_handler(exc_type, _status_handler(status))
+    app.add_exception_handler(FormError, _form_handler)
     app.add_exception_handler(AuthError, _auth_handler)
 
 

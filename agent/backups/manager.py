@@ -26,7 +26,14 @@ from typing import TYPE_CHECKING, Any
 
 from ..events import Event, EventBus
 from ..safechange import SafeChange, run_safe_change
-from ..security.paths import PathSafetyError, is_inside, safe_existing, safe_filename
+from ..security.paths import (
+    PathSafetyError,
+    check_archive_member,
+    is_inside,
+    safe_existing,
+    safe_filename,
+    zip_member_is_symlink,
+)
 
 if TYPE_CHECKING:
     from ..jobs import JobHandle, JobTracker
@@ -199,7 +206,10 @@ class BackupManager:
         await self.bus.publish(Event(type="backup_started", message=f"Backup started: {base_name}"))
         saving_disabled = False
         try:
-            if self.server.running and self.server.state.value == "ONLINE":
+            # Only a backup holding folders (the world) needs Minecraft to
+            # flush and pause saving; a copy of one settings file doesn't.
+            touches_world = any(source.is_dir() for source in sources)
+            if touches_world and self.server.running and self.server.state.value == "ONLINE":
                 try:
                     await self.server.send_command("save-all flush", internal=True)
                     await asyncio.sleep(3)
@@ -514,10 +524,8 @@ class BackupManager:
             with zipfile.ZipFile(path) as zf:
                 members = zf.namelist()
                 # reject any member that would escape the server directory
-                for member in members:
-                    target = (base / member).resolve()
-                    if not is_inside(base, target):
-                        raise PathSafetyError(f"The archive contains an unsafe path: {member}")
+                for info in zf.infolist():
+                    check_archive_member(base, info.filename, zip_member_is_symlink(info))
                 tops = {m.split("/")[0] for m in members if m.split("/")[0]}
                 for top in tops:
                     live = base / top

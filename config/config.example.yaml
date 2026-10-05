@@ -170,6 +170,9 @@ notifications:
     certificate_expiring: true
     servers_changed: true    # a server was added or removed in Settings
     cpu_cores_failed: true   # a server's CPU core limit could not be applied
+    game_settings_changed: false  # someone saved a server's Game settings
+    player_managed: true     # a player was whitelisted, made operator, kicked or banned
+    modpack_imported: true   # a modpack was imported into a server
   email:
     host: ""                 # e.g. smtp.gmail.com
     port: 587

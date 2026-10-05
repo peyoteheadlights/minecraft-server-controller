@@ -290,6 +290,9 @@ class NotificationSettings(Section):
             "certificate_expiring": True,
             "servers_changed": True,
             "cpu_cores_failed": True,
+            "game_settings_changed": False,
+            "player_managed": True,
+            "modpack_imported": True,
         }
     )
     email: EmailSettings = field(default_factory=EmailSettings)

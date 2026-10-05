@@ -66,8 +66,11 @@ recorded.
 
 ## Performance
 
-Current CPU, RAM, disk and network, six hours of history as sparklines, the
-health checks, and a storage breakdown by category.
+Current CPU, RAM, disk and network, this server's own share of the PC's CPU
+(with how many cores it runs on, read from its process), six hours of history
+as sparklines, the health checks, and a storage breakdown by category. The
+PC's CPU is one reading shared by every server, and shows Unknown until two
+readings a second apart exist.
 
 Each health check shows the measured value **and the threshold it was compared
 against**, so a warning is never mysterious. Checks that cannot be measured —
@@ -79,6 +82,16 @@ showing a made-up number.
 Worlds with sizes and last-backup times, the backup list, and buttons to create,
 verify, download, restore and delete. Restore shows a full list of what it is
 about to do before it does any of it. See [backups.md](backups.md).
+
+**Last change** at the top shows the newest restore (or other safe change) on
+this server with an **Undo this change** button. Undo restores the safety copy
+taken just before that change; it is a change of its own, with its own safety
+copy, so it can be undone too. The toast after a restore has the same Undo
+button.
+
+While a restore runs, the server cannot be started from anywhere (the button,
+a schedule, another device), and mod changes wait: a server runs one change
+like this at a time.
 
 ## Mods
 
@@ -116,7 +129,9 @@ is changed and the server is not started. **Remove** takes a server off the
 list after you confirm; its folder, world, mods and backups stay where they are.
 
 Below that: auto-restart behaviour (for the selected server when there are
-several), alert thresholds, notification channels and per-event checkboxes,
+several), **CPU cores** (tick the cores this server may use, or **Use every
+core**; it shows which cores other servers are set to, and the cores the
+running server really uses, read from its process), alert thresholds, notification channels and per-event checkboxes,
 and maintenance mode. Changes are written to `config.yaml` when you press Save.
 
 Only a safe subset of settings can be changed here. Things that would change

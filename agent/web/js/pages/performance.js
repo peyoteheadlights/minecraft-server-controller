@@ -1,7 +1,7 @@
 import { api } from "../api.js";
 import { chart } from "../charts.js";
 import { tpsPanel } from "../panels/tps.js";
-import { renderers } from "../state.js";
+import { renderers, state } from "../state.js";
 import { card, el, fmt, known, loadInto, metric, table } from "../ui.js";
 
 renderers.performance = (page) => {
@@ -11,6 +11,15 @@ renderers.performance = (page) => {
   tpsPanel(tpsNode);
   return renderPerformance(rest);
 };
+
+/* Which cores the server runs on, as read from its process. */
+function coresNote() {
+  const cores = state.status && state.status.cpu_cores;
+  if (!cores || !cores.applied) return "share of the whole PC";
+  const all = cores.logical_cores && cores.applied.length === cores.logical_cores;
+  return all ? "share of the whole PC, on every core"
+    : `share of the whole PC, on ${cores.applied.length} of ${cores.logical_cores} cores`;
+}
 
 export const renderPerformance = (page) => loadInto(page, async () => {
   const [data, health] = await Promise.all([api("/performance?hours=6"), api("/health/server")]);
@@ -25,7 +34,9 @@ export const renderPerformance = (page) => loadInto(page, async () => {
     metric("Disk free", fmt.gb(current.disk_free_gb),
       known(current.disk_free_gb) || !current.disk_unknown_reason
         ? `alert under ${data.thresholds.disk_free_gb} GB` : current.disk_unknown_reason),
-    metric("Network", `${(current.net_recv_mb_s || 0).toFixed(2)}`, "MB/s received", {})));
+    metric("Network", `${(current.net_recv_mb_s || 0).toFixed(2)}`, "MB/s received", {}),
+    metric("This server's CPU", fmt.pct(current.process_cpu_percent), coresNote(),
+      { bar: current.process_cpu_percent })));
 
   holder.append(el("div", { class: "gap-section" },
     card("Last 6 hours",

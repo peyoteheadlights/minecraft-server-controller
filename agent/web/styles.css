@@ -664,3 +664,8 @@ td .btn-row { flex-wrap: nowrap; justify-content: flex-end; }
 .offscreen { position: fixed; opacity: 0; }
 .evidence-heading { margin-top: 16px; font-size: 14px; }
 .console-wrap.compact { height: auto; max-height: 200px; }
+
+/* CPU core picker */
+.core-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 6px 14px; }
+.core-grid .core { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.core-grid .core .hint { flex-basis: 100%; margin: 0; }

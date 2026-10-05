@@ -57,7 +57,8 @@ on a phone without opening the dashboard.
 Settings has a checkbox per event: server started/stopped/crashed/restarted/
 recovered, player joined/left, high RAM/CPU/MSPT, low disk/TPS, backup
 completed/failed, mod installed/removed/updated, dependency problems, failed
-sign-ins, maintenance mode, and a server added or removed.
+sign-ins, maintenance mode, a server added or removed, and a CPU core limit
+that could not be applied.
 
 Every alert names its server ("Survival crashed"), so with several servers you
 know which one without opening the dashboard. CPU and RAM are measured for the

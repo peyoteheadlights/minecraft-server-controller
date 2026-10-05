@@ -20,7 +20,9 @@ dashboard you can open from your computer or phone over a private
 - Automatic restart after a crash, with crash-loop protection
 - Player tracking: who's online, sessions and total playtime
 - Backups of worlds, config and mods, verified before they're trusted, with
-  safe restore and retention
+  safe restore, one-click undo and retention
+- Limit each server to some of the PC's CPU cores, applied to the running
+  server at once and read back from its process
 - Mod manager: install from Modrinth with checksum verification, enable,
   disable, update, roll back, and dependency checks
 - Scheduled tasks: backups, restarts, log cleanup, maintenance windows

@@ -65,13 +65,66 @@ async def run_safe_change(
     """Run ``change`` with a verified backup behind it. Returns what the
     change returned plus ``safety_backup``, ``undo`` and ``check``."""
     from .minecraft.process import ServerError
-    from .minecraft.state import ExitReason
 
     def step(name: str) -> None:
         if job:
             job.step(name)
 
     was_running = server.running
+    if change.stop_server and server.held_by:
+        raise SafeChangeError(f"Wait for '{server.held_by}' to finish first")
+    if change.stop_server:
+        # Held from before the stop until the result is checked, so nothing
+        # (a click, a schedule, another device) starts Minecraft on files
+        # that are half changed.
+        server.held_by = change.title
+    try:
+        result, detail, safety = await _change_held(server, backups, change, job, user, was_running)
+    finally:
+        if change.stop_server:
+            server.held_by = None
+
+    started = False
+    if change.start_after:
+        step("Starting the server")
+        try:
+            await server.start(actor=user)
+            started = await server.wait_online()
+        except ServerError as exc:
+            await server.bus.publish(
+                Event(
+                    type="restore_start_failed",
+                    level="error",
+                    message=f"The server did not start after the change: {exc}",
+                )
+            )
+    return {
+        **result,
+        "safety_backup": safety,
+        "undo": {"kind": "restore_backup", "backup_id": safety["id"], "backup": safety["name"]}
+        if safety
+        else None,
+        "check": detail,
+        "was_running": was_running,
+        "server_started": started,
+    }
+
+
+async def _change_held(
+    server: MinecraftServer,
+    backups: BackupManager,
+    change: SafeChange,
+    job: JobHandle | None,
+    user: str,
+    was_running: bool,
+) -> tuple[dict[str, Any], str, dict[str, Any] | None]:
+    """Steps 1 to 5: stop, back up, change, check, undo on failure."""
+    from .minecraft.state import ExitReason
+
+    def step(name: str) -> None:
+        if job:
+            job.step(name)
+
     if change.stop_server and was_running:
         step("Stopping the server")
         await server.bus.publish(
@@ -106,31 +159,7 @@ async def run_safe_change(
         if not ok:
             undone = await _undo(backups, safety, job)
             raise SafeChangeError(f"The result could not be verified: {detail}{undone}")
-
-    started = False
-    if change.start_after:
-        step("Starting the server")
-        try:
-            await server.start(actor=user)
-            started = await server.wait_online()
-        except ServerError as exc:
-            await server.bus.publish(
-                Event(
-                    type="restore_start_failed",
-                    level="error",
-                    message=f"The server did not start after the change: {exc}",
-                )
-            )
-    return {
-        **result,
-        "safety_backup": safety,
-        "undo": {"kind": "restore_backup", "backup_id": safety["id"], "backup": safety["name"]}
-        if safety
-        else None,
-        "check": detail,
-        "was_running": was_running,
-        "server_started": started,
-    }
+    return result, detail, safety
 
 
 async def _undo(

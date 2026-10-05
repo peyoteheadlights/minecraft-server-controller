@@ -118,6 +118,16 @@ def players(player_count: int | None, max_players: int) -> Check:
 
 
 def cpu(snap: dict[str, Any], th) -> Check:
+    if snap["cpu_percent"] is None:
+        return check(
+            "CPU",
+            True,
+            None,
+            th.cpu_percent,
+            "Not measured yet: CPU use needs two readings a second apart",
+            source="psutil (operating system)",
+            unknown=True,
+        )
     return check(
         "CPU",
         snap["cpu_percent"] < th.cpu_percent,

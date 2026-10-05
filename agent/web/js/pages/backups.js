@@ -4,8 +4,20 @@ import { renderers, state } from "../state.js";
 import { card, confirmDialog, el, fmt, loadInto, table, toast } from "../ui.js";
 
 renderers.backups = (page) => loadInto(page, async () => {
-  const [data, worlds] = await Promise.all([api("/backups"), api("/worlds")]);
+  const [data, worlds, jobs] = await Promise.all([
+    api("/backups"), api("/worlds"),
+    api(`/jobs?server_id=${encodeURIComponent(state.serverId)}&limit=20`).catch(() => ({ jobs: [] })),
+  ]);
   const holder = el("div");
+
+  const last = lastUndoable(jobs.jobs || []);
+  if (last) {
+    holder.append(card("Last change", el("div", {},
+      el("p", {}, `${last.title}, ${fmt.ago(last.finished_at)}. `
+        + `Undo puts back the safety copy ${last.result.undo.backup} taken just before it.`),
+      el("div", { class: "btn-row mt-10" },
+        el("button", { class: "btn", onclick: () => undoChange(last) }, "Undo this change")))));
+  }
 
   holder.append(el("div", { class: "btn-row mb-14" },
     el("button", {
@@ -108,7 +120,33 @@ export async function restoreBackup(backup) {
       method: "POST",
       body: { confirm: true, start_after: startAfter.checked, safety_backup: true },
     });
-    toast(`Restored ${result.restored}. Safety copy: ${result.safety_backup.name}`);
+    const job = { id: result.job_id, title: `Restoring ${result.restored}`,
+      result: { undo: result.undo } };
+    toast(`Restored ${result.restored}. Safety copy: ${result.safety_backup.name}`, "info", 15000,
+      result.job_id && result.undo ? { label: "Undo", onClick: () => undoChange(job) } : null);
+    render();
+  } catch (err) { toast(err.message, "error"); }
+}
+
+/* The newest finished change on this server that can be undone. */
+function lastUndoable(jobs) {
+  return jobs.find((job) => job.state === "succeeded" && job.result && job.result.undo) || null;
+}
+
+/* One-click undo of a safe change: restores the safety copy it took first.
+   The undo is a change of its own, so it can be undone too. */
+export async function undoChange(job) {
+  const ok = await confirmDialog({
+    title: "Undo this change?",
+    body: `${job.title} will be undone by restoring ${job.result.undo.backup}. `
+      + "The server stops first, and a new safety copy is taken, so this can be undone too.",
+    confirmLabel: "Undo", danger: true,
+  });
+  if (!ok) return;
+  toast("Undoing. The server will stop first.");
+  try {
+    const result = await api(`/jobs/${encodeURIComponent(job.id)}/undo`, { method: "POST" });
+    toast(`Undone: ${result.restored} is back.`);
     render();
   } catch (err) { toast(err.message, "error"); }
 }

@@ -26,7 +26,9 @@ from __future__ import annotations
 
 import datetime as dt
 import ipaddress
+import logging
 import os
+import re
 import socket
 import subprocess
 from pathlib import Path
@@ -39,6 +41,8 @@ from cryptography.x509.oid import NameOID
 
 from .. import tailscale
 from ..winproc import NO_WINDOW
+
+log = logging.getLogger("msc.certs")
 
 CA_VALID_DAYS = 3650  # the CA you trust once
 LEAF_VALID_DAYS = 398  # the maximum browsers accept for a server certificate
@@ -56,13 +60,14 @@ def secure_directory(path: Path) -> Path:
 
     On Windows the inherited ACL is replaced so that only SYSTEM, the
     Administrators group and the current user have access - the private key
-    lives here.
+    lives here. A failure is logged; ``folder_access`` says what the folder's
+    access really is.
     """
     path.mkdir(parents=True, exist_ok=True)
     if os.name == "nt":
         user = os.environ.get("USERNAME", "")
         try:
-            subprocess.run(
+            done = subprocess.run(
                 [
                     "icacls",
                     str(path),
@@ -78,14 +83,86 @@ def secure_directory(path: Path) -> Path:
                 timeout=30,
                 creationflags=NO_WINDOW,
             )
-        except (OSError, subprocess.SubprocessError):
-            pass
+            if done.returncode != 0:
+                log.warning(
+                    "could not make %s private (icacls exit %s): %s",
+                    path,
+                    done.returncode,
+                    (done.stderr or done.stdout or b"").decode(errors="replace").strip(),
+                )
+        except (OSError, subprocess.SubprocessError) as exc:
+            log.warning("could not make %s private: %s", path, exc)
     else:
         try:
             path.chmod(0o700)
         except OSError:
             pass
     return path
+
+
+# Groups that mean "other people who use this PC". Written as the SDDL
+# aliases and SIDs icacls saves, which are the same in every Windows
+# language (the names it prints are translated).
+SHARED_GROUPS = {
+    "WD": "Everyone",
+    "S-1-1-0": "Everyone",
+    "BU": "Users",
+    "S-1-5-32-545": "Users",
+    "AU": "Authenticated Users",
+    "S-1-5-11": "Authenticated Users",
+    "IU": "Interactive users",
+    "S-1-5-4": "Interactive users",
+    "BG": "Guests",
+    "S-1-5-32-546": "Guests",
+}
+
+
+def shared_groups_in_sddl(sddl: str) -> list[str]:
+    """The SHARED_GROUPS an SDDL string grants (allows) any access to."""
+    found: list[str] = []
+    for ace in re.findall(r"\(([^()]*)\)", sddl):
+        parts = ace.split(";")
+        if len(parts) < 6 or parts[0] not in ("A", "OA"):
+            continue
+        name = SHARED_GROUPS.get(parts[5].upper() if len(parts[5]) == 2 else parts[5])
+        if name and name not in found:
+            found.append(name)
+    return found
+
+
+def folder_access(path: Path) -> tuple[str, str]:
+    """("private" | "shared" | "unknown", a sentence saying why), read from
+    the folder's real permissions. Changes nothing."""
+    path = Path(path)
+    if not path.is_dir():
+        return "unknown", f"{path} does not exist yet"
+    if os.name != "nt":
+        mode = path.stat().st_mode & 0o777
+        if mode & 0o077:
+            return "shared", f"Other accounts can open it (permissions {mode:o})"
+        return "private", "Only its owner can open it"
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        saved = Path(tmp) / "acl.txt"
+        try:
+            done = subprocess.run(
+                ["icacls", str(path), "/save", str(saved)],
+                check=False,
+                capture_output=True,
+                timeout=30,
+                creationflags=NO_WINDOW,
+            )
+            text = saved.read_bytes().decode("utf-16", errors="replace") if saved.is_file() else ""
+        except (OSError, subprocess.SubprocessError) as exc:
+            return "unknown", f"Its permissions could not be read: {exc}"
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if done.returncode != 0 or len(lines) < 2:
+        return "unknown", f"Its permissions could not be read (icacls exit {done.returncode})"
+    shared = shared_groups_in_sddl(lines[1])
+    if shared:
+        return "shared", f"Other accounts on this PC can open it: {', '.join(shared)}"
+    return "private", "Only SYSTEM, Administrators and the agent's account can open it"
 
 
 def _restrict_file(path: Path) -> None:

@@ -135,6 +135,9 @@ class ServerSettings(Section):
     stop_timeout: float = 90
     start_timeout: float = 300
     autostart_minecraft: bool = False
+    # Logical CPU cores this server may use, counted from 0 (Task Manager's
+    # "Set affinity" order). Empty: every core. See agent/minecraft/cpu.py.
+    cpu_cores: list[int] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -274,6 +277,7 @@ class NotificationSettings(Section):
             "maintenance_mode": True,
             "certificate_expiring": True,
             "servers_changed": True,
+            "cpu_cores_failed": True,
         }
     )
     email: EmailSettings = field(default_factory=EmailSettings)
@@ -353,6 +357,10 @@ SERVER_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 _WINDOWS_RESERVED = {"con", "prn", "aux", "nul", *(f"com{i}" for i in range(10))} | {
     f"lpt{i}" for i in range(10)
 }
+
+# Copies of config.yaml kept when the agent saves it (see Config.save).
+ORIGINAL_SUFFIX = ".original"
+BACKUP_SUFFIX = ".bak"
 
 # Written into the data folder to record which server, if any, keeps its
 # files at the top level (the layout every install had before multi-server).
@@ -619,6 +627,11 @@ class Config:
         base = {k: v for k, v in entry.items() if k not in SERVER_OVERRIDES}
         settings = ServerSettings.from_dict(base, prefix=prefix)
         check_server_id(settings.id)
+        from .minecraft.cpu import shape_problems
+
+        problems = shape_problems(settings.cpu_cores, f"{prefix}.cpu_cores")
+        if problems:
+            raise ConfigError(problems[0])
         built: dict[str, Any] = {"server": settings}
         for name in SERVER_OVERRIDES:
             override = entry.get(name) or {}
@@ -732,6 +745,15 @@ class Config:
             else (self.source or Path(__file__).resolve().parent.parent / "config" / "config.yaml")
         )
         target.parent.mkdir(parents=True, exist_ok=True)
+        if target.is_file():
+            # Saving writes the whole file again, which drops its comments.
+            # The file as you wrote it is kept once, and the one before each
+            # save is kept too, so nothing you typed is ever lost.
+            previous = target.read_bytes()
+            original = target.with_name(target.name + ORIGINAL_SUFFIX)
+            if not original.exists():
+                original.write_bytes(previous)
+            target.with_name(target.name + BACKUP_SUFFIX).write_bytes(previous)
         data = copy.deepcopy(self._data)
         servers = data.pop("servers")
         if self._single_block and len(servers) == 1:

@@ -76,28 +76,74 @@ applies anything newer than the recorded version at startup. Each migration and
 the row recording it run in one transaction, so a migration that fails part way
 leaves the database exactly as it was.
 
-## Multi-server groundwork
+## Several servers
 
-Every table carries `server_id`, every manager takes it as a parameter, and
-`/api/servers` already returns a list. Supporting a second server means holding
-several `AgentCore`-like contexts and choosing one per request. Nothing more
-was built for it, because building a distributed control plane for one server
-would be the wrong trade.
+`AgentCore` holds what the agent has once: the event bus, the database, sign-in,
+the notifier, the job tracker and the port manager. Each Minecraft server is a
+`ServerContext` in `core.servers`, with its own process supervisor, players,
+metrics, TPS, mods, backups, crash reporter and scheduler. A context sees the
+shared pieces through thin wrappers: a `ServerConfig` view (its own `server`
+settings, plus its `monitor`/`backups`/`mods` overrides on top of the shared
+sections), a `ServerBus` that stamps `server_id` on every event it publishes,
+and a `ServerDb` that scopes settings keys and audit rows to the server.
+
+Events without a `server_id` are about the agent itself (the certificate,
+machine-wide CPU and RAM alerts) and are stored under `_agent`.
+
+REST routes for one server are mounted under `/api/servers/{server_id}`; the
+`get_server` dependency turns the id into a context or a 404. The unprefixed
+routes from before are the same routers mounted again with no id, so they act
+on the first server. The WebSocket streams every server's events and the
+dashboard filters by the selected one.
+
+## Shared building blocks
+
+- **Jobs** (`agent/jobs.py`): a long operation with honest progress, stored in
+  the `jobs` table and streamed as `job` events. One risky job per server at a
+  time. Jobs left running when the agent stopped are marked interrupted.
+- **Safe change** (`agent/safechange.py`): stop if needed, take and verify a
+  backup, make the change, check it, put the backup back if the change or the
+  check fails, start again if asked. The backup is the change's one-click undo.
+  Restoring a backup runs through it; later phases' risky changes will too.
+- **Port manager** (`agent/ports.py`): which port each server uses (from its
+  console, else `server.properties`, else Minecraft's default, and says which),
+  start refusals on a port or folder another running server uses, and free
+  port suggestions.
+- **Permissions** (`agent/security/permissions.py`): every route declares the
+  permission it needs with `Depends(require(...))`, and a test checks none is
+  missing. Today every signed-in user has every permission; helper accounts
+  later only change `permissions_for`.
+
+## The data folder
+
+`agent/datafolder.py` moves an old `<server>/mcsc-data` to the fixed app-data
+folder once, before anything else at startup touches the new folder: plan
+(read-only), copy into a staging folder, verify (SQLite backup + integrity
+check + row counts, SHA-256 per file), rewrite absolute paths in the copied
+database and the certificate paths in `config.yaml`, then switch, with the
+database moved in last. On any failure the staging folder goes and the old
+folder is used for that run. Tools that run before the first start (`--check`,
+`make_certs`, setup) look at the old folder until the copy exists.
 
 ## Layout
 
 ```
 agent/
   config.py            layered config as typed sections (one place for
-                       every default), secrets from env only
-  core.py              wiring and lifecycle
+                       every default), the server list, secrets from env only
+  core.py              AgentCore (shared) and ServerContext (one per server)
+  datafolder.py        the one-time move of the data folder
+  jobs.py              long operations with real progress
+  ports.py             game ports and start conflicts between servers
+  safechange.py        backup, change, check, undo
   events.py            event bus
   logging_setup.py     rotating agent logs
   main.py              FastAPI app, security headers, error handlers, entrypoint
   tailscale.py         what the Tailscale client reports about this machine
   api/                 deps.py, errors.py (domain error -> HTTP status), ws.py,
                        routes/ (one router per area: server, console, players,
-                       mods, backups, schedules, settings, security, system)
+                       mods, backups, schedules, server_settings (per server);
+                       auth, settings, security, system, jobs (agent-wide))
   backups/manager.py
   database/db.py       schema + migrations
   minecraft/           state, process, console, commands, analyzer, crash
@@ -105,7 +151,7 @@ agent/
   monitoring/          metrics, players
   notifications/dispatcher.py
   scheduler/scheduler.py
-  security/            auth, paths
+  security/            auth, paths, permissions, certs, tls
   web/                 index.html, styles.css, theme.js, js/ (ES modules: main.js, pages/, panels/)
 installer/             setup_tool, autostart, make_certs, make_secrets, firewall.ps1
 tests/                 the suite, plus a fake Minecraft server

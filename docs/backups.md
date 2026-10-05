@@ -15,7 +15,7 @@ backups:
     - mods
 ```
 
-Each backup is a single `.zip` in `mcsc-data/backups/`, with a SHA-256 recorded
+Each backup is a single `.zip` in `backups/` in the data folder (`servers/<id>/backups/` for a second server), with a SHA-256 recorded
 in the database.
 
 ## Creating one
@@ -75,7 +75,7 @@ week and month up to those limits.
 
 ## Disaster recovery
 
-If the PC dies completely: copy a `.zip` from `mcsc-data/backups/` onto the new
+If the PC dies completely: copy a `.zip` from the data folder's `backups/` onto the new
 machine, install your Fabric server, and unzip the archive into the server
 folder. The archive's layout is exactly the server folder's layout — no special
 tool needed to read it.

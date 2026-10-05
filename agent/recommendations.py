@@ -25,9 +25,7 @@ from .minecraft.java import memory_limit_mb
 
 DAY = 86400.0
 BACKUP_MAX_AGE_DAYS = 7
-MEMORY_SHARE = 0.9  # "near the limit": at or above 90% of it
-MEMORY_MINUTES = 30  # ... for at least this many of the last 60 minutes
-MIN_COVERAGE_MINUTES = 30  # an hour's rules need at least this much measured
+MEMORY_CRASH_DAYS = 7  # out-of-memory crashes this recent count
 BUSY_PLAYERS = 2  # "player count is high" for a home server
 SLOW_SHARE = 0.25  # speed below the alert line in a quarter of busy samples
 SLOW_MIN_SAMPLES = 5
@@ -49,6 +47,7 @@ class Facts:
     mod_updates: list[dict[str, Any]]
     java: dict[str, Any] | None  # java_compatibility from the server status
     auto_restart: bool
+    crashes: list[dict[str, Any]] = field(default_factory=list)  # newest first
 
 
 @dataclass
@@ -121,36 +120,35 @@ def no_backup_schedule(f: Facts) -> Recommendation | None:
     )
 
 
-def _covered_minutes(samples: list[dict[str, Any]], interval: float) -> float:
-    return len(samples) * interval / 60
-
-
-def memory_near_limit(f: Facts) -> Recommendation | None:
-    if not f.memory_limit_mb:
+def memory_ran_out(f: Facts) -> Recommendation | None:
+    """Fires on crashes the log proved were out of memory, not on the
+    process's memory use: that includes Java's own overhead on top of the
+    -Xmx heap limit, so a healthy server routinely sits at or above it."""
+    cutoff = f.now - MEMORY_CRASH_DAYS * DAY
+    crashes = [
+        c
+        for c in f.crashes
+        if c.get("category") == "OutOfMemoryError" and float(c.get("ts") or 0) >= cutoff
+    ]
+    if not crashes:
         return None
-    measured = [s for s in f.samples if s.get("proc_ram_mb") is not None]
-    if _covered_minutes(measured, f.sample_interval) < MIN_COVERAGE_MINUTES:
-        return None
-    line = f.memory_limit_mb * MEMORY_SHARE
-    high = [s for s in measured if s["proc_ram_mb"] >= line]
-    minutes = round(_covered_minutes(high, f.sample_interval))
-    if minutes < MEMORY_MINUTES:
-        return None
-    limit_gb = f.memory_limit_mb / 1024
+    count = len(crashes)
+    times = "once" if count == 1 else f"{count} times"
+    age = f.now - float(crashes[0]["ts"])
+    last = "under a day ago" if age < DAY else f"{_days(age)} ago"
+    limit = f" The limit is {f.memory_limit_mb / 1024:g} GB." if f.memory_limit_mb else ""
     return Recommendation(
-        id="memory_near_limit",
+        id="memory_ran_out",
         title="Give the server more memory",
-        reason="When it runs out of memory, the server lags and can crash.",
-        evidence=f"Memory used was above 90% of the {limit_gb:g} GB limit for {minutes} of the "
-        "last 60 minutes.",
+        reason="It crashed because it ran out of memory.",
+        evidence=f"The log shows it ran out of memory {times} in the last "
+        f"{MEMORY_CRASH_DAYS} days, last {last}.{limit}",
         action={"label": "Open settings", "page": "settings"},
-        fingerprint=f"limit:{f.memory_limit_mb}",
+        fingerprint=f"oom:{crashes[0].get('id')}:{f.memory_limit_mb}",
         details={
+            "crashes": count,
             "limit_mb": f.memory_limit_mb,
-            "threshold_mb": round(line),
-            "samples": len(measured),
-            "samples_above": len(high),
-            "source": "process memory (RSS) samples; limit from -Xmx",
+            "source": "crash records (java.lang.OutOfMemoryError in the log); limit from -Xmx",
         },
     )
 
@@ -251,7 +249,7 @@ RULES: tuple[Rule, ...] = (
     no_recent_backup,
     no_backup_schedule,
     disk_low,
-    memory_near_limit,
+    memory_ran_out,
     slow_while_busy,
     auto_restart_off,
     mod_updates,
@@ -270,7 +268,9 @@ def evaluate(facts: Facts) -> list[Recommendation]:
 def gather(ctx) -> Facts:
     """Read one server's measured facts for the rules."""
     status = ctx.server.status()
-    snapshot = ctx.metrics.snapshot()
+    # The sampler's latest reading. Taking a fresh one here would restart
+    # the sampler's network and process CPU windows.
+    last = ctx.metrics.last or {}
     updates = [
         {"mod_id": m["mod_id"], "name": m["name"]}
         for m in ctx.mods.list_installed(use_cache=True)
@@ -283,12 +283,13 @@ def gather(ctx) -> Facts:
         samples=ctx.metrics.history(hours=1),
         sample_interval=float(ctx.config.monitor.sample_interval),
         memory_limit_mb=memory_limit_mb(ctx.config.server.jvm_args),
-        disk_free_gb=snapshot.get("disk_free_gb"),
+        disk_free_gb=last.get("disk_free_gb"),
         disk_alert_gb=float(ctx.config.thresholds.disk_free_gb),
         tps_alert=float(ctx.config.thresholds.tps_min),
         mod_updates=updates,
         java=status.get("java_compatibility"),
         auto_restart=bool(ctx.config.monitor.auto_restart),
+        crashes=ctx.crashes.list_crashes(limit=50),
     )
 
 

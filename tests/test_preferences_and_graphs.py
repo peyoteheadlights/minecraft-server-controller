@@ -95,3 +95,14 @@ def test_the_performance_route_returns_the_series(client):
     assert data["series"]["hours"] == 24
     assert "bucket_seconds" in data["series"]
     assert data["sample_interval"] > 0
+
+
+def test_the_overview_can_skip_the_folder_walk(client, monkeypatch):
+    signed_in(client)
+    core = client.app.state.core
+    walks = []
+    for ctx in core.servers.values():
+        monkeypatch.setattr(ctx.metrics, "storage_breakdown", lambda: walks.append(1) or {})
+    data = client.get("/api/servers/test/performance?hours=1&storage=false").json()
+    assert data["storage"] is None
+    assert walks == []

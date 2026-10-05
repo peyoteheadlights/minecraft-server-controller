@@ -685,7 +685,10 @@ async def test_a_new_server_is_not_created_without_the_eula_being_accepted(core,
     assert not (tmp_path / "fresh").exists(), "nothing is created until the rules are accepted"
 
 
-async def test_a_new_server_is_set_up_and_registered(core, tmp_path, network):
+async def test_a_new_server_is_set_up_and_registered(core, tmp_path, network, monkeypatch):
+    # Whatever Java this machine has is beside the point here (the CI runner
+    # has 17, Minecraft 1.21 needs 21): the Java check has its own test below.
+    monkeypatch.setattr(create_module, "java_problem", lambda *args, **kwargs: None)
     folder = tmp_path / "fresh"
     result = await create_module.create_server(
         core,

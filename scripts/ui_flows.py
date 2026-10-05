@@ -402,10 +402,8 @@ def main():
                 lambda: expect(page.locator("#page")).not_to_contain_text("cloud *"),
             )
             check(
-                "Install what's missing is offered",
-                lambda: expect(
-                    deps.locator("button", has_text="Install missing")
-                ).to_be_enabled(),
+                "Install missing is offered",
+                lambda: expect(deps.locator("button", has_text="Install missing")).to_be_enabled(),
             )
             page.screenshot(path=str(shots / "05d-dependencies.png"))
             page.locator(".nav-item", has_text="Overview").click()

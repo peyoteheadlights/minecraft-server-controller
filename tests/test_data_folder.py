@@ -221,6 +221,58 @@ def test_a_clashing_file_in_the_new_folder_stops_the_move_before_anything_moves(
     assert (target / "backups" / "someone-elses.zip").exists()  # not ours, not touched
 
 
+class PowerCut(BaseException):
+    """Stops the move where a power cut would: no clean-up runs."""
+
+
+real_write_record = datafolder._write_record
+
+
+def test_a_move_cut_off_half_way_finishes_on_the_next_start(legacy, monkeypatch):
+    config, old = legacy
+    target = config.data_dir
+    before = snapshot(old)
+
+    def cut(*args, **kwargs):
+        raise PowerCut
+
+    monkeypatch.setattr(datafolder, "_write_record", cut)
+    with pytest.raises(PowerCut):
+        apply_at_startup(config)
+    # Some folders made it across; the database did not.
+    assert (target / "backups" / "manual-1.zip").exists()
+    assert not (target / "mcsc.sqlite3").exists()
+    monkeypatch.setattr(datafolder, "_write_record", real_write_record)
+
+    again = Config.load(config.source)
+    assert plan_move(again).status == "pending"
+    result = apply_at_startup(again)
+    assert result.ok, result.message
+    assert (target / "mcsc.sqlite3").is_file()
+    assert (target / "backups" / "manual-1.zip").read_bytes() == b"PK backup bytes"
+    assert snapshot(old) == before
+
+
+def test_a_half_moved_folder_that_was_changed_since_still_stops_the_move(legacy, monkeypatch):
+    config, old = legacy
+    target = config.data_dir
+
+    def cut(*args, **kwargs):
+        raise PowerCut
+
+    monkeypatch.setattr(datafolder, "_write_record", cut)
+    with pytest.raises(PowerCut):
+        apply_at_startup(config)
+    monkeypatch.setattr(datafolder, "_write_record", real_write_record)
+    (target / "backups" / "manual-1.zip").write_bytes(b"changed")  # not our copy any more
+
+    again = Config.load(config.source)
+    result = apply_at_startup(again)
+    assert not result.ok
+    assert again.data_dir == old
+    assert (target / "backups" / "manual-1.zip").read_bytes() == b"changed"  # not touched
+
+
 def test_folders_a_tool_created_early_do_not_stop_the_move(legacy):
     config, _ = legacy
     target = config.data_dir
@@ -262,3 +314,42 @@ def test_the_command_line_report_changes_nothing(legacy, capsys):
     assert data["status"] == "pending"
     assert snapshot(old) == before
     assert not config.data_dir.exists()
+
+
+# ------------------------------------------------------------------ access
+def test_shared_groups_are_found_in_any_windows_language():
+    from agent.security.certs import shared_groups_in_sddl
+
+    private = "D:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;S-1-5-21-1-2-3-1001)"
+    assert shared_groups_in_sddl(private) == []
+    programdata = "D:AI(A;OICIID;FA;;;SY)(A;OICIID;FA;;;BA)(A;OICIID;0x1200a9;;;BU)"
+    assert shared_groups_in_sddl(programdata) == ["Users"]
+    denied = "D:P(D;;FA;;;WD)(A;;FA;;;SY)"
+    assert shared_groups_in_sddl(denied) == []  # a deny entry grants nothing
+
+
+def test_the_app_data_folder_is_made_private_at_startup(isolated_app_data):
+    from agent import startup_diag
+    from agent.main import lock_down_data_folder
+    from agent.security.certs import folder_access
+
+    config = Config({"server": {"directory": ""}})
+    config.data_dir.mkdir(parents=True)
+    if os.name != "nt":
+        config.data_dir.chmod(0o755)
+        assert folder_access(config.data_dir)[0] == "shared"
+    lock_down_data_folder(config, startup_diag)
+    assert folder_access(config.data_dir)[0] == "private"
+
+
+def test_a_data_folder_set_in_config_is_left_alone(tmp_path):
+    from agent import startup_diag
+    from agent.main import lock_down_data_folder
+
+    mine = tmp_path / "mine"
+    mine.mkdir()
+    mine.chmod(0o755)
+    config = Config({"server": {"directory": ""}, "paths": {"data_dir": str(mine)}})
+    lock_down_data_folder(config, startup_diag)
+    if os.name != "nt":
+        assert mine.stat().st_mode & 0o777 == 0o755

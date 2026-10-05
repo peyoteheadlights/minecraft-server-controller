@@ -67,6 +67,91 @@ function serversCard() {
     }, "Add server"));
 }
 
+/* Which CPU cores the selected server may use. What it really uses is read
+   back from the running process; the boxes are only the setting. */
+function cpuCard(info, configured) {
+  const count = info.logical_cores;
+  const title = state.servers.length > 1
+    ? `CPU cores: ${serverName(state.serverId)}` : "CPU cores";
+  if (!info.supported || !count) {
+    return card(title, el("p", { class: "hint" },
+      info.unsupported_reason || "This PC's number of cores could not be read."));
+  }
+  const usedBy = {};
+  for (const other of info.others) {
+    for (const core of other.cores || []) (usedBy[core] = usedBy[core] || []).push(other.name);
+  }
+  const all = el("input", { type: "checkbox", checked: configured.length ? false : "checked" });
+  const boxes = [];
+  const grid = el("div", { class: "core-grid" });
+  for (let core = 0; core < count; core += 1) {
+    const box = el("input", {
+      type: "checkbox", checked: configured.includes(core) ? "checked" : false,
+      disabled: configured.length ? false : "disabled", "aria-label": `Core ${core + 1}`,
+    });
+    boxes.push(box);
+    grid.append(el("label", { class: "core" }, box, `Core ${core + 1}`,
+      usedBy[core] ? el("span", { class: "hint" }, `also ${usedBy[core].join(", ")}`) : null));
+  }
+  all.addEventListener("change", () => {
+    for (const box of boxes) { box.disabled = all.checked; if (all.checked) box.checked = false; }
+  });
+  const status = info.status;
+  const now = status.applied
+    ? `Running on ${status.applied.length === count ? "every core" : `cores ${describe(status.applied)}`}`
+      + " (read from the running server)."
+    : `Cores in use: unknown. ${status.applied_reason}.`;
+  return card(title,
+    el("p", { class: "hint" },
+      "Limit this server to some of the PC's cores so other servers, or the PC itself, stay "
+      + "responsive. Java is told how many cores it has. A change applies at once if the server is "
+      + "running."),
+    el("label", { class: "check-row pad-y" }, all, `Use every core (${count})`),
+    grid,
+    el("p", { class: "hint mt-8" }, now),
+    (status.problems || []).length ? el("div", { class: "banner error mt-8" }, status.problems[0]) : null,
+    el("div", { class: "btn-row mt-10" },
+      el("button", {
+        class: "btn small",
+        onclick: async () => {
+          const chosen = all.checked ? [] : boxes.flatMap((box, core) => (box.checked ? [core] : []));
+          if (!all.checked && !chosen.length) { toast("Pick at least one core", "warn"); return; }
+          try {
+            const result = await api(`/servers/${encodeURIComponent(state.serverId)}/settings`,
+              { method: "PUT", body: { updates: { "server.cpu_cores": chosen } } });
+            if (result.rejected["server.cpu_cores"]) {
+              toast(result.rejected["server.cpu_cores"], "error", 9000);
+              return;
+            }
+            const live = result.cpu_cores;
+            if (live && !live.ok) toast(`Saved, but not applied: ${live.reason}`, "warn", 9000);
+            else toast(live ? "Saved and applied to the running server" : "Saved. Used from the next start.");
+            render();
+          } catch (err) { toast(err.message, "error"); }
+        },
+      }, "Save cores"),
+      el("button", {
+        class: "btn small plain",
+        onclick: () => {
+          all.checked = false;
+          boxes.forEach((box, core) => { box.disabled = false; box.checked = core < Math.ceil(count / 2); });
+        },
+      }, "Half the cores")));
+}
+
+/* Cores as people count them, from 1, with runs shortened: "1-4, 7". */
+function describe(cores) {
+  const numbers = [...cores].sort((a, b) => a - b).map((c) => c + 1);
+  const runs = [];
+  let start = numbers[0], prev = numbers[0];
+  for (const n of numbers.slice(1).concat([null])) {
+    if (n !== null && n === prev + 1) { prev = n; continue; }
+    runs.push(start === prev ? String(start) : `${start}-${prev}`);
+    start = prev = n;
+  }
+  return runs.join(", ");
+}
+
 renderers.settings = (page) => loadInto(page, async () => {
   await loadServers();
   const [data, own] = await Promise.all([
@@ -103,6 +188,8 @@ renderers.settings = (page) => loadInto(page, async () => {
       numberField("monitor.restart_delay", "Delay before restart (seconds)", config.monitor.restart_delay),
       numberField("monitor.max_crashes", "Stop retrying after this many crashes", config.monitor.max_crashes,
         `within ${config.monitor.crash_window_minutes} minutes`)))));
+
+  holder.append(el("div", { class: "gap-section" }, cpuCard(own.cpu, own.server.cpu_cores || [])));
 
   holder.append(el("div", { class: "gap-section" }, card("Alert thresholds",
     el("div", { class: "grid cols-3" },

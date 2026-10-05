@@ -72,6 +72,8 @@ def respond_as(status: int) -> Iterator[None]:
     for routes where the default does not fit (a lookup that means 404)."""
     try:
         yield
+    except JobConflict:
+        raise  # always 409: the request was fine, the timing was not
     except DOMAIN_ERRORS as exc:
         raise HTTPException(status_code=status, detail=str(exc)) from exc
 

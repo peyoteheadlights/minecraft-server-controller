@@ -11,6 +11,7 @@ import asyncio
 import logging
 import shutil
 import socket
+import threading
 import time
 from typing import Any
 
@@ -22,6 +23,61 @@ from ..security.paths import directory_size
 from . import health
 
 log = logging.getLogger("msc.metrics")
+
+# The PC's CPU reading is shared by every server's monitor. A reading over a
+# shorter window than this is not taken; the last one is reused instead.
+CPU_MIN_WINDOW = 1.0
+
+
+class _MachineCpu:
+    """CPU use of the whole PC since the previous reading, shared by every
+    server and every thread.
+
+    ``psutil.cpu_percent(interval=None)`` measures since the last call on the
+    same thread, so with several servers sampling one after another, the
+    second one measured a few milliseconds and reported about 0%. Here the
+    window is the same for everyone, and a window too short to mean anything
+    is never measured: the previous reading is returned instead.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._times: Any = None
+        self._ts = 0.0
+        self._value: float | None = None
+
+    def reset(self) -> None:
+        with self._lock:
+            self._times, self._ts, self._value = None, 0.0, None
+
+    def percent(self) -> float | None:
+        """None until two readings far enough apart exist."""
+        with self._lock:
+            now = time.monotonic()
+            if self._times is not None and now - self._ts < CPU_MIN_WINDOW:
+                return self._value
+            times = psutil.cpu_times()
+            if self._times is not None:
+                self._value = _busy_percent(self._times, times)
+            self._times, self._ts = times, now
+            return self._value
+
+
+def _busy_percent(before: Any, after: Any) -> float | None:
+    def total(t: Any) -> float:
+        return float(sum(t))
+
+    def idle(t: Any) -> float:
+        return float(getattr(t, "idle", 0.0) + getattr(t, "iowait", 0.0))
+
+    all_delta = total(after) - total(before)
+    if all_delta <= 0:
+        return None
+    busy = all_delta - (idle(after) - idle(before))
+    return round(max(0.0, min(100.0, busy / all_delta * 100)), 1)
+
+
+machine_cpu = _MachineCpu()
 
 
 class MetricsMonitor:
@@ -37,6 +93,9 @@ class MetricsMonitor:
         self._net_baseline_ts = time.time()
         self._storage_cache: tuple[float, dict] | None = None
         self._storage_lock = asyncio.Lock()
+        # The process object is kept: its CPU reading is "since the last
+        # reading on this object", so a fresh one every sample read 0%.
+        self._proc: psutil.Process | None = None
 
     # ------------------------------------------------------------------
     @staticmethod
@@ -50,11 +109,21 @@ class MetricsMonitor:
     def _process(self) -> psutil.Process | None:
         pid = self.server.pid
         if not pid:
+            self._proc = None
             return None
+        if self._proc is not None and self._proc.pid == pid:
+            return self._proc
         try:
-            return psutil.Process(pid)
+            self._proc = psutil.Process(pid)
+            self._proc.cpu_percent(interval=None)  # start its CPU window
         except (psutil.NoSuchProcess, psutil.AccessDenied):
-            return None
+            self._proc = None
+        return None  # its first CPU reading is not known yet
+
+    def process(self) -> psutil.Process | None:
+        """The running Minecraft process, or None."""
+        self._process()
+        return self._proc
 
     def snapshot(self, include_process: bool = True) -> dict[str, Any]:
         now = time.time()
@@ -79,7 +148,7 @@ class MetricsMonitor:
 
         data = {
             "ts": now,
-            "cpu_percent": psutil.cpu_percent(interval=None),
+            "cpu_percent": machine_cpu.percent(),
             "process_cpu_percent": proc_cpu,
             "ram_used_mb": (vm.total - vm.available) / 1024**2,
             "ram_total_mb": vm.total / 1024**2,
@@ -244,7 +313,7 @@ class MetricsMonitor:
             else:
                 await self.bus.publish(event)
 
-        if sample["cpu_percent"] >= th.cpu_percent:
+        if sample["cpu_percent"] is not None and sample["cpu_percent"] >= th.cpu_percent:
             await alert(
                 "cpu",
                 "high_cpu",
@@ -321,7 +390,7 @@ class MetricsMonitor:
     # ------------------------------------------------------------------
     async def run(self, player_source=None) -> None:
         interval = self.config.monitor.sample_interval
-        psutil.cpu_percent(interval=None)  # prime the counter
+        machine_cpu.percent()  # start the shared CPU window
         while True:
             try:
                 count = None

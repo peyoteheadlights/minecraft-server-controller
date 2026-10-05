@@ -154,6 +154,36 @@ async def test_a_change_that_raises_puts_the_files_back(core):
     assert level.read_bytes() == before
 
 
+async def test_the_server_cannot_start_while_a_change_holds_it(core):
+    from agent.minecraft.process import ServerError
+
+    ctx = core.get_server("survival")
+    refused = []
+
+    async def change(job):
+        # A click on Start, a schedule or another device, mid-change.
+        with pytest.raises(ServerError) as info:
+            await ctx.server.start(actor="someone")
+        refused.append(str(info.value))
+        return {}
+
+    await run_safe_change(ctx.server, ctx.backups, SafeChange(title="Restoring x", change=change))
+    assert refused and "Restoring x" in refused[0]
+    assert ctx.server.held_by is None  # released afterwards
+    assert not any("Restoring" in p for p in ctx.server.preflight().problems)
+
+
+async def test_a_failed_change_releases_the_server(core):
+    ctx = core.get_server("survival")
+
+    async def change(job):
+        raise OSError("disk full")
+
+    with pytest.raises(SafeChangeError):
+        await run_safe_change(ctx.server, ctx.backups, SafeChange(title="Fail", change=change))
+    assert ctx.server.held_by is None
+
+
 async def test_a_backup_is_a_job_with_real_progress(core):
     ctx = core.get_server("creative")
     seen = []
@@ -275,3 +305,49 @@ async def test_two_backups_in_the_same_second_do_not_overwrite_each_other(core):
     assert first["name"] != second["name"]
     assert ctx.backups.verify(first["id"])["ok"]
     assert ctx.backups.verify(second["id"])["ok"]
+
+
+async def test_mod_changes_wait_for_a_change_that_holds_the_server(core):
+    ctx = core.get_server("survival")
+    ctx.server.held_by = "Restoring x"
+    try:
+        with pytest.raises(JobConflict) as info:
+            await ctx.mod_change("Removing a.jar", lambda: asyncio.sleep(0))
+        assert "Restoring x" in str(info.value)
+    finally:
+        ctx.server.held_by = None
+
+
+async def test_a_restore_waits_for_a_mod_change(core):
+    ctx = core.get_server("survival")
+    gate = asyncio.Event()
+
+    async def slow_change():
+        await gate.wait()
+        return {"ok": True}
+
+    task = asyncio.create_task(ctx.mod_change("Installing sodium", slow_change))
+    await asyncio.sleep(0.05)
+    with pytest.raises(JobConflict) as info:
+        await ctx.backups.create(kind="manual")
+    assert "Installing sodium" in str(info.value)
+    gate.set()
+    assert await task == {"ok": True}
+
+
+async def test_a_filtered_queue_never_loses_a_crash_to_another_servers_console():
+    from agent.api.ws import PAGE_ONLY
+
+    bus = EventBus()
+    watching = "creative"
+    q = bus.queue(
+        maxsize=5,
+        accept=lambda e: e.type not in PAGE_ONLY or e.server_id in (None, watching),
+    )
+    await bus.publish(Event(type="server_crashed", message="boom", server_id="survival"))
+    for _ in range(50):  # a busy console on the server nobody is looking at
+        await bus.publish(Event(type="console", message="spam", server_id="survival"))
+    await bus.publish(Event(type="console", message="mine", server_id="creative"))
+    received = [q.get_nowait() for _ in range(q.qsize())]
+    assert [e.type for e in received] == ["server_crashed", "console"]
+    assert received[1].server_id == "creative"

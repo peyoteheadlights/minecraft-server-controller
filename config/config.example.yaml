@@ -138,6 +138,7 @@ notifications:
     auth_failure: true
     maintenance_mode: true
     certificate_expiring: true
+    servers_changed: true    # a server was added or removed in Settings
   email:
     host: ""                 # e.g. smtp.gmail.com
     port: 587

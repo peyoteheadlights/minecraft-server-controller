@@ -25,34 +25,52 @@ from ..events import Event, EventBus
 
 log = logging.getLogger("msc.notify")
 
-# event type -> (settings key, emoji, colour, title)
+# event type -> (settings key, emoji, colour, title). "{server}" in a title is
+# replaced with the server's name, so an alert reads "Survival crashed".
 EVENT_MAP: dict[str, tuple[str, str, int, str]] = {
-    "server_started": ("server_started", "🟢", 0x3BA55D, "Minecraft server online"),
-    "server_stopped": ("server_stopped", "⚪", 0x9AA0A6, "Minecraft server stopped"),
-    "server_crashed": ("server_crashed", "🔴", 0xED4245, "Minecraft server crash"),
-    "server_restarted": ("server_restarted", "🔁", 0x5865F2, "Minecraft server restarted"),
-    "server_recovered": ("server_recovered", "🟢", 0x3BA55D, "Minecraft server recovered"),
-    "crash_loop": ("server_crashed", "🛑", 0xED4245, "Automatic restart disabled"),
-    "restart_scheduled": ("server_restarted", "⏳", 0xFAA61A, "Automatic restart scheduled"),
-    "restart_cancelled": ("server_restarted", "✋", 0x9AA0A6, "Automatic restart cancelled"),
-    "player_joined": ("player_joined", "👋", 0x5865F2, "Player joined"),
-    "player_left": ("player_left", "🚪", 0x9AA0A6, "Player left"),
+    "server_started": ("server_started", "🟢", 0x3BA55D, "{server} is online"),
+    "server_stopped": ("server_stopped", "⚪", 0x9AA0A6, "{server} stopped"),
+    "server_crashed": ("server_crashed", "🔴", 0xED4245, "{server} crashed"),
+    "server_restarted": ("server_restarted", "🔁", 0x5865F2, "{server} restarted"),
+    "server_recovered": ("server_recovered", "🟢", 0x3BA55D, "{server} recovered"),
+    "crash_loop": ("server_crashed", "🛑", 0xED4245, "{server}: automatic restart disabled"),
+    "restart_scheduled": (
+        "server_restarted",
+        "⏳",
+        0xFAA61A,
+        "{server}: automatic restart scheduled",
+    ),
+    "restart_cancelled": (
+        "server_restarted",
+        "✋",
+        0x9AA0A6,
+        "{server}: automatic restart cancelled",
+    ),
+    "player_joined": ("player_joined", "👋", 0x5865F2, "Player joined {server}"),
+    "player_left": ("player_left", "🚪", 0x9AA0A6, "Player left {server}"),
     "high_ram": ("high_ram", "⚠️", 0xFAA61A, "High memory use"),
     "high_cpu": ("high_cpu", "⚠️", 0xFAA61A, "High CPU use"),
-    "low_disk": ("low_disk", "⚠️", 0xFAA61A, "Low disk space"),
-    "low_tps": ("low_tps", "⚠️", 0xFAA61A, "Low TPS"),
-    "high_mspt": ("high_mspt", "⚠️", 0xFAA61A, "High MSPT"),
-    "backup_completed": ("backup_completed", "💾", 0x3BA55D, "Backup finished"),
-    "backup_failed": ("backup_failed", "❌", 0xED4245, "Backup failed"),
-    "mod_installed": ("mod_installed", "📦", 0x3BA55D, "Mod installed"),
-    "mod_removed": ("mod_removed", "🗑️", 0xFAA61A, "Mod removed"),
-    "mod_updated": ("mod_updated", "⬆️", 0x3BA55D, "Mod updated"),
-    "mod_rolled_back": ("mod_updated", "↩️", 0xFAA61A, "Mod rolled back"),
-    "mod_dependency_problem": ("mod_dependency_problem", "⚠️", 0xFAA61A, "Mod dependency problem"),
+    "low_disk": ("low_disk", "⚠️", 0xFAA61A, "Low disk space for {server}"),
+    "low_tps": ("low_tps", "⚠️", 0xFAA61A, "{server}: low TPS"),
+    "high_mspt": ("high_mspt", "⚠️", 0xFAA61A, "{server}: high MSPT"),
+    "backup_completed": ("backup_completed", "💾", 0x3BA55D, "{server}: backup finished"),
+    "backup_failed": ("backup_failed", "❌", 0xED4245, "{server}: backup failed"),
+    "mod_installed": ("mod_installed", "📦", 0x3BA55D, "{server}: mod installed"),
+    "mod_removed": ("mod_removed", "🗑️", 0xFAA61A, "{server}: mod removed"),
+    "mod_updated": ("mod_updated", "⬆️", 0x3BA55D, "{server}: mod updated"),
+    "mod_rolled_back": ("mod_updated", "↩️", 0xFAA61A, "{server}: mod rolled back"),
+    "mod_dependency_problem": (
+        "mod_dependency_problem",
+        "⚠️",
+        0xFAA61A,
+        "{server}: mod dependency problem",
+    ),
     "auth_failure": ("auth_failure", "🔒", 0xED4245, "Failed sign-in attempt"),
     "maintenance_mode": ("maintenance_mode", "🔧", 0x5865F2, "Maintenance mode"),
     "certificate_expiring": ("certificate_expiring", "🔐", 0xFAA61A, "TLS certificate expiring"),
     "certificate_problem": ("certificate_expiring", "🔐", 0xED4245, "TLS certificate problem"),
+    "server_added": ("servers_changed", "➕", 0x5865F2, "Server added: {server}"),
+    "server_removed": ("servers_changed", "➖", 0x9AA0A6, "Server removed: {server}"),
 }
 
 
@@ -72,13 +90,19 @@ class Notifier:
     # fill this, the oldest waiting alert is dropped (and logged).
     QUEUE_SIZE = 100
 
-    def __init__(self, config, bus: EventBus, db, server=None, metrics=None):
+    def __init__(self, config, bus: EventBus, db, server=None, metrics=None, servers=None):
         self.config = config
         self.bus = bus
         self.db = db
+        # One server's supervisor and metrics, when the notifier is built for
+        # a single server (as the tests do). With several, ``servers`` maps
+        # each server id to its ServerContext and is consulted per event.
         self.server = server
         self.metrics = metrics
-        self._last_sent: dict[str, float] = {}
+        self.servers = servers
+        # (server id, event type) -> when that alert was last sent, so the
+        # cooldown applies to each server separately.
+        self._last_sent: dict[tuple[str | None, str], float] = {}
         self._queue: asyncio.Queue[Event] = asyncio.Queue(maxsize=self.QUEUE_SIZE)
         self._worker: asyncio.Task | None = None
 
@@ -107,6 +131,33 @@ class Notifier:
 
     def history(self, limit: int = 50) -> list[dict[str, Any]]:
         return self.db.query("SELECT * FROM notifications_log ORDER BY ts DESC LIMIT ?", (limit,))
+
+    # ------------------------------------------------------------------
+    def _context(self, event: Event):
+        if self.servers is not None and event.server_id is not None:
+            return self.servers.get(event.server_id)
+        return None
+
+    def server_name(self, event: Event) -> str:
+        ctx = self._context(event)
+        if ctx is not None:
+            return ctx.name
+        if event.server_id is not None and self.servers is not None:
+            return event.data.get("server_name") or event.server_id
+        return self.config.server.name
+
+    def _metrics_for(self, event: Event):
+        ctx = self._context(event)
+        return ctx.metrics if ctx is not None else self.metrics
+
+    def _auto_restart_for(self, event: Event) -> bool:
+        ctx = self._context(event)
+        return (ctx.config if ctx is not None else self.config).monitor.auto_restart
+
+    def title(self, event: Event) -> tuple[str, int, str]:
+        """(emoji, colour, title) with the server named."""
+        emoji, colour, title = EVENT_MAP.get(event.type, (event.type, "", 0x5865F2, event.type))[1:]
+        return emoji, colour, title.replace("{server}", self.server_name(event))
 
     # ------------------------------------------------------------------
     def _fields(self, event: Event) -> list[dict[str, Any]]:
@@ -144,7 +195,7 @@ class Notifier:
                         "inline": False,
                     }
                 )
-            auto = self.config.monitor.auto_restart
+            auto = self._auto_restart_for(event)
             fields.append(
                 {
                     "name": "Automatic restart",
@@ -152,8 +203,9 @@ class Notifier:
                     "inline": True,
                 }
             )
-        if self.metrics and event.type in ("server_crashed", "high_ram", "high_cpu", "low_disk"):
-            snap = self.metrics.last or {}
+        metrics = self._metrics_for(event)
+        if metrics and event.type in ("server_crashed", "high_ram", "high_cpu", "low_disk"):
+            snap = metrics.last or {}
             if snap:
                 disk_free = snap.get("disk_free_gb")
                 disk = f"{disk_free:.1f} GB free" if disk_free is not None else "unknown"
@@ -189,8 +241,12 @@ class Notifier:
         if not webhook:
             self._log("discord", event.type, "skipped", "No webhook URL is configured")
             return False
-        emoji, colour, title = EVENT_MAP.get(event.type, (event.type, "", 0x5865F2, event.type))[1:]
-        server_name = self.config.server.name
+        emoji, colour, title = self.title(event)
+        footer = (
+            self.server_name(event)
+            if event.server_id is not None or self.servers is None
+            else "Minecraft Server Control"
+        )
         payload = {
             "username": "Minecraft Control",
             "embeds": [
@@ -199,7 +255,7 @@ class Notifier:
                     "description": event.message[:2000] or title,
                     "color": colour,
                     "fields": self._fields(event),
-                    "footer": {"text": f"{server_name} · {time.strftime('%d %b %H:%M')}"},
+                    "footer": {"text": f"{footer} · {time.strftime('%d %b %H:%M')}"},
                     "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(event.ts)),
                 }
             ],
@@ -221,10 +277,9 @@ class Notifier:
     # ------------------------------------------------------------------
     def _build_email(self, event: Event) -> EmailMessage:
         cfg = self.config.notifications.email
-        emoji, _, title = EVENT_MAP.get(event.type, (event.type, "", 0, event.type))[1:]
-        server_name = self.config.server.name
+        emoji, _, title = self.title(event)
         message = EmailMessage()
-        message["Subject"] = f"[{server_name}] {emoji} {title}"
+        message["Subject"] = f"{emoji} {title}"
         message["From"] = cfg.from_address or self.config.smtp_username
         message["To"] = ", ".join(cfg.to_addresses)
         lines = [title, "", event.message, ""]
@@ -321,10 +376,11 @@ class Notifier:
             if event.type not in EVENT_MAP or not self.enabled_for(event.type):
                 return
             min_interval = self.config.notifications.min_interval_seconds
+            key = (event.server_id, event.type)
             if event.type in THROTTLED:
-                if time.time() - self._last_sent.get(event.type, 0) < min_interval:
+                if time.time() - self._last_sent.get(key, 0) < min_interval:
                     return
-            self._last_sent[event.type] = time.time()
+            self._last_sent[key] = time.time()
             if self._queue.full():
                 dropped = self._queue.get_nowait()
                 self._queue.task_done()

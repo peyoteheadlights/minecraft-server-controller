@@ -116,6 +116,11 @@ class MinecraftServer:
 
         self.signal_hook: Callable[..., Awaitable[Any]] | None = None  # PlayerTracker / metrics
         self.crash_hook: Callable[..., Awaitable[Any]] | None = None  # CrashReporter
+        # Set by the agent when it manages several servers: reasons this one
+        # must not start now (another running server holds its port or
+        # folder), and things worth a warning (the port looks busy).
+        self.start_guard: Callable[[], list[str]] | None = None
+        self.start_warnings: Callable[[], list[str]] | None = None
         self.maintenance = False
 
     # ------------------------------------------------------------------
@@ -247,6 +252,10 @@ class MinecraftServer:
                         "The installed Java version could not be detected, so compatibility "
                         "with Minecraft could not be checked."
                     )
+        if self.start_guard:
+            result.problems.extend(self.start_guard())
+        if self.start_warnings:
+            result.warnings.extend(self.start_warnings())
         if not self.config.mods_dir.is_dir():
             result.warnings.append(f"Mods folder missing: {self.config.mods_dir}")
         try:

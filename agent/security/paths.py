@@ -150,3 +150,64 @@ def directory_size(path: Path, exclude: Iterable[Path] = ()) -> int:
             except OSError:
                 continue
     return total
+
+
+def _system_folders() -> list[Path]:
+    """Folders a Minecraft server must never be registered in or above."""
+    names = ["SystemRoot", "windir", "ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"]
+    found = [Path(os.environ[n]) for n in names if os.environ.get(n)]
+    if os.name != "nt":
+        found += [Path(p) for p in ("/bin", "/boot", "/dev", "/etc", "/proc", "/sys", "/usr")]
+    return found
+
+
+def check_server_folder(
+    value: str,
+    jar: str,
+    protected: Iterable[Path] = (),
+    registered: Iterable[tuple[str, Path]] = (),
+) -> Path:
+    """Validate a folder someone wants to register as a Minecraft server.
+
+    This is the one place a folder path arrives from the dashboard. It must
+    be an existing, absolute, real folder that holds the server jar, that is
+    not a drive root or a system folder, that neither contains nor sits
+    inside the agent's own folders, and that no other server already uses.
+    Nothing is created, moved or deleted here.
+    """
+    raw = (value or "").strip()
+    if not raw or "\0" in raw:
+        raise PathSafetyError("Enter the folder that contains your Minecraft server")
+    path = Path(raw).expanduser()
+    if not path.is_absolute():
+        raise PathSafetyError(
+            "Enter the full path to the folder, for example C:\\Minecraft\\Survival"
+        )
+    assert_not_symlink(path)
+    if not path.is_dir():
+        raise PathSafetyError(f"{path} does not exist or is not a folder")
+    resolved = path.resolve()
+    if resolved.parent == resolved:
+        raise PathSafetyError(
+            "A whole drive cannot be a server folder; pick the server's own folder"
+        )
+    home = Path.home().resolve()
+    if resolved == home:
+        raise PathSafetyError(
+            "Your home folder cannot be a server folder; pick the server's own folder"
+        )
+    for system in _system_folders():
+        if is_inside(system, resolved):
+            raise PathSafetyError(f"{path} is inside a system folder ({system})")
+    for folder in protected:
+        folder = Path(folder)
+        if is_inside(folder, resolved) or is_inside(resolved, folder):
+            raise PathSafetyError(f"{path} overlaps the agent's own folder {folder}")
+    for name, folder in registered:
+        if is_inside(Path(folder), resolved) or is_inside(resolved, Path(folder)):
+            raise PathSafetyError(f"{path} overlaps the folder of the server '{name}'")
+    safe_filename(jar, {".jar"})
+    jar_path = resolved / jar
+    if not jar_path.is_file() or jar_path.is_symlink():
+        raise PathSafetyError(f"{jar} was not found in {path}")
+    return resolved

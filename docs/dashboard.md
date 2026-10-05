@@ -6,24 +6,28 @@ Sign in with the username and password you created with
 ## Tabs, colors and layout
 
 Each server has a tab across the top, like the dividers in a folder, with
-**All servers** on the left and **+** (add a server) on the right. The page
-under a tab takes that server's color, and the server's own pages (Overview,
-Players, Backups, Mods, Schedules, Performance, Console, Events, Crashes,
-Server settings) are in a row inside it. The browser tab's icon takes the
-server's color too. Left/Right arrow keys move between tabs, Home and End jump
-to the ends, and the dashboard remembers the last server you looked at.
+**All servers** on the left and **+** (add a server) on the right. The whole
+page under a tab takes that server's color: the header, the page itself and
+its cards are all tinted with it, and its buttons are filled with it. The
+server's own pages (Overview, Players, Backups, Mods, Schedules,
+Performance, Console, Events, Crashes, Server settings) are listed down the
+left side of the page, under its name. The browser tab's icon takes the
+server's color too. Left/Right arrow keys move between tabs, Home and End
+jump to the ends, and the dashboard remembers the last server you looked at.
 
 Every server has one of twelve colors, or any color you pick, set in
 **Server settings > Name and color**. A new server gets the next unused one.
-Text on tabs and buttons is darkened or lightened to stay readable whatever
-the color.
+All text, links and status colors are darkened or lightened against the
+tinted page so they stay readable whatever the color, in every theme. High
+contrast keeps the tint faint.
 
 If another server crashes, its tab gets a red **!**, and a message names it
 with a button to switch to it. **All servers** shows one card per server with
 its state, players, uptime and port.
 
-On a phone, the tabs and the page row each scroll sideways; nothing on a page
-is wider than the screen.
+On a phone, the tabs scroll sideways, and the page list becomes a row under
+the server's name that scrolls sideways too; nothing on a page is wider than
+the screen.
 
 ## Settings for this app (the gear)
 

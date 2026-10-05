@@ -10,12 +10,14 @@ Browser checks against the real dashboard:
 
 ```powershell
 python scripts/ui_flows.py     # clicks through every server state and control
-python scripts/ui_check.py     # screenshots every page at five sizes, light and dark
+python scripts/ui_check.py     # every page at five sizes, Simple and Technical, every theme
 ```
 
 `ui_check.py` exits non-zero when it finds a JavaScript or console error, a
-failed request or sideways scrolling; CI runs `ui_check.py --quick` on every
-pull request.
+failed request, sideways scrolling, code text leaking onto the page
+(`undefined`, `null`, `NaN`) or text without enough contrast against its
+background; CI runs the shorter `ui_check.py --quick` (one window size,
+both modes) on every pull request.
 
 About 380 tests, a little over a minute.
 

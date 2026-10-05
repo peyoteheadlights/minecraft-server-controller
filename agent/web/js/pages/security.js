@@ -1,86 +1,98 @@
 import { api } from "../api.js";
 import { signOut } from "../auth.js";
 import { renderers, state } from "../state.js";
-import { card, confirmDialog, el, fmt, loadInto, metric, table, toast } from "../ui.js";
+import { t, technical } from "../strings.js";
+import { card, confirmDialog, el, emptyState, fmt, known, loadInto, metric, table, toast } from "../ui.js";
 
-renderers.security = (page) => loadInto(page, async () => {
-  const [data, audit] = await Promise.all([api("/security"), api("/security/audit?limit=100")]);
-  const holder = el("div");
+const yesNo = (value) => (value === true ? t("value.yes") : value === false ? t("value.no") : null);
+
+/* The certificate rows only mean something while HTTPS is on. */
+function connectionStats(data) {
   const tls = data.tls || {};
-  const certDays = tls.days_remaining;
-  holder.append(el("div", { class: "grid cols-4" },
-    metric("Agent", "connected", "this dashboard is talking to it"),
-    metric("HTTPS",
-      data.https_enabled === false ? "disabled"
-        : (tls.parsed ? "certificate loaded" : null),
-      data.https_enabled === false
-        ? "plain HTTP - loopback only"
-        : (tls.parsed
-            ? `issued by ${tls.issuer || "unknown issuer"}`
-            : (tls.parse_error || "the certificate could not be read"))),
-    metric("Certificate expiry",
-      certDays === null || certDays === undefined ? null : `${Math.round(certDays)}`,
-      certDays === null || certDays === undefined
-        ? "could not be read from the certificate file"
-        : `days remaining (${tls.expiry_severity})`),
-    metric("Tailscale",
+  const days = tls.days_remaining;
+  const httpsOff = data.https_enabled === false;
+  return el("div", { class: "stats", role: "group" },
+    metric(t("security.agent"), t("security.connected"), t("security.agent_note")),
+    metric(t("security.https"),
+      httpsOff ? t("security.https_off") : (tls.parsed ? t("security.cert_loaded") : null),
+      httpsOff ? t("security.https_off_note")
+        : (tls.parsed ? t("security.issued_by", { issuer: tls.issuer || t("security.unknown_issuer") })
+          : (tls.parse_error || t("security.cert_unreadable")))),
+    httpsOff ? null : metric(t("security.expiry"), known(days) ? `${Math.round(days)}` : null,
+      known(days)
+        ? `${t("security.days_left")}${technical() && tls.expiry_severity ? ` (${tls.expiry_severity})` : ""}`
+        : t("security.expiry_unreadable")),
+    metric(t("security.tailscale"),
       data.tailscale.connected === null ? null
-        : (data.tailscale.connected ? "connected" : "not connected"),
+        : t(data.tailscale.connected ? "security.ts_connected" : "security.ts_disconnected"),
       data.tailscale.detail),
-    metric("Authentication", data.authentication.enabled ? "enabled" : "NOT SET",
-      `sessions last ${data.authentication.session_hours}h`)));
-  holder.append(el("div", { class: "grid cols-3 mt-14" },
-    metric("Failed sign-ins", String(data.failed_logins_24h), "in the last 24 hours"),
-    metric("Certificate covers", tls.covers_hostname === true ? "yes"
-      : tls.covers_hostname === false ? "no" : null,
-      data.dashboard_hostname
-        ? `checked against ${data.dashboard_hostname}`
-        : "tls.hostname is not configured, so this cannot be checked"),
-    metric("Key matches certificate",
-      tls.key_matches_certificate === true ? "yes"
-        : tls.key_matches_certificate === false ? "no" : null,
-      tls.key_check_error || "compared as public keys; the private key is never exposed")));
+    metric(t("security.auth"), t(data.authentication.enabled ? "security.auth_on" : "security.auth_off"),
+      t("security.auth_note", { hours: data.authentication.session_hours })),
+    metric(t("security.failed"), String(data.failed_logins_24h), t("security.failed_note")));
+}
 
-  holder.append(el("div", { class: "gap-section" }, card(
-    `Active sessions (${data.active_sessions.length})`,
+function certificateStats(data) {
+  const tls = data.tls || {};
+  if (data.https_enabled === false) return null;
+  return el("div", { class: "stats", role: "group" },
+    metric(t("security.covers"), yesNo(tls.covers_hostname),
+      data.dashboard_hostname ? t("security.covers_note", { host: data.dashboard_hostname })
+        : t("security.covers_unset")),
+    metric(t("security.key_match"), yesNo(tls.key_matches_certificate),
+      tls.key_check_error || t("security.key_note")));
+}
+
+function sessionsCard(data) {
+  return card(t("security.sessions", { count: data.active_sessions.length }),
     data.active_sessions.length
-      ? table(["User", "Signed in", "Last used", "From", "Device"], data.active_sessions.map((s) => [
+      ? table([t("security.col_user"), t("security.col_signed_in"), t("security.col_last_used"),
+          t("security.col_from"), t("security.col_device")], data.active_sessions.map((s) => [
           s.user, fmt.time(s.created_at), fmt.ago(s.last_used),
           el("span", { class: "mono" }, s.source_ip || "—"), (s.label || "").slice(0, 40)]))
-      : el("div", { class: "empty" }, "No active sessions"),
+      : emptyState(t("security.no_sessions")),
     el("div", { class: "btn-row mt-12" },
       el("button", {
-        class: "btn small",
+        class: "btn small", type: "button",
         onclick: async () => {
-          const result = await api("/auth/rotate", { method: "POST" });
-          state.token = result.token;
-          sessionStorage.setItem("mcsc_token", state.token);
-          toast("This session's token was rotated");
+          try {
+            const result = await api("/auth/rotate", { method: "POST" });
+            state.token = result.token;
+            sessionStorage.setItem("mcsc_token", state.token);
+            toast(t("security.rotated"), "success");
+          } catch (err) { toast(err.message, "error"); }
         },
-      }, "Rotate my token"),
+      }, t("security.rotate")),
       el("button", {
-        class: "btn small danger",
+        class: "btn small danger", type: "button",
         onclick: async () => {
           const ok = await confirmDialog({
-            title: "Sign every session out?",
-            body: "All sessions, including this one, are revoked. You will sign in again.",
-            confirmLabel: "Revoke all sessions", danger: true,
+            title: t("security.revoke_title"), body: t("security.revoke_body"),
+            confirmLabel: t("security.revoke"), danger: true,
           });
           if (!ok) return;
           await api("/security/revoke-sessions", { method: "POST" });
           signOut(true);
         },
-      }, "Revoke all sessions")))));
+      }, t("security.revoke"))));
+}
 
-  holder.append(el("div", { class: "gap-section" }, card("Audit log",
+function auditCard(audit) {
+  return card(t("security.audit"),
     audit.entries.length
-      ? table(["When", "User", "Action", "Target", "Result"], audit.entries.map((e) => [
-          fmt.time(e.ts), e.user || "—", e.action, e.target || "—",
-          el("span", { class: `tag ${e.result === "ok" ? "ok" : "error"}` }, e.result)]))
-      : el("div", { class: "empty" }, "Nothing logged yet"))));
+      ? table([t("security.col_when"), t("security.col_user"), t("security.col_action"),
+          t("security.col_target"), t("security.col_result")], audit.entries.map((e) => [
+          fmt.time(e.ts), e.user || "—", el("span", { class: "mono" }, e.action), e.target || "—",
+          el("span", { class: `tag ${e.result === "ok" ? "ok" : "error"}` },
+            e.result === "ok" ? t("security.result_ok") : e.result)]))
+      : emptyState(t("security.audit_none")));
+}
 
-  holder.append(el("p", { class: "hint mt-12" },
-    `The agent is bound to ${data.bind_address}. Keep that address private to your tailnet;
-     do not port-forward it.`));
-  return holder;
+renderers.security = (page) => loadInto(page, async () => {
+  const [data, audit] = await Promise.all([api("/security"), api("/security/audit?limit=100")]);
+  return el("div", { class: "stack" },
+    connectionStats(data),
+    certificateStats(data),
+    sessionsCard(data),
+    auditCard(audit),
+    el("p", { class: "hint" }, t("security.bind", { address: data.bind_address })));
 });

@@ -1,89 +1,122 @@
 import { api, serverPath } from "../api.js";
 import { render } from "../nav.js";
 import { renderers, state } from "../state.js";
-import { card, confirmDialog, el, fmt, loadInto, table, toast } from "../ui.js";
+import { t, technical } from "../strings.js";
+import { busy, card, confirmDialog, el, emptyState, fmt, loadInto, table, toast } from "../ui.js";
+
+const KINDS = { manual: ["ok", "backups.kind_manual"], scheduled: ["", "backups.kind_scheduled"],
+  safety: ["warn", "backups.kind_safety"] };
+
+function kindTag(kind) {
+  const [tone, key] = KINDS[kind] || ["", null];
+  return el("span", { class: `tag ${tone}` }, key ? t(key) : kind);
+}
+
+function lastChangeCard(last) {
+  return card(t("backups.last_change"),
+    el("p", {}, t("backups.last_change_body", {
+      title: last.title, when: fmt.ago(last.finished_at), backup: last.result.undo.backup })),
+    el("div", { class: "btn-row mt-10" },
+      el("button", { class: "btn", type: "button", onclick: () => undoChange(last) }, t("backups.undo_change"))));
+}
+
+function worldsCard(worlds) {
+  return card(t("backups.worlds"), table(
+    [t("backups.col_world"), t("backups.col_size"), t("backups.col_modified"), t("backups.col_last_backup")],
+    worlds.map((w) => [
+      w.label,
+      w.exists ? fmt.bytes(w.size_bytes) : t("backups.world_missing"),
+      w.exists ? fmt.time(w.modified) : "—",
+      w.last_backup
+        ? (technical() ? `${w.last_backup.name} (${fmt.ago(w.last_backup.created_at)})` : fmt.ago(w.last_backup.created_at))
+        : t("time.never"),
+    ])));
+}
+
+function backupRow(b) {
+  return [
+    technical() ? el("span", { class: "mono" }, b.name) : fmt.time(b.created_at),
+    kindTag(b.kind),
+    ...(technical() ? [fmt.time(b.created_at)] : []),
+    fmt.bytes(b.size_bytes),
+    el("div", { class: "btn-row" },
+      el("button", {
+        class: "btn small", type: "button",
+        onclick: (e) => busy(e.currentTarget, t("backups.checking"), async () => {
+          try {
+            const result = await api(`/backups/${b.id}/verify`);
+            toast(result.ok ? t("backups.verify_ok") : t("backups.verify_failed", { reason: result.reason }),
+              result.ok ? "success" : "error");
+          } catch (err) { toast(err.message, "error"); }
+        }),
+      }, t("backups.verify")),
+      el("a", { class: "btn small", href: `/api${serverPath(`/backups/${b.id}/download`)}`,
+                onclick: downloadWithToken }, t("backups.download")),
+      el("button", { class: "btn small", type: "button", onclick: () => restoreBackup(b) }, t("backups.restore")),
+      el("button", {
+        class: "btn small danger", type: "button",
+        onclick: async () => {
+          const ok = await confirmDialog({
+            title: t("backups.delete_title", { name: b.name }),
+            body: t("backups.delete_body"),
+            confirmLabel: t("backups.delete_confirm"), danger: true,
+          });
+          if (!ok) return;
+          try {
+            await api(`/backups/${b.id}`, { method: "DELETE" });
+            toast(t("backups.deleted")); render();
+          } catch (err) { toast(err.message, "error"); }
+        },
+      }, t("backups.delete"))),
+  ];
+}
+
+function backupsCard(data) {
+  const headers = technical()
+    ? [t("backups.col_name"), t("backups.col_type"), t("backups.col_created"), t("backups.col_size"), ""]
+    : [t("backups.col_created"), t("backups.col_type"), t("backups.col_size"), ""];
+  const r = data.retention;
+  return card(t("backups.list"),
+    data.backups.length
+      ? table(headers, data.backups.map(backupRow))
+      : emptyState(t("backups.none"), t("backups.none_hint")),
+    el("p", { class: "hint mt-10" },
+      t("backups.keeping", { daily: r.daily, weekly: r.weekly, monthly: r.monthly })));
+}
 
 renderers.backups = (page) => loadInto(page, async () => {
   const [data, worlds, jobs] = await Promise.all([
     api("/backups"), api("/worlds"),
     api(`/jobs?server_id=${encodeURIComponent(state.serverId)}&limit=20`).catch(() => ({ jobs: [] })),
   ]);
-  const holder = el("div");
+  const holder = el("div", { class: "stack" });
 
-  const last = lastUndoable(jobs.jobs || []);
-  if (last) {
-    holder.append(card("Last change", el("div", {},
-      el("p", {}, `${last.title}, ${fmt.ago(last.finished_at)}. `
-        + `Undo puts back the safety copy ${last.result.undo.backup} taken just before it.`),
-      el("div", { class: "btn-row mt-10" },
-        el("button", { class: "btn", onclick: () => undoChange(last) }, "Undo this change")))));
-  }
-
-  holder.append(el("div", { class: "btn-row mb-14" },
+  holder.append(el("div", { class: "btn-row" },
     el("button", {
-      class: "btn primary",
-      onclick: async () => {
-        toast("Backup started. Large worlds take a while.");
+      class: "btn primary", type: "button",
+      onclick: (e) => busy(e.currentTarget, t("backup.working"), async () => {
+        toast(t("backups.started"));
         try {
           const result = await api("/backups", { method: "POST", body: {} });
-          toast(`Backup verified: ${result.name} `
-            + `(${result.verification ? result.verification.entries + " entries" : ""})`,
-            "info", 8000);
+          toast(result.verification
+            ? t("backups.verified_toast", { name: result.name, entries: result.verification.entries })
+            : t("backup.done", { name: result.name }), "success", 8000);
           render();
         } catch (err) { toast(err.message, "error"); }
-      },
-    }, "Back up now"),
+      }),
+    }, t("action.back_up_now")),
     el("button", {
-      class: "btn",
+      class: "btn", type: "button",
       onclick: async () => {
-        try { await api("/worlds/save", { method: "POST" }); toast("save-all flush sent"); }
+        try { await api("/worlds/save", { method: "POST" }); toast(t("backups.save_sent")); }
         catch (err) { toast(err.message, "error"); }
       },
-    }, "Save world now")));
+    }, t("backups.save_world"))));
 
-  holder.append(card("Worlds", table(["World", "Size", "Last modified", "Last backup"],
-    worlds.worlds.map((w) => [
-      w.label,
-      w.exists ? fmt.bytes(w.size_bytes) : "not present",
-      w.exists ? fmt.time(w.modified) : "—",
-      w.last_backup ? `${w.last_backup.name} (${fmt.ago(w.last_backup.created_at)})` : "never",
-    ]))));
-
-  holder.append(el("div", { class: "gap-section" },
-    card(`Backups (keeping ${data.retention.daily} daily, ${data.retention.weekly} weekly, ${data.retention.monthly} monthly)`,
-      data.backups.length
-        ? table(["Name", "Type", "Created", "Size", ""], data.backups.map((b) => [
-            el("span", { class: "mono" }, b.name),
-            el("span", { class: `tag ${b.kind === "manual" ? "ok" : b.kind === "safety" ? "warn" : ""}` }, b.kind),
-            fmt.time(b.created_at),
-            fmt.bytes(b.size_bytes),
-            el("div", { class: "btn-row" },
-              el("button", {
-                class: "btn small",
-                onclick: async () => {
-                  const result = await api(`/backups/${b.id}/verify`);
-                  toast(result.ok ? "Backup verified: archive and checksum are intact"
-                                  : `Verify failed: ${result.reason}`, result.ok ? "info" : "error");
-                },
-              }, "Verify"),
-              el("a", { class: "btn small", href: `/api${serverPath(`/backups/${b.id}/download`)}`,
-                        onclick: downloadWithToken }, "Download"),
-              el("button", { class: "btn small", onclick: () => restoreBackup(b) }, "Restore"),
-              el("button", {
-                class: "btn small danger",
-                onclick: async () => {
-                  const ok = await confirmDialog({
-                    title: `Delete ${b.name}?`,
-                    body: "The archive file is deleted from disk. This cannot be undone.",
-                    confirmLabel: "Delete backup", danger: true,
-                  });
-                  if (!ok) return;
-                  await api(`/backups/${b.id}`, { method: "DELETE" });
-                  toast("Backup deleted"); render();
-                },
-              }, "Delete")),
-          ]))
-        : el("div", { class: "empty" }, "No backups yet"))));
+  const last = lastUndoable(jobs.jobs || []);
+  if (last) holder.append(lastChangeCard(last));
+  holder.append(backupsCard(data));
+  holder.append(worldsCard(worlds.worlds));
   return holder;
 });
 
@@ -92,9 +125,9 @@ export async function downloadWithToken(event) {
   // token never travels in a URL.
   event.preventDefault();
   const href = event.currentTarget.getAttribute("href");
-  toast("Preparing download…");
+  toast(t("backups.preparing"));
   const response = await fetch(href, { headers: { Authorization: `Bearer ${state.token}` } });
-  if (!response.ok) { toast("Download failed", "error"); return; }
+  if (!response.ok) { toast(t("backups.download_failed"), "error"); return; }
   const blob = await response.blob();
   const url = URL.createObjectURL(blob);
   const link = el("a", { href: url, download: href.split("/").pop() });
@@ -103,27 +136,29 @@ export async function downloadWithToken(event) {
 }
 
 export async function restoreBackup(backup) {
-  const preview = await api(`/backups/${backup.id}/restore`, { method: "POST", body: { confirm: false } });
+  let preview;
+  try {
+    preview = await api(`/backups/${backup.id}/restore`, { method: "POST", body: { confirm: false } });
+  } catch (err) { toast(err.message, "error"); return; }
   const startAfter = el("input", { type: "checkbox" });
   const body = el("div", {},
-    el("p", {}, `Restore ${backup.name} from ${fmt.time(backup.created_at)}?`),
+    el("p", {}, t("backups.restore_question", { name: backup.name, when: fmt.time(backup.created_at) })),
     el("ul", {}, preview.will_happen.map((item) => el("li", {}, item))),
-    el("label", { class: "check-row mt-10" },
-      startAfter, "Start the server when the restore finishes"));
+    el("label", { class: "check-row mt-10" }, startAfter, t("backups.start_after")));
   const ok = await confirmDialog({
-    title: "Restore this backup?", body, confirmLabel: "Verify and restore", danger: true,
+    title: t("backups.restore_title"), body, confirmLabel: t("backups.restore_confirm"), danger: true,
   });
   if (!ok) return;
-  toast("Restoring. The server will stop first.");
+  toast(t("backups.restoring"));
   try {
     const result = await api(`/backups/${backup.id}/restore`, {
       method: "POST",
       body: { confirm: true, start_after: startAfter.checked, safety_backup: true },
     });
-    const job = { id: result.job_id, title: `Restoring ${result.restored}`,
+    const job = { id: result.job_id, title: t("backups.restore_job", { name: result.restored }),
       result: { undo: result.undo } };
-    toast(`Restored ${result.restored}. Safety copy: ${result.safety_backup.name}`, "info", 15000,
-      result.job_id && result.undo ? { label: "Undo", onClick: () => undoChange(job) } : null);
+    toast(t("backups.restored", { name: result.restored, safety: result.safety_backup.name }), "success", 15000,
+      result.job_id && result.undo ? { label: t("backups.undo"), onClick: () => undoChange(job) } : null);
     render();
   } catch (err) { toast(err.message, "error"); }
 }
@@ -137,16 +172,16 @@ function lastUndoable(jobs) {
    The undo is a change of its own, so it can be undone too. */
 export async function undoChange(job) {
   const ok = await confirmDialog({
-    title: "Undo this change?",
-    body: `${job.title} will be undone by restoring ${job.result.undo.backup}. `
-      + "The server stops first, and a new safety copy is taken, so this can be undone too.",
-    confirmLabel: "Undo", danger: true,
+    title: t("backups.undo_title"),
+    body: t("backups.undo_body", { title: job.title, backup: job.result.undo.backup }),
+    confirmLabel: t("backups.undo"), danger: true,
   });
   if (!ok) return;
-  toast("Undoing. The server will stop first.");
+  toast(t("backups.undoing"));
   try {
     const result = await api(`/jobs/${encodeURIComponent(job.id)}/undo`, { method: "POST" });
-    toast(`Undone: ${result.restored} is back.`);
+    toast(t("backups.undone", { name: result.restored }), "success");
     render();
   } catch (err) { toast(err.message, "error"); }
 }
+

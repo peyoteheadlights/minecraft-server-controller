@@ -53,6 +53,25 @@ WEB_DIR = Path(__file__).resolve().parent / "web"
 LOOPBACK = {"127.0.0.1", "localhost", "::1", "0:0:0:0:0:0:0:1"}
 
 
+def lock_down_data_folder(config: Config, startup_diag) -> None:
+    """The fixed app-data folder holds the database (sign-in sessions) and
+    the HTTPS private key. A folder made inside ProgramData lets every
+    account on the PC read it, so make it private to the agent's account,
+    SYSTEM and Administrators, and record what its access really is. A data
+    folder set in config.yaml is the owner's choice and is left alone."""
+    from .config import default_data_root
+    from .security.certs import folder_access, secure_directory
+
+    if config.data_dir_configured or config.data_dir != default_data_root():
+        return
+    if folder_access(config.data_dir)[0] != "private":
+        secure_directory(config.data_dir)
+    status, detail = folder_access(config.data_dir)
+    startup_diag.record("data_folder_access", ok=status == "private", detail=detail, status=status)
+    if status != "private":
+        log.warning("data folder %s is not private: %s", config.data_dir, detail)
+
+
 class TLSConfigError(RuntimeError):
     """Raised when HTTPS is requested but cannot be served honestly."""
 
@@ -433,6 +452,7 @@ def _main(argv: list[str] | None = None) -> int:
                 target=str(data_move.target),
                 warnings=data_move.warnings,
             )
+        lock_down_data_folder(config, startup_diag)
     config.ensure_dirs()
 
     host = config.network.host

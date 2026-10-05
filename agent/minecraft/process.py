@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ..events import Event, EventBus
+from . import cpu
 from .console import ConsoleBuffer, ConsoleLine, extract_signals
 from .state import NORMAL_REASONS, ExitReason, ServerState
 
@@ -121,6 +122,10 @@ class MinecraftServer:
         # folder), and things worth a warning (the port looks busy).
         self.start_guard: Callable[[], list[str]] | None = None
         self.start_warnings: Callable[[], list[str]] | None = None
+        # Set by the safe-change routine while it has stopped the server to
+        # change its files (a restore, for example): starting then would load
+        # a half-changed world, so every start is refused until it clears.
+        self.held_by: str | None = None
         self.maintenance = False
 
     # ------------------------------------------------------------------
@@ -216,12 +221,19 @@ class MinecraftServer:
             return [str(x) for x in raw]
         java = self.config.server.java
         jvm = [str(a) for a in self.config.server.jvm_args]
+        jvm += cpu.jvm_args(self.config.server.cpu_cores, jvm)
         jar = self.config.server.jar
         args = [str(a) for a in self.config.server.server_args]
         return [java, *jvm, "-jar", jar, *args]
 
     def preflight(self) -> PreflightResult:
         result = PreflightResult()
+        if self.held_by:
+            result.problems.append(
+                f"Wait for '{self.held_by}' to finish first. The server's files are being "
+                "changed, so it cannot start until that is done."
+            )
+            return result
         if not self.config.server_dir_configured:
             result.problems.append(
                 "The Minecraft server folder is not set. Open config/config.yaml and set "
@@ -252,6 +264,12 @@ class MinecraftServer:
                         "The installed Java version could not be detected, so compatibility "
                         "with Minecraft could not be checked."
                     )
+        cores = self.config.server.cpu_cores
+        if cores:
+            result.problems.extend(cpu.problems(cores))
+            supported, why = cpu.supported()
+            if not supported:
+                result.warnings.append(f"{why}, so the server will use every core.")
         if self.start_guard:
             result.problems.extend(self.start_guard())
         if self.start_warnings:
@@ -293,6 +311,9 @@ class MinecraftServer:
             "port": self.detected_port or self.config.server.port,
             "directory": str(self.config.server_dir),
             "memory": " ".join(str(a) for a in self.config.server.jvm_args),
+            "cpu_cores": cpu.status(
+                self.pid if self.running else None, self.config.server.cpu_cores
+            ),
             "max_players": self.config.server.max_players,
             "mod_count": self.mod_count,
             "tps": self.tps,
@@ -405,6 +426,8 @@ class MinecraftServer:
                 raise ServerError(f"Could not launch Minecraft: {exc}") from exc
 
             self.pid = self.process.pid
+            if self.config.server.cpu_cores:
+                await self.apply_cpu_cores()
             self._reader_task = asyncio.create_task(self._pump_output(), name="mc-console")
             self._waiter_task = asyncio.create_task(self._wait_exit(), name="mc-wait")
             if self.db:
@@ -412,6 +435,34 @@ class MinecraftServer:
                     self.server_id, "server_start_requested", f"Start requested by {actor}"
                 )
             return {"pid": self.pid, "command": cmd}
+
+    async def apply_cpu_cores(self) -> dict[str, Any]:
+        """Limit the running process to ``server.cpu_cores`` (every core when
+        it is empty) and report what the operating system says it now uses."""
+        if not self.running or not self.pid:
+            return {"ok": False, "applied": None, "reason": "The server is not running"}
+        cores = list(self.config.server.cpu_cores)
+        result = cpu.apply(self.pid, cores)
+        if result["ok"]:
+            used = result["applied"]
+            message = (
+                f"Using cores {cpu.describe(used)} of {cpu.logical_cores()}"
+                if cores
+                else "Using every core"
+            )
+            await self.bus.publish(
+                Event(type="cpu_cores", message=message, data={**result, "configured": cores})
+            )
+        else:
+            await self.bus.publish(
+                Event(
+                    type="cpu_cores_failed",
+                    level="warn",
+                    message=f"The CPU core limit was not applied: {result['reason']}",
+                    data={**result, "configured": cores},
+                )
+            )
+        return result
 
     async def wait_online(self, timeout: float | None = None) -> bool:
         timeout = timeout or self.config.server.start_timeout

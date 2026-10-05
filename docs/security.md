@@ -66,6 +66,23 @@ taken from the dashboard: a new server uses the first server's `java`, and
 `raw_command` is config-file only. Removing a server only takes it off the
 list; its folder is never deleted.
 
+The CPU core limit (`server.cpu_cores`) is a list of core numbers, checked
+against the cores the PC really has. The agent applies it with the operating
+system's own call on the process it started (psutil), never with a command,
+and adds only the `-XX:ActiveProcessorCount=<n>` JVM flag it builds itself.
+
+## The data folder
+
+The default data folder (`C:\ProgramData\Minecraft Server Controller`) holds
+the database, with its sign-in sessions, and the HTTPS private key. A folder
+made inside ProgramData lets every account on the PC read it, so on every
+start the agent checks the folder's real permissions and, if other accounts
+can open it, makes it private to the agent's account, SYSTEM and
+Administrators. `python -m agent.main --check` shows the result under Storage
+("Data folder access"), read from the folder itself, in any Windows language.
+A folder you set in `paths.data_dir` is left as you set it, and `--check`
+tells you if other accounts can read it.
+
 ## Permissions
 
 Every REST route declares the permission it needs (`server.control`,

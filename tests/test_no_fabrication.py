@@ -531,3 +531,36 @@ def test_diagnostics_never_report_another_drives_free_space(tmp_path):
     disk = next(c for c in report.sections["Storage"] if c.name == "Disk space")
     assert disk.status == "UNKNOWN"
     assert "GB" not in disk.value
+
+
+# ---------------------------------------------------------------- several servers
+def test_the_all_servers_view_claims_nothing_before_it_is_checked(tmp_path):
+    from .conftest import build_multi_config
+
+    core = AgentCore(build_multi_config(tmp_path))
+    try:
+        for ctx in core.servers.values():
+            row = ctx.summary()
+            assert row["state"] == "UNKNOWN"
+            assert row["state_verified"] is False
+            assert row["players_online"] is None  # not 0
+            assert row["players_verified"] is False
+            assert row["uptime"] is None
+            assert row["minecraft_version"] is None
+    finally:
+        core.db.close()
+
+
+def test_a_port_minecraft_would_pick_says_where_it_came_from(tmp_path):
+    from agent.ports import game_port
+
+    port = game_port(tmp_path)  # no server.properties at all
+    assert port.port == 25565
+    assert "default" in port.source  # never presented as read from the server
+
+
+def test_cpu_cores_of_a_stopped_server_are_unknown(parts):
+    config, bus, db, server = parts
+    cores = server.status()["cpu_cores"]
+    assert cores["applied"] is None
+    assert cores["applied_reason"]

@@ -71,6 +71,12 @@ EVENT_MAP: dict[str, tuple[str, str, int, str]] = {
     "certificate_problem": ("certificate_expiring", "🔐", 0xED4245, "TLS certificate problem"),
     "server_added": ("servers_changed", "➕", 0x5865F2, "Server added: {server}"),
     "server_removed": ("servers_changed", "➖", 0x9AA0A6, "Server removed: {server}"),
+    "cpu_cores_failed": (
+        "cpu_cores_failed",
+        "⚠️",
+        0xFAA61A,
+        "{server}: CPU core limit not applied",
+    ),
 }
 
 

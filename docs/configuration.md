@@ -63,6 +63,7 @@ folder; the refusal names the other server.
 | `stop_timeout` | `90` | Seconds to wait after `stop` before terminating the process |
 | `start_timeout` | `300` | Seconds to wait for `Done (…)!` before giving up |
 | `autostart_minecraft` | `false` | Start Minecraft when the agent starts |
+| `cpu_cores` | `[]` | Which CPU cores this server may use, counted from 0 as Task Manager's "Set affinity" does (`[0, 1, 2, 3]` is cores 1 to 4). Empty means every core. Java is also told how many cores it has (`-XX:ActiveProcessorCount`, unless `jvm_args` already sets it). A core this PC does not have stops the start with a message. Settings → CPU cores sets it, and a change applies at once to a running server. |
 
 ## monitor
 

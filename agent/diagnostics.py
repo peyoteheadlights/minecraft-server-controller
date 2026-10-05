@@ -343,6 +343,7 @@ def _storage(report: Report, config) -> None:
             "" if ok else f"Not writable: {error}",
         ),
     )
+    _data_folder_access(report, config)
     ok, error = _writable(config.log_dir)
     report.add(
         section,
@@ -388,6 +389,29 @@ def _storage(report: Report, config) -> None:
             section,
             Check("Disk space", UNKNOWN, "unknown", f"The filesystem could not be queried: {exc}"),
         )
+
+
+def _data_folder_access(report: Report, config) -> None:
+    """Who can open the data folder (the database holds sign-in sessions,
+    and the HTTPS private key is kept there). Read, never changed here."""
+    from .security.certs import folder_access
+
+    status, detail = folder_access(config.data_dir)
+    if status == "private":
+        report.add("Storage", Check("Data folder access", OK, "private", detail))
+    elif status == "shared":
+        report.add(
+            "Storage",
+            Check(
+                "Data folder access",
+                WARN,
+                "shared",
+                f"{detail}. The agent makes its own app-data folder private when it starts; "
+                "a folder set in paths.data_dir is yours to protect.",
+            ),
+        )
+    else:
+        report.add("Storage", Check("Data folder access", UNKNOWN, "unknown", detail))
 
 
 def _data_folder(report: Report, config, plan=None) -> None:

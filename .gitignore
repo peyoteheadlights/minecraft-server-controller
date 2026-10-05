@@ -5,6 +5,7 @@
 
 # Your local configuration (copy config/config.example.yaml to create it)
 config/config.yaml
+config/config.yaml.*
 
 # TLS certificates and private keys
 *.key

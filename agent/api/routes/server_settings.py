@@ -6,6 +6,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ...config import SERVER_OVERRIDES, ConfigError
+from ...minecraft import cpu
 from ...security.auth import Principal
 from ...security.permissions import SETTINGS_EDIT, SETTINGS_VIEW, require
 from ..deps import audit, get_server
@@ -20,6 +21,7 @@ SERVER_SETTABLE = (
     "server.start_timeout",
     "server.autostart_minecraft",
     "server.jvm_args",
+    "server.cpu_cores",
     "monitor.",
     "backups.keep_",
     "backups.include",
@@ -42,6 +44,29 @@ async def get_server_settings(
             for name in SERVER_OVERRIDES
         },
         "editable": list(SERVER_SETTABLE),
+        "cpu": _cpu_overview(ctx),
+    }
+
+
+def _cpu_overview(ctx) -> dict:
+    """What the CPU core picker needs: this PC's cores, whether limits work
+    here, and which cores every other server is set to use."""
+    supported, why = cpu.supported()
+    others = []
+    for other in ctx.core.servers.values():
+        if other is ctx:
+            continue
+        others.append(
+            {"id": other.server_id, "name": other.name, "cores": other.config.server.cpu_cores}
+        )
+    return {
+        "logical_cores": cpu.logical_cores(),
+        "supported": supported,
+        "unsupported_reason": why,
+        "others": others,
+        "status": cpu.status(
+            ctx.server.pid if ctx.server.running else None, ctx.config.server.cpu_cores
+        ),
     }
 
 
@@ -57,6 +82,11 @@ async def update_server_settings(
         if not any(key == p or key.startswith(p) for p in SERVER_SETTABLE):
             rejected[key] = "This setting cannot be changed from the dashboard"
             continue
+        if key == "server.cpu_cores":
+            found = cpu.shape_problems(value) or cpu.problems(value)
+            if found:
+                rejected[key] = found[0]
+                continue
         previous = ctx.config.get(key)
         ctx.config.set(key, value)
         try:
@@ -78,4 +108,8 @@ async def update_server_settings(
                 ctx.server_id, ctx.config.server.name, str(ctx.config.server_dir)
             )
         audit(ctx, request, "server_settings_update", detail=", ".join(applied))
-    return {"ok": True, "applied": applied, "rejected": rejected}
+    result: dict = {"ok": True, "applied": applied, "rejected": rejected}
+    if "server.cpu_cores" in applied and ctx.server.running:
+        # Applied to the running server at once, and read back from it.
+        result["cpu_cores"] = await ctx.server.apply_cpu_cores()
+    return result

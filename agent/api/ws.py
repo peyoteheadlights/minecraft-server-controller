@@ -32,6 +32,9 @@ from ..security.permissions import WS_ACTIONS, check
 
 log = logging.getLogger("msc.ws")
 
+# Event types only the page showing that server needs.
+PAGE_ONLY = frozenset({"console", "metrics"})
+
 ws_router = APIRouter()
 
 AUTH_TIMEOUT = 10.0
@@ -79,15 +82,25 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     except WebSocketDisconnect:
         return
 
-    queue = core.bus.queue(maxsize=QUEUE_SIZE)
-    core.db.audit("websocket_open", user=principal.user, source_ip=client_ip)
-
     def server_for(message: dict):
         """The server a message is about; the first one if it names none."""
         return core.servers.get(str(message.get("server_id") or "")) or core.default
 
+    selected = server_for(message)
+    # The server this page shows. Console lines and metrics samples of the
+    # other servers are not sent at all: a phone that falls behind drops its
+    # oldest messages, and those must never push out another server's crash.
+    watching = {"server_id": selected.server_id}
+
+    def accept(event) -> bool:
+        if event.type in PAGE_ONLY and event.server_id is not None:
+            return event.server_id == watching["server_id"]
+        return True
+
+    queue = core.bus.queue(maxsize=QUEUE_SIZE, accept=accept)
+    core.db.audit("websocket_open", user=principal.user, source_ip=client_ip)
+
     try:
-        selected = server_for(message)
         await _send(
             ws,
             {
@@ -137,6 +150,10 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                     await _send(ws, {"type": "denied", "action": kind, "message": exc.message})
                     continue
                 ctx = server_for(message)
+                # Asking for a named server's console or status means the page
+                # now shows that server.
+                if message.get("server_id") in core.servers:
+                    watching["server_id"] = ctx.server_id
                 if kind == "tail":
                     count = min(int(message.get("lines", 100) or 100), 500)
                     await _send(

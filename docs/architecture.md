@@ -33,7 +33,10 @@ Subscribers: the database writer, the notifier, and every open WebSocket.
 
 Each WebSocket gets its **own bounded queue**. If a phone on a weak connection
 falls behind, its oldest events are dropped — the agent is never slowed down by
-a slow consumer. A subscriber that raises is logged and ignored.
+a slow consumer. Console lines and metrics samples only go to pages showing
+that server (the queue filters them before they are queued), so another
+server's busy console can never push a crash alert out of a slow phone's
+queue. A subscriber that raises is logged and ignored.
 
 The notifier never sends from inside `publish`: it queues the alert and returns
 at once, and its own background task does the Discord and email sends. That is
@@ -100,11 +103,16 @@ dashboard filters by the selected one.
 
 - **Jobs** (`agent/jobs.py`): a long operation with honest progress, stored in
   the `jobs` table and streamed as `job` events. One risky job per server at a
-  time. Jobs left running when the agent stopped are marked interrupted.
+  time: backups, restores and every mod change (install, upload, update,
+  remove, turn on or off, roll back, dependencies). Jobs left running when the
+  agent stopped are marked interrupted.
 - **Safe change** (`agent/safechange.py`): stop if needed, take and verify a
   backup, make the change, check it, put the backup back if the change or the
   check fails, start again if asked. The backup is the change's one-click undo.
+  Undo is `POST /api/jobs/<id>/undo`, the Undo button on Backups.
   Restoring a backup runs through it; later phases' risky changes will too.
+  From the stop until the result is checked, the server is held: every
+  start is refused with what it is waiting for.
 - **Port manager** (`agent/ports.py`): which port each server uses (from its
   console, else `server.properties`, else Minecraft's default, and says which),
   start refusals on a port or folder another running server uses, and free
@@ -122,8 +130,17 @@ folder once, before anything else at startup touches the new folder: plan
 check + row counts, SHA-256 per file), rewrite absolute paths in the copied
 database and the certificate paths in `config.yaml`, then switch, with the
 database moved in last. On any failure the staging folder goes and the old
-folder is used for that run. Tools that run before the first start (`--check`,
-`make_certs`, setup) look at the old folder until the copy exists.
+folder is used for that run. If an attempt is cut off part way (a power
+cut), the next start finishes it: entries already moved across that match the
+staged copy byte for byte are accepted; anything else in the way stops the
+move and the old folder is used. Tools that run before the first start
+(`--check`, `make_certs`, setup) look at the old folder until the copy exists.
+
+The CPU reading for the whole PC (`machine_cpu` in
+`agent/monitoring/metrics.py`) is shared by every server's monitor and never
+measured over less than a second, because psutil's own non-blocking reading
+is "since the last call on this thread" and gave the second of two servers
+about 0%.
 
 ## Layout
 

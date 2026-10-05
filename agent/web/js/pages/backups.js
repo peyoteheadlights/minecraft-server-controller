@@ -1,4 +1,4 @@
-import { api } from "../api.js";
+import { api, serverPath } from "../api.js";
 import { render } from "../nav.js";
 import { renderers, state } from "../state.js";
 import { card, confirmDialog, el, fmt, loadInto, table, toast } from "../ui.js";
@@ -54,7 +54,7 @@ renderers.backups = (page) => loadInto(page, async () => {
                                   : `Verify failed: ${result.reason}`, result.ok ? "info" : "error");
                 },
               }, "Verify"),
-              el("a", { class: "btn small", href: `/api/backups/${b.id}/download`,
+              el("a", { class: "btn small", href: `/api${serverPath(`/backups/${b.id}/download`)}`,
                         onclick: downloadWithToken }, "Download"),
               el("button", { class: "btn small", onclick: () => restoreBackup(b) }, "Restore"),
               el("button", {

@@ -33,6 +33,7 @@ from agent.security.auth import hash_password  # noqa: E402
 PASSWORD = "screenshot password 1"
 SIZES = [(1920, 1080), (1440, 900), (1280, 720), (1024, 700), (390, 844)]
 PAGES = [
+    "servers",
     "dashboard",
     "console",
     "players",
@@ -81,14 +82,31 @@ def start_agent(tmp: Path):
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
+    # A second server, so the server switcher and All servers page are
+    # exercised too.
+    creative = tmp / "Creative"
+    for sub in ("mods", "world"):
+        (creative / sub).mkdir(parents=True, exist_ok=True)
+    (creative / "world" / "level.dat").write_bytes(b"x" * 2048)
+    (creative / "server.properties").write_text("server-port=25566\n")
+    fake = [sys.executable, str(ROOT / "tests/fixtures/fake_server.py")]
     config = {
-        "server": {
-            "id": "ui",
-            "name": "Survival",
-            "directory": str(mc),
-            "raw_command": [sys.executable, str(ROOT / "tests/fixtures/fake_server.py")],
-            "max_players": 20,
-        },
+        "servers": [
+            {
+                "id": "ui",
+                "name": "Survival",
+                "directory": str(mc),
+                "raw_command": fake,
+                "max_players": 20,
+            },
+            {
+                "id": "creative",
+                "name": "Creative",
+                "directory": str(creative),
+                "raw_command": fake,
+                "port": 25566,
+            },
+        ],
         "paths": {"data_dir": str(tmp / "data")},
         "network": {"host": "127.0.0.1", "port": port},
         "tls": {"enabled": False},

@@ -1,6 +1,22 @@
 import { signOut } from "./auth.js";
 import { state } from "./state.js";
 
+// Areas that belong to one Minecraft server. Their paths are sent under
+// /api/servers/<selected server>/, so every page acts on the server chosen
+// in the sidebar. Everything else (sign-in, agent settings, security, the
+// server list, jobs) is about the agent itself.
+const PER_SERVER = new Set([
+  "status", "info", "server", "logs", "events", "crashes", "players", "performance",
+  "worlds", "tps", "mods", "backups", "schedules",
+]);
+
+export function serverPath(path, serverId = state.serverId) {
+  const head = path.split(/[/?]/)[1];
+  const perServer = PER_SERVER.has(head) || path.startsWith("/health/server");
+  if (!serverId || !perServer) return path;
+  return `/servers/${encodeURIComponent(serverId)}${path}`;
+}
+
 export async function api(path, options = {}) {
   const headers = Object.assign({}, options.headers || {});
   if (state.token) headers.Authorization = `Bearer ${state.token}`;
@@ -10,7 +26,7 @@ export async function api(path, options = {}) {
   }
   let response;
   try {
-    response = await fetch(`/api${path}`, Object.assign({}, options, { headers }));
+    response = await fetch(`/api${serverPath(path)}`, Object.assign({}, options, { headers }));
   } catch (err) {
     throw new Error("The agent could not be reached. Check that it is running and that "
       + "this device is connected to Tailscale.");

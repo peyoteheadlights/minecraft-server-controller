@@ -179,7 +179,7 @@ def main():
             dialog = page.locator("[role=dialog]")
             check(
                 "Stop asks for confirmation",
-                lambda: expect(dialog).to_contain_text("Players will be disconnected"),
+                lambda: expect(dialog).to_contain_text("Players are disconnected"),
             )
             check(
                 "Focus starts on Cancel for a destructive action",
@@ -260,7 +260,7 @@ def main():
             countdown = page.locator(".countdown")
             check(
                 "A crash starts a visible countdown",
-                lambda: expect(countdown).to_contain_text("Restarting by itself in", timeout=10000),
+                lambda: expect(countdown).to_contain_text("Restarting in", timeout=10000),
             )
             check(
                 "Start is not offered during the countdown",
@@ -300,7 +300,7 @@ def main():
                 lambda: (
                     expect(title).to_have_text("Crashed"),
                     expect(page.locator("#server-state-detail")).to_contain_text(
-                        "automatic restart was cancelled"
+                        "Auto restart cancelled"
                     ),
                     expect(actions.get_by_role("button", name="Start", exact=True)).to_be_visible(),
                 )[-1],
@@ -313,7 +313,7 @@ def main():
             actions.get_by_role("button", name="Start", exact=True).click()
             expect(title).to_have_text("Online", timeout=30000)
             httpx.post(f"{base}/api/server/command", headers=auth, json={"command": "crash"})
-            expect(countdown).to_contain_text("Restarting by itself in", timeout=10000)
+            expect(countdown).to_contain_text("Restarting in", timeout=10000)
             actions.locator("button", has_text="Restart now").click()
             check(
                 "Restart now starts the server immediately",
@@ -323,7 +323,7 @@ def main():
             print("\n=== Simple and Technical ===")
             check(
                 "Simple mode says server speed in everyday words",
-                lambda: expect(page.locator(".stat").nth(1)).to_contain_text("Server speed"),
+                lambda: expect(page.locator(".stat").nth(1)).to_contain_text("Game speed"),
             )
             page.locator("#gear").click()
             page.get_by_role("radio", name="Technical").check()
@@ -379,7 +379,7 @@ def main():
             page.locator("#tab-ui").click()
             check(
                 "Back in Simple mode the extra detail is folded away",
-                lambda: expect(page.locator(".stat").nth(1)).to_contain_text("Server speed"),
+                lambda: expect(page.locator(".stat").nth(1)).to_contain_text("Game speed"),
             )
 
             print("\n=== Dependencies ===")
@@ -387,7 +387,7 @@ def main():
             page.locator("[role=dialog] button.danger-filled").click()
             expect(title).to_have_text("Offline", timeout=20000)
             page.locator(".nav-item", has_text="Mods").click()
-            deps = page.locator(".section", has_text="What mods need")
+            deps = page.locator(".section", has_text="Required mods")
             check(
                 "A missing dependency is shown in plain language",
                 lambda: (
@@ -404,7 +404,7 @@ def main():
             check(
                 "Install what's missing is offered",
                 lambda: expect(
-                    deps.locator("button", has_text="Install what's missing")
+                    deps.locator("button", has_text="Install missing")
                 ).to_be_enabled(),
             )
             page.screenshot(path=str(shots / "05d-dependencies.png"))
@@ -418,7 +418,7 @@ def main():
                 "Console lists lines",
                 lambda: expect(page.locator("#console-wrap .log-line").first).to_be_visible(),
             )
-            page.fill("input[aria-label='Show only lines containing']", "Steve")
+            page.fill("input[aria-label='Show lines containing']", "Steve")
             check(
                 "Filter narrows the lines",
                 lambda: (
@@ -426,12 +426,12 @@ def main():
                     f"{page.locator('#console-wrap .log-line').count()} matching lines",
                 )[-1],
             )
-            page.fill("input[aria-label='Show only lines containing']", "zzz-nothing")
+            page.fill("input[aria-label='Show lines containing']", "zzz-nothing")
             check(
                 "A filter with no matches shows an empty state",
-                lambda: expect(page.locator("#console-wrap")).to_contain_text("Nothing matches"),
+                lambda: expect(page.locator("#console-wrap")).to_contain_text("No matches"),
             )
-            page.fill("input[aria-label='Show only lines containing']", "")
+            page.fill("input[aria-label='Show lines containing']", "")
             follow = page.locator("button", has_text="Follow")
             follow.click()
             check(
@@ -445,13 +445,13 @@ def main():
                 "Copy puts the lines on the clipboard",
                 lambda: expect(page.locator(".toast", has_text="Copied")).to_be_visible(),
             )
-            page.fill("input[aria-label='Command to send']", "op Steve")
+            page.fill("input[aria-label='Command']", "op Steve")
             page.keyboard.press("Enter")
             check(
                 "A dangerous command asks first", lambda: expect(dialog).to_contain_text("operator")
             )
             dialog.locator("button", has_text="Cancel").click()
-            page.fill("input[aria-label='Command to send']", "say hello; shutdown")
+            page.fill("input[aria-label='Command']", "say hello; shutdown")
             page.keyboard.press("Enter")
             check(
                 "An invalid command is refused with a readable reason",

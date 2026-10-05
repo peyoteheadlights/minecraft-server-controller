@@ -10,10 +10,9 @@ Each server has a tab across the top, like the dividers in a folder, with
 page under a tab takes that server's color: the header, the page itself and
 its cards are all tinted with it, and its buttons are filled with it. The
 server's own pages are listed down the left side of the page, under its
-name, in three groups: **Right now** (Overview, Players, Console,
-Performance), **Look after it** (Backups, Mods, Schedules, Server settings)
-and **What happened** (Events, Crashes). Technical mode calls them Live,
-Manage and History.
+name, in three groups: **Live** (Overview, Players, Console, Performance),
+**Manage** (Backups, Mods, Schedules, Server settings) and **History**
+(Events, Crashes).
 
 Each server has a badge: its initials on its color. It is on the server's
 tab, with a dot on its corner for the server's state, before its name at the
@@ -39,7 +38,7 @@ the server's name that scrolls sideways too, with thin lines between the
 groups; nothing on a page is wider than
 the screen.
 
-## Settings for this app (the gear)
+## App settings (the gear)
 
 The gear at the top right opens the settings that apply to the whole app,
 next to **Security**:
@@ -47,8 +46,8 @@ next to **Security**:
 - **Appearance**: Match my device (the default), Light, Dark, Graphite or
   High contrast. It applies at once and follows your account to other
   devices.
-- **How much detail**: **Simple** (the default) uses everyday words ("Server
-  speed", "Memory used") and folds away the extra options. **Technical** uses
+- **Detail level**: **Simple** (the default) uses short, everyday words
+  ("Game speed", "CPU use") and folds away the extra options. **Technical** uses
   the exact terms (TPS, MSPT, RSS, `-Xmx`), shows extra columns and graphs,
   and opens the "Advanced" sections. Every label in the dashboard has both
   versions.
@@ -72,10 +71,10 @@ The buttons change with the state. Start is the main action when the server
 is stopped; Stop asks for confirmation. While an operation runs, the buttons
 show progress and cannot be clicked again.
 
-Below that, four numbers: players, server speed (TPS), memory used against
-its limit, and how busy the PC is. Hover or tap one for a short summary of
+Below that, four numbers: players, game speed (TPS), memory used against
+its limit, and the PC's CPU use. Hover or tap one for a short summary of
 the last hour. Then three cards: **Last backup** (with **Back up now**),
-**Next scheduled task**, and **Players online**, and a **Details** list
+**Next task**, and **Players online**, and a **Details** list
 (Minecraft version, port, mods, free disk space). Technical mode also shows
 the most recent console lines. Anything the agent cannot measure says
 **Unknown**.
@@ -108,7 +107,7 @@ total time played. IP addresses are deliberately not recorded.
 
 ## Performance
 
-Graphs of server speed (TPS), memory, CPU and players, over 1 hour, 6 hours,
+Graphs of game speed (TPS), memory, CPU and players, over 1 hour, 6 hours,
 24 hours or 7 days (the choice is remembered). Times run along the bottom and
 units up the side. While the server was off the line has a gap rather than
 dropping to zero, and the memory graph has a dashed line at the server's
@@ -127,15 +126,15 @@ mod, say Unknown and explain why rather than showing a made-up number.
 
 ## Backups
 
-**Back up now** and **Save the world now** at the top, then the backup list
+**Back up now** and **Save world** at the top, then the backup list
 with buttons to check, download, restore and delete each one, and the worlds
-with their sizes and last backup. Each backup is labelled **Made by you**,
+with their sizes and last backup. Each backup is labelled **Manual**,
 **Scheduled** or **Safety copy** (taken automatically before a restore or
 other change). Restore shows a full list of what it is about to do before it
 does any of it. See [backups.md](backups.md).
 
 **Last change** at the top shows the newest restore (or other safe change) on
-this server with an **Undo this change** button. Undo restores the safety copy
+this server with an **Undo change** button. Undo restores the safety copy
 taken just before that change; it is a change of its own, with its own safety
 copy, so it can be undone too. The toast after a restore has the same Undo
 button.
@@ -180,15 +179,15 @@ Each server's own settings, on its tab:
 
 - **Name and color**.
 - **When it crashes**: restart by itself, with crash-loop protection under
-  "More crash options".
+  "More options".
 - **Memory**: the memory limit (`-Xmx`), with the Java options in an
   advanced section.
-- **CPU cores**: tick the cores this server may use, or **Use every core**.
+- **CPU cores**: tick the cores this server may use, or **All cores**.
   It shows which cores other servers use, and the cores the running server
   really uses, read from its process.
 - **Backups**: how many daily, weekly and monthly backups to keep, and the
   start and stop timeouts.
-- **Remove from this list** takes the server off the dashboard after you
+- **Remove from list** takes the server off the dashboard after you
   confirm; its folder, world, mods and backups stay where they are.
 
 Changes are written to `config.yaml` when you press Save. Only a safe subset

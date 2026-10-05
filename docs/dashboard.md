@@ -105,6 +105,10 @@ Who is online now with how long they have been playing (Technical adds their
 UUID), and everyone ever seen with first seen, last seen, times joined and
 total time played. IP addresses are deliberately not recorded.
 
+A player who came in from Bedrock carries a **Bedrock** badge. That comes
+from Floodgate's `.` prefix on the name the server printed, and the name is
+always shown exactly as printed. With crossplay off, nobody is badged.
+
 ## Performance
 
 Graphs of game speed (TPS), memory, CPU and players, over 1 hour, 6 hours,
@@ -143,10 +147,12 @@ While a restore runs, the server cannot be started from anywhere (the button,
 a schedule, another device), and mod changes wait: a server runs one change
 like this at a time.
 
-## Mods
+## Mods, or Plugins
 
-The mod manager. See [mods.md](mods.md) — it has the most detail and the most
-caveats.
+The add-on manager. The page calls itself what this server's type calls them:
+**Mods** on Fabric, Quilt, Forge and NeoForge, **Plugins** on Paper and
+Purpur. Vanilla takes neither, so it has no such page at all. See
+[mods.md](mods.md) — it has the most detail and the most caveats.
 
 ## Schedules
 
@@ -185,6 +191,22 @@ Each server's own settings, on its tab:
 - **CPU cores**: tick the cores this server may use, or **All cores**.
   It shows which cores other servers use, and the cores the running server
   really uses, read from its process.
+- **Kind and version**: what this server is and which Minecraft version its
+  own console reported — "Not seen yet" until it has started once, never
+  guessed from a file name. Opening **Change the kind or version** fetches
+  that type's version list from its own project. **Check first** says what
+  would happen (older or newer, whether the installed Java can run it, which
+  add-ons don't fit the new kind and would be moved aside, which declare
+  nothing so can't be judged) before you commit. The change stops the server
+  and takes a verified backup first, and **Go back a version** puts the
+  previous software back in one step. The new version shows as pending until
+  the server starts and its console confirms it.
+- **Bedrock players**: let people on phones, tablets and Windows Bedrock join
+  this Java server. It installs Geyser and Floodgate into the server's own
+  add-on folder, so the server has to be stopped. The address Bedrock players
+  type is built from this PC's real Tailscale address; if that can't be read
+  the panel says so rather than showing one. The differences a Bedrock player
+  will notice are listed before you turn anything on.
 - **Backups**: how many daily, weekly and monthly backups to keep, and the
   start and stop timeouts.
 - **Remove from list** takes the server off the dashboard after you
@@ -197,10 +219,39 @@ the API even if the request is crafted by hand.
 
 ## Adding a server
 
-The **+** tab registers a folder that already holds a Minecraft server: its
-name, the full folder path, and a color (the next unused one is already
-picked). Nothing in the folder is changed and the server is not started; it
-opens on its own Overview.
+The **+** tab has two ways in.
+
+**New server** makes one from scratch:
+
+1. **Which Minecraft** — Java, or Bedrock. Bedrock servers come in a later
+   update; the panel says so rather than offering something that isn't there,
+   and points out that Bedrock players can already join a Java server.
+2. **Which kind of server** — a table comparing Vanilla, Fabric, Quilt,
+   Forge, NeoForge, Paper and Purpur: what each is best for, whether it takes
+   mods or plugins, whether Modrinth can install to it, whether Bedrock
+   players can join, and how fiddly it is to set up. Technical mode adds the
+   loader, the add-on metadata file and where its versions come from. One row
+   is marked **Recommended**, with a line saying why. Nothing is chosen for
+   you. On a phone each row becomes a card. The table is generated from what
+   each type says about itself in the code, so it cannot go stale.
+3. **Which version** — the newest finished version is picked for you;
+   unfinished ones (snapshots) are behind a switch, and the loader version is
+   under Advanced.
+4. **Name, folder, color and memory** — the folder has to be new or empty,
+   the port is the next free one, and the memory default comes from this PC's
+   real memory with the reason written next to it.
+5. **Minecraft's rules** — a link to Mojang's EULA and a box you tick
+   yourself. Nothing is created until you do, and `eula.txt` says `eula=false`
+   until then. The agent never accepts them for you.
+
+It downloads, checks the file against the checksum that project published,
+sets it up and puts it on the list. It does **not** start it: you press Start,
+and only then does its console say which version it really is.
+
+**Server I already have** registers a folder that already holds a Minecraft
+server: its name, the full folder path, and a color (the next unused one is
+already picked). Nothing in the folder is changed and the server is not
+started; it opens on its own Overview.
 
 ## Security
 

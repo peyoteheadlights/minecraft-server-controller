@@ -216,6 +216,12 @@ class ServerContext:
             "players_verified": self.players.verified,
             "max_players": self.config.server.max_players,
             "minecraft_version": status["minecraft_version"],
+            # What kind of server this is, so the dashboard can name its
+            # add-ons the way this type names them (mods or plugins).
+            "type": status["server_type"],
+            "type_name": status["server_type_name"],
+            "content": self.config.server_type.content,
+            "crossplay": bool(self.config.server.crossplay),
             "game_port": self.core.ports.port_of(self).to_dict(),
             "directory": status["directory"],
             "default": self.server_id == self.core.config.default_server_id,

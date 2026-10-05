@@ -294,3 +294,24 @@ def status(ctx: ServerContext) -> dict[str, Any]:
             "tablets and Windows Bedrock can.",
         ],
     }
+
+
+def address(state: dict[str, Any]) -> dict[str, Any]:
+    """The address a Bedrock player types, from this PC's real Tailscale
+    address. Never a guess: when the address can't be read, ``address`` is
+    None and ``address_unknown`` says why (house rule 1)."""
+    from .tailscale import connection_status
+
+    if not state.get("enabled") or not state.get("port"):
+        return {"address": None, "address_unknown": None}
+    report = connection_status()
+    host = report.get("address")
+    if not host:
+        return {
+            "address": None,
+            "address_unknown": (
+                "This PC's Tailscale address couldn't be read, so the address to type "
+                "isn't known yet. " + (report.get("detail") or "")
+            ).strip(),
+        }
+    return {"address": f"{host}:{state['port']}", "address_unknown": None}

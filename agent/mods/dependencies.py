@@ -337,7 +337,7 @@ class DependencyResolver:
     async def resolve_project(self, mod_id: str) -> dict[str, Any] | None:
         """Find the Modrinth project for a mod id. Cached; None if not found."""
         if not valid_identifier(mod_id):
-            raise DependencyError(f"'{mod_id}' is not a valid mod identifier")
+            raise DependencyError(f"'{mod_id}' isn't a name a mod can have.")
         cache_key = f"dep_project:{mod_id}"
         cached = self.db.get_setting(cache_key)
         if cached and time.time() - cached.get("cached_at", 0) < CACHE_SECONDS:
@@ -466,7 +466,7 @@ class DependencyResolver:
         if mod_ids:
             for mod_id in mod_ids:
                 if not valid_identifier(mod_id):
-                    raise DependencyError(f"'{mod_id}' is not a valid mod identifier")
+                    raise DependencyError(f"'{mod_id}' isn't a name a mod can have.")
             wanted = {k: v for k, v in wanted.items() if k in set(mod_ids)}
         return wanted
 

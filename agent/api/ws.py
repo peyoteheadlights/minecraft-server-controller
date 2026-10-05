@@ -69,7 +69,7 @@ async def websocket_endpoint(ws: WebSocket) -> None:
         raw = await asyncio.wait_for(ws.receive_text(), timeout=AUTH_TIMEOUT)
         message = json.loads(raw)
         if message.get("type") != "auth" or not message.get("token"):
-            raise AuthError("The first message must be an auth message")
+            raise AuthError("Sign in before sending anything else.")
         principal = core.auth.authenticate(message["token"], source_ip=client_ip)
     except (TimeoutError, json.JSONDecodeError, KeyError, TypeError):
         await _send(ws, {"type": "error", "message": "Authentication failed"})

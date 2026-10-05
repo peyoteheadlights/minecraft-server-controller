@@ -121,6 +121,41 @@ dashboard filters by the selected one.
   permission it needs with `Depends(require(...))`, and a test checks none is
   missing. Today every signed-in user has every permission; helper accounts
   later only change `permissions_for`.
+- **Downloader** (`agent/downloads.py`): the one way anything is fetched.
+  HTTPS only, an allow-list of official hosts re-checked on every redirect,
+  size caps, `.part` file renamed into place only after the strongest
+  published checksum matches, and an honest `verified: false` where a source
+  publishes none. Tests replace its module-level `TRANSPORT`, so nothing in
+  the suite touches the network.
+
+## Server types
+
+`agent/servertypes/` is where "what kind of server is this" lives, and
+nothing outside it asks `if type == "fabric"`:
+
+- `__init__.py` — one frozen `ServerType` per type (Vanilla, Fabric, Quilt,
+  Forge, NeoForge, Paper, Purpur), saying what it accepts, what its add-ons
+  are called and where they live, which metadata file they carry, which
+  Modrinth loaders match, how it is launched (`-jar`, or `java @win_args.txt`
+  for Forge and NeoForge), where its versions come from, which TPS commands
+  to try, and whether GeyserMC publishes a build for it. The dashboard's
+  comparison table is generated from exactly this, so it cannot drift.
+- `versions.py` — one provider per type, each asking that project's own API
+  (Mojang's piston-meta, meta.fabricmc.net, meta.quiltmc.org, the Forge and
+  NeoForged Maven metadata, fill.papermc.io, api.purpurmc.org), and turning
+  a chosen version into a `Plan` of files to fetch.
+- `install.py` — putting that plan in place, running the loader installer
+  where there is one (see `docs/security.md`), and changing a server's
+  version or type through the safe-change routine, keeping the previous
+  software for a one-step roll back.
+- `create.py` — a brand-new server: check the folder, check Java, write
+  `server.properties` and `eula.txt`, install, register. It is never started
+  for you.
+
+`agent/crossplay.py` sits beside them: Geyser and Floodgate installed into
+the server's own add-on folder with `auth-type: floodgate`, a UDP port from
+the port manager, and the differences a Bedrock player will notice written
+out in plain words.
 
 ## The data folder
 
@@ -164,7 +199,11 @@ agent/
   backups/manager.py
   database/db.py       schema + migrations
   minecraft/           state, process, console, commands, analyzer, crash
+  crossplay.py         Geyser and Floodgate: Bedrock players on a Java server
+  downloads.py         the one safe downloader (allow-list, size caps, checksums)
   mods/                jarinfo, modrinth, manager
+  servertypes/         what each kind of server is, its versions, installs,
+                       version and type changes, and making a new one
   monitoring/          metrics, players
   notifications/dispatcher.py
   scheduler/scheduler.py

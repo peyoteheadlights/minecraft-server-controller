@@ -334,7 +334,7 @@ class TpsMonitor:
         try:
             self.config.save()
         except OSError as exc:
-            raise ValueError(f"The setting could not be saved to config.yaml: {exc}") from exc
+            raise ValueError(f"That setting couldn't be saved: {exc}") from exc
         self.server.tps = self.server.mspt = None
         self.server.tps_source = None
         if self.server.state.value == "ONLINE":

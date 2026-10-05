@@ -63,6 +63,15 @@ export function pageEntry(key) {
   return PAGES.find(([k]) => k === key) || null;
 }
 
+/* The add-ons page calls itself what this server's type calls them:
+   "Mods" on Fabric, Quilt, Forge and NeoForge, "Plugins" on Paper and
+   Purpur. Vanilla takes neither, so the page is not offered at all. */
+export function contentPage(row) {
+  const kind = row && row.content;
+  if (!kind) return null;
+  return kind === "plugins" ? "page.plugins" : "page.mods";
+}
+
 /* label and tone are strings keys / status tones; busy states pulse. */
 export const STATES = {
   ONLINE: { label: "state.online", tone: "success" },

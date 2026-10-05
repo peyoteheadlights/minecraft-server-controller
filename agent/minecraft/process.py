@@ -988,7 +988,7 @@ class MinecraftServer:
         if not self.running or not self.process or not self.process.stdin:
             raise ServerError("Server is not running")
         if "\n" in command or "\r" in command:
-            raise ServerError("A command must be a single line")
+            raise ServerError("A command has to be one line.")
         try:
             self.process.stdin.write((command.strip() + "\n").encode("utf-8"))
             await self.process.stdin.drain()

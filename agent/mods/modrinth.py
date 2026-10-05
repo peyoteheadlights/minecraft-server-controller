@@ -91,7 +91,7 @@ class ModrinthClient:
         if response.status_code >= 500:
             raise ModrinthError("Modrinth has a problem right now. Try again later.")
         if response.status_code >= 400:
-            raise ModrinthError(f"Modrinth refused the request (error {response.status_code}).")
+            raise ModrinthError("Modrinth turned the request down. Try again in a few minutes.")
         try:
             return response.json()
         except ValueError as exc:

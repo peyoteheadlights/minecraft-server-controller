@@ -1092,3 +1092,43 @@ td .btn-row { flex-wrap: nowrap; justify-content: flex-end; }
 .core-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 6px 14px; }
 .core-grid .core { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .core-grid .core .hint { flex-basis: 100%; margin: 0; }
+
+/* ------------------------------------------------------------------ server types
+   The "+" tab's comparison table. On a phone each row folds into a card,
+   with every cell carrying its column name, so the same table reads at
+   both sizes without a second markup path. */
+/* the card and its box may be narrower than the table: the wrap scrolls,
+   the page does not */
+.new-server .section, .new-server .group-box { min-width: 0; }
+.type-table { font-size: 13.5px; min-width: 0; }
+.type-table td, .type-table th { overflow-wrap: anywhere; }
+.type-table td, .type-table th { vertical-align: top; }
+.type-table tr.is-rec { background: var(--accent-soft); }
+.type-name { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.rec-tag { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.choices.editions { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.choice.is-disabled { opacity: 0.7; cursor: default; }
+.choice.is-disabled:hover { background: transparent; }
+.new-server .section + .section { margin-top: 0; }
+.add-ways { max-width: 24rem; margin-bottom: var(--space-4); }
+.plain-list { margin: 6px 0 0; padding-left: 1.1rem; color: var(--text-secondary); font-size: 13px; }
+.plain-list li + li { margin-top: 4px; }
+.player-name { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.preflight .rows { margin-bottom: var(--space-2); }
+
+/* The table has more columns in Technical mode than fit a laptop window,
+   so it folds into one card per kind well before phone width. */
+@media (max-width: 1100px) {
+  .type-table thead { display: none; }
+  .type-table, .type-table tbody, .type-table tr, .type-table td { display: block; width: auto; }
+  .type-table tr { margin-bottom: var(--space-3); padding: var(--space-3);
+                   border-radius: var(--radius); box-shadow: inset 0 0 0 1px var(--border-strong); }
+  .type-table td { padding: 3px 0; border: 0; display: flex; gap: var(--space-3);
+                   justify-content: space-between; align-items: baseline; }
+  .type-table td::before { content: attr(data-label); color: var(--text-secondary); font-size: 12.5px; }
+  .type-table td:empty, .type-table td[data-label=""]::before { display: none; }
+}
+
+@media (max-width: 760px) {
+  .add-ways { max-width: none; }
+}

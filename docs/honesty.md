@@ -13,8 +13,13 @@ number you cannot trust.
 | --- | --- | --- |
 | Server state | The child process the agent launched, plus the `Done (…)!` line in the console | Before the agent has checked anything, the state is `UNKNOWN` - not `OFFLINE` |
 | ONLINE specifically | The startup line actually appearing in the console | A launched process that has not finished starting is `STARTING`, never `ONLINE` |
-| Minecraft version | `Loading Minecraft X with Fabric Loader Y` in the console | Until the server has started once. Never guessed from a folder or file name |
-| Fabric Loader | The same console line | Same |
+| Minecraft version | The version line this server's own console printed (each type prints its own: Fabric and Quilt's `Loading Minecraft X with … Loader Y`, Forge and NeoForge's `… vX Initialized`, Paper and Purpur's `(MC: X)`) | Until the server has started once. Never guessed from a jar name, a folder name, or the version somebody picked in the dashboard |
+| Loader version | The same console line | Same |
+| Server type | What the config says it is, next to what the console's loader line says it is | A console that hasn't printed a loader line yet. The two disagreeing is reported, never resolved by guessing |
+| A version just installed | Still Unknown. The chosen version is kept as `pending_version` and only becomes the version once the console reports it | Always, until that happens |
+| A downloaded file | The checksum the official source published, checked against the bytes on disk | A source that publishes no checksum (the Fabric launcher jar). The file is recorded `verified: false` with the reason, never presented as checked |
+| Bedrock player | Floodgate's `.` prefix on the name the server printed | Crossplay off, or no prefix: then the name stands on its own and no edition is claimed |
+| Bedrock address | This PC's real Tailscale address plus the Bedrock port | The address can't be read: the panel says so instead of showing one |
 | Java version | `java -version` output, parsed | If the executable is missing or the output is unparseable |
 | Java compatibility | Detected Java compared with the detected Minecraft version | If either is unknown - then no verdict is given at all |
 | Players online | Join/leave lines, `/list` replies, or the server not running | Before any of those. An empty list is not a verified zero |

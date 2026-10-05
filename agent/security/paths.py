@@ -55,15 +55,19 @@ class PathSafetyError(ValueError):
 def safe_filename(name: str, allowed_extensions: set[str] | None = None) -> str:
     """Validate a single filename. Returns it unchanged, or raises."""
     if not name or name in (".", ".."):
-        raise PathSafetyError("Empty or relative filename")
+        raise PathSafetyError("No file name was given.")
     if "/" in name or "\\" in name or "\0" in name:
-        raise PathSafetyError(f"A filename must not contain a path: {name!r}")
+        raise PathSafetyError(f"{name!r} is a path, not a file name.")
     if name != name.strip() or name.endswith("."):
-        raise PathSafetyError(f"Filename has stray whitespace or a trailing dot: {name!r}")
+        raise PathSafetyError(
+            f"{name!r} starts or ends with a space or a dot, which Windows can't handle."
+        )
     if not SAFE_NAME_RE.match(name):
-        raise PathSafetyError(f"Filename contains characters that are not allowed: {name!r}")
+        raise PathSafetyError(f"{name!r} has characters in it that a file name can't have.")
     if name.split(".")[0].upper() in WINDOWS_RESERVED:
-        raise PathSafetyError(f"{name!r} is a reserved Windows device name")
+        raise PathSafetyError(
+            f"Windows keeps the name {name!r} for itself, so a file can't be called that."
+        )
     suffix = Path(name).suffix.lower()
     if suffix in EXECUTABLE_EXTENSIONS:
         raise PathSafetyError(f"{suffix} files are never downloaded or written by this agent")
@@ -92,19 +96,21 @@ def safe_join(base: Path, *parts: str, allowed_extensions: set[str] | None = Non
         safe_filename(part, allowed_extensions if last else None)
     candidate = base.joinpath(*parts)
     if not is_inside(base, candidate):
-        raise PathSafetyError("The resolved path escapes its base directory")
+        raise PathSafetyError("That path leads outside the folder it has to stay in.")
     return candidate
 
 
 def assert_not_symlink(path: Path) -> Path:
     p = Path(path)
     if p.is_symlink():
-        raise PathSafetyError(f"{p} is a symbolic link; refusing to follow it")
+        raise PathSafetyError(f"{p} is a shortcut to somewhere else, so it wasn't followed.")
     if os.name == "nt" and p.exists():
         try:
             attrs = os.stat(p, follow_symlinks=False).st_file_attributes  # type: ignore[attr-defined]
             if attrs & getattr(stat_module, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400):
-                raise PathSafetyError(f"{p} is a reparse point; refusing to follow it")
+                raise PathSafetyError(
+                    f"{p} points somewhere else on the disk, so it wasn't followed."
+                )
         except (AttributeError, OSError):  # pragma: no cover
             pass
     return p

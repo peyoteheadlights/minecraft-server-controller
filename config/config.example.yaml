@@ -23,7 +23,16 @@ server:
   # Required. The folder that contains your server jar. There is no default:
   # the agent will not start Minecraft until this is set.
   directory: 'C:\path\to\Minecraft Server'
+  # What kind of server this is: vanilla, fabric, quilt, forge, neoforge,
+  # paper or purpur. It decides which file starts it, whether it takes mods
+  # or plugins, where they live, and where its versions come from. An older
+  # config without this line is read as fabric, exactly as before.
+  type: fabric
   jar: fabric-server-launch.jar
+  # Forge and NeoForge are started from an arguments file their installer
+  # writes, not from a jar. Leave this empty for every other type; the
+  # dashboard fills it in when it installs one.
+  args_file: ""
   java: java                 # or a full path, e.g. 'C:\Program Files\Java\jdk-21\bin\java.exe'
   jvm_args: ["-Xmx6G"]       # matches: java -Xmx6G -jar fabric-server-launch.jar nogui
   server_args: ["nogui"]
@@ -33,6 +42,11 @@ server:
   stop_timeout: 90           # seconds to wait after sending 'stop' before forcing the process down
   start_timeout: 300
   autostart_minecraft: false # true = the agent starts Minecraft when Windows boots
+  # Let Bedrock players (phones, tablets, Windows Bedrock) join this Java
+  # server. Turning this on from the dashboard installs Geyser and Floodgate
+  # into the server's own add-on folder and sets both of these.
+  crossplay: false
+  bedrock_port: 0            # 0 = not set; Geyser's usual port is 19132 (UDP)
   cpu_cores: []              # e.g. [0, 1, 2, 3] = only cores 1-4; [] = every core
 
 monitor:

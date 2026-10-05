@@ -124,7 +124,7 @@ async def test_newline_cannot_smuggle_a_second_command_into_stdin(config):
     await server.start()
     await server.wait_online(timeout=20)
     try:
-        with pytest.raises(ServerError, match="single line"):
+        with pytest.raises(ServerError, match="has to be one line"):
             await server.send_command("say hello\nstop")
         assert server.state.value == "ONLINE", "the server must still be running"
     finally:

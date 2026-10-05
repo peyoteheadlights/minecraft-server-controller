@@ -193,7 +193,7 @@ class JobTracker:
             return live
         row = self.db.query_one("SELECT * FROM jobs WHERE id = ?", (job_id,))
         if not row:
-            raise JobNotFound("That job does not exist")
+            raise JobNotFound("That job isn't on the list any more.")
         return Job.from_row(row)
 
     def recent(

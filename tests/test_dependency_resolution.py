@@ -321,7 +321,7 @@ async def test_malicious_identifiers_are_refused(mods, config):
     use(mods, {})
     plan = await mods.deps.plan()
     assert plan["items"] == []
-    assert "not a valid mod identifier" in plan["unresolvable"][0]["reason"]
+    assert "name a mod can have" in plan["unresolvable"][0]["reason"]
     for bad in ("../x", "a/b", "x\\y", "a b", "", "https://evil"):
         assert not valid_identifier(bad)
 

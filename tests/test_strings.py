@@ -13,7 +13,7 @@ import json
 import re
 from pathlib import Path
 
-from agent import colors
+from agent import colors, servertypes
 from agent.config import NotificationSettings
 from agent.minecraft.analyzer import CATEGORIES
 from agent.scheduler.scheduler import TASKS
@@ -65,6 +65,9 @@ def families() -> dict[str, set[str]]:
         "deps.status_": set(js_list("panels/dependencies.js", "STATUS")),
         "serverset.keep_": {"daily", "weekly", "monthly"},
         "startup.": {"registered_correctly", "not_registered", "problems_found", "unsupported"},
+        # one line per server type in the "+" tab's comparison table
+        "types.": {f"{type_id}.best" for type_id in servertypes.TYPES},
+        "new.ease_": {t.ease for t in servertypes.TYPES.values()},
     }
 
 

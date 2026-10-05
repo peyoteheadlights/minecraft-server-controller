@@ -61,7 +61,7 @@ def _coerce(name: str, hint: Any, value: Any) -> Any:
         return None
     if isinstance(hint, type) and issubclass(hint, Section):
         if not isinstance(value, dict):
-            raise ConfigError(f"{name} must be a mapping")
+            raise ConfigError(f"{name} should be a group of settings, not a single value.")
         return hint.from_dict(value, prefix=name)
     if hint is bool:
         if isinstance(value, bool):
@@ -71,14 +71,14 @@ def _coerce(name: str, hint: Any, value: Any) -> Any:
         if isinstance(value, str) and value.strip().lower() in _BOOL_WORDS:
             return _BOOL_WORDS[value.strip().lower()]
         # Anything else would be a guess at what was meant.
-        raise ConfigError(f"{name} must be true or false, not {value!r}")
+        raise ConfigError(f"{name} has to be true or false. It says {value!r}.")
     if hint in (int, float):
         if isinstance(value, bool):
-            raise ConfigError(f"{name} must be a number, not {value!r}")
+            raise ConfigError(f"{name} has to be a number. It says {value!r}.")
         try:
             return hint(value)
         except (TypeError, ValueError):
-            raise ConfigError(f"{name} must be a number, not {value!r}") from None
+            raise ConfigError(f"{name} has to be a number. It says {value!r}.") from None
     if hint is str:
         return str(value)
     return copy.deepcopy(value)
@@ -462,11 +462,13 @@ def _normalise_servers(data: dict[str, Any]) -> bool:
     single = data.pop("server", None)
     if servers:
         if not isinstance(servers, list) or not all(isinstance(s, dict) for s in servers):
-            raise ConfigError("servers must be a list of server entries")
+            raise ConfigError(
+                "The 'servers:' part of config.yaml should be a list, with one entry per server."
+            )
         data["servers"] = [copy.deepcopy(s) for s in servers]
         return False
     if single is not None and not isinstance(single, dict):
-        raise ConfigError("server must be a mapping")
+        raise ConfigError("The 'server:' part of config.yaml should hold that server's settings.")
     data["servers"] = [copy.deepcopy(single or {})]
     return True
 
@@ -507,7 +509,7 @@ class Config:
         if cfg_path.is_file():
             loaded = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
             if loaded and not isinstance(loaded, dict):
-                raise ConfigError(f"{cfg_path} must contain a YAML mapping")
+                raise ConfigError(f"{cfg_path} doesn't hold settings this app can read.")
             file_data = loaded or {}
         if file_data.get("server") is not None and file_data.get("servers"):
             raise ConfigError(
@@ -647,7 +649,7 @@ class Config:
         except servertypes.UnknownServerType as exc:
             raise ConfigError(f"{prefix}.type: {exc}") from None
         if settings.bedrock_port and not 0 < settings.bedrock_port < 65536:
-            raise ConfigError(f"{prefix}.bedrock_port must be a port number from 1 to 65535")
+            raise ConfigError(f"{prefix}.bedrock_port has to be a port number from 1 to 65535.")
 
         problems = shape_problems(settings.cpu_cores, f"{prefix}.cpu_cores")
         if problems:
@@ -656,7 +658,9 @@ class Config:
         for name in SERVER_OVERRIDES:
             override = entry.get(name) or {}
             if not isinstance(override, dict):
-                raise ConfigError(f"{prefix}.{name} must be a mapping")
+                raise ConfigError(
+                    f"{prefix}.{name} should be a group of settings, not a single value."
+                )
             merged = _deep_merge(self._data.get(name) or {}, override)
             built[name] = SECTIONS[name].from_dict(merged, prefix=f"{prefix}.{name}")
         return built
@@ -712,14 +716,14 @@ class Config:
         parts = dotted.split(".")
         if parts[0] == "server":
             if parts[1:] == ["id"]:
-                raise ConfigError("A server's id cannot be changed")
+                raise ConfigError("A server's id can't be changed once it is on the list.")
             node = entry
             keys = parts[1:]
         elif parts[0] in SERVER_OVERRIDES:
             node = entry.setdefault(parts[0], {})
             keys = parts[1:]
         else:
-            raise ConfigError(f"{dotted} is not a per-server setting")
+            raise ConfigError(f"{dotted} isn't a setting a single server can have of its own.")
         for part in keys[:-1]:
             node = node.setdefault(part, {})
         node[keys[-1]] = value
@@ -740,7 +744,7 @@ class Config:
         """Unregister a server. Its folder and data are left untouched."""
         index, entry = self._server_entry(server_id)
         if len(self._data["servers"]) == 1:
-            raise ConfigError("The only server cannot be removed")
+            raise ConfigError("This is the only server, so it can't be taken off the list.")
         del self._data["servers"][index]
         self._server_cache.pop(server_id, None)
         self._views.pop(server_id, None)

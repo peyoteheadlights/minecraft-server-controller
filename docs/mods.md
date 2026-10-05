@@ -3,6 +3,24 @@
 This is the part that can break a server badly, so it is the part with the most
 safety rails.
 
+## Mods or plugins, depending on the server
+
+What a server takes comes from its type (`agent/servertypes/`), not from an
+assumption that every server is Fabric:
+
+| Type | Takes | Folder | What a file has to carry |
+| --- | --- | --- | --- |
+| Vanilla | nothing | — | the page isn't offered at all |
+| Fabric | mods | `mods/` | `fabric.mod.json` |
+| Quilt | mods | `mods/` | `quilt.mod.json`, or `fabric.mod.json` — Quilt loads most Fabric mods |
+| Forge | mods | `mods/` | `META-INF/mods.toml` |
+| NeoForge | mods | `mods/` | `META-INF/neoforge.mods.toml` |
+| Paper, Purpur | plugins | `plugins/` | `plugin.yml` or `paper-plugin.yml` |
+
+The page names itself after the server it is showing — "Mods" or "Plugins" —
+and a file that belongs to a different loader is flagged by what its own
+metadata says, with the file it was read from named.
+
 ## The installed mods table
 
 | Column | Meaning |
@@ -14,7 +32,13 @@ safety rails.
 | Update | The newer Modrinth version, if one exists for your Minecraft version |
 
 All of it is read straight from the jar: the agent opens it as a zip file and
-parses one JSON member. It never loads or runs mod code.
+parses the metadata member that type uses (JSON for Fabric and Quilt, TOML for
+Forge and NeoForge, YAML for Paper plugins). It never loads or runs mod code.
+
+Forge and NeoForge declare their Minecraft support as a Maven range
+(`[1.20.1,1.21)`), Fabric as its own (`>=1.21 <1.22`). Both are read in their
+own syntax; a file that declares nothing is **Unknown**, never assumed to
+fit.
 
 ## Installing from Modrinth
 
@@ -31,7 +55,8 @@ What happens when you confirm:
 4. The current mods folder state is archived
 5. The file is downloaded to a temporary `.part` file
 6. The **SHA-512 that Modrinth published is verified** against the bytes received
-7. The file is confirmed to be a real zip and to contain `fabric.mod.json`
+7. The file is confirmed to be a real zip carrying the metadata this server's
+   type uses
 8. Only then is it moved into the mods folder
 9. The source URL and a SHA-256 are recorded in the audit trail
 
@@ -39,6 +64,9 @@ If any step fails the temporary file is deleted and your mods folder is
 untouched.
 
 ### The rules the downloader enforces
+
+Every download, here and elsewhere, goes through `agent/downloads.py` — the
+rules are in `docs/security.md`. On top of them, for mods:
 
 - HTTPS only, and only from `cdn.modrinth.com` / `cdn-raw.modrinth.com`
 - `.jar` files only — `.exe`, `.bat`, `.ps1`, `.cmd`, `.dll` and friends are
@@ -53,7 +81,14 @@ Installing, removing, enabling, disabling and updating all require the server
 to be OFFLINE or CRASHED. Windows locks jars that a running JVM has open, and
 Fabric reads the mods folder exactly once at startup — changing it underneath a
 running server produces confusing half-states. The dashboard disables those
-buttons and says why.
+buttons and says why. Paper and Purpur read `plugins/` the same way.
+
+## Changing the kind of server
+
+Changing a server's type (Server settings → Kind and version) checks every
+installed add-on against the type you are moving to and lists the ones that
+don't fit **before** anything happens. Those files are moved to the mod trash,
+where the usual restore puts them back. Nothing is deleted.
 
 ## Removing a mod
 

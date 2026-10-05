@@ -199,6 +199,9 @@ async def crossplay_status(
         **status,
         "address_port": port.port if port else None,
         "suggested_port": None if status["enabled"] else ctx.core.ports.suggest_bedrock(),
+        # The address Bedrock players type. Only from a measured Tailscale
+        # address: null with a reason when this PC's address isn't known.
+        **crossplay_module.address(status),
     }
 
 

@@ -265,7 +265,7 @@ def _read_plugin_yml(info: ModInfo, zf: zipfile.ZipFile, member: str) -> None:
 
     data = yaml.safe_load(zf.read(member).decode("utf-8", errors="replace")) or {}
     if not isinstance(data, dict):
-        raise ValueError(f"{member} is not a mapping")
+        raise ValueError(f"{member} isn't laid out the way that file should be.")
     info.mod_id = str(data.get("name", "") or "")
     info.name = info.mod_id
     info.version = str(data.get("version", "") or "")

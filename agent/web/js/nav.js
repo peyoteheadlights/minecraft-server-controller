@@ -1,6 +1,6 @@
 /* The page shell: server tabs across the top, the selected server's
-   "sheet" in its color with the server's own pages in a row inside it, and
-   the gear for app-wide settings. Pages about the agent itself (the gear,
+   "sheet" tinted with its color, with the server's own pages in a list down
+   its left side (a row on a phone), and the gear for app-wide settings. Pages about the agent itself (the gear,
    All servers, adding a server) get a neutral sheet. */
 
 import { signOut } from "./auth.js";
@@ -50,11 +50,11 @@ function renderSubnav() {
   const items = PAGES.filter(([, , scope]) => scope === state.scope && scope !== "all" && scope !== "add");
   nav.hidden = !items.length;
   nav.setAttribute("aria-label", state.scope === "server" ? t("nav.server_pages") : t("nav.app_pages"));
-  nav.replaceChildren(...items.map(([key, label]) => el("a", {
+  nav.replaceChildren(...items.map(([key, label, , iconName]) => el("a", {
     class: "nav-item", href: `#${key}`,
     "aria-current": state.page === key ? "page" : null,
     onclick: (event) => { event.preventDefault(); navigate(key); },
-  }, t(label))));
+  }, icon(iconName), el("span", { class: "nav-label" }, t(label)))));
   const current = nav.querySelector('[aria-current="page"]');
   if (current) current.scrollIntoView({ block: "nearest", inline: "nearest" });
 }

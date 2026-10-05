@@ -75,6 +75,7 @@
   --space-6: 32px;
   --space-7: 48px;
   --content-width: 1240px;
+  --sidebar-width: 208px;
   --control-height: 30px;
   --tab-height: 38px;
   --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
@@ -367,7 +368,10 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width
 /* ------------------------------------------------------------------ the sheet */
 .sheet {
   flex: 1;
-  display: flex; flex-direction: column;
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  grid-template-areas: "head head" "nav body";
   min-width: 0;
   margin: 0 var(--space-3) var(--space-3);
   background: var(--sheet);
@@ -376,6 +380,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width
   outline: none;
   transform-origin: left center;
 }
+/* no page list (All servers, the + tab): the page takes the full width */
+.sheet:has(> .subnav[hidden]) { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "body"; }
 .sheet:focus-visible { box-shadow: var(--shadow-sheet); }
 .sheet.flip-forward { animation: flip-forward 260ms var(--ease); }
 .sheet.flip-back { animation: flip-back 260ms var(--ease); }
@@ -397,28 +403,39 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width
 .sheet-state { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 13.5px; }
 .sheet-state .sep { color: var(--text-tertiary); }
 
+/* The server's pages: a list down the left side of its sheet, on the same
+   tint as the header band so the two read as one frame around the page. */
 .subnav {
-  display: flex; gap: 2px;
-  padding: 0 calc(var(--space-6) - 10px);
+  grid-area: nav;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: var(--space-3) var(--space-2) var(--space-5);
   background: var(--accent-band);
-  border-bottom: 1px solid var(--border);
-  overflow-x: auto; scrollbar-width: none;
+  border-right: 1px solid var(--border);
+  border-radius: 0 0 0 var(--radius-lg);
 }
-.subnav::-webkit-scrollbar { display: none; }
+.subnav[hidden] { display: none; }
 .nav-item {
-  flex-shrink: 0;
-  padding: 9px 10px 8px;
-  border-bottom: 2.5px solid transparent;
+  display: flex; align-items: center; gap: 10px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: var(--radius);
   color: var(--text-secondary);
   font-size: 13.5px; font-weight: 500;
   text-decoration: none;
-  transition: color var(--duration) var(--ease), border-color var(--duration) var(--ease);
+  transition: color var(--duration) var(--ease), background var(--duration) var(--ease);
 }
-.nav-item:hover { color: var(--text-primary); text-decoration: none; }
-.nav-item[aria-current="page"] { color: var(--text-primary); font-weight: 600; border-bottom-color: var(--accent-ring); }
-.nav-item:focus-visible { border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+.nav-item .icon { width: 17px; height: 17px; flex-shrink: 0; }
+.nav-label { min-width: 0; line-height: 1.25; overflow-wrap: anywhere; }
+.nav-item:hover { color: var(--text-primary); background: var(--surface-hover); text-decoration: none; }
+.nav-item[aria-current="page"] {
+  color: var(--text-primary); font-weight: 600;
+  background: var(--surface);
+  box-shadow: inset 3px 0 0 var(--accent-ring), var(--shadow-control);
+}
+.nav-item[aria-current="page"] .icon { color: var(--accent-ink); }
+.sheet-head { grid-area: head; border-bottom: 1px solid var(--border); }
+.sheet-body { grid-area: body; }
 :root:not([data-scope="server"]) .sheet-head { padding-bottom: var(--space-4); }
-:root:not([data-scope="server"]) .sheet-head:has(+ .subnav[hidden]) { border-bottom: 1px solid var(--border); }
 
 .sheet-body { width: 100%; max-width: var(--content-width); padding: var(--space-5) var(--space-6) var(--space-7); }
 .toolbar { display: flex; align-items: center; gap: var(--space-3); min-height: 34px; margin-bottom: var(--space-4); }
@@ -957,7 +974,7 @@ td .btn-row { flex-wrap: nowrap; justify-content: flex-end; }
 /* ------------------------------------------------------------------ narrower windows */
 @media (max-width: 1000px) {
   .sheet-head { padding: var(--space-4) var(--space-5) var(--space-3); }
-  .subnav { padding: 0 calc(var(--space-5) - 10px); }
+  .sheet { --sidebar-width: 176px; }
   .sheet-body { padding: var(--space-4) var(--space-5) var(--space-7); }
   .connection .label { display: none; }
 }
@@ -971,7 +988,15 @@ td .btn-row { flex-wrap: nowrap; justify-content: flex-end; }
   .sheet { margin: 0; border-radius: 0; }
   .sheet-head { padding: var(--space-3) var(--space-4) var(--space-2); border-radius: 0; }
   .sheet-name { font-size: 20px; }
-  .subnav { padding: 0 6px; }
+  /* on a phone the page list is a row under the header that scrolls sideways */
+  .sheet:not(:has(> .subnav[hidden])) { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "nav" "body";
+                                        grid-template-rows: auto auto 1fr; }
+  .subnav { flex-direction: row; padding: 4px 6px; border-right: 0; border-bottom: 1px solid var(--border);
+            border-radius: 0; overflow-x: auto; scrollbar-width: none; }
+  .subnav::-webkit-scrollbar { display: none; }
+  .nav-item { flex-shrink: 0; min-height: 36px; white-space: nowrap; }
+  .nav-item .icon { display: none; }
+  .nav-item[aria-current="page"] { box-shadow: inset 0 -2.5px 0 var(--accent-ring), var(--shadow-control); }
   .sheet-body { padding: var(--space-4) var(--space-4) var(--space-7); }
   .toolbar { flex-wrap: wrap; }
   .toolbar h1 { font-size: 20px; }

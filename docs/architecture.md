@@ -197,8 +197,9 @@ directly, so there is still nothing to compile. `index.html` loads one module,
   `servers.js` (the server list, tabs and All servers page), `charts.js`
   and `prefs.js` (theme and Simple/Technical, saved per account) do one job
   each.
-- `colors.js` turns a server's color into the page's accent shades, checked
-  for readable contrast on every theme. Theme colors in `styles.css` that it
+- `colors.js` tints the whole page with a server's color (page, header,
+  cards, buttons) and re-derives every text color on the tint, checked for
+  readable contrast on every theme. Theme colors in `styles.css` that it
   reads (`--desk`, `--sheet`, `--surface`, `--text-primary`) must be hex.
 - `strings.js` holds every piece of text the dashboard shows, each with a
   Simple and a Technical version; pages look text up with `t(key)`.

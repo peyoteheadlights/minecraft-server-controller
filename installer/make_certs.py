@@ -19,6 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from agent.config import Config
+from agent.datafolder import use_data_in_use
 from agent.security.certs import (
     provision,
     secure_directory,
@@ -72,6 +73,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     config = Config.load(args.config)
+    use_data_in_use(config)  # the old data folder until the agent copies it
     config.ensure_dirs()
     cert_dir = secure_directory(config.cert_dir)
 

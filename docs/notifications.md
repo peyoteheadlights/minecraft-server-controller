@@ -57,11 +57,16 @@ on a phone without opening the dashboard.
 Settings has a checkbox per event: server started/stopped/crashed/restarted/
 recovered, player joined/left, high RAM/CPU/MSPT, low disk/TPS, backup
 completed/failed, mod installed/removed/updated, dependency problems, failed
-sign-ins, and maintenance mode.
+sign-ins, maintenance mode, and a server added or removed.
+
+Every alert names its server ("Survival crashed"), so with several servers you
+know which one without opening the dashboard. CPU and RAM are measured for the
+whole PC, so those alerts are sent once for the machine, not once per server.
 
 Performance alerts are throttled by `notifications.min_interval_seconds`
 (default 300), so a server at 95% RAM for an hour sends one message, not
-hundreds.
+hundreds. The throttle counts each server separately: a slow Creative does
+not hold back an alert about Survival.
 
 ## When sending fails
 

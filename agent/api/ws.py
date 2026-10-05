@@ -6,10 +6,15 @@ token never lands in a proxy log or browser history:
     client -> {"type": "auth", "token": "..."}
     server -> {"type": "ready", ...}
 
-After that the server pushes console lines, state changes, metrics samples
-and events. Each connection owns a bounded queue; if a phone on a bad
-connection cannot keep up, its oldest events are dropped rather than the
-agent stalling.
+The auth message may name the server the page is showing ("server_id");
+the ready message then carries that server's status and console. Every
+event carries the ``server_id`` it is about (null for the agent itself), and
+the page filters to the server it shows: one connection serves every server.
+Each connection owns a bounded queue; if a phone on a bad connection cannot
+keep up, its oldest events are dropped rather than the agent stalling.
+
+Client messages are actions with a declared permission (WS_ACTIONS in
+agent/security/permissions.py); anything else is ignored.
 """
 
 from __future__ import annotations
@@ -23,6 +28,7 @@ import time
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from ..security.auth import AuthError
+from ..security.permissions import WS_ACTIONS, check
 
 log = logging.getLogger("msc.ws")
 
@@ -76,14 +82,21 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     queue = core.bus.queue(maxsize=QUEUE_SIZE)
     core.db.audit("websocket_open", user=principal.user, source_ip=client_ip)
 
+    def server_for(message: dict):
+        """The server a message is about; the first one if it names none."""
+        return core.servers.get(str(message.get("server_id") or "")) or core.default
+
     try:
+        selected = server_for(message)
         await _send(
             ws,
             {
                 "type": "ready",
                 "user": principal.user,
-                "status": core.status(),
-                "console": [line.to_dict() for line in core.server.console.tail(200)],
+                "server_id": selected.server_id,
+                "servers": [ctx.summary() for ctx in core.servers.values()],
+                "status": selected.status(),
+                "console": [line.to_dict() for line in selected.server.console.tail(200)],
                 "ts": time.time(),
             },
         )
@@ -103,25 +116,41 @@ async def websocket_endpoint(ws: WebSocket) -> None:
 
         async def receive() -> None:
             # The socket is read-only for control purposes: the only client
-            # messages accepted are pongs and a console tail request. Actions
-            # go through the authenticated REST API, which audits them.
+            # messages acted on are a console tail request and a status
+            # request. Actions go through the authenticated REST API, which
+            # audits them.
             while True:
                 raw = await ws.receive_text()
                 try:
                     message = json.loads(raw)
                 except json.JSONDecodeError:
                     continue
-                if message.get("type") == "tail":
+                if not isinstance(message, dict):
+                    continue
+                kind = message.get("type")
+                if kind not in WS_ACTIONS:
+                    continue
+                try:
+                    check(principal, WS_ACTIONS[kind])
+                except AuthError as exc:
+                    # Not "error": that one means the session ended.
+                    await _send(ws, {"type": "denied", "action": kind, "message": exc.message})
+                    continue
+                ctx = server_for(message)
+                if kind == "tail":
                     count = min(int(message.get("lines", 100) or 100), 500)
                     await _send(
                         ws,
                         {
                             "type": "console_tail",
-                            "lines": [line.to_dict() for line in core.server.console.tail(count)],
+                            "server_id": ctx.server_id,
+                            "lines": [line.to_dict() for line in ctx.server.console.tail(count)],
                         },
                     )
-                elif message.get("type") == "status":
-                    await _send(ws, {"type": "status", "status": core.status()})
+                elif kind == "status":
+                    await _send(
+                        ws, {"type": "status", "server_id": ctx.server_id, "status": ctx.status()}
+                    )
 
         tasks = [asyncio.create_task(t()) for t in (pump, heartbeat, receive)]
         done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)

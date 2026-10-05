@@ -2,16 +2,17 @@ import { currentTheme, setTheme } from "./appearance.js";
 import { signOut } from "./auth.js";
 import { setLink, updateStatusViews } from "./live.js";
 import { overview } from "./pages/overview.js";
+import { hooks, jobsLine, switcher } from "./servers.js";
 import { PAGES, renderers, state } from "./state.js";
 import { $, el, icon } from "./ui.js";
 
 export function renderRail() {
   const rail = $("#sidebar");
   rail.replaceChildren();
-  const status = state.status || {};
   rail.append(el("div", { class: "sidebar-head" },
-    el("div", { class: "server-name", id: "sidebar-name" }, status.name || "Minecraft server"),
-    el("div", { class: "server-state", id: "sidebar-state" })));
+    switcher(),
+    el("div", { class: "server-state", id: "sidebar-state" }),
+    el("div", { id: "jobs" }, jobsLine())));
 
   let group = null, list = null;
   for (const [key, label, groupName, iconName] of PAGES) {
@@ -62,6 +63,9 @@ export function navigate(page) {
   $("#main").focus({ preventScroll: true });
   window.scrollTo(0, 0);
 }
+
+hooks.navigate = navigate;
+hooks.afterSwitch = () => { renderRail(); render(); };
 
 window.addEventListener("hashchange", () => {
   const page = location.hash.replace("#", "");

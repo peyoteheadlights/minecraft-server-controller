@@ -1,8 +1,9 @@
 import { api } from "./api.js";
 import { signOut } from "./auth.js";
-import { navigate, render } from "./nav.js";
+import { navigate, render, renderRail } from "./nav.js";
 import { appendConsoleLine, renderConsoleLines } from "./pages/console.js";
 import { loadLatestCrash, overviewConsoleAppend, overviewUpdate } from "./pages/overview.js";
+import { handleJobEvent, loadServers, selectServer, serverName, updateJobsLine } from "./servers.js";
 import { STATES, state } from "./state.js";
 import { $, announce, el, known, toast } from "./ui.js";
 
@@ -11,13 +12,17 @@ export function connectSocket() {
   const socket = new WebSocket(`${protocol}//${location.host}/ws`);
   state.socket = socket;
 
-  socket.onopen = () => socket.send(JSON.stringify({ type: "auth", token: state.token }));
+  socket.onopen = () => socket.send(JSON.stringify({
+    type: "auth", token: state.token, server_id: state.serverId,
+  }));
   socket.onmessage = (event) => {
     let message;
     try { message = JSON.parse(event.data); } catch (e) { return; }
     if (message.type === "ready") {
       setLink(true);
       state.reconnectDelay = 1000;
+      if (message.servers) state.servers = message.servers;
+      if (message.server_id !== state.serverId) return;  // switched while connecting
       state.status = message.status;
       state.console = message.console || [];
       updateStatusViews();
@@ -26,8 +31,10 @@ export function connectSocket() {
     } else if (message.type === "event" && message.event) {
       handleEvent(message.event);
     } else if (message.type === "console_tail") {
+      if (message.server_id && message.server_id !== state.serverId) return;
       state.console = message.lines;
-      renderConsoleLines();
+      if (state.page === "console") renderConsoleLines();
+      else if (state.page === "dashboard") render();
     } else if (message.type === "error") {
       signOut(true);
     }
@@ -80,8 +87,41 @@ export function friendly(event) {
   }
 }
 
+/* Events from a server other than the one on screen: keep the server list
+   current, and make a crash impossible to miss. */
+function otherServerEvent(event) {
+  const row = state.servers.find((s) => s.id === event.server_id);
+  if (event.type === "state" && row) row.state = (event.data || {}).state;
+  if (event.type === "server_crashed" || event.type === "crash_loop") {
+    state.crashedElsewhere.add(event.server_id);
+    const name = serverName(event.server_id);
+    toast(event.type === "crash_loop" ? `${name} keeps crashing` : `${name} crashed`, "error", 9000,
+      { label: `Show ${name}`, onClick: () => selectServer(event.server_id) });
+    renderRail();
+  }
+  if (state.page === "servers" && ["state", "server_started", "server_stopped",
+    "server_crashed", "player_joined", "player_left"].includes(event.type)) {
+    scheduleServersRender();
+  }
+}
+
+let serversTimer = null;
+function scheduleServersRender() {
+  clearTimeout(serversTimer);
+  serversTimer = setTimeout(() => { if (state.page === "servers") render(); }, 400);
+}
+
 export function handleEvent(event) {
   const data = event.data || {};
+  if (event.type === "job") { handleJobEvent(event); return; }
+  if (event.type === "server_added" || event.type === "server_removed") {
+    loadServers().then(() => { renderRail(); if (["servers", "settings"].includes(state.page)) render(); })
+      .catch(() => {});
+    toast(event.message, "info");
+    return;
+  }
+  if (event.server_id && event.server_id !== state.serverId) { otherServerEvent(event); return; }
+  if (state.page === "servers") scheduleServersRender();
   if (event.type === "console") {
     if (state.paused) return;
     state.console.push(data);
@@ -164,5 +204,6 @@ export function updateStatusViews() {
   }
   const nameNode = $("#sidebar-name");
   if (nameNode && status.name) nameNode.textContent = status.name;
+  updateJobsLine();
   if (state.page === "dashboard") overviewUpdate();
 }

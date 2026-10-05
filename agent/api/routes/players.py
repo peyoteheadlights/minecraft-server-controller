@@ -5,20 +5,21 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from ...security.auth import Principal
-from ..deps import get_core, require_auth
+from ...security.permissions import SERVER_VIEW, require
+from ..deps import get_server
 
 router = APIRouter()
 
 
 @router.get("/players")
-async def players(principal: Principal = Depends(require_auth), core=Depends(get_core)):
+async def players(principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)):
     return {
-        "online": core.players.online(),
-        "online_count": core.players.online_count(),
-        "verified": core.players.verified,
-        "source": core.players.verified_source,
-        "known": core.players.all_players(),
-        "max_players": core.config.server.max_players,
+        "online": ctx.players.online(),
+        "online_count": ctx.players.online_count(),
+        "verified": ctx.players.verified,
+        "source": ctx.players.verified_source,
+        "known": ctx.players.all_players(),
+        "max_players": ctx.config.server.max_players,
     }
 
 
@@ -26,7 +27,7 @@ async def players(principal: Principal = Depends(require_auth), core=Depends(get
 async def player_sessions(
     username: str = "",
     limit: int = 100,
-    principal: Principal = Depends(require_auth),
-    core=Depends(get_core),
+    principal: Principal = Depends(require(SERVER_VIEW)),
+    ctx=Depends(get_server),
 ):
-    return {"sessions": core.players.sessions(username or None, max(1, min(limit, 500)))}
+    return {"sessions": ctx.players.sessions(username or None, max(1, min(limit, 500)))}

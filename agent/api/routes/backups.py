@@ -6,7 +6,15 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import FileResponse
 
 from ...security.auth import Principal
-from ..deps import get_core, require_auth
+from ...security.permissions import (
+    BACKUPS_CREATE,
+    BACKUPS_DELETE,
+    BACKUPS_DOWNLOAD,
+    BACKUPS_RESTORE,
+    SERVER_VIEW,
+    require,
+)
+from ..deps import get_server
 from ..errors import audit_failure, respond_as
 from .models import BackupRequest, RestoreRequest
 
@@ -14,14 +22,16 @@ router = APIRouter()
 
 
 @router.get("/backups")
-async def list_backups(principal: Principal = Depends(require_auth), core=Depends(get_core)):
+async def list_backups(
+    principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
+):
     return {
-        "backups": core.backups.list_backups(),
-        "directory": str(core.config.backup_dir),
+        "backups": ctx.backups.list_backups(),
+        "directory": str(ctx.config.backup_dir),
         "retention": {
-            "daily": core.config.backups.keep_daily,
-            "weekly": core.config.backups.keep_weekly,
-            "monthly": core.config.backups.keep_monthly,
+            "daily": ctx.config.backups.keep_daily,
+            "weekly": ctx.config.backups.keep_weekly,
+            "monthly": ctx.config.backups.keep_monthly,
         },
     }
 
@@ -30,11 +40,11 @@ async def list_backups(principal: Principal = Depends(require_auth), core=Depend
 async def create_backup(
     payload: BackupRequest,
     request: Request,
-    principal: Principal = Depends(require_auth),
-    core=Depends(get_core),
+    principal: Principal = Depends(require(BACKUPS_CREATE)),
+    ctx=Depends(get_server),
 ):
-    with audit_failure(core, request, "backup_create"):
-        result = await core.backups.create(
+    with audit_failure(ctx, request, "backup_create"):
+        result = await ctx.backups.create(
             name=payload.name, includes=payload.includes, user=principal.user, note=payload.note
         )
     return {"ok": True, **result}
@@ -42,18 +52,20 @@ async def create_backup(
 
 @router.get("/backups/{backup_id}/verify")
 async def verify_backup(
-    backup_id: int, principal: Principal = Depends(require_auth), core=Depends(get_core)
+    backup_id: int, principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):
     with respond_as(404):
-        return core.backups.verify(backup_id)
+        return ctx.backups.verify(backup_id)
 
 
 @router.get("/backups/{backup_id}/download")
 async def download_backup(
-    backup_id: int, principal: Principal = Depends(require_auth), core=Depends(get_core)
+    backup_id: int,
+    principal: Principal = Depends(require(BACKUPS_DOWNLOAD)),
+    ctx=Depends(get_server),
 ):
     with respond_as(404):
-        path = core.backups.path_for_download(backup_id)
+        path = ctx.backups.path_for_download(backup_id)
     return FileResponse(path, media_type="application/zip", filename=path.name)
 
 
@@ -62,12 +74,12 @@ async def restore_backup(
     backup_id: int,
     payload: RestoreRequest,
     request: Request,
-    principal: Principal = Depends(require_auth),
-    core=Depends(get_core),
+    principal: Principal = Depends(require(BACKUPS_RESTORE)),
+    ctx=Depends(get_server),
 ):
     if not payload.confirm:
         with respond_as(404):
-            target = core.backups.get(backup_id)
+            target = ctx.backups.get(backup_id)
         return {
             "confirmation_required": True,
             "backup": target,
@@ -81,8 +93,8 @@ async def restore_backup(
                 else "The server will stay offline",
             ],
         }
-    with audit_failure(core, request, "backup_restore"):
-        result = await core.backups.restore(
+    with audit_failure(ctx, request, "backup_restore"):
+        result = await ctx.backups.restore(
             backup_id,
             user=principal.user,
             start_after=payload.start_after,
@@ -95,9 +107,9 @@ async def restore_backup(
 async def delete_backup(
     backup_id: int,
     request: Request,
-    principal: Principal = Depends(require_auth),
-    core=Depends(get_core),
+    principal: Principal = Depends(require(BACKUPS_DELETE)),
+    ctx=Depends(get_server),
 ):
     with respond_as(404):
-        result = await core.backups.delete(backup_id, user=principal.user)
+        result = await ctx.backups.delete(backup_id, user=principal.user)
     return {"ok": True, **result}

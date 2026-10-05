@@ -8,7 +8,8 @@ import time
 from fastapi import APIRouter, Depends, Request
 
 from ...security.auth import Principal
-from ..deps import client_ip, get_core, require_auth
+from ...security.permissions import ACCOUNT, permissions_for, require
+from ..deps import client_ip, get_core
 from .models import LoginRequest
 
 router = APIRouter()
@@ -32,18 +33,18 @@ async def login(payload: LoginRequest, request: Request, core=Depends(get_core))
 
 
 @router.post("/auth/logout")
-async def logout(principal: Principal = Depends(require_auth), core=Depends(get_core)):
+async def logout(principal: Principal = Depends(require(ACCOUNT)), core=Depends(get_core)):
     core.auth.logout(principal)
     return {"ok": True}
 
 
 @router.post("/auth/rotate")
 async def rotate(
-    request: Request, principal: Principal = Depends(require_auth), core=Depends(get_core)
+    request: Request, principal: Principal = Depends(require(ACCOUNT)), core=Depends(get_core)
 ):
     return core.auth.rotate(principal, source_ip=client_ip(request))
 
 
 @router.get("/auth/me")
-async def me(principal: Principal = Depends(require_auth)):
-    return principal.to_dict()
+async def me(principal: Principal = Depends(require(ACCOUNT))):
+    return {**principal.to_dict(), "permissions": sorted(permissions_for(principal))}

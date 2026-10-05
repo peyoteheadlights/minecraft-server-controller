@@ -5,7 +5,8 @@ otherwise be gone by the time a human looks: console tail, error lines, the
 newest crash report, a copy of latest.log, machine metrics, who was online,
 and which mods were loaded.
 
-Raw logs are written to files under <data_dir>/crashes/<id>/; SQLite only
+Raw logs are written to files under the server's crashes/<id>/ folder in the
+agent data folder; SQLite only
 holds the metadata and the paths.
 """
 
@@ -34,7 +35,7 @@ class CrashReporter:
         self.metrics = metrics
         self.players = players
         self.mods = mods
-        self.crash_dir = config.resolve_data("crashes")
+        self.crash_dir = config.crash_dir
         self.crash_dir.mkdir(parents=True, exist_ok=True)
 
     # ------------------------------------------------------------------

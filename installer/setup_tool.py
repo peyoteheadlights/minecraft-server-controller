@@ -33,6 +33,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from agent import startup_diag  # noqa: E402
+from agent.config import set_yaml_value  # noqa: E402
 
 MIN_PYTHON = (3, 11)
 FIREWALL_RULE = "Minecraft Server Control (HTTPS, Tailscale only)"
@@ -89,31 +90,6 @@ class Context:
 # ======================================================================
 # small, testable file helpers
 # ======================================================================
-def set_yaml_value(text: str, dotted: str, value: str) -> tuple[str, bool]:
-    """Replace `section: key: value` in place, keeping comments and layout.
-
-    Returns (new_text, changed). Only handles the two-level form this
-    project's config uses; returns changed=False when the key is absent so
-    the caller can fall back to a full rewrite.
-    """
-    section, key = dotted.split(".", 1)
-    lines = text.splitlines(keepends=True)
-    in_section = False
-    quoted = "'" + str(value).replace("'", "''") + "'"
-    for index, line in enumerate(lines):
-        if re.match(rf"^{re.escape(section)}:\s*(#.*)?$", line.rstrip("\n")):
-            in_section = True
-            continue
-        if in_section and re.match(r"^\S", line):
-            break  # next top-level section
-        match = re.match(rf"^(\s+){re.escape(key)}:(\s*)([^#\n]*?)(\s*#.*)?(\r?\n)?$", line)
-        if in_section and match:
-            indent, space, _, comment, newline = match.groups()
-            lines[index] = f"{indent}{key}:{space or ' '}{quoted}{comment or ''}{newline or ''}"
-            return "".join(lines), True
-    return text, False
-
-
 def read_env(path: Path) -> dict[str, str]:
     values: dict[str, str] = {}
     if not path.is_file():
@@ -154,8 +130,13 @@ def _restrict(path: Path) -> None:
 
 def _load_config(ctx: Context):
     from agent.config import Config
+    from agent.datafolder import use_data_in_use
 
-    return Config.load(ctx.config_path, ctx.env_path)
+    config = Config.load(ctx.config_path, ctx.env_path)
+    # Until the agent's next start copies the old data folder, setup works
+    # in the old one, so the certificate it makes is copied along with it.
+    use_data_in_use(config)
+    return config
 
 
 def _edit_config(ctx: Context, updates: dict[str, str]) -> None:

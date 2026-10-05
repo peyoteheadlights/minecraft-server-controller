@@ -139,13 +139,18 @@ def _writable(path: Path) -> tuple[bool, str]:
 
 
 # ----------------------------------------------------------------------
-def run_diagnostics(config, deep: bool = False) -> Report:
+def run_diagnostics(config, deep: bool = False, data_plan=None) -> Report:
     """Build the full report. `deep` additionally opens a TLS connection to a
     running agent, which only makes sense when one is running."""
     report = Report()
-    _minecraft(report, config)
-    _java(report, config)
+    ids = config.server_ids
+    for server_id in ids:
+        view = config.for_server(server_id)
+        label = "" if len(ids) == 1 else f": {view.server.name or server_id}"
+        _minecraft(report, view, "Minecraft server" + label)
+        _java(report, view, "Java" + label)
     _storage(report, config)
+    _data_folder(report, config, data_plan)
     _https(report, config, deep)
     _tailscale(report, config)
     _authentication(report, config)
@@ -155,9 +160,8 @@ def run_diagnostics(config, deep: bool = False) -> Report:
     return report
 
 
-def _minecraft(report: Report, config) -> None:
+def _minecraft(report: Report, config, section: str = "Minecraft server") -> None:
     """The server folder, jar, mods folder and worlds."""
-    section = "Minecraft server"
     _minecraft_directory(report, config, section)
     if not config.server_dir_configured:
         # Nothing else in this section can be checked without the folder, and
@@ -282,9 +286,8 @@ def _minecraft_worlds(report: Report, config, section: str) -> None:
         )
 
 
-def _java(report: Report, config) -> None:
+def _java(report: Report, config, section: str = "Java") -> None:
     """The Java runtime the server will be started with."""
-    section = "Java"
     java = detect_java(config.server.java)
     if config.server.raw_command:
         report.add(
@@ -385,6 +388,42 @@ def _storage(report: Report, config) -> None:
             section,
             Check("Disk space", UNKNOWN, "unknown", f"The filesystem could not be queried: {exc}"),
         )
+
+
+def _data_folder(report: Report, config, plan=None) -> None:
+    """Whether the data folder still has to move to its fixed place. Only
+    reads: the move itself happens when the agent starts, never here."""
+    from .datafolder import plan_move
+
+    section = "Storage"
+    try:
+        plan = plan or plan_move(config)
+    except Exception as exc:  # pragma: no cover - reported, never hidden
+        report.add(section, Check("Data folder move", UNKNOWN, "unknown", str(exc)))
+        return
+    if plan.status == "pending":
+        report.add(
+            section,
+            Check(
+                "Data folder move",
+                WARN,
+                f"{plan.source} -> {plan.target}",
+                "The agent will copy the data folder to its new place the next time it "
+                "starts, check the copy and leave the old folder where it is.",
+            ),
+        )
+    elif plan.status == "blocked":
+        report.add(
+            section,
+            Check(
+                "Data folder move",
+                WARN,
+                str(plan.target),
+                f"The data folder cannot move yet, so the old one keeps being used: {plan.reason}",
+            ),
+        )
+    elif plan.status == "done":
+        report.add(section, Check("Data folder move", OK, str(plan.target), plan.reason))
 
 
 def _https(report: Report, config, deep: bool) -> None:

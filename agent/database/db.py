@@ -14,6 +14,8 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+from ..events import AGENT_SCOPE
+
 MIGRATIONS: list[tuple[int, str]] = [
     (
         1,
@@ -183,6 +185,40 @@ MIGRATIONS: list[tuple[int, str]] = [
         );
         """,
     ),
+    (
+        3,
+        # Several servers. Settings rows written by one server's managers
+        # are now keyed "server:<id>:<key>"; an install with exactly one
+        # registered server gets its existing rows copied to that form (the
+        # originals are left as they were). Audit entries can name the server
+        # they were about. Jobs are long operations the dashboard follows.
+        """
+        INSERT OR IGNORE INTO settings (key, value, updated_at)
+        SELECT 'server:' || s.id || ':' || st.key, st.value, st.updated_at
+        FROM settings st, servers s
+        WHERE (SELECT COUNT(*) FROM servers) = 1 AND st.key NOT LIKE 'server:%';
+        ALTER TABLE audit_log ADD COLUMN server_id TEXT;
+        CREATE TABLE jobs (
+            id TEXT PRIMARY KEY,
+            server_id TEXT,
+            kind TEXT NOT NULL,
+            title TEXT NOT NULL,
+            state TEXT NOT NULL,
+            risky INTEGER NOT NULL DEFAULT 0,
+            done REAL,
+            total REAL,
+            unit TEXT,
+            step TEXT,
+            message TEXT,
+            result TEXT,
+            user TEXT,
+            created_at REAL NOT NULL,
+            updated_at REAL NOT NULL,
+            finished_at REAL
+        );
+        CREATE INDEX idx_jobs_created ON jobs(created_at DESC);
+        """,
+    ),
 ]
 
 
@@ -302,9 +338,11 @@ class Database:
             self._conn.commit()
 
     def recent_events(self, server_id: str, limit: int = 100) -> list[dict]:
+        """One server's events, plus the agent-wide ones (sign-ins, the
+        agent starting), which belong on every server's history."""
         return self.query(
-            "SELECT * FROM events WHERE server_id = ? ORDER BY ts DESC LIMIT ?",
-            (server_id, limit),
+            "SELECT * FROM events WHERE server_id IN (?, ?) ORDER BY ts DESC LIMIT ?",
+            (server_id, AGENT_SCOPE, limit),
         )
 
     def list_servers(self) -> list[dict]:
@@ -321,6 +359,7 @@ class Database:
         result: str = "ok",
         detail: str | None = None,
         source_ip: str | None = None,
+        server_id: str | None = None,
     ) -> int:
         return self.insert(
             "audit_log",
@@ -332,6 +371,7 @@ class Database:
                 "target": target,
                 "result": result,
                 "detail": detail,
+                "server_id": server_id,
             },
         )
 
@@ -359,3 +399,32 @@ class Database:
             (events_keep,),
         )
         self.execute("DELETE FROM login_attempts WHERE ts < ?", (time.time() - 30 * 86400,))
+
+
+class ServerDb:
+    """One server's handle on the shared database.
+
+    Settings rows are kept apart per server ("server:<id>:<key>"), and audit
+    entries record the server. Everything else is the shared Database; the
+    queries themselves already filter on server_id.
+    """
+
+    def __init__(self, db: Database, server_id: str):
+        self.db = db
+        self.server_id = server_id
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.db, name)
+
+    def _key(self, key: str) -> str:
+        return f"server:{self.server_id}:{key}"
+
+    def get_setting(self, key: str, default: Any = None) -> Any:
+        return self.db.get_setting(self._key(key), default)
+
+    def set_setting(self, key: str, value: Any) -> None:
+        self.db.set_setting(self._key(key), value)
+
+    def audit(self, action: str, **kwargs: Any) -> int:
+        kwargs.setdefault("server_id", self.server_id)
+        return self.db.audit(action, **kwargs)

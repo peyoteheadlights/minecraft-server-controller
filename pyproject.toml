@@ -42,7 +42,14 @@ ignore = [
 ]
 
 [tool.ruff.lint.flake8-bugbear]
-extend-immutable-calls = ["fastapi.Depends", "fastapi.File", "fastapi.Query", "fastapi.Body", "fastapi.Header"]
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Query",
+    "fastapi.Body",
+    "fastapi.Header",
+    "agent.security.permissions.require",
+]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["B011"]

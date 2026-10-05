@@ -21,6 +21,8 @@ export function el(tag, props = {}, ...children) {
 export const ICONS = {
   overview: [["rect", { x: 3.5, y: 3.5, width: 7, height: 7, rx: 1.5 }], ["rect", { x: 13.5, y: 3.5, width: 7, height: 7, rx: 1.5 }],
              ["rect", { x: 3.5, y: 13.5, width: 7, height: 7, rx: 1.5 }], ["rect", { x: 13.5, y: 13.5, width: 7, height: 7, rx: 1.5 }]],
+  servers: [["rect", { x: 3.5, y: 4, width: 17, height: 6.5, rx: 1.5 }], ["rect", { x: 3.5, y: 13.5, width: 17, height: 6.5, rx: 1.5 }],
+            ["path", { d: "M7 7.25h.01M7 16.75h.01" }]],
   console: [["rect", { x: 2.5, y: 4, width: 19, height: 16, rx: 2.5 }], ["path", { d: "M7 9.5l3 2.5-3 2.5" }], ["path", { d: "M12.5 15h4.5" }]],
   players: [["circle", { cx: 9, cy: 8, r: 3.5 }], ["path", { d: "M2.5 20c.8-3.6 3.4-5.6 6.5-5.6s5.7 2 6.5 5.6" }],
             ["path", { d: "M15.5 4.6a3.5 3.5 0 0 1 0 6.8" }], ["path", { d: "M18 14.6c1.8.7 3 2.6 3.5 5.4" }]],

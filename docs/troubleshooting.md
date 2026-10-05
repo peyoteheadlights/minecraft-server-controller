@@ -73,8 +73,8 @@ JVM, and Fabric reads the folder once at startup.
 
 ## I removed the wrong mod
 
-It is in `mcsc-data/mod-trash/`, and an archived copy is in
-`mcsc-data/mod-backups/<mod_id>/`. Nothing was deleted. Use **History** on the
+It is in `mod-trash/` in the data folder, and an archived copy is in
+`mod-backups/<mod_id>/` (for a second server, under `servers/<id>/`). Nothing was deleted. Use **History** on the
 mod, or copy the jar back by hand.
 
 ## Restore failed halfway
@@ -99,9 +99,12 @@ alert fired minutes ago.
 
 ## Where the logs are
 
+In the data folder, `C:\ProgramData\Minecraft Server Controller` unless
+`paths.data_dir` says otherwise (`python -m agent.datafolder` prints it):
+
 ```
-mcsc-data\logs\agent.log          everything the agent did
-mcsc-data\logs\agent-errors.log   warnings and errors only
-mcsc-data\crashes\<timestamp>\    per-crash evidence
+logs\agent.log          everything the agent did
+logs\agent-errors.log   warnings and errors only
+crashes\<timestamp>\    per-crash evidence (servers\<id>\crashes\ for a second server)
 <server folder>\logs\latest.log   Minecraft's own log
 ```

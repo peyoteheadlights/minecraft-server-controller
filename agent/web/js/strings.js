@@ -69,6 +69,7 @@ export const STRINGS = /* strings-table */ {
   "action.back_up_now": ["Back up now", "Back up now"],
   "action.view_details": ["View details", "View details"],
   "action.show_details": ["Show details", "Show raw details"],
+  "advanced.show_technical": ["Show technical details", "Show technical details"],
   "action.what_happened": ["What happened?", "What happened?"],
   "action.restart_requested": ["Restarting. Watch the status.", "Restart requested; not yet verified. Watch the status for ONLINE."],
 

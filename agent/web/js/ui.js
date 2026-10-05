@@ -224,8 +224,16 @@ export function section(title, aside, ...children) {
 /* Detail most people never need: collapsed in Simple mode, open in
    Technical mode, with a way to switch from right there. */
 export function advanced(title, ...children) {
-  const open = technical();
-  return el("details", { class: "advanced", open: open ? "open" : false },
+  // Loaded on click: prefs.js imports api.js, which imports this module.
+  const switchLink = technical() ? null : el("button", {
+    class: "btn plain small advanced-switch", type: "button",
+    onclick: () => import("./prefs.js").then((prefs) => prefs.choose("mode", "technical")),
+  }, t("advanced.show_technical"));
+  return foldable(title, ...children, switchLink);
+}
+
+function foldable(title, ...children) {
+  return el("details", { class: "advanced", open: technical() ? "open" : false },
     el("summary", {}, el("span", { class: "chev", "aria-hidden": "true" }, icon("chevron")), title),
     el("div", { class: "advanced-body" }, ...children));
 }
@@ -281,7 +289,7 @@ export function emptyState(title, detail) {
 export function problem(message, detail = null, action = null) {
   return el("div", { class: "banner error", role: "alert" },
     el("div", { class: "grow" }, message,
-      detail ? advanced(t("action.show_details"), el("pre", { class: "detail mono" }, detail)) : null),
+      detail ? foldable(t("action.show_details"), el("pre", { class: "detail mono" }, detail)) : null),
     action);
 }
 

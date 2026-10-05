@@ -325,7 +325,16 @@ def main():
                 "Simple mode says server speed in everyday words",
                 lambda: expect(page.locator(".stat").nth(1)).to_contain_text("Game speed"),
             )
+            page.locator(".nav-item", has_text="Performance").click()
+            page.locator("details.advanced > summary").first.click()
+            page.get_by_role("button", name="Show technical details").first.click()
+            check(
+                "An Advanced section's link switches to Technical",
+                lambda: expect(page.locator("html")).to_have_attribute("data-mode", "technical"),
+            )
             page.locator("#gear").click()
+            page.get_by_role("radio", name="Simple").check()
+            expect(page.locator("html")).to_have_attribute("data-mode", "simple")
             page.get_by_role("radio", name="Technical").check()
             check(
                 "Technical mode applies at once, without a reload",

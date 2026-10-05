@@ -390,7 +390,7 @@ async function fillCards() {
 
 async function loadHour() {
   try {
-    overview.hour = await api("/performance?hours=1");
+    overview.hour = await api("/performance?hours=1&storage=false");
   } catch (e) { overview.hour = null; }
 }
 

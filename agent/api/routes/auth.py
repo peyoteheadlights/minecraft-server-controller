@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Request
 from ...security.auth import Principal
 from ...security.permissions import ACCOUNT, permissions_for, require
 from ..deps import client_ip, get_core
-from .models import LoginRequest
+from .models import LoginRequest, PreferencesRequest
 
 router = APIRouter()
 
@@ -46,5 +46,24 @@ async def rotate(
 
 
 @router.get("/auth/me")
-async def me(principal: Principal = Depends(require(ACCOUNT))):
-    return {**principal.to_dict(), "permissions": sorted(permissions_for(principal))}
+async def me(principal: Principal = Depends(require(ACCOUNT)), core=Depends(get_core)):
+    return {
+        **principal.to_dict(),
+        "permissions": sorted(permissions_for(principal)),
+        "preferences": core.auth.preferences(principal.user),
+    }
+
+
+@router.get("/account/preferences")
+async def get_preferences(principal: Principal = Depends(require(ACCOUNT)), core=Depends(get_core)):
+    return core.auth.preferences(principal.user)
+
+
+@router.put("/account/preferences")
+async def set_preferences(
+    payload: PreferencesRequest,
+    principal: Principal = Depends(require(ACCOUNT)),
+    core=Depends(get_core),
+):
+    updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+    return core.auth.set_preferences(principal.user, updates)

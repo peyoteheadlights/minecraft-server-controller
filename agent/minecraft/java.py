@@ -166,3 +166,17 @@ def check_compatibility(java: JavaInfo, minecraft_version: str | None) -> dict[s
         "required": needed,
         "minecraft_version": minecraft_version,
     }
+
+
+def memory_limit_mb(jvm_args: list[str] | tuple[str, ...]) -> int | None:
+    """The -Xmx memory limit in the launch arguments, in MB, or None when
+    none is set. A setting, not a measurement: Java may use less, and its
+    own overhead comes on top."""
+    limit = None
+    for arg in jvm_args:
+        found = re.fullmatch(r"-Xmx(\d+)([kKmMgGtT]?)", str(arg).strip())
+        if found:
+            number, unit = int(found.group(1)), found.group(2).lower()
+            scale = {"": 1 / (1024 * 1024), "k": 1 / 1024, "m": 1, "g": 1024, "t": 1024 * 1024}
+            limit = int(number * scale[unit])
+    return limit

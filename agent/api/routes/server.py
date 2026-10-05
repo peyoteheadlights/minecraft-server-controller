@@ -8,6 +8,7 @@ import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ...minecraft.commands import CommandError, validate
+from ...minecraft.java import memory_limit_mb
 from ...minecraft.state import ExitReason
 from ...security.auth import Principal
 from ...security.permissions import (
@@ -220,9 +221,13 @@ async def check_command(command: str, principal: Principal = Depends(require(CON
 async def performance(
     hours: float = 6, principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):
+    hours = max(0.1, min(hours, 168))
     return {
         "current": ctx.metrics.snapshot(),
-        "history": ctx.metrics.history(hours=max(0.1, min(hours, 168))),
+        "history": ctx.metrics.history(hours=hours),
+        "series": ctx.metrics.series(hours=hours),
+        "sample_interval": ctx.config.monitor.sample_interval,
+        "memory_limit_mb": memory_limit_mb(ctx.config.server.jvm_args),
         "thresholds": ctx.config.thresholds.to_dict(),
         "storage": await ctx.metrics.storage(),
     }

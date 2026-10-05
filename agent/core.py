@@ -18,7 +18,7 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from . import __version__
+from . import __version__, colors
 from .backups.manager import BackupManager
 from .config import ConfigError
 from .database.db import Database, ServerDb
@@ -54,6 +54,9 @@ class ServerContext:
         self.bus = ServerBus(core.bus, server_id)
         self.db = ServerDb(core.db, server_id)
         core.db.register_server(server_id, self.config.server.name, str(self.config.server_dir))
+        if not core.db.server_color(server_id):
+            taken = [other.color for other in core.servers.values() if other is not self]
+            core.db.set_server_color(server_id, colors.next_unused(taken))
 
         self.server = MinecraftServer(self.config, self.bus, self.db)
         self.players = PlayerTracker(self.config, self.bus, self.db, server_id)
@@ -78,6 +81,10 @@ class ServerContext:
     @property
     def name(self) -> str:
         return self.config.server.name
+
+    @property
+    def color(self) -> str | None:
+        return self.core.db.server_color(self.server_id)
 
     async def mod_change(
         self, title: str, change: Callable[[], Awaitable[Any]], user: str | None = None
@@ -196,6 +203,7 @@ class ServerContext:
         return {
             "id": self.server_id,
             "name": self.name,
+            "color": self.color,
             "state": status["state"],
             "state_verified": status["state_verified"],
             "uptime": status["uptime"],

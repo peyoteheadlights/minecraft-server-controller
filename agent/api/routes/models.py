@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -89,7 +89,22 @@ class ServerAddRequest(BaseModel):
     # server.jar, whichever is there.
     jar: str = Field(default="", max_length=180)
     id: str | None = Field(default=None, max_length=64)
+    # A palette id or "#RRGGBB". Empty: the next color no server uses.
+    color: str | None = Field(default=None, max_length=16)
 
 
 class ServerSettingsRequest(BaseModel):
     updates: dict[str, Any]
+
+
+class ServerColorRequest(BaseModel):
+    color: str = Field(max_length=16, description='A palette id such as "teal", or "#RRGGBB"')
+
+
+class PreferencesRequest(BaseModel):
+    mode: Literal["simple", "technical"] | None = None
+    theme: Literal["system", "light", "dark", "graphite", "contrast"] | None = None
+
+
+class RecommendationActionRequest(BaseModel):
+    action: Literal["dismiss", "snooze", "restore"]

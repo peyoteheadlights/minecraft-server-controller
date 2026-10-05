@@ -381,11 +381,39 @@ class MetricsMonitor:
         return sample
 
     def history(self, hours: float = 6, limit: int = 720) -> list[dict[str, Any]]:
+        """The newest raw samples within the last ``hours``, oldest first."""
         cutoff = time.time() - hours * 3600
-        return self.db.query(
-            "SELECT * FROM metrics WHERE server_id = ? AND ts >= ? ORDER BY ts ASC LIMIT ?",
+        rows = self.db.query(
+            "SELECT * FROM metrics WHERE server_id = ? AND ts >= ? ORDER BY ts DESC LIMIT ?",
             (self.server.server_id, cutoff, limit),
         )
+        rows.reverse()
+        return rows
+
+    def series(self, hours: float = 6, points: int = 360) -> dict[str, Any]:
+        """Samples for the graphs, averaged into at most ``points`` time
+        buckets so a week costs no more to draw than an hour.
+
+        A bucket with no samples is left out rather than filled in, and a
+        value nobody measured (TPS with no answering command, the server's
+        memory while it is off) averages to null, so the graphs show gaps
+        where there is no data, never a line drawn through them.
+        """
+        span = hours * 3600
+        bucket = max(float(self.config.monitor.sample_interval), span / points)
+        rows = self.db.query(
+            "SELECT CAST(ts / ? AS INTEGER) AS bucket, AVG(ts) AS ts, "
+            "AVG(cpu_percent) AS cpu_percent, AVG(ram_used_mb) AS ram_used_mb, "
+            "MAX(ram_total_mb) AS ram_total_mb, AVG(proc_ram_mb) AS proc_ram_mb, "
+            "MAX(proc_ram_mb) AS proc_ram_max, AVG(tps) AS tps, MIN(tps) AS tps_min, "
+            "AVG(mspt) AS mspt, AVG(players) AS players, MAX(players) AS players_max, "
+            "COUNT(*) AS samples "
+            "FROM metrics WHERE server_id = ? AND ts >= ? GROUP BY bucket ORDER BY bucket",
+            (bucket, self.server.server_id, time.time() - span),
+        )
+        for row in rows:
+            del row["bucket"]
+        return {"bucket_seconds": bucket, "hours": hours, "points": rows}
 
     # ------------------------------------------------------------------
     async def run(self, player_source=None) -> None:

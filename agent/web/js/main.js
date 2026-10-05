@@ -13,10 +13,12 @@ import "./pages/players.js";
 import "./pages/schedules.js";
 import "./pages/security.js";
 import "./pages/settings.js";
+import "./servers.js";
 import { api } from "./api.js";
 import { signOut } from "./auth.js";
 import { connectSocket, renderStatus } from "./live.js";
 import { render, renderRail } from "./nav.js";
+import { loadServers } from "./servers.js";
 import { PAGES, state } from "./state.js";
 import { $, busy } from "./ui.js";
 
@@ -52,7 +54,14 @@ async function startApp() {
   $("#app").classList.add("visible");
   const hash = location.hash.replace("#", "");
   if (PAGES.some(([key]) => key === hash)) state.page = hash;
-  try { state.status = await api("/status"); } catch (e) { return; }
+  try {
+    await loadServers();
+    state.status = await api("/status");
+  } catch (e) { return; }
+  try {
+    const running = await api("/jobs?running=true");
+    for (const job of running.jobs || []) state.jobs[job.id] = job;
+  } catch (e) { /* the jobs line stays empty; nothing is assumed */ }
   renderStatus();
   renderRail();
   render();

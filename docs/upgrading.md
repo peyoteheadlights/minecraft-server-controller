@@ -18,6 +18,22 @@ New settings appear with their defaults; your existing `config.yaml` does not
 need rewriting. Compare it against `config/config.example.yaml` to see what is
 new.
 
+### Upgrading to multi-server (Phase 1)
+
+- Your `server:` block keeps working as it is. It is your first server.
+- The old API paths (`/api/status`, `/api/backups`, …) still work for one more
+  release and act on the first server. They answer with a `Deprecation`
+  header; the new paths are `/api/servers/<id>/…`.
+- **The data folder moves**, once, unless `paths.data_dir` is set. On the first
+  start, `<server directory>\mcsc-data` is copied to
+  `C:\ProgramData\Minecraft Server Controller`, checked, and used from then on.
+  The old folder is left exactly as it was. Before upgrading you can see the
+  plan with `python -m agent.datafolder`; after the first start,
+  `python -m agent.main --check` reports it under Storage. Details:
+  [configuration.md](configuration.md#the-data-folder-pathsdata_dir).
+- Once you have checked everything works from the new folder, you may delete
+  the old `mcsc-data` folder yourself. The agent never does.
+
 ## Uninstalling
 
 ```powershell
@@ -31,13 +47,14 @@ Then delete what you want gone:
 | Path | Contents | Safe to delete? |
 | --- | --- | --- |
 | The project folder | Agent code, `config.yaml`, `.env` | Yes |
-| `<server>\mcsc-data\` | Database, backups, mod archives, crash evidence, logs | Yes, but **your backups are in here** |
-| `<server>\mcsc-data\mod-trash\` | Mods you removed via the dashboard | Check first |
+| `C:\ProgramData\Minecraft Server Controller\` | Database, backups, mod archives, crash evidence, certificates, logs | Yes, but **your backups are in here** |
+| `…\Minecraft Server Controller\mod-trash\` (and `servers\<id>\mod-trash\`) | Mods you removed via the dashboard | Check first |
+| `<server>\mcsc-data\` | The data folder from before multi-server, left in place when it was copied | Yes, once the new folder works |
 | `<server>\world*`, `mods\`, jars | Your actual server | **No** — this is your server |
 
-Nothing the agent installs lives outside the project folder and `mcsc-data`. It
-adds no registry keys beyond the service registration, which `uninstall`
-removes, and it writes nothing to `AppData`.
+Nothing the agent installs lives outside the project folder and its data
+folder. It adds no registry keys beyond the startup task, which `autostart
+disable` removes, and it writes nothing to `AppData`.
 
 Your Minecraft server is exactly as it was: same jar, same worlds, same mods
 folder. Run your original `java -Xmx6G -jar fabric-server-launch.jar nogui`

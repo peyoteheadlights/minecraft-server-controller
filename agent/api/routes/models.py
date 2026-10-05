@@ -78,3 +78,18 @@ class DependencyInstallRequest(BaseModel):
 
 class TpsCommandRequest(BaseModel):
     command: str = Field(max_length=100, description='"auto", "off", or a Minecraft command')
+
+
+class ServerAddRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    # The folder that already holds the Minecraft server. Checked by
+    # agent.security.paths.check_server_folder before anything is saved.
+    directory: str = Field(min_length=1, max_length=400)
+    # The server jar inside that folder. Empty: fabric-server-launch.jar or
+    # server.jar, whichever is there.
+    jar: str = Field(default="", max_length=180)
+    id: str | None = Field(default=None, max_length=64)
+
+
+class ServerSettingsRequest(BaseModel):
+    updates: dict[str, Any]

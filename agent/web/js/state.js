@@ -1,5 +1,17 @@
+function remembered(key) {
+  try { return localStorage.getItem(key) || ""; } catch (e) { return ""; }
+}
+
 export const state = {
   token: sessionStorage.getItem("mcsc_token") || "",
+  // The server every page acts on, remembered per browser.
+  serverId: remembered("mcsc_server"),
+  servers: [],
+  // Servers other than the selected one that crashed since they were last
+  // looked at: shown as a badge in the switcher.
+  crashedElsewhere: new Set(),
+  // Running jobs (backups, restores) by id, from "job" events.
+  jobs: {},
   user: "",
   status: null,
   console: [],
@@ -21,6 +33,7 @@ export const state = {
 
 // [key, label, group, icon]. Keys are the URL hashes and must not change.
 export const PAGES = [
+  ["servers", "All servers", "Servers", "servers"],
   ["dashboard", "Overview", "Server", "overview"],
   ["console", "Console", "Server", "console"],
   ["players", "Players", "Server", "players"],

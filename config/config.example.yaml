@@ -2,6 +2,21 @@
 # Copy to config/config.yaml and edit. Secrets never go in this file;
 # they live in .env (see .env.example).
 
+# One server is a `server:` block. For several, replace it with a list:
+#
+# servers:
+#   - id: survival               # letters, digits, - and _; cannot change later
+#     name: Survival
+#     directory: 'C:\Minecraft\Survival'
+#     port: 25565
+#   - id: creative
+#     name: Creative
+#     directory: 'C:\Minecraft\Creative'
+#     port: 25566
+#     monitor: {auto_restart: false}   # optional per-server overrides of
+#     backups: {keep_daily: 3}         # monitor, backups and mods
+#
+# Each entry takes the same keys as `server:` below.
 server:
   id: main
   name: "My Fabric Server"
@@ -46,7 +61,7 @@ tls:
   # other address so credentials never cross a network unencrypted.
   enabled: true
   # Paths are created by: python -m installer.make_certs
-  # Relative paths resolve inside the agent data folder (mcsc-data).
+  # Relative paths resolve inside the agent data folder (see paths.data_dir).
   certificate: certs/agent.crt
   private_key: certs/agent.key
   # The local CA, when one is in use. Empty for a Tailscale-issued (publicly
@@ -138,6 +153,7 @@ notifications:
     auth_failure: true
     maintenance_mode: true
     certificate_expiring: true
+    servers_changed: true    # a server was added or removed in Settings
   email:
     host: ""                 # e.g. smtp.gmail.com
     port: 587
@@ -155,7 +171,12 @@ logging:
   backup_count: 7
 
 paths:
-  data_dir: ""               # empty = <server directory>/mcsc-data
+  # Empty = C:\ProgramData\Minecraft Server Controller (Linux/macOS:
+  # ~/.local/share/minecraft-server-controller). An older install's
+  # <server directory>/mcsc-data is copied there once on first start and the
+  # original left in place. Set a folder here to keep the data elsewhere; an
+  # explicit folder is never moved.
+  data_dir: ""
   database: mcsc.sqlite3
 
 maintenance:

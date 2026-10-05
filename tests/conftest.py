@@ -22,6 +22,66 @@ def api_routes_source() -> str:
     return "\n".join(inspect.getsource(module) for module in (routes, *routes.MODULES))
 
 
+def make_server_folder(folder: Path, port: int = 25565) -> Path:
+    """A throwaway Minecraft server folder with a jar, worlds and a log."""
+    for sub in (
+        "mods",
+        "config",
+        "world",
+        "world_nether",
+        "world_the_end",
+        "logs",
+        "crash-reports",
+    ):
+        (folder / sub).mkdir(parents=True, exist_ok=True)
+    (folder / "fabric-server-launch.jar").write_bytes(b"not a real jar")
+    (folder / "server.properties").write_text(
+        f"server-port={port}\nmax-players=20\n", encoding="utf-8"
+    )
+    (folder / "world" / "level.dat").write_bytes(b"x" * 2048)
+    (folder / "logs" / "latest.log").write_text(
+        "[10:00:00] [Server thread/INFO]: hello\n", encoding="utf-8"
+    )
+    return folder
+
+
+def fake_server_entry(server_id: str, name: str, folder: Path, port: int = 25565) -> dict:
+    return {
+        "id": server_id,
+        "name": name,
+        "directory": str(folder),
+        "raw_command": [sys.executable, str(FAKE_SERVER)],
+        "port": port,
+        "stop_timeout": 10,
+        "start_timeout": 20,
+    }
+
+
+def build_multi_config(tmp_path: Path, servers=None, **overrides) -> Config:
+    """Two (or more) fake servers side by side in one agent."""
+    servers = servers or [("survival", "Survival", 25565), ("creative", "Creative", 25566)]
+    entries = []
+    for server_id, name, port in servers:
+        folder = make_server_folder(tmp_path / "servers" / name, port)
+        entries.append(fake_server_entry(server_id, name, folder, port))
+    data = {
+        "servers": entries,
+        "paths": {"data_dir": str(tmp_path / "mcsc-data")},
+        "monitor": {"auto_restart": False, "restart_delay": 0.2, "sample_interval": 1},
+        "notifications": {"discord_enabled": False, "email_enabled": False},
+    }
+    merged = _deep_merge({k: v for k, v in DEFAULTS.items() if k != "server"}, data)
+    for key, value in overrides.items():
+        node = merged
+        parts = key.split(".")
+        for part in parts[:-1]:
+            node = node.setdefault(part, {})
+        node[parts[-1]] = value
+    cfg = Config(merged, tmp_path / "config.yaml")
+    cfg.ensure_dirs()
+    return cfg
+
+
 def build_config(tmp_path: Path, **overrides) -> Config:
     """A config pointing at a throwaway 'Minecraft Server' folder.
 
@@ -115,6 +175,16 @@ def isolated_startup_log(tmp_path_factory, monkeypatch):
     startup_diag.set_log_dir(directory)
     yield directory
     startup_diag.set_log_dir(directory)
+
+
+@pytest.fixture(autouse=True)
+def isolated_app_data(tmp_path_factory, monkeypatch):
+    """The default data folder (%ProgramData% or ~/.local/share) always
+    points into a throwaway folder, never at the real one."""
+    base = tmp_path_factory.mktemp("app-data")
+    monkeypatch.setenv("ProgramData", str(base))
+    monkeypatch.setenv("XDG_DATA_HOME", str(base))
+    return base
 
 
 @pytest.fixture(autouse=True)

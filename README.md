@@ -86,13 +86,18 @@ by `make_secrets` and never committed.
 
 | Setting | What to set |
 | --- | --- |
-| `server.directory` | **Required.** The folder that contains your server jar. There is no default. |
+| `server.directory` | **Required.** The folder that contains your server jar. There is no default. Several servers go in a `servers:` list instead ([how](docs/configuration.md#server-or-servers)). |
 | `server.jar` | Your server jar, e.g. `fabric-server-launch.jar` |
 | `server.java` | `java`, or the full path to `java.exe` |
 | `server.jvm_args` | Memory and JVM options, e.g. `["-Xmx6G"]` |
 | `network.host` | This PC's Tailscale address, from `tailscale ip -4` |
 | `tls.hostname` | The name you type in the browser, e.g. `server-pc.your-tailnet.ts.net` |
 | `monitor.tps_command` | `auto` (default) detects it; or force `tick query`, `tps`, `spark tps`; `off` disables |
+
+The agent keeps its database, backups and certificates in
+`C:\ProgramData\Minecraft Server Controller` (an older install's
+`<server>\mcsc-data` is copied there once, and the original left in place:
+[details](docs/configuration.md#the-data-folder-pathsdata_dir)).
 
 Every option is described in [docs/configuration.md](docs/configuration.md).
 Discord and email alerts: [docs/notifications.md](docs/notifications.md).

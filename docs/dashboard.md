@@ -5,10 +5,17 @@ Sign in with the username and password you created with
 
 ## Layout and appearance
 
-Sections are grouped in the sidebar: **Server** (Overview, Console, Players,
-Performance), **Manage** (Backups, Mods, Schedules), **Activity** (Events,
-Crash history) and **System** (Settings, Security). The server's state is
-always visible at the top of the sidebar.
+Sections are grouped in the sidebar: **Servers** (All servers), **Server**
+(Overview, Console, Players, Performance), **Manage** (Backups, Mods,
+Schedules), **Activity** (Events, Crash history) and **System** (Settings,
+Security). The server's state is always visible at the top of the sidebar.
+
+With more than one server, the top of the sidebar is a picker. Every page acts
+on the server picked there, and this browser remembers the choice. If another
+server crashes, a message names it with a button to switch, and a red badge
+stays next to the picker until you look at that server. **All servers** shows
+each server's state, players, uptime and port. Running backups and restores
+appear under the server state with their real progress.
 
 At the bottom of the sidebar you can choose the appearance: match the system,
 light, or dark. The choice is remembered in this browser. On narrow windows
@@ -102,9 +109,15 @@ diagnosis.
 
 ## Settings
 
-Auto-restart behaviour, alert thresholds, notification channels and per-event
-checkboxes, and maintenance mode. Changes are written to `config.yaml` when you
-press Save.
+**Servers** lists every server. **Add a server** registers a folder that
+already holds a Minecraft server (its name, the full folder path, and the jar
+if it is not `fabric-server-launch.jar` or `server.jar`); nothing in the folder
+is changed and the server is not started. **Remove** takes a server off the
+list after you confirm; its folder, world, mods and backups stay where they are.
+
+Below that: auto-restart behaviour (for the selected server when there are
+several), alert thresholds, notification channels and per-event checkboxes,
+and maintenance mode. Changes are written to `config.yaml` when you press Save.
 
 Only a safe subset of settings can be changed here. Things that would change
 what the agent executes — the server directory, the launch command — are

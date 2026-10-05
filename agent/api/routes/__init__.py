@@ -1,26 +1,50 @@
 """REST API, one router per area.
 
-Every route except /api/health and /api/auth/login requires a bearer token.
-No route accepts a filesystem path, a shell string or a command line: the
-only free text that reaches the operating system is a Minecraft console
-command, and that is validated by agent.minecraft.commands first.
+Every route except /api/health and /api/auth/login requires a bearer token,
+and every route declares the permission it needs (see
+agent/security/permissions.py). No route accepts a shell string or a command
+line: the only free text that reaches the operating system is a Minecraft
+console command, validated by agent.minecraft.commands first. The one route
+that takes a folder path, adding a server, checks it with
+agent.security.paths.check_server_folder.
 
-The routers are grouped by scope. PER_SERVER routers act on one Minecraft
-server; when the agent manages several, they move under
-/api/servers/{server_id}/. GLOBAL routers are about the agent itself.
+PER_SERVER routers act on one Minecraft server and live under
+/api/servers/{server_id}/. The ones that existed before there were several
+servers (LEGACY_PER_SERVER) are also served unprefixed, acting on the first
+server, for one release. GLOBAL routers are about the agent itself.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from . import auth, backups, console, mods, players, schedules, security, server, settings, system
+from ..deps import mark_alias
+from . import (
+    auth,
+    backups,
+    console,
+    jobs,
+    mods,
+    players,
+    schedules,
+    security,
+    server,
+    server_settings,
+    settings,
+    system,
+)
 from .settings import SETTABLE_PREFIXES
 
-PER_SERVER = (server, console, players, mods, backups, schedules)
-GLOBAL = (auth, settings, security, system)
+LEGACY_PER_SERVER = (server, console, players, mods, backups, schedules)
+PER_SERVER = (*LEGACY_PER_SERVER, server_settings)
+GLOBAL = (auth, settings, security, system, jobs)
 MODULES = (*GLOBAL, *PER_SERVER)
+SERVER_PREFIX = "/servers/{server_id}"
 
 router = APIRouter(prefix="/api")
-for module in MODULES:
+for module in GLOBAL:
     router.include_router(module.router)
+for module in PER_SERVER:
+    router.include_router(module.router, prefix=SERVER_PREFIX)
+for module in LEGACY_PER_SERVER:
+    router.include_router(module.router, dependencies=[Depends(mark_alias)])
 
-__all__ = ["MODULES", "SETTABLE_PREFIXES", "router"]
+__all__ = ["MODULES", "PER_SERVER", "SERVER_PREFIX", "SETTABLE_PREFIXES", "router"]

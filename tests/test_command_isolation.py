@@ -71,7 +71,7 @@ def test_the_api_exposes_no_general_execution_endpoint():
         assert f'"{forbidden}"' not in source, f"an execution-style route exists: {forbidden}"
     # the one place free text reaches the OS is the Minecraft console, and it
     # goes to that process's stdin
-    assert "core.server.send_command(validated.raw)" in source
+    assert "ctx.server.send_command(validated.raw)" in source
 
 
 def test_minecraft_commands_only_reach_process_stdin():

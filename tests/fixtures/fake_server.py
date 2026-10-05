@@ -9,6 +9,20 @@ import os
 import sys
 import time
 
+
+def configured_port() -> str:
+    """server-port from server.properties in the working folder, like the
+    real server."""
+    try:
+        with open("server.properties", encoding="utf-8") as fh:
+            for line in fh:
+                if line.startswith("server-port="):
+                    return line.split("=", 1)[1].strip() or "25565"
+    except OSError:
+        pass
+    return "25565"
+
+
 BOOT_DELAY = float(os.environ.get("FAKE_BOOT_DELAY", "0.2"))
 # A real server takes seconds to save and stop. Default 0 keeps the unit
 # tests fast; the UI tests set it so the "Stopping…" state is observable.
@@ -63,7 +77,7 @@ def main() -> int:
         return 1
     time.sleep(BOOT_DELAY)
     out(stamp("Server thread", "INFO", "Starting minecraft server version 1.21.1"))
-    out(stamp("Server thread", "INFO", "Starting Minecraft server on *:25565"))
+    out(stamp("Server thread", "INFO", f"Starting Minecraft server on *:{configured_port()}"))
     if os.environ.get("FAKE_HANG") == "1":
         while True:
             time.sleep(1)

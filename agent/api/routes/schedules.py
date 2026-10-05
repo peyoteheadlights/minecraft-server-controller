@@ -5,7 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Request
 
 from ...security.auth import Principal
-from ..deps import audit, get_core, require_auth
+from ...security.permissions import SCHEDULES_MANAGE, SERVER_VIEW, require
+from ..deps import audit, get_server
 from ..errors import respond_as
 from .models import ScheduleRequest
 
@@ -13,21 +14,23 @@ router = APIRouter()
 
 
 @router.get("/schedules")
-async def list_schedules(principal: Principal = Depends(require_auth), core=Depends(get_core)):
-    return {"schedules": core.scheduler.list_schedules(), "tasks": list(core.scheduler.handlers)}
+async def list_schedules(
+    principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
+):
+    return {"schedules": ctx.scheduler.list_schedules(), "tasks": list(ctx.scheduler.handlers)}
 
 
 @router.post("/schedules")
 async def create_schedule(
     payload: ScheduleRequest,
     request: Request,
-    principal: Principal = Depends(require_auth),
-    core=Depends(get_core),
+    principal: Principal = Depends(require(SCHEDULES_MANAGE)),
+    ctx=Depends(get_server),
 ):
-    row = core.scheduler.add(
+    row = ctx.scheduler.add(
         payload.name, payload.task, payload.kind, payload.expr, payload.payload, payload.enabled
     )
-    audit(core, request, "schedule_create", target=payload.name)
+    audit(ctx, request, "schedule_create", target=payload.name)
     return {"ok": True, "schedule": row}
 
 
@@ -36,10 +39,10 @@ async def update_schedule(
     schedule_id: int,
     payload: ScheduleRequest,
     request: Request,
-    principal: Principal = Depends(require_auth),
-    core=Depends(get_core),
+    principal: Principal = Depends(require(SCHEDULES_MANAGE)),
+    ctx=Depends(get_server),
 ):
-    row = core.scheduler.update(
+    row = ctx.scheduler.update(
         schedule_id,
         name=payload.name,
         task=payload.task,
@@ -48,7 +51,7 @@ async def update_schedule(
         payload=payload.payload,
         enabled=payload.enabled,
     )
-    audit(core, request, "schedule_update", target=str(schedule_id))
+    audit(ctx, request, "schedule_update", target=str(schedule_id))
     return {"ok": True, "schedule": row}
 
 
@@ -56,12 +59,12 @@ async def update_schedule(
 async def delete_schedule(
     schedule_id: int,
     request: Request,
-    principal: Principal = Depends(require_auth),
-    core=Depends(get_core),
+    principal: Principal = Depends(require(SCHEDULES_MANAGE)),
+    ctx=Depends(get_server),
 ):
     with respond_as(404):
-        core.scheduler.delete(schedule_id)
-    audit(core, request, "schedule_delete", target=str(schedule_id))
+        ctx.scheduler.delete(schedule_id)
+    audit(ctx, request, "schedule_delete", target=str(schedule_id))
     return {"ok": True}
 
 
@@ -69,11 +72,11 @@ async def delete_schedule(
 async def run_schedule(
     schedule_id: int,
     request: Request,
-    principal: Principal = Depends(require_auth),
-    core=Depends(get_core),
+    principal: Principal = Depends(require(SCHEDULES_MANAGE)),
+    ctx=Depends(get_server),
 ):
     with respond_as(404):
-        row = core.scheduler.get(schedule_id)
-        result = await core.scheduler.run_task(row)
-    audit(core, request, "schedule_run_now", target=row["name"])
+        row = ctx.scheduler.get(schedule_id)
+        result = await ctx.scheduler.run_task(row)
+    audit(ctx, request, "schedule_run_now", target=row["name"])
     return {"ok": True, "result": result}

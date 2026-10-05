@@ -229,11 +229,20 @@ class MetricsMonitor:
         min_interval = self.config.notifications.min_interval_seconds
         now = time.time()
 
-        async def alert(key: str, type_: str, message: str, data: dict) -> None:
+        async def alert(
+            key: str, type_: str, message: str, data: dict, machine: bool = False
+        ) -> None:
             if now - self._alert_sent.get(key, 0) < min_interval:
                 return
             self._alert_sent[key] = now
-            await self.bus.publish(Event(type=type_, message=message, level="warn", data=data))
+            event = Event(type=type_, message=message, level="warn", data=data)
+            if machine:
+                # CPU and RAM belong to the PC, not to one server: published
+                # as agent-wide so several servers' monitors share one
+                # cooldown instead of each sending the same alert.
+                await getattr(self.bus, "root", self.bus).publish(event)
+            else:
+                await self.bus.publish(event)
 
         if sample["cpu_percent"] >= th.cpu_percent:
             await alert(
@@ -241,6 +250,7 @@ class MetricsMonitor:
                 "high_cpu",
                 f"CPU at {sample['cpu_percent']:.0f}% (threshold {th.cpu_percent}%)",
                 {"value": sample["cpu_percent"], "threshold": th.cpu_percent},
+                machine=True,
             )
         if sample["ram_percent"] >= th.ram_percent:
             await alert(
@@ -249,6 +259,7 @@ class MetricsMonitor:
                 f"RAM at {sample['ram_percent']:.0f}% "
                 f"({sample['ram_used_mb'] / 1024:.1f} of {sample['ram_total_mb'] / 1024:.1f} GB)",
                 {"value": sample["ram_percent"], "threshold": th.ram_percent},
+                machine=True,
             )
         if sample["disk_free_gb"] is not None and sample["disk_free_gb"] <= th.disk_free_gb:
             await alert(

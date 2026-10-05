@@ -11,7 +11,43 @@ Authorization: Bearer <token>
 ```
 
 where the token is either a session token from `/api/auth/login` or the
-`MCSC_API_TOKEN` value from `.env`.
+`MCSC_API_TOKEN` value from `.env`. Every route declares the permission it
+needs (`agent/security/permissions.py`); today every signed-in user has all of
+them.
+
+## One server or several
+
+Everything about one Minecraft server lives under
+`/api/servers/{server_id}/`: status, info, server control, console and logs,
+events, crashes, players, performance, worlds, TPS, mods, backups, schedules
+and that server's own settings. An unknown id answers 404.
+
+The paths from before multi-server (`/api/status`, `/api/backups`, …, as
+listed below) still work for one release and act on the first server in the
+config. They answer with a `Deprecation: true` header and a `Link` to the
+new path. In the tables below, put `/servers/{server_id}` after `/api` for the
+new form, e.g. `POST /api/servers/survival/server/start`.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/servers` | Every server with its measured state, players, uptime and port |
+| POST | `/api/servers` | `{name, directory, jar?, id?}` — register an existing server folder. Nothing in it is changed and Minecraft is not started. The folder must exist, hold the jar, not be a drive root, home or system folder, and not overlap the agent or another server. |
+| DELETE | `/api/servers/{id}` | Take a server off the list. Its folder, world and backups are not touched. Refused while it runs. |
+| GET | `/api/servers/{id}/settings` | That server's settings and its overrides |
+| PUT | `/api/servers/{id}/settings` | `{updates: {"monitor.auto_restart": false, …}}` |
+| GET | `/api/ports/suggest?protocol=tcp` | A free port no server uses, and which ports are taken |
+
+## Jobs
+
+Long operations (backups, restores) are jobs with real progress: `done` and
+`total` are counted, and `progress` is `null` until the total is known, never
+an estimate. A server runs one risky job at a time; a second gets 409.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/jobs?server_id=&running=&limit=` | Recent jobs, newest first |
+| GET | `/api/jobs/{id}` | One job, with its result |
+| POST | `/api/jobs/{id}/undo` | Undo a finished change by restoring the safety backup it took first (itself undoable) |
 
 ## Authentication
 
@@ -91,17 +127,24 @@ counting down; `restart_at` in `/api/status` is the deadline (Unix time).
 `GET|PUT /api/settings`, `POST /api/maintenance`,
 `POST /api/notifications/test?channel=`, `GET /api/notifications/history`,
 `GET /api/security`, `GET /api/security/tls`, `GET /api/security/audit`,
-`POST /api/security/revoke-sessions`, `GET /api/servers`.
+`POST /api/security/revoke-sessions`.
+
+`/api/settings` holds the agent's settings, including the defaults every
+server uses; `/api/servers/{id}/settings` holds one server's own.
 
 ## WebSocket `/ws`
 
 Connect, then send the auth message **first**:
 
 ```json
-{"type": "auth", "token": "…"}
+{"type": "auth", "token": "…", "server_id": "survival"}
 ```
 
-The server replies with `{"type":"ready", status, console}` and then streams:
+`server_id` is optional (the first server otherwise). The server replies with
+`{"type":"ready", server_id, servers, status, console}` and then streams every
+server's events. Each event carries `server_id` (`null` for the agent itself,
+such as a certificate warning), so the client shows the selected server's and
+notices another server's crash:
 
 | Message | Contents |
 | --- | --- |
@@ -111,7 +154,9 @@ The server replies with `{"type":"ready", status, console}` and then streams:
 | `{"type":"event", …}` | Any other agent event |
 | `{"type":"ping"}` | Heartbeat every 25 seconds |
 
-The client may send `{"type":"tail","lines":N}` or `{"type":"status"}`.
+The client may send `{"type":"tail","lines":N,"server_id":…}` or
+`{"type":"status","server_id":…}`. Long jobs send `"type":"job"` events with
+their progress.
 Everything else is ignored: the socket cannot perform actions, because actions
 belong on the audited REST API.
 

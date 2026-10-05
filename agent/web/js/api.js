@@ -1,13 +1,14 @@
 import { signOut } from "./auth.js";
 import { state } from "./state.js";
+import { t } from "./strings.js";
 
 // Areas that belong to one Minecraft server. Their paths are sent under
-// /api/servers/<selected server>/, so every page acts on the server chosen
-// in the sidebar. Everything else (sign-in, agent settings, security, the
+// /api/servers/<selected server>/, so every page acts on the server whose
+// tab is open. Everything else (sign-in, agent settings, security, the
 // server list, jobs) is about the agent itself.
 const PER_SERVER = new Set([
   "status", "info", "server", "logs", "events", "crashes", "players", "performance",
-  "worlds", "tps", "mods", "backups", "schedules",
+  "worlds", "tps", "mods", "backups", "schedules", "recommendations",
 ]);
 
 export function serverPath(path, serverId = state.serverId) {
@@ -28,8 +29,7 @@ export async function api(path, options = {}) {
   try {
     response = await fetch(`/api${serverPath(path)}`, Object.assign({}, options, { headers }));
   } catch (err) {
-    throw new Error("The agent could not be reached. Check that it is running and that "
-      + "this device is connected to Tailscale.");
+    throw new Error(t("error.unreachable"));
   }
   const isJson = (response.headers.get("content-type") || "").includes("application/json");
   const payload = isJson ? await response.json() : await response.text();
@@ -37,10 +37,11 @@ export async function api(path, options = {}) {
   // expired, so it is reported as the server worded it.
   if (response.status === 401 && path !== "/auth/login") {
     signOut(true);
-    throw new Error("Your session ended. Sign in again.");
+    throw new Error(t("error.session_ended"));
   }
   if (!response.ok) {
-    throw new Error((payload && payload.detail) || `The request failed (${response.status}).`);
+    throw new Error((payload && typeof payload.detail === "string" && payload.detail)
+      || t("error.request_failed", { status: response.status }));
   }
   return payload;
 }

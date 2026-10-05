@@ -1,63 +1,81 @@
-import { currentTheme, setTheme } from "./appearance.js";
+/* The page shell: server tabs across the top, the selected server's
+   "sheet" in its color with the server's own pages in a row inside it, and
+   the gear for app-wide settings. Pages about the agent itself (the gear,
+   All servers, adding a server) get a neutral sheet. */
+
 import { signOut } from "./auth.js";
+import { applyServerColor } from "./colors.js";
 import { setLink, updateStatusViews } from "./live.js";
 import { overview } from "./pages/overview.js";
-import { hooks, jobsLine, switcher } from "./servers.js";
-import { PAGES, renderers, state } from "./state.js";
+import { hooks as prefHooks } from "./prefs.js";
+import { hooks, renderTabs, serverRow, jobsIndicator } from "./servers.js";
+import { PAGES, pageEntry, renderers, stateInfo, state } from "./state.js";
+import { t } from "./strings.js";
 import { $, el, icon } from "./ui.js";
 
-export function renderRail() {
-  const rail = $("#sidebar");
-  rail.replaceChildren();
-  rail.append(el("div", { class: "sidebar-head" },
-    switcher(),
-    el("div", { class: "server-state", id: "sidebar-state" }),
-    el("div", { id: "jobs" }, jobsLine())));
-
-  let group = null, list = null;
-  for (const [key, label, groupName, iconName] of PAGES) {
-    if (groupName !== group) {
-      group = groupName;
-      list = el("div", { class: "nav-group", role: "group", "aria-label": groupName },
-        el("div", { class: "nav-group-label", "aria-hidden": "true" }, groupName));
-      rail.append(list);
-    }
-    list.append(el("a", {
-      class: "nav-item",
-      href: `#${key}`,
-      title: label,
-      "aria-current": state.page === key ? "page" : null,
-      onclick: (event) => { event.preventDefault(); navigate(key); },
-    }, icon(iconName), el("span", { class: "label" }, label)));
-  }
-
-  const theme = currentTheme();
-  const themeButton = (mode, iconName, label) => el("button", {
-    type: "button", title: label, "aria-label": label,
-    "aria-pressed": theme === mode ? "true" : "false",
-    onclick: () => setTheme(mode),
-  }, icon(iconName));
-  rail.append(el("div", { class: "sidebar-foot" },
+function renderTools() {
+  $("#desk-tools").replaceChildren(
+    el("div", { id: "jobs" }, jobsIndicator()),
     el("div", { class: "connection", id: "connection", role: "status" }),
-    el("div", { class: "segmented", role: "group", "aria-label": "Appearance" },
-      themeButton("system", "system", "Match system appearance"),
-      themeButton("light", "sun", "Light appearance"),
-      themeButton("dark", "moon", "Dark appearance")),
-    el("button", { class: "signout", type: "button", title: "Sign out", onclick: () => signOut(false) },
-      icon("signout"), el("span", { class: "label" }, "Sign out"))));
+    el("button", {
+      class: `tool-button${state.scope === "app" ? " active" : ""}`, type: "button", id: "gear",
+      title: t("page.app_settings"), "aria-label": t("page.app_settings"),
+      "aria-current": state.scope === "app" ? "page" : null,
+      onclick: () => navigate("app-settings"),
+    }, icon("gear")),
+    el("button", {
+      class: "tool-button signout", type: "button", title: t("action.sign_out"),
+      "aria-label": t("action.sign_out"), onclick: () => signOut(false),
+    }, icon("signout")));
   setLink(state.connected);
+}
+
+/* The sheet's heading band: the server's name and state, or the name of
+   the app-wide page. */
+function renderHead() {
+  const head = $("#sheet-head");
+  if (state.scope !== "server") {
+    head.replaceChildren(el("div", { class: "sheet-id" },
+      el("span", { class: "sheet-name" }, state.scope === "app" ? t("head.app") : t(pageEntry(state.page)[1]))));
+    return;
+  }
+  const row = serverRow();
+  head.replaceChildren(el("div", { class: "sheet-id" },
+    el("span", { class: "sheet-name", id: "sheet-name" }, row ? row.name : ""),
+    el("span", { class: "sheet-state", id: "sheet-state" })));
+}
+
+function renderSubnav() {
+  const nav = $("#subnav");
+  const items = PAGES.filter(([, , scope]) => scope === state.scope && scope !== "all" && scope !== "add");
+  nav.hidden = !items.length;
+  nav.setAttribute("aria-label", state.scope === "server" ? t("nav.server_pages") : t("nav.app_pages"));
+  nav.replaceChildren(...items.map(([key, label]) => el("a", {
+    class: "nav-item", href: `#${key}`,
+    "aria-current": state.page === key ? "page" : null,
+    onclick: (event) => { event.preventDefault(); navigate(key); },
+  }, t(label))));
+  const current = nav.querySelector('[aria-current="page"]');
+  if (current) current.scrollIntoView({ block: "nearest", inline: "nearest" });
+}
+
+/* The whole frame around the page: tabs, colors, heading, page row. */
+export function renderRail() {
+  const entry = pageEntry(state.page) || pageEntry("dashboard");
+  state.scope = entry[2];
+  if (state.scope === "server" && !serverRow()) state.scope = "all";
+  applyServerColor(state.scope === "server" ? (serverRow() || {}).color : null);
+  document.documentElement.dataset.scope = state.scope;
+  renderTabs();
+  renderTools();
+  renderHead();
+  renderSubnav();
   updateStatusViews();
 }
 
-export function setNavOpen(open) {
-  $("#app").classList.toggle("nav-open", open);
-  $("#menu-button").setAttribute("aria-expanded", open ? "true" : "false");
-}
-
 export function navigate(page) {
-  state.page = page;
-  if (location.hash !== `#${page}`) history.replaceState(null, "", `#${page}`);
-  setNavOpen(false);
+  state.page = pageEntry(page) ? page : "dashboard";
+  if (location.hash !== `#${state.page}`) history.replaceState(null, "", `#${state.page}`);
   renderRail();
   render();
   $("#main").focus({ preventScroll: true });
@@ -66,25 +84,12 @@ export function navigate(page) {
 
 hooks.navigate = navigate;
 hooks.afterSwitch = () => { renderRail(); render(); };
+// After the theme or Simple/Technical changes: the same page, redrawn.
+prefHooks.changed = () => { renderRail(); render(); };
 
 window.addEventListener("hashchange", () => {
   const page = location.hash.replace("#", "");
-  if (PAGES.some(([key]) => key === page) && page !== state.page) navigate(page);
-});
-
-$("#menu-button").append(icon("menu"));
-
-$("#menu-button").addEventListener("click", () =>
-  setNavOpen(!$("#app").classList.contains("nav-open")));
-
-$("#app").addEventListener("click", (event) => {
-  if ($("#app").classList.contains("nav-open") && !event.target.closest(".sidebar, #menu-button")) {
-    setNavOpen(false);
-  }
-});
-
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && $("#app").classList.contains("nav-open")) setNavOpen(false);
+  if (pageEntry(page) && page !== state.page) navigate(page);
 });
 
 export function clearTimers() {
@@ -94,16 +99,31 @@ export function clearTimers() {
 
 export function render() {
   const page = $("#page");
-  const entry = PAGES.find(([key]) => key === state.page) || PAGES[0];
-  $("#page-title").textContent = entry[1];
-  document.title = `${entry[1]} - Minecraft Server Control`;
+  const entry = pageEntry(state.page) || pageEntry("dashboard");
+  const title = t(entry[1]);
+  const row = state.scope === "server" ? serverRow() : null;
+  $("#page-title").textContent = title;
+  // the sheet's heading band names the page; the h1 is for screen readers
+  $("#page-title").classList.add("sr-only");
+  document.title = row ? `${row.name} · ${title}` : `${title} · ${t("app.name")}`;
   clearTimers();
   overview.nodes = null;
   $("#toolbar-actions").replaceChildren();
   page.replaceChildren();
   page.className = `page ${state.page}-page`;
-  // restart the entrance transition
-  void page.offsetWidth;
+  // Switching servers flips to the next sheet, like a portfolio's pages.
+  const sheet = $("#main");
+  sheet.classList.remove("flip-forward", "flip-back");
+  if (state.flip) {
+    void sheet.offsetWidth;
+    sheet.classList.add(`flip-${state.flip}`);
+    state.flip = null;
+  }
   const renderer = renderers[state.page];
   if (renderer) renderer(page, $("#toolbar-actions"));
+}
+
+export function statusLine(status) {
+  const info = stateInfo(status.state);
+  return [el("span", { class: `status-dot tone-${info.tone}${info.busy ? " pulse" : ""}` }), t(info.label)];
 }

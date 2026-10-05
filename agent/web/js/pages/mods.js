@@ -1,117 +1,130 @@
 import { api } from "../api.js";
 import { render } from "../nav.js";
 import { dependenciesPanel } from "../panels/dependencies.js";
-import { STATES, renderers } from "../state.js";
-import { $, card, confirmDialog, el, emptyState, fmt, loadInto, table, toast } from "../ui.js";
+import { serverAction } from "./overview.js";
+import { renderers, stateInfo } from "../state.js";
+import { t, technical, tn } from "../strings.js";
+import { $, advanced, busy, card, confirmDialog, el, emptyState, fmt, loadInto, section, table, toast } from "../ui.js";
+
+const STATUS = { ok: ["ok", "mods.status_ok"], warn: ["warn", "mods.status_warn"],
+  error: ["error", "mods.status_error"], disabled: ["off", "mods.status_off"] };
+
+function modStatus(mod) {
+  const [tag, key] = STATUS[mod.enabled ? mod.status : "disabled"] || ["off", "mods.status_off"];
+  const issue = (mod.issues || [])[0];
+  return el("span", { class: `tag ${tag}`, title: issue ? issue.detail || "" : "" }, t(key));
+}
+
+function installedTable(data, offline) {
+  const headers = [t("mods.col_mod"), t("mods.col_version"),
+    ...(technical() ? [t("mods.col_minecraft")] : []), t("mods.col_status"), ""];
+  return table(headers, data.mods.map((mod) => [
+    el("div", {}, el("strong", {}, mod.name),
+      technical() ? el("div", { class: "hint mono" }, mod.mod_id) : null,
+      mod.update_available
+        ? el("div", { class: "hint" }, t("mods.update_to", { version: mod.update_available.latest_version }))
+        : null),
+    el("span", { class: "mono" }, mod.version || "—"),
+    ...(technical() ? [el("span", { class: "mono" }, mod.minecraft_range || "—")] : []),
+    modStatus(mod),
+    el("div", { class: "btn-row" },
+      mod.update_available
+        ? el("button", { class: "btn small", type: "button", disabled: !offline,
+            onclick: () => updateMod(mod) }, t("mods.update"))
+        : null,
+      el("button", {
+        class: "btn small", type: "button", disabled: !offline,
+        onclick: (e) => busy(e.currentTarget, t("action.saving"), async () => {
+          try {
+            await api(mod.enabled ? "/mods/disable" : "/mods/enable",
+              { method: "POST", body: { filename: mod.filename } });
+            toast(t(mod.enabled ? "mods.turned_off" : "mods.turned_on", { name: mod.name }), "success");
+            render();
+          } catch (err) { toast(err.message, "error"); }
+        }),
+      }, mod.enabled ? t("mods.turn_off") : t("mods.turn_on")),
+      el("button", { class: "btn small", type: "button", onclick: () => showVersions(mod) }, t("mods.history")),
+      el("button", { class: "btn small danger", type: "button", disabled: !offline,
+        onclick: () => removeMod(mod) }, t("mods.remove"))),
+  ]));
+}
+
+function searchCard(data, offline) {
+  const search = el("input", { type: "search", placeholder: t("mods.search_placeholder"),
+    "aria-label": t("mods.search_label"), class: "input grow-input" });
+  const results = el("div", { class: "mt-12" });
+  const run = async (button) => busy(button, t("mods.searching"), async () => {
+    results.replaceChildren();
+    try {
+      const found = await api(`/mods/search?q=${encodeURIComponent(search.value)}&limit=10`);
+      if (!found.hits.length) { results.append(emptyState(t("mods.nothing_found"))); return; }
+      results.append(table([t("mods.col_mod"), t("mods.col_downloads"), ""], found.hits.map((hit) => [
+        el("div", {}, el("strong", {}, hit.title),
+          el("div", { class: "hint" }, (hit.description || "").slice(0, 110))),
+        el("span", { class: "num" }, Number(hit.downloads).toLocaleString()),
+        el("button", { class: "btn small", type: "button", disabled: !offline,
+          title: offline ? "" : t("mods.stop_first_short"), onclick: () => installMod(hit) }, t("mods.install")),
+      ])));
+    } catch (err) {
+      results.append(el("div", { class: "banner error" }, err.message));
+    }
+  });
+  const button = el("button", { class: "btn primary", type: "button", onclick: (e) => run(e.currentTarget) },
+    t("mods.search"));
+  search.addEventListener("keydown", (e) => { if (e.key === "Enter") run(button); });
+  return card(t("mods.add"),
+    el("div", { class: "btn-row" }, search, button),
+    results,
+    el("p", { class: "hint mt-10" }, t("mods.search_hint", { version: data.minecraft_version || t("value.unknown") })));
+}
 
 renderers.mods = (page) => loadInto(page, async () => {
   const data = await api("/mods");
-  const holder = el("div");
+  const holder = el("div", { class: "stack" });
   const offline = data.server_state === "OFFLINE" || data.server_state === "CRASHED";
 
   if (!offline) {
     holder.append(el("div", { class: "banner" },
-      `The server is ${(STATES[data.server_state] || STATES.UNKNOWN).label.replace("…", "").toLowerCase()}. `
-      + "You can browse mods now. Installing, removing, enabling, disabling and updating "
-      + "need the server stopped first."));
+      el("div", { class: "grow" }, t("mods.running_notice", {
+        state: t(stateInfo(data.server_state).label).replace("…", "").toLowerCase() })),
+      data.server_state === "ONLINE"
+        ? el("button", { class: "btn small", type: "button", onclick: (e) => serverAction("stop", e.currentTarget) },
+          t("action.stop"))
+        : null));
   }
   const others = data.problems.filter((p) => !["missing_dependency", "dependency_version"].includes(p.kind));
   if (others.length) {
-    holder.append(el("div", { class: "banner error" },
-      el("strong", {}, `${others.length} mod problem(s) found: `),
-      el("ul", {}, others.slice(0, 6).map((p) => el("li", {}, p.detail)))));
+    holder.append(el("div", { class: "banner error" }, el("div", { class: "grow" },
+      el("strong", {}, tn("mods.problems", others.length)),
+      el("ul", {}, others.slice(0, 6).map((p) => el("li", {}, p.detail))))));
   }
   const depPanel = el("div");
   holder.append(depPanel);
   dependenciesPanel(depPanel, { offline });
 
-  const search = el("input", { type: "text", placeholder: "Search Modrinth for Fabric mods…",
-    class: "mono search-field" });
-  const results = el("div", { class: "mt-12" });
-  holder.append(card("Install from Modrinth",
-    el("div", { class: "btn-row" }, search,
-      el("button", {
-        class: "btn primary",
-        onclick: async () => {
-          results.innerHTML = "";
-          results.append(el("div", { class: "empty" }, "Searching Modrinth…"));
-          try {
-            const found = await api(`/mods/search?q=${encodeURIComponent(search.value)}&limit=10`);
-            results.innerHTML = "";
-            if (!found.hits.length) { results.append(el("div", { class: "empty" }, "Nothing found")); return; }
-            results.append(table(["Mod", "Downloads", "Server side", ""], found.hits.map((hit) => [
-              el("div", {}, el("strong", {}, hit.title),
-                el("div", { class: "hint" }, (hit.description || "").slice(0, 110))),
-              Number(hit.downloads).toLocaleString(),
-              hit.server_side || "?",
-              el("button", { class: "btn small", disabled: !offline,
-                onclick: () => installMod(hit) }, "Install"),
-            ])));
-          } catch (err) {
-            results.innerHTML = "";
-            results.append(el("div", { class: "banner error" }, err.message));
-          }
-        },
-      }, "Search")),
-    results,
-    el("p", { class: "hint mt-10" },
-      `Downloads are checked against the SHA-512 Modrinth publishes, and only .jar files from
-       Modrinth's own CDN are accepted. Minecraft version in use: ${data.minecraft_version || "unknown"}.`)));
-
-  holder.append(el("div", { class: "gap-section" },
-    card(`Installed mods (${data.mods.length})`, !data.mods.length
-      ? emptyState("No mods installed", "Search Modrinth above, or place .jar files in the mods folder.")
-      : table(
-      ["Mod", "Version", "Minecraft", "Status", "Update", ""],
-      data.mods.map((mod) => [
-        el("div", {}, el("strong", {}, mod.name),
-          el("div", { class: "hint mono" }, mod.mod_id)),
-        el("span", { class: "mono" }, mod.version || "—"),
-        el("span", { class: "mono" }, mod.minecraft_range || "—"),
-        el("span", { class: `tag ${mod.status === "ok" ? "ok" : mod.status === "disabled" ? "off" : mod.status}` },
-          mod.enabled ? mod.status : "disabled"),
-        mod.update_available
-          ? el("span", { class: "tag warn" }, mod.update_available.latest_version)
-          : "—",
-        el("div", { class: "btn-row" },
-          mod.update_available
-            ? el("button", { class: "btn small", disabled: !offline,
-                onclick: () => updateMod(mod) }, "Update")
-            : null,
-          el("button", {
-            class: "btn small", disabled: !offline,
-            onclick: async () => {
-              try {
-                await api(mod.enabled ? "/mods/disable" : "/mods/enable",
-                  { method: "POST", body: { filename: mod.filename } });
-                toast(`${mod.name} ${mod.enabled ? "disabled" : "enabled"}`);
-                render();
-              } catch (err) { toast(err.message, "error"); }
-            },
-          }, mod.enabled ? "Disable" : "Enable"),
-          el("button", { class: "btn small", onclick: () => showVersions(mod) }, "History"),
-          el("button", { class: "btn small danger", disabled: !offline,
-            onclick: () => removeMod(mod) }, "Remove")),
-      ])),
-    el("p", { class: "hint mt-10" },
-      (data.claim || "") + ". " + (data.claim_note || "")),
-    el("p", { class: "hint" },
-      "What this checker cannot see: " + data.limitations.join(" ")))));
-
-  holder.append(el("div", { class: "gap-section" }, await modHistoryCard()));
+  holder.append(section(tn("mods.installed", data.mods.length), null, !data.mods.length
+    ? emptyState(t("mods.none"), t("mods.none_hint"))
+    : installedTable(data, offline)));
+  holder.append(searchCard(data, offline));
+  holder.append(advanced(t("mods.about_checks"),
+    el("p", { class: "hint mt-0" }, `${data.claim || ""}. ${data.claim_note || ""}`),
+    el("p", { class: "hint" }, t("mods.limits", { limits: data.limitations.join(" ") }))));
+  const history = el("div");
+  holder.append(advanced(t("mods.change_history"), history));
+  modHistory().then((node) => history.replaceChildren(node)).catch((err) => history.replaceChildren(err.message));
   return holder;
 });
 
-export async function modHistoryCard() {
+export async function modHistory() {
   const data = await api("/mods/history?limit=25");
-  return card("Mod audit history", data.history.length
-    ? table(["When", "Who", "Action", "Mod", "Change", "Result"], data.history.map((h) => [
+  return data.history.length
+    ? table([t("mods.col_when"), t("mods.col_who"), t("mods.col_action"), t("mods.col_mod"), t("mods.col_change"), t("mods.col_result")],
+      data.history.map((h) => [
         fmt.time(h.ts), h.user || "—", h.action, h.mod_name || h.mod_id || "—",
-        h.old_version || h.new_version
-          ? `${h.old_version || "—"} → ${h.new_version || "—"}` : "—",
+        h.old_version || h.new_version ? `${h.old_version || "—"} → ${h.new_version || "—"}` : "—",
         el("span", { class: `tag ${h.result === "ok" ? "ok" : "error"}` }, h.result),
       ]))
-    : el("div", { class: "empty" }, "No mod changes recorded yet"));
+    : emptyState(t("mods.no_history"));
 }
 
 export async function installMod(hit) {
@@ -119,36 +132,31 @@ export async function installMod(hit) {
   try { detail = await api(`/mods/project/${hit.slug}`); }
   catch (err) { toast(err.message, "error"); return; }
   const latest = detail.versions[0];
-  if (!latest) { toast("No Fabric build for this Minecraft version", "error"); return; }
+  if (!latest) { toast(t("mods.no_build"), "error"); return; }
   const deps = latest.dependencies.filter((d) => d.type === "required");
-  const installDeps = el("input", { type: "checkbox" });
+  const installDeps = el("input", { type: "checkbox", checked: "checked" });
   const body = el("div", {},
-    el("p", {}, `Install ${detail.project.title} ${latest.version_number} (${latest.release_type}).`),
+    el("p", {}, t("mods.install_what", { name: detail.project.title, version: latest.version_number })),
     el("ul", {},
-      el("li", {}, `File: ${latest.file.filename} (${fmt.bytes(latest.file.size)})`),
-      el("li", {}, `Minecraft: ${latest.game_versions.join(", ")}`),
-      el("li", {}, `Server side: ${detail.project.server_side}`),
-      el("li", {}, `Licence: ${detail.project.license || "unknown"}`)),
+      el("li", {}, t("mods.install_size", { size: fmt.bytes(latest.file.size) })),
+      el("li", {}, t("mods.install_minecraft", { versions: latest.game_versions.join(", ") })),
+      technical() ? el("li", {}, t("mods.install_file", { file: latest.file.filename })) : null,
+      technical() ? el("li", {}, t("mods.install_side", { side: detail.project.server_side })) : null,
+      technical() ? el("li", {}, t("mods.install_licence", { licence: detail.project.license || t("value.unknown") })) : null),
     deps.length
-      ? el("div", {},
-          el("p", {}, el("strong", {}, `${deps.length} required dependency/dependencies declared.`)),
-          el("label", { class: "check-row" },
-            installDeps, "Install required dependencies too"))
-      : el("p", { class: "hint" }, "No required dependencies declared."),
-    el("p", { class: "hint" },
-      "The jar is downloaded from Modrinth's CDN and its checksum is verified before it is written."));
-  const ok = await confirmDialog({ title: "Install this mod?", body, confirmLabel: "Back up and install" });
+      ? el("label", { class: "check-row" }, installDeps, tn("mods.install_deps", deps.length))
+      : null,
+    el("p", { class: "hint" }, t("mods.install_checked")));
+  const ok = await confirmDialog({ title: t("mods.install_title"), body, confirmLabel: t("mods.install_confirm") });
   if (!ok) return;
   try {
     const result = await api("/mods/install", {
       method: "POST",
-      body: { project: hit.slug, version_id: latest.version_id,
-              install_dependencies: installDeps.checked },
+      body: { project: hit.slug, version_id: latest.version_id, install_dependencies: deps.length > 0 && installDeps.checked },
     });
-    toast(`Installed ${result.installed.name} ${result.installed.version}. `
-      + "Loaded by Minecraft: not verified - start the server to confirm.", "info", 9000);
+    toast(t("mods.installed_toast", { name: result.installed.name, version: result.installed.version }), "info", 9000);
     if (result.dependencies_required.some((d) => !d.installed) && !installDeps.checked) {
-      toast("Required dependencies are missing. Open the mod list to see which.", "warn", 9000);
+      toast(t("mods.deps_missing"), "warn", 9000);
     }
     render();
   } catch (err) { toast(err.message, "error", 9000); }
@@ -156,15 +164,13 @@ export async function installMod(hit) {
 
 export async function updateMod(mod) {
   const ok = await confirmDialog({
-    title: `Update ${mod.name}?`,
+    title: t("mods.update_title", { name: mod.name }),
     // Built from text nodes, not an HTML string: version strings come from
     // a mod's own metadata and must never be parsed as markup.
     body: el("div", {},
-      el("p", {}, `${mod.version} → ${mod.update_available.latest_version} `,
-        `(${mod.update_available.release_type}).`),
-      el("p", { class: "hint" },
-        "The current jar is archived first, so you can roll back from History.")),
-    confirmLabel: "Update mod",
+      el("p", {}, `${mod.version} → ${mod.update_available.latest_version}`),
+      el("p", { class: "hint" }, t("mods.update_archived"))),
+    confirmLabel: t("mods.update"),
   });
   if (!ok) return;
   try {
@@ -172,9 +178,7 @@ export async function updateMod(mod) {
       method: "POST",
       body: { filename: mod.filename, version_id: mod.update_available.version_id },
     });
-    toast(`Updated to ${result.updated.version}. Loaded by Minecraft: not verified `
-      + "- start the server to confirm, and roll back from History if startup fails.",
-      "info", 9000);
+    toast(t("mods.updated_toast", { version: result.updated.version }), "info", 9000);
     render();
   } catch (err) { toast(err.message, "error", 9000); }
 }
@@ -184,20 +188,18 @@ export async function removeMod(mod) {
   try { impact = await api(`/mods/impact?filename=${encodeURIComponent(mod.filename)}`); }
   catch (err) { toast(err.message, "error"); return; }
   const body = el("div", {},
-    el("p", {}, `Remove ${mod.name} ${mod.version}?`),
     impact.warning ? el("div", { class: "banner error" }, impact.warning) : null,
     impact.dependents.length
-      ? el("ul", {}, impact.dependents.map((d) => el("li", {}, `${d.name} requires ${d.requires}`)))
-      : el("p", { class: "hint" }, "No installed mod declares this as a dependency."),
-    el("p", { class: "hint" },
-      "The jar is copied to mod-backups and then moved to mod-trash. It is not deleted outright."));
+      ? el("ul", {}, impact.dependents.map((d) => el("li", {}, t("mods.needed_by", { name: d.name, requires: d.requires }))))
+      : el("p", {}, t("mods.not_needed")),
+    el("p", { class: "hint" }, t("mods.remove_kept")));
   const ok = await confirmDialog({
-    title: "Remove this mod?", body, confirmLabel: "Back up and remove", danger: true,
+    title: t("mods.remove_title", { name: mod.name }), body, confirmLabel: t("mods.remove"), danger: true,
   });
   if (!ok) return;
   try {
     await api("/mods/remove", { method: "POST", body: { filename: mod.filename } });
-    toast(`${mod.name} removed and archived`);
+    toast(t("mods.removed_toast", { name: mod.name }), "success");
     render();
   } catch (err) { toast(err.message, "error"); }
 }
@@ -205,33 +207,29 @@ export async function removeMod(mod) {
 export async function showVersions(mod) {
   const data = await api(`/mods/versions/${encodeURIComponent(mod.mod_id)}`);
   const body = data.versions.length
-    ? table(["Version", "Archived", "File", ""], data.versions.map((v) => [
+    ? table([t("mods.col_version"), t("mods.col_saved"), ""], data.versions.map((v) => [
         el("span", { class: "mono" }, v.version || "—"),
         fmt.time(v.created_at),
-        v.exists ? "on disk" : el("span", { class: "tag error" }, "missing"),
-        v.is_current || !v.exists ? (v.is_current ? el("span", { class: "tag ok" }, "current") : "—")
-          : el("button", {
-              class: "btn small",
+        v.is_current ? el("span", { class: "tag ok" }, t("mods.current"))
+          : !v.exists ? el("span", { class: "tag error" }, t("mods.file_missing"))
+            : el("button", {
+              class: "btn small", type: "button",
               onclick: async () => {
-                $("#modal-root").innerHTML = "";
+                $("#modal-root").replaceChildren();
                 const ok = await confirmDialog({
-                  title: `Roll back to ${v.version}?`,
-                  body: "The current jar is archived first, and the archived jar's SHA-256 "
-                        + "is verified before it is restored.",
-                  confirmLabel: "Roll back", danger: true,
+                  title: t("mods.rollback_title", { version: v.version }),
+                  body: t("mods.rollback_body"),
+                  confirmLabel: t("mods.rollback"), danger: true,
                 });
                 if (!ok) return;
                 try {
-                  await api("/mods/rollback", {
-                    method: "POST",
-                    body: { mod_id: mod.mod_id, archive_path: v.archive_path },
-                  });
-                  toast(`Rolled back to ${v.version}`);
+                  await api("/mods/rollback", { method: "POST", body: { mod_id: mod.mod_id, archive_path: v.archive_path } });
+                  toast(t("mods.rolled_back", { version: v.version }), "success");
                   render();
                 } catch (err) { toast(err.message, "error"); }
               },
-            }, "Roll back"),
+            }, t("mods.rollback")),
       ]))
-    : el("div", { class: "empty" }, "No archived versions yet");
-  await confirmDialog({ title: `${mod.name} version history`, body, confirmLabel: "Close" });
+    : emptyState(t("mods.no_versions"));
+  await confirmDialog({ title: t("mods.versions_title", { name: mod.name }), body, acknowledge: true });
 }

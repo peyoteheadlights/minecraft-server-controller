@@ -1,6 +1,7 @@
 import { api } from "../api.js";
 import { logLine } from "./overview.js";
 import { renderers, state } from "../state.js";
+import { t } from "../strings.js";
 import { $, announce, busy, confirmDialog, el, emptyState, icon, toast } from "../ui.js";
 
 export function consoleVisible() {
@@ -20,8 +21,8 @@ export function renderConsoleLines() {
   const lines = consoleVisible().slice(-state.consoleLimit);
   if (!lines.length) {
     wrap.replaceChildren(state.filter
-      ? emptyState("No matching lines", `Nothing in the recent output contains "${state.filter}".`)
-      : emptyState("No console output yet", "Start the server to see its log here."));
+      ? emptyState(t("console.no_match"), t("console.no_match_hint", { filter: state.filter }))
+      : emptyState(t("console.empty"), t("console.empty_hint")));
     return;
   }
   const fragment = document.createDocumentFragment();
@@ -70,31 +71,30 @@ renderers.console = (page, toolbar) => {
           if (wrap) wrap.scrollTop = wrap.scrollHeight;
         }
         if (key === "paused" && !state.paused) renderConsoleLines();
-        announce(`${label} ${state[key] ? "on" : "off"}.`);
+        announce(t(state[key] ? "console.toggle_on" : "console.toggle_off", { label }));
       },
     }, icon(iconName), label);
     return button;
   };
 
   const filter = el("input", {
-    class: "input", type: "search", placeholder: "Filter", "aria-label": "Filter console lines",
+    class: "input", type: "search", placeholder: t("console.filter"), "aria-label": t("console.filter_label"),
     value: state.filter,
     oninput: (e) => { state.filter = e.target.value; renderConsoleLines(); },
   });
   toolbar.append(
     el("div", { class: "search" }, icon("search"), filter),
-    toggle("Auto-scroll", "follow", "autoscroll", "Follow new lines as they arrive"),
-    toggle("Pause", "pause", "paused", "Stop adding new lines while you read"),
+    toggle(t("console.follow"), "follow", "autoscroll", t("console.follow_title")),
+    toggle(t("console.pause"), "pause", "paused", t("console.pause_title")),
     el("button", {
-      class: "btn small", type: "button", title: "Copy the visible lines",
+      class: "btn small", type: "button", title: t("console.copy_title"),
       onclick: async () => {
         const ok = await copyText(consoleVisible().map((l) => l.raw).join("\n"));
-        toast(ok ? "Copied the visible console lines." : "Copying is not available in this browser.",
-          ok ? "success" : "warn");
+        toast(ok ? t("console.copied") : t("console.copy_unavailable"), ok ? "success" : "warn");
       },
-    }, icon("copy"), "Copy"),
+    }, icon("copy"), t("console.copy")),
     el("button", {
-      class: "btn small", type: "button", title: "Download the recent console output",
+      class: "btn small", type: "button", title: t("console.download_title"),
       onclick: () => {
         const body = consoleVisible().map((l) => l.raw).join("\n");
         const url = URL.createObjectURL(new Blob([body], { type: "text/plain" }));
@@ -102,45 +102,45 @@ renderers.console = (page, toolbar) => {
         document.body.append(link); link.click(); link.remove();
         URL.revokeObjectURL(url);
       },
-    }, icon("download"), "Download"),
+    }, icon("download"), t("console.download")),
     el("button", {
       class: "btn small", type: "button",
-      title: "Clear this view. The server's own log files are not changed.",
+      title: t("console.clear_title"),
       onclick: async (e) => {
-        await busy(e.currentTarget, "Clearing…", async () => {
+        await busy(e.currentTarget, t("console.clearing"), async () => {
           await api("/logs/clear", { method: "POST" });
           state.console = [];
           renderConsoleLines();
         });
-        toast("Console view cleared. The server's log files are unchanged.", "info");
+        toast(t("console.cleared"), "info");
       },
-    }, icon("clear"), "Clear"));
+    }, icon("clear"), t("console.clear")));
 
   const wrap = el("div", { class: "console-body", id: "console-wrap", role: "log",
-                           "aria-label": "Server console output", tabindex: "0" });
+                           "aria-label": t("console.output_label"), tabindex: "0" });
   const input = el("input", {
-    class: "input", type: "text", placeholder: "Type a Minecraft command, for example: say Hello",
-    "aria-label": "Minecraft command", autocomplete: "off", spellcheck: "false",
+    class: "input", type: "text", placeholder: t("console.command_placeholder"),
+    "aria-label": t("console.command_label"), autocomplete: "off", spellcheck: "false",
     onkeydown: (event) => { if (event.key === "Enter") sendCommand(input, send); },
   });
   const send = el("button", { class: "btn primary small", type: "button",
-                              onclick: () => sendCommand(input, send) }, "Send");
+                              onclick: () => sendCommand(input, send) }, t("console.send"));
   page.append(
     el("div", { class: "console" },
       wrap,
       el("div", { class: "console-foot" }, el("span", { class: "prompt", "aria-hidden": "true" }, ">"), input, send)),
-    el("p", { class: "hint" },
-      "Commands go to the Minecraft server only, never to Windows. Commands that affect players ask for confirmation first. ",
+    el("p", { class: "hint console-hint" },
+      t("console.hint"), " ",
       el("button", {
         class: "btn plain small", type: "button",
         onclick: async (e) => {
-          await busy(e.currentTarget, "Loading…", async () => {
+          await busy(e.currentTarget, t("status.loading"), async () => {
             const data = await api("/logs?lines=500");
             state.console = data.lines;
             renderConsoleLines();
           });
         },
-      }, "Load the last 500 lines")));
+      }, t("console.load_more"))));
   renderConsoleLines();
   input.focus({ preventScroll: true });
 };
@@ -156,14 +156,14 @@ export async function sendCommand(input, button) {
     }
     if (check.danger_reason) {
       const ok = await confirmDialog({
-        title: `Run "${command}"?`,
+        title: t("console.run_title", { command }),
         body: check.danger_reason,
-        confirmLabel: "Run Command",
+        confirmLabel: t("console.run"),
         danger: true,
       });
       if (!ok) return;
     }
-    await busy(button, "Sending…", async () => {
+    await busy(button, t("console.sending"), async () => {
       await api("/server/command", { method: "POST", body: { command, confirm: true } });
     });
     input.value = "";

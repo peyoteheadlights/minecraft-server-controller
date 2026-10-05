@@ -50,5 +50,5 @@ export async function showCrash(id) {
     ]),
     el("p", { class: "hint mt-12" },
       "This is a rule match on the log text, not a certainty. Check the evidence before acting."));
-  await confirmDialog({ title: `Crash on ${fmt.time(crash.ts)}`, body, confirmLabel: "Close" });
+  await confirmDialog({ title: `Crash on ${fmt.time(crash.ts)}`, body, acknowledge: true });
 }

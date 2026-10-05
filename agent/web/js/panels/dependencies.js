@@ -2,60 +2,59 @@
 
 import { api } from "../api.js";
 import { render as renderPage } from "../nav.js";
+import { t, tn } from "../strings.js";
 import { busy, card, confirmDialog, el, fmt, toast } from "../ui.js";
 
 const STATUS = {
-  missing: { tag: "error", text: "Missing" },
-  incompatible: { tag: "warn", text: "Wrong version" },
-  disabled: { tag: "warn", text: "Disabled" },
-  platform_incompatible: { tag: "error", text: "Incompatible" },
-  unverified: { tag: "off", text: "Not checked" },
-  satisfied: { tag: "ok", text: "Installed" },
-  platform_ok: { tag: "ok", text: "OK" },
+  missing: "error", incompatible: "warn", disabled: "warn", platform_incompatible: "error",
+  unverified: "off", satisfied: "ok", platform_ok: "ok",
 };
 const NEEDS_ATTENTION = ["missing", "incompatible", "disabled", "platform_incompatible"];
 
 export function dependenciesPanel(node, opts = {}) {
-  node.append(el("div", { class: "empty", "aria-busy": "true" }, "Checking dependencies…"));
+  node.append(el("div", { class: "empty", "aria-busy": "true" }, t("deps.checking")));
   load();
 
   function load() {
     api("/mods/dependencies")
       .then((report) => node.replaceChildren(render(report)))
       .catch((err) => node.replaceChildren(el("div", { class: "banner error", role: "alert" },
-        el("div", { class: "grow" }, el("strong", {}, "Dependencies could not be checked. "), err.message))));
+        el("div", { class: "grow" }, el("strong", {}, t("deps.check_failed")), " ", err.message))));
   }
 
   function requiredBy(item) {
     const names = [...new Set(item.required_by.map((r) => r.name))];
-    return names.length <= 2 ? names.join(" and ") : `${names.slice(0, 2).join(", ")} and ${names.length - 2} more`;
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return t("deps.two_names", { a: names[0], b: names[1] });
+    return t("deps.many_names", { a: names[0], b: names[1], n: names.length - 2 });
   }
 
   function itemRow(item) {
-    const status = STATUS[item.status] || { tag: "off", text: item.status };
+    const tag = STATUS[item.status] || "off";
+    const label = STATUS[item.status] ? t(`deps.status_${item.status}`) : item.status;
     const page = item.modrinth && item.modrinth.page;
     const canInstall = item.status === "missing" && item.kind === "required";
     return el("div", { class: "dep-item" },
       el("div", { class: "dep-main" },
         el("div", { class: "dep-title" }, el("strong", {}, item.name),
-          el("span", { class: `tag ${status.tag}` }, status.text),
-          item.kind === "optional" ? el("span", { class: "tag off" }, "Optional") : null),
+          el("span", { class: `tag ${tag}` }, label),
+          item.kind === "optional" ? el("span", { class: "tag off" }, t("deps.optional")) : null),
         el("div", { class: "dep-meta" },
-          `${item.kind === "optional" ? "Recommended" : "Required"} by ${requiredBy(item)}. `,
-          `Version: ${item.range_text}.`,
-          item.installed_version ? ` Installed: ${item.installed_version}.` : ""),
+          t(item.kind === "optional" ? "deps.recommended_by" : "deps.required_by", { names: requiredBy(item) }), " ",
+          t("deps.version", { range: item.range_text }),
+          item.installed_version ? ` ${t("deps.installed_version", { version: item.installed_version })}` : ""),
         item.reason ? el("div", { class: "dep-meta" }, item.reason) : null,
         item.modrinth && item.modrinth.not_found
-          ? el("div", { class: "dep-meta" }, "Not found on Modrinth. It may need to be installed by hand.")
+          ? el("div", { class: "dep-meta" }, t("deps.not_on_modrinth"))
           : null),
       el("div", { class: "btn-row" },
         canInstall ? el("button", {
           class: "btn small", type: "button", disabled: !opts.offline,
-          title: opts.offline ? "" : "Stop the server before installing mods",
+          title: opts.offline ? "" : t("mods.stop_first_short"),
           onclick: (e) => install([item.mod_id], e.currentTarget),
-        }, "Install") : null,
+        }, t("mods.install")) : null,
         page ? el("a", { class: "btn plain small", href: page, target: "_blank", rel: "noopener noreferrer" },
-          "View on Modrinth") : null));
+          t("deps.view_on_modrinth")) : null));
   }
 
   function render(report) {
@@ -67,25 +66,23 @@ export function dependenciesPanel(node, opts = {}) {
     if (report.lookup_error) wrap.append(el("div", { class: "banner" }, report.lookup_error));
 
     if (!attention.length) {
-      wrap.append(el("p", { class: "hint dep-ok" },
-        "All declared dependencies are installed. ", report.note));
+      wrap.append(el("p", { class: "hint dep-ok" }, t("deps.all_ok"), " ", report.note));
     } else {
       const header = el("div", { class: "dep-head" },
         el("div", { class: "grow" },
-          el("strong", {}, missingCount ? `Missing ${missingCount === 1 ? "dependency" : "dependencies"}` : "Dependency problems"),
+          el("strong", {}, missingCount ? tn("deps.missing", missingCount) : t("deps.problems")),
           el("div", { class: "hint" }, report.note)),
         missingCount ? el("button", {
           class: "btn primary small", type: "button", disabled: !opts.offline,
-          title: opts.offline ? "" : "Stop the server before installing mods",
+          title: opts.offline ? "" : t("mods.stop_first_short"),
           onclick: (e) => install(null, e.currentTarget),
-        }, `Install Missing Dependencies (${missingCount})`) : null);
-      wrap.append(card("Dependencies", header, el("div", { class: "dep-list" }, attention.map(itemRow))));
+        }, t("deps.install_missing", { n: missingCount })) : null);
+      wrap.append(card(t("deps.title"), header, el("div", { class: "dep-list" }, attention.map(itemRow))));
     }
 
     if (optional.length) {
-      wrap.append(card(`Optional dependencies (${optional.length})`,
-        el("p", { class: "hint mt-0" },
-          "Mods work without these, but may offer more with them."),
+      wrap.append(card(t("deps.optional_title", { n: optional.length }),
+        el("p", { class: "hint mt-0" }, t("deps.optional_hint")),
         el("div", { class: "dep-list" }, optional.map(itemRow))));
     }
     return wrap;
@@ -94,7 +91,7 @@ export function dependenciesPanel(node, opts = {}) {
   function planView(plan) {
     const body = el("div");
     if (plan.items.length) {
-      body.append(el("p", {}, "These will be downloaded from Modrinth and checked against their published checksums:"));
+      body.append(el("p", {}, t("deps.plan_intro")));
       const shallowFirst = [...plan.items].sort((a, b) => a.depth - b.depth);
       body.append(el("ul", { class: "dep-plan" }, shallowFirst.map((item) => el("li", {
         style: { marginLeft: `${item.depth * 18}px` },
@@ -103,62 +100,62 @@ export function dependenciesPanel(node, opts = {}) {
         el("strong", {}, item.title), ` ${item.version_number}`,
         item.size ? el("span", { class: "hint" }, ` (${fmt.bytes(item.size)})`) : null,
         el("div", { class: "hint" },
-          `Needed by ${item.required_by.join(", ")}. Version: ${item.range_text}.`,
-          item.range_verified === null ? " The range could not be checked against this version." : "")))));
+          t("deps.needed_by", { names: item.required_by.join(", ") }), " ",
+          t("deps.version", { range: item.range_text }),
+          item.range_verified === null ? ` ${t("deps.range_unchecked")}` : "")))));
     } else {
-      body.append(el("p", {}, "Nothing can be downloaded automatically."));
+      body.append(el("p", {}, t("deps.nothing_automatic")));
     }
     if (plan.unresolvable.length) {
-      body.append(el("p", {}, el("strong", {}, "Not installed automatically:")));
+      body.append(el("p", {}, el("strong", {}, t("deps.not_automatic"))));
       body.append(el("ul", {}, plan.unresolvable.map((u) => el("li", {},
         el("strong", {}, u.name || u.mod_id), ` - ${u.reason}`))));
     }
     if (plan.skipped.length) {
-      body.append(el("p", { class: "hint" }, `Already installed: ${plan.skipped.map((s) => s.name).join(", ")}.`));
+      body.append(el("p", { class: "hint" }, t("deps.already_installed", { names: plan.skipped.map((s) => s.name).join(", ") })));
     }
-    body.append(el("p", { class: "hint" }, "Existing mods are not replaced. Each download is archived and can be rolled back."));
+    body.append(el("p", { class: "hint" }, t("deps.plan_safety")));
     return body;
   }
 
   async function install(modIds, button) {
     if (!opts.offline) {
-      toast("Stop the server before installing mods.", "warn");
+      toast(t("mods.stop_first"), "warn");
       return;
     }
     let plan;
     try {
-      plan = await busy(button, "Checking…", () =>
+      plan = await busy(button, t("deps.planning"), () =>
         api("/mods/dependencies/plan", { method: "POST", body: { mod_ids: modIds } }));
     } catch (err) {
-      toast(`The installation could not be planned. ${err.message}`, "error", 9000);
+      toast(t("deps.plan_failed", { error: err.message }), "error", 9000);
       return;
     }
     if (!plan.items.length) {
-      await confirmDialog({ title: "Nothing to install automatically", body: planView(plan), confirmLabel: "Close" });
+      await confirmDialog({ title: t("deps.nothing_title"), body: planView(plan), acknowledge: true });
       return;
     }
     const ok = await confirmDialog({
-      title: `Install ${plan.items.length} ${plan.items.length === 1 ? "mod" : "mods"}?`,
+      title: tn("deps.install_title", plan.items.length),
       body: planView(plan),
-      confirmLabel: `Install ${plan.items.length}`,
+      confirmLabel: t("deps.install_confirm", { n: plan.items.length }),
       wide: true,
     });
     if (!ok) return;
     try {
-      const result = await busy(button, "Installing…", () =>
+      const result = await busy(button, t("deps.installing"), () =>
         api("/mods/dependencies/install", { method: "POST", body: { mod_ids: modIds } }));
       const installed = result.results.filter((r) => r.result === "installed");
       const failed = result.results.filter((r) => r.result === "failed");
       if (installed.length) {
-        toast(`Installed ${installed.map((r) => r.title).join(", ")}. `
-          + "Loaded by Minecraft: not verified until the server starts.", "success", 9000);
+        toast(t("deps.installed_toast", { names: installed.map((r) => r.title).join(", ") }), "success", 9000);
       }
-      failed.forEach((r) => toast(`${r.title} could not be installed. ${r.detail}`, "error", 12000));
+      failed.forEach((r) => toast(t("deps.failed_toast", { name: r.title, error: r.detail }), "error", 12000));
       if (result.still_missing.length) {
-        toast(`Still missing: ${result.still_missing.map((g) => g.name).join(", ")}.`, "warn", 12000);
+        toast(t("deps.still_missing", { names: result.still_missing.map((g) => g.name).join(", ") }), "warn", 12000);
       }
     } catch (err) {
-      toast(`Dependencies could not be installed. ${err.message}`, "error", 12000);
+      toast(t("deps.install_failed", { error: err.message }), "error", 12000);
     }
     renderPage();
   }

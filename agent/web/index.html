@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>Minecraft Server Control</title>
+<link rel="icon" type="image/svg+xml" href="/assets/icon.svg">
 <link rel="stylesheet" href="/assets/styles.css">
 <script src="/assets/theme.js"></script>
 </head>
@@ -15,30 +16,31 @@
     <div class="app-mark" aria-hidden="true">
       <svg class="icon" viewBox="0 0 24 24"><path d="M12 2.8l8.5 4.7v9L12 21.2 3.5 16.5v-9z"/><path d="M3.8 7.6 12 12l8.2-4.4"/><path d="M12 12v9"/></svg>
     </div>
-    <h1>Minecraft Server Control</h1>
-    <p class="sub">Sign in to manage your server.</p>
+    <h1 id="login-title">Minecraft Server Control</h1>
     <div class="field">
-      <label for="username">Username</label>
+      <label for="username" id="username-label">Username</label>
       <input id="username" name="username" autocomplete="username" required autofocus>
     </div>
     <div class="field">
-      <label for="password">Password</label>
+      <label for="password" id="password-label">Password</label>
       <input id="password" name="password" type="password" autocomplete="current-password" required>
     </div>
     <div id="login-error" class="banner error" role="alert" hidden></div>
-    <button class="btn primary" type="submit">Sign in</button>
-    <p class="footnote">Reachable only through your Tailscale network.</p>
+    <button class="btn primary" type="submit" id="login-button">Sign in</button>
   </form>
 </section>
 
 <div id="app" class="app">
-  <nav class="sidebar" id="sidebar" aria-label="Sections"></nav>
-  <main class="content" id="main" tabindex="-1">
-    <div class="content-inner">
+  <header class="desk" id="desk">
+    <div class="tabs" id="server-tabs" role="tablist"></div>
+    <div class="desk-tools" id="desk-tools"></div>
+  </header>
+  <main class="sheet" id="main" tabindex="-1" role="tabpanel">
+    <div class="sheet-head" id="sheet-head"></div>
+    <nav class="subnav" id="subnav"></nav>
+    <div class="sheet-body">
       <header class="toolbar">
-        <button class="btn plain icon-only menu-button" id="menu-button" type="button"
-                aria-label="Show sections" aria-controls="sidebar" aria-expanded="false"></button>
-        <h1 id="page-title">Overview</h1>
+        <h1 id="page-title"></h1>
         <div class="grow"></div>
         <div class="toolbar-actions" id="toolbar-actions"></div>
       </header>

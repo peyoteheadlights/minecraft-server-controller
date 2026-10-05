@@ -183,8 +183,8 @@ It is plain HTML, CSS and JavaScript served by the agent itself. That means:
 - updating is copying files
 - it still works on a phone over a slow tailnet link
 
-The trade-off is no component framework. For eleven pages of tables, that is a
-trade worth making.
+The trade-off is no component framework. For a dozen pages of tables and graphs,
+that is a trade worth making.
 
 The JavaScript is split into native ES modules that the browser loads
 directly, so there is still nothing to compile. `index.html` loads one module,
@@ -192,8 +192,19 @@ directly, so there is still nothing to compile. `index.html` loads one module,
 
 - `state.js` holds shared state and the page registry; it imports nothing.
 - `ui.js` has the DOM helpers (`el`, `card`, `table`, `toast`, …).
-- `api.js`, `auth.js`, `live.js` (WebSocket and status), `nav.js` (sidebar and
-  page switching), `charts.js` and `appearance.js` do one job each.
+- `api.js`, `auth.js`, `live.js` (WebSocket and status), `nav.js` (the page
+  shell: server tabs, the server's colored sheet and its row of pages),
+  `servers.js` (the server list, tabs and All servers page), `charts.js`
+  and `prefs.js` (theme and Simple/Technical, saved per account) do one job
+  each.
+- `colors.js` tints the whole page with a server's color (page, header,
+  cards, buttons) and re-derives every text color on the tint, checked for
+  readable contrast on every theme. Theme colors in `styles.css` that it
+  reads (`--desk`, `--sheet`, `--surface`, `--text-primary`) must be hex.
+- `strings.js` holds every piece of text the dashboard shows, each with a
+  Simple and a Technical version; pages look text up with `t(key)`.
+  `tests/test_strings.py` checks both versions exist with the same
+  placeholders, every key used exists, and every entry is used.
 - `pages/*.js` each register a renderer for one page; `panels/*.js` are the
   TPS and dependency panels those pages embed.
 

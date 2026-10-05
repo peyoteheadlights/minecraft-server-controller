@@ -5,12 +5,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from ... import colors
 from ...config import SERVER_OVERRIDES, ConfigError
+from ...events import Event
 from ...minecraft import cpu
 from ...security.auth import Principal
 from ...security.permissions import SETTINGS_EDIT, SETTINGS_VIEW, require
 from ..deps import audit, get_server
-from .models import ServerSettingsRequest
+from .models import ServerColorRequest, ServerSettingsRequest
 
 router = APIRouter()
 
@@ -38,6 +40,8 @@ async def get_server_settings(
     return {
         "server_id": ctx.server_id,
         "server": ctx.config.server.to_dict(),
+        "color": ctx.color,
+        "palette": colors.palette(),
         **{name: ctx.config.section(name).to_dict() for name in SERVER_OVERRIDES},
         "overrides": {
             name: ctx.config.root.server_entry(ctx.server_id).get(name) or {}
@@ -107,9 +111,35 @@ async def update_server_settings(
             ctx.core.db.register_server(
                 ctx.server_id, ctx.config.server.name, str(ctx.config.server_dir)
             )
+            await _announce_change(ctx, f"Renamed the server to {ctx.name}")
         audit(ctx, request, "server_settings_update", detail=", ".join(applied))
     result: dict = {"ok": True, "applied": applied, "rejected": rejected}
     if "server.cpu_cores" in applied and ctx.server.running:
         # Applied to the running server at once, and read back from it.
         result["cpu_cores"] = await ctx.server.apply_cpu_cores()
     return result
+
+
+@router.put("/color")
+async def set_color(
+    payload: ServerColorRequest,
+    request: Request,
+    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    ctx=Depends(get_server),
+):
+    """Set this server's color: a palette color or the person's own hex."""
+    try:
+        color = colors.normalise(payload.color)
+    except colors.ColorError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    ctx.core.db.set_server_color(ctx.server_id, color)
+    audit(ctx, request, "server_color", detail=color)
+    await _announce_change(ctx, f"Changed {ctx.name}'s color")
+    return {"ok": True, "color": color}
+
+
+async def _announce_change(ctx, message: str) -> None:
+    """Tells every open dashboard to reload the server list (name, color)."""
+    await ctx.bus.publish(
+        Event(type="server_changed", message=message, data={"color": ctx.color, "name": ctx.name})
+    )

@@ -24,6 +24,7 @@ from . import (
     jobs,
     mods,
     players,
+    recommendations,
     schedules,
     security,
     server,
@@ -34,7 +35,7 @@ from . import (
 from .settings import SETTABLE_PREFIXES
 
 LEGACY_PER_SERVER = (server, console, players, mods, backups, schedules)
-PER_SERVER = (*LEGACY_PER_SERVER, server_settings)
+PER_SERVER = (*LEGACY_PER_SERVER, server_settings, recommendations)
 GLOBAL = (auth, settings, security, system, jobs)
 MODULES = (*GLOBAL, *PER_SERVER)
 SERVER_PREFIX = "/servers/{server_id}"

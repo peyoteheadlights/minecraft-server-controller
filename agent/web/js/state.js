@@ -7,8 +7,10 @@ export const state = {
   // The server every page acts on, remembered per browser.
   serverId: remembered("mcsc_server"),
   servers: [],
+  palette: [],
+  nextColor: null,
   // Servers other than the selected one that crashed since they were last
-  // looked at: shown as a badge in the switcher.
+  // looked at: shown on their tab.
   crashedElsewhere: new Set(),
   // Running jobs (backups, restores) by id, from "job" events.
   jobs: {},
@@ -20,6 +22,8 @@ export const state = {
   paused: false,
   filter: "",
   page: "dashboard",
+  // the current page's name, for the browser tab's title
+  pageTitle: "",
   socket: null,
   connected: false,
   reconnectDelay: 1000,
@@ -29,53 +33,59 @@ export const state = {
   startingSince: null,
   latestCrash: null,
   refreshTimer: null,
+  // Performance graphs: hours of history shown.
+  range: Number(remembered("mcsc_range")) || 6,
 };
 
-// [key, label, group, icon]. Keys are the URL hashes and must not change.
+/* Every page: [key, strings key of its name, where it lives, icon].
+   "server" pages sit in a server's sheet and act on state.serverId; "app"
+   pages are about the agent itself and open from the gear; "all" is the
+   All servers tab and "add" the "+" tab. Keys are URL hashes: never
+   rename one. */
 export const PAGES = [
-  ["servers", "All servers", "Servers", "servers"],
-  ["dashboard", "Overview", "Server", "overview"],
-  ["console", "Console", "Server", "console"],
-  ["players", "Players", "Server", "players"],
-  ["performance", "Performance", "Server", "performance"],
-  ["backups", "Backups", "Manage", "backups"],
-  ["mods", "Mods", "Manage", "mods"],
-  ["schedules", "Schedules", "Manage", "schedules"],
-  ["events", "Events", "Activity", "events"],
-  ["crashes", "Crash history", "Activity", "crashes"],
-  ["settings", "Settings", "System", "settings"],
-  ["security", "Security", "System", "security"],
+  ["servers", "page.servers", "all", "servers"],
+  ["add-server", "page.add_server", "add", "plus"],
+  ["dashboard", "page.overview", "server", "overview"],
+  ["players", "page.players", "server", "players"],
+  ["backups", "page.backups", "server", "backups"],
+  ["mods", "page.mods", "server", "mods"],
+  ["schedules", "page.schedules", "server", "schedules"],
+  ["performance", "page.performance", "server", "performance"],
+  ["console", "page.console", "server", "console"],
+  ["events", "page.events", "server", "events"],
+  ["crashes", "page.crashes", "server", "crashes"],
+  ["settings", "page.server_settings", "server", "settings"],
+  ["app-settings", "page.app_settings", "app", "gear"],
+  ["security", "page.security", "app", "security"],
 ];
 
+export function pageEntry(key) {
+  return PAGES.find(([k]) => k === key) || null;
+}
+
+/* label and tone are strings keys / status tones; busy states pulse. */
 export const STATES = {
-  ONLINE: { label: "Online", tone: "success" },
-  OFFLINE: { label: "Offline", tone: "danger" },
-  STARTING: { label: "Starting…", tone: "warning", busy: true },
-  STOPPING: { label: "Stopping…", tone: "warning", busy: true },
-  RESTARTING: { label: "Restarting…", tone: "warning", busy: true },
+  ONLINE: { label: "state.online", tone: "success" },
+  OFFLINE: { label: "state.offline", tone: "neutral" },
+  STARTING: { label: "state.starting", tone: "warning", busy: true },
+  STOPPING: { label: "state.stopping", tone: "warning", busy: true },
+  RESTARTING: { label: "state.restarting", tone: "warning", busy: true },
   // crashed, with an automatic restart counting down
-  RESTART_PENDING: { label: "Crashed", tone: "danger" },
-  CRASHED: { label: "Crashed", tone: "danger" },
-  UNKNOWN: { label: "Status unknown", tone: "neutral" },
+  RESTART_PENDING: { label: "state.crashed", tone: "danger" },
+  CRASHED: { label: "state.crashed", tone: "danger" },
+  UNKNOWN: { label: "state.unknown", tone: "neutral" },
 };
 
-export const CAUSES = {
-  OutOfMemoryError: "the server ran out of memory",
-  JavaHeapError: "Java could not reserve the configured memory",
-  JavaVersionIncompatible: "the installed Java version does not match this Minecraft version",
-  ModDependencyError: "a mod is missing a dependency, or has the wrong version of one",
-  MissingMod: "a required mod is not installed",
-  IncompatibleMod: "two installed mods are incompatible",
-  MixinError: "a mod failed to apply its changes to the game",
-  FabricLoaderError: "Fabric Loader refused to start",
-  ClassNotFoundException: "a mod was built for a different game version",
-  NoSuchMethodError: "installed mods do not match each other's versions",
-  WorldChunkError: "world data could not be loaded or saved",
-  DiskStorageError: "the disk is full or not writable",
-  PortInUse: "the server port is already in use",
-  EulaNotAccepted: "the Minecraft EULA has not been accepted",
-  NetworkError: "a network error",
-  ServerThreadCrash: "an error in the main server thread",
-};
+export function stateInfo(name) {
+  return STATES[name] || STATES.UNKNOWN;
+}
+
+// Crash categories from the analyzer; each has a strings key "cause.<name>".
+export const CAUSES = [
+  "OutOfMemoryError", "JavaHeapError", "JavaVersionIncompatible", "ModDependencyError",
+  "MissingMod", "IncompatibleMod", "MixinError", "FabricLoaderError", "ClassNotFoundException",
+  "NoSuchMethodError", "WorldChunkError", "DiskStorageError", "PortInUse", "EulaNotAccepted",
+  "NetworkError", "ServerThreadCrash",
+];
 
 export const renderers = {};

@@ -2,12 +2,16 @@
 
 Starts the actual agent (with the fake Minecraft server from the test suite),
 signs in through the real login form, visits every page at several window
-sizes in light and dark mode, and records:
+sizes, in Simple and Technical mode and in every theme, and records:
 
   * screenshots
-  * JavaScript console errors and uncaught exceptions
+  * JavaScript console errors and uncaught exceptions (a strings key with
+    no text logs one, so missing wording fails here)
+  * text that leaked from the code: "undefined", "null", "NaN", "[object ...]"
   * horizontal overflow (content wider than the window)
   * failed network requests
+  * every palette color's derived shades that miss WCAG contrast (4.5:1
+    for text, 3:1 for marks) in any theme
 
 Usage:  python scripts/ui_check.py [output_dir] [--quick]
 """
@@ -32,8 +36,12 @@ from agent.security.auth import hash_password  # noqa: E402
 
 PASSWORD = "screenshot password 1"
 SIZES = [(1920, 1080), (1440, 900), (1280, 720), (1024, 700), (390, 844)]
+THEMES = ["light", "dark", "graphite", "contrast"]
+MODES = ["simple", "technical"]
+LEAKED = r"/\bundefined\b|\bnull\b|\bNaN\b|\[object /"
 PAGES = [
     "servers",
+    "add-server",
     "dashboard",
     "console",
     "players",
@@ -44,8 +52,39 @@ PAGES = [
     "events",
     "crashes",
     "settings",
+    "app-settings",
     "security",
 ]
+
+
+def choose(page, key: str, value: str) -> None:
+    """Change the theme or mode the way the gear page does."""
+    page.evaluate(
+        "([k, v]) => import('/assets/js/prefs.js').then((m) => m.choose(k, v))", [key, value]
+    )
+    page.wait_for_timeout(400)
+
+
+def contrast_failures(page) -> list[str]:
+    """Every palette color, in every theme: the derived pairs that fail."""
+    failures = []
+    for theme in THEMES:
+        choose(page, "theme", theme)
+        found = page.evaluate(
+            """async () => {
+              const colors = await import('/assets/js/colors.js');
+              const { state } = await import('/assets/js/state.js');
+              return state.palette.map((p) => [p.id, colors.contrastReport(p.hex)]);
+            }"""
+        )
+        if not found:
+            failures.append(f"{theme}: no palette loaded")
+        for color, report in found:
+            for row in report:
+                if row["ratio"] < row["min"]:
+                    failures.append(f"{theme} {color}: {row['pair']} {row['ratio']} < {row['min']}")
+    choose(page, "theme", "system")
+    return failures
 
 
 def start_agent(tmp: Path):
@@ -109,6 +148,9 @@ def start_agent(tmp: Path):
         ],
         "paths": {"data_dir": str(tmp / "data")},
         "network": {"host": "127.0.0.1", "port": port},
+        # The check opens pages far faster than a person, in two modes and
+        # four themes: the per-account request limit would trip on it.
+        "security": {"rate_limit_requests": 100000},
         "tls": {"enabled": False},
         "monitor": {
             "auto_restart": True,
@@ -154,7 +196,14 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     tmp = Path(tempfile.mkdtemp(prefix="mcsc-ui-"))
     proc, base = start_agent(tmp)
-    report = {"errors": [], "overflow": [], "failed_requests": [], "shots": []}
+    report = {
+        "errors": [],
+        "leaked": [],
+        "overflow": [],
+        "contrast": [],
+        "failed_requests": [],
+        "shots": [],
+    }
 
     try:
         with sync_playwright() as p:
@@ -203,24 +252,46 @@ def main():
                     httpx.post(f"{base}/api/backups", headers=auth, json={})
                     time.sleep(1.5)
 
-                sizes = [(1440, 900)] if quick else SIZES
-                for width, height in sizes:
-                    page.set_viewport_size({"width": width, "height": height})
-                    for name in PAGES:
-                        page.evaluate(f"location.hash = '{name}'")
-                        page.wait_for_timeout(700)
-                        overflow = page.evaluate(
-                            "Math.max(document.documentElement.scrollWidth, document.body.scrollWidth)"
-                            " - window.innerWidth"
-                        )
-                        if overflow > 1:
-                            report["overflow"].append(
-                                f"{scheme} {width}x{height} {name}: +{overflow}px"
+                if scheme == "light":
+                    report["contrast"] = contrast_failures(page)
+
+                # Every page in both modes; the full run adds every size, and
+                # the two themes the browser's color scheme does not cover.
+                passes = [(mode, None, SIZES if not quick else [(1440, 900)]) for mode in MODES]
+                if scheme == "dark" and not quick:
+                    passes += [
+                        ("simple", theme, [(1440, 900), (390, 844)])
+                        for theme in ("graphite", "contrast")
+                    ]
+                for mode, theme, sizes in passes:
+                    choose(page, "mode", mode)
+                    if theme:
+                        choose(page, "theme", theme)
+                    look = theme or scheme
+                    for width, height in sizes:
+                        page.set_viewport_size({"width": width, "height": height})
+                        for name in PAGES:
+                            page.evaluate(f"location.hash = '{name}'")
+                            page.wait_for_timeout(700)
+                            where = f"{look} {mode} {width}x{height} {name}"
+                            overflow = page.evaluate(
+                                "Math.max(document.documentElement.scrollWidth, document.body.scrollWidth)"
+                                " - window.innerWidth"
                             )
-                        if width in (1440, 390) or name == "dashboard":
-                            path = out / f"{scheme}-{width}-{name}.png"
-                            page.screenshot(path=str(path), full_page=False)
-                            report["shots"].append(path.name)
+                            if overflow > 1:
+                                report["overflow"].append(f"{where}: +{overflow}px")
+                            leaked = page.evaluate(
+                                f"(document.body.innerText.match({LEAKED}) || [null])[0]"
+                            )
+                            if leaked:
+                                report["leaked"].append(f"{where}: {leaked!r}")
+                            if width in (1440, 390) or name == "dashboard":
+                                path = out / f"{look}-{mode}-{width}-{name}.png"
+                                page.screenshot(path=str(path), full_page=False)
+                                report["shots"].append(path.name)
+                    if theme:
+                        choose(page, "theme", "system")
+                choose(page, "mode", "simple")
                 context.close()
             browser.close()
     finally:
@@ -235,6 +306,12 @@ def main():
     print(f"javascript errors: {len(report['errors'])}")
     for e in report["errors"][:15]:
         print("   ", e)
+    print(f"leaked code text: {len(report['leaked'])}")
+    for leak in report["leaked"][:15]:
+        print("   ", leak)
+    print(f"contrast failures: {len(report['contrast'])}")
+    for c in report["contrast"][:25]:
+        print("   ", c)
     print(f"horizontal overflow: {len(report['overflow'])}")
     for o in report["overflow"][:25]:
         print("   ", o)
@@ -242,7 +319,8 @@ def main():
     for r in report["failed_requests"][:10]:
         print("   ", r)
     # Non-zero when anything was found, so CI fails on it.
-    return 1 if report["errors"] or report["overflow"] or report["failed_requests"] else 0
+    found = ("errors", "leaked", "contrast", "overflow", "failed_requests")
+    return 1 if any(report[key] for key in found) else 0
 
 
 if __name__ == "__main__":

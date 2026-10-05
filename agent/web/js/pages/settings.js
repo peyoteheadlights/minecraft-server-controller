@@ -1,81 +1,171 @@
+/* One server's own settings, in its sheet: name and color, what happens
+   after a crash, memory, CPU cores, how many backups to keep, and taking
+   it off the list. App-wide settings are behind the gear. */
+
 import { api } from "../api.js";
-import { refreshStatus } from "../live.js";
 import { render } from "../nav.js";
-import { loadServers, serverName } from "../servers.js";
+import { loadServers, serverRow } from "../servers.js";
 import { renderers, state } from "../state.js";
-import { card, confirmDialog, el, loadInto, table, toast } from "../ui.js";
+import { t, technical } from "../strings.js";
+import { advanced, busy, card, confirmDialog, el, loadInto, toast } from "../ui.js";
 
-// Keys that belong to the selected server (saved with its own settings);
-// every other key is the agent's.
-const SERVER_KEYS = /^(monitor\.|server\.)/;
+const serverUrl = (path) => `/servers/${encodeURIComponent(state.serverId)}${path}`;
 
-function serversCard() {
-  const name = el("input", { id: "add-server-name", maxlength: "60", placeholder: "Creative" });
-  const folder = el("input", { id: "add-server-folder", maxlength: "400",
-    placeholder: "C:\\Minecraft\\Creative", class: "mono" });
-  const jar = el("input", { id: "add-server-jar", maxlength: "180",
-    placeholder: "fabric-server-launch.jar or server.jar" });
-  const rows = state.servers.map((s) => [
-    s.name,
-    el("span", { class: "mono" }, s.directory || "-"),
-    s.default ? "first server" : "",
-    el("button", {
-      class: "btn small danger",
-      disabled: state.servers.length < 2 ? "disabled" : false,
-      title: state.servers.length < 2 ? "The last server cannot be removed" : null,
-      onclick: async () => {
-        const ok = await confirmDialog({
-          title: `Remove ${s.name} from the list?`,
-          body: "The agent stops watching this server. Its folder, world, mods and backups "
-            + "are not deleted or moved, and it can be added again later.",
-          confirmLabel: "Remove from list", danger: true,
-        });
-        if (!ok) return;
-        try {
-          await api(`/servers/${encodeURIComponent(s.id)}`, { method: "DELETE" });
-          toast(`${s.name} removed from the list. Its folder was not touched.`);
-          await loadServers();
-          render();
-        } catch (err) { toast(err.message, "error"); }
-      },
-    }, "Remove"),
-  ]);
-  return card("Servers",
-    table(["Name", "Folder", "", ""], rows),
-    el("h3", { class: "subheading" }, "Add a server"),
-    el("p", { class: "hint" },
-      "Point the agent at a folder that already holds a Minecraft server. Nothing in the "
-      + "folder is changed and the server is not started."),
-    el("div", { class: "grid cols-3" },
-      el("div", { class: "field" }, el("label", { for: "add-server-name" }, "Name"), name),
-      el("div", { class: "field" }, el("label", { for: "add-server-folder" }, "Folder"), folder),
-      el("div", { class: "field" }, el("label", { for: "add-server-jar" }, "Server jar (optional)"), jar)),
-    el("button", {
-      class: "btn small",
-      onclick: async () => {
-        try {
-          const result = await api("/servers", {
-            method: "POST",
-            body: { name: name.value.trim(), directory: folder.value.trim(), jar: jar.value.trim() },
-          });
-          toast(`Added ${result.server.name}`);
-          for (const warning of result.warnings || []) toast(warning, "warn", 9000);
-          await loadServers();
-          render();
-        } catch (err) { toast(err.message, "error", 9000); }
-      },
-    }, "Add server"));
+// Keys the agent-wide /settings accepts. With only one server they are
+// saved there, so a config.yaml with a single server: block keeps its shape.
+const AGENT_KEYS = /^(monitor\.|backups\.|mods\.|server\.(max_players|stop_timeout|start_timeout|autostart_minecraft|jvm_args)$)/;
+
+export async function saveServerSettings(updates) {
+  const own = {}, agent = {};
+  for (const [key, value] of Object.entries(updates)) {
+    (state.servers.length < 2 && AGENT_KEYS.test(key) ? agent : own)[key] = value;
+  }
+  const results = [];
+  if (Object.keys(own).length) {
+    results.push(await api(serverUrl("/settings"), { method: "PUT", body: { updates: own } }));
+  }
+  if (Object.keys(agent).length) {
+    results.push(await api("/settings", { method: "PUT", body: { updates: agent } }));
+  }
+  const rejected = results.flatMap((r) => Object.values(r.rejected));
+  if (rejected.length) toast(rejected.join(" "), "error", 9000);
+  return { results, ok: !rejected.length };
 }
 
-/* Which CPU cores the selected server may use. What it really uses is read
-   back from the running process; the boxes are only the setting. */
+function saveButton(label, collect) {
+  return el("button", {
+    class: "btn primary", type: "button",
+    onclick: (e) => busy(e.currentTarget, t("action.saving"), async () => {
+      const updates = collect();
+      if (!updates || !Object.keys(updates).length) { toast(t("settings.nothing_changed")); return; }
+      try {
+        const { ok } = await saveServerSettings(updates);
+        if (ok) toast(t("settings.saved"), "success");
+        await loadServers();
+        render();
+      } catch (err) { toast(err.message, "error"); }
+    }),
+  }, label);
+}
+
+function field(id, label, input, hint = null) {
+  input.id = id;
+  return el("div", { class: "field" }, el("label", { for: id }, label), input,
+    hint ? el("div", { class: "hint" }, hint) : null);
+}
+
+/* ------------------------------------------------------------ name and color */
+
+function identityCard(own) {
+  const row = serverRow() || {};
+  const name = el("input", { maxlength: "60", value: row.name || own.server.name });
+  let chosen = own.color;
+  const custom = el("input", { type: "color", value: (own.color || "#808080").toLowerCase(),
+    "aria-label": t("serverset.custom_color") });
+  const swatches = el("div", { class: "swatches", role: "radiogroup", "aria-label": t("serverset.color") },
+    own.palette.map((p) => {
+      const input = el("input", {
+        type: "radio", name: "server-color", value: p.hex,
+        checked: p.hex === own.color ? "checked" : false,
+        "aria-label": t(`color.${p.id}`),
+        onchange: () => { chosen = p.hex; custom.value = p.hex.toLowerCase(); },
+      });
+      const label = el("label", { class: "swatch-choice", title: t(`color.${p.id}`) }, input,
+        el("span", { class: "swatch", "aria-hidden": "true" }));
+      label.style.setProperty("--swatch", p.hex);
+      return label;
+    }),
+    el("label", { class: "swatch-choice custom", title: t("serverset.custom_color") }, custom));
+  custom.addEventListener("input", () => {
+    chosen = custom.value.toUpperCase();
+    for (const radio of swatches.querySelectorAll("input[type=radio]")) radio.checked = false;
+  });
+  return card(t("serverset.identity"),
+    field("server-name", t("serverset.name"), name),
+    el("div", { class: "field" }, el("span", { class: "field-label" }, t("serverset.color")), swatches),
+    el("div", { class: "btn-row" },
+      el("button", {
+        class: "btn primary", type: "button",
+        onclick: (e) => busy(e.currentTarget, t("action.saving"), async () => {
+          try {
+            if (name.value.trim() && name.value.trim() !== (row.name || own.server.name)) {
+              await api(serverUrl("/settings"), { method: "PUT",
+                body: { updates: { "server.name": name.value.trim() } } });
+            }
+            if (chosen && chosen !== own.color) {
+              await api(serverUrl("/color"), { method: "PUT", body: { color: chosen } });
+            }
+            toast(t("settings.saved"), "success");
+            await loadServers();
+            render();
+          } catch (err) { toast(err.message, "error"); }
+        }),
+      }, t("serverset.save_identity"))));
+}
+
+/* ------------------------------------------------------------ crashes */
+
+function crashCard(own) {
+  const m = own.monitor;
+  const auto = el("input", { type: "checkbox", checked: m.auto_restart ? "checked" : false });
+  const delay = el("input", { type: "number", min: "0", step: "1", value: String(m.restart_delay) });
+  const max = el("input", { type: "number", min: "1", step: "1", value: String(m.max_crashes) });
+  return card(t("serverset.crashes"),
+    el("label", { class: "switch" }, auto, t("serverset.auto_restart")),
+    advanced(t("serverset.crash_details"),
+      el("div", { class: "grid cols-2" },
+        field("restart-delay", t("serverset.restart_delay"), delay),
+        field("max-crashes", t("serverset.max_crashes"), max,
+          t("serverset.max_crashes_hint", { minutes: m.crash_window_minutes })))),
+    el("div", { class: "btn-row mt-12" }, saveButton(t("action.save"), () => {
+      const updates = {};
+      if (auto.checked !== Boolean(m.auto_restart)) updates["monitor.auto_restart"] = auto.checked;
+      if (Number(delay.value) !== Number(m.restart_delay)) updates["monitor.restart_delay"] = Number(delay.value);
+      if (Number(max.value) !== Number(m.max_crashes)) updates["monitor.max_crashes"] = Number(max.value);
+      return updates;
+    })));
+}
+
+/* ------------------------------------------------------------ memory */
+
+function xmxGb(args) {
+  const found = args.map((a) => /^-Xmx(\d+)([mMgG])$/.exec(String(a))).filter(Boolean).pop();
+  if (!found) return null;
+  const n = Number(found[1]);
+  return found[2].toLowerCase() === "g" ? n : Math.round((n / 1024) * 10) / 10;
+}
+
+function memoryCard(own) {
+  const args = (own.server.jvm_args || []).map(String);
+  const current = xmxGb(args);
+  const gb = el("input", { type: "number", min: "1", max: "256", step: "0.5",
+    value: current === null ? "" : String(current) });
+  const raw = el("input", { class: "mono", value: args.join(" ") });
+  return card(t("serverset.memory"),
+    field("memory-limit", t("serverset.memory_limit"), gb,
+      current === null ? t("serverset.memory_unset") : t("serverset.memory_hint")),
+    advanced(t("serverset.launch_args"),
+      field("jvm-args", t("serverset.jvm_args"), raw, t("serverset.jvm_args_hint"))),
+    el("div", { class: "btn-row mt-12" }, saveButton(t("action.save"), () => {
+      let next = raw.value.trim() ? raw.value.trim().split(/\s+/) : [];
+      if (next.join(" ") === args.join(" ") && gb.value && Number(gb.value) !== current) {
+        const value = Number(gb.value);
+        const flag = Number.isInteger(value) ? `-Xmx${value}G` : `-Xmx${Math.round(value * 1024)}M`;
+        next = next.filter((a) => !/^-Xmx/i.test(a)).concat(flag);
+      }
+      return next.join(" ") === args.join(" ") ? {} : { "server.jvm_args": next };
+    })));
+}
+
+/* ------------------------------------------------------------ CPU cores */
+
+/* Which CPU cores this server may use. What it really uses is read back
+   from the running process; the boxes are only the setting. */
 function cpuCard(info, configured) {
   const count = info.logical_cores;
-  const title = state.servers.length > 1
-    ? `CPU cores: ${serverName(state.serverId)}` : "CPU cores";
   if (!info.supported || !count) {
-    return card(title, el("p", { class: "hint" },
-      info.unsupported_reason || "This PC's number of cores could not be read."));
+    return card(t("serverset.cpu"), el("p", { class: "hint mt-0" },
+      info.unsupported_reason || t("serverset.cpu_unreadable")));
   }
   const usedBy = {};
   for (const other of info.others) {
@@ -87,56 +177,56 @@ function cpuCard(info, configured) {
   for (let core = 0; core < count; core += 1) {
     const box = el("input", {
       type: "checkbox", checked: configured.includes(core) ? "checked" : false,
-      disabled: configured.length ? false : "disabled", "aria-label": `Core ${core + 1}`,
+      disabled: configured.length ? false : "disabled", "aria-label": t("serverset.core", { n: core + 1 }),
     });
     boxes.push(box);
-    grid.append(el("label", { class: "core" }, box, `Core ${core + 1}`,
-      usedBy[core] ? el("span", { class: "hint" }, `also ${usedBy[core].join(", ")}`) : null));
+    grid.append(el("label", { class: "core" }, box, t("serverset.core", { n: core + 1 }),
+      usedBy[core] ? el("span", { class: "hint" }, t("serverset.core_shared", { names: usedBy[core].join(", ") })) : null));
   }
+  grid.hidden = !configured.length;
   all.addEventListener("change", () => {
+    grid.hidden = all.checked;
     for (const box of boxes) { box.disabled = all.checked; if (all.checked) box.checked = false; }
   });
   const status = info.status;
   const now = status.applied
-    ? `Running on ${status.applied.length === count ? "every core" : `cores ${describe(status.applied)}`}`
-      + " (read from the running server)."
-    : `Cores in use: unknown. ${status.applied_reason}.`;
-  return card(title,
-    el("p", { class: "hint" },
-      "Limit this server to some of the PC's cores so other servers, or the PC itself, stay "
-      + "responsive. Java is told how many cores it has. A change applies at once if the server is "
-      + "running."),
-    el("label", { class: "check-row pad-y" }, all, `Use every core (${count})`),
+    ? t("serverset.cores_now", {
+      cores: status.applied.length === count ? t("serverset.every_core") : describe(status.applied),
+    })
+    : t("serverset.cores_unknown", { reason: status.applied_reason });
+  return card(t("serverset.cpu"),
+    el("label", { class: "check-row pad-y" }, all, t("serverset.all_cores", { count })),
     grid,
     el("p", { class: "hint mt-8" }, now),
     (status.problems || []).length ? el("div", { class: "banner error mt-8" }, status.problems[0]) : null,
     el("div", { class: "btn-row mt-10" },
       el("button", {
-        class: "btn small",
-        onclick: async () => {
+        class: "btn primary", type: "button",
+        onclick: (e) => busy(e.currentTarget, t("action.saving"), async () => {
           const chosen = all.checked ? [] : boxes.flatMap((box, core) => (box.checked ? [core] : []));
-          if (!all.checked && !chosen.length) { toast("Pick at least one core", "warn"); return; }
+          if (!all.checked && !chosen.length) { toast(t("serverset.pick_a_core"), "warn"); return; }
           try {
-            const result = await api(`/servers/${encodeURIComponent(state.serverId)}/settings`,
+            const result = await api(serverUrl("/settings"),
               { method: "PUT", body: { updates: { "server.cpu_cores": chosen } } });
             if (result.rejected["server.cpu_cores"]) {
               toast(result.rejected["server.cpu_cores"], "error", 9000);
               return;
             }
             const live = result.cpu_cores;
-            if (live && !live.ok) toast(`Saved, but not applied: ${live.reason}`, "warn", 9000);
-            else toast(live ? "Saved and applied to the running server" : "Saved. Used from the next start.");
+            if (live && !live.ok) toast(t("serverset.cores_not_applied", { reason: live.reason }), "warn", 9000);
+            else toast(live ? t("serverset.cores_applied") : t("serverset.cores_next_start"), "success");
             render();
           } catch (err) { toast(err.message, "error"); }
-        },
-      }, "Save cores"),
+        }),
+      }, t("action.save")),
       el("button", {
-        class: "btn small plain",
+        class: "btn plain", type: "button",
         onclick: () => {
           all.checked = false;
+          grid.hidden = false;
           boxes.forEach((box, core) => { box.disabled = false; box.checked = core < Math.ceil(count / 2); });
         },
-      }, "Half the cores")));
+      }, t("serverset.half_cores"))));
 }
 
 /* Cores as people count them, from 1, with runs shortened: "1-4, 7". */
@@ -152,181 +242,77 @@ function describe(cores) {
   return runs.join(", ");
 }
 
+/* ------------------------------------------------------------ backups */
+
+function backupsCard(own) {
+  const b = own.backups;
+  const inputs = ["daily", "weekly", "monthly"].map((kind) =>
+    [kind, el("input", { type: "number", min: "0", step: "1", value: String(b[`keep_${kind}`]) })]);
+  return card(t("serverset.backups"),
+    el("div", { class: "grid cols-3" }, inputs.map(([kind, input]) =>
+      field(`keep-${kind}`, t(`serverset.keep_${kind}`), input))),
+    el("div", { class: "btn-row" }, saveButton(t("action.save"), () => {
+      const updates = {};
+      for (const [kind, input] of inputs) {
+        if (Number(input.value) !== Number(b[`keep_${kind}`])) updates[`backups.keep_${kind}`] = Number(input.value);
+      }
+      return updates;
+    })));
+}
+
+/* ------------------------------------------------------------ advanced, removal */
+
+function advancedCard(own) {
+  const s = own.server;
+  const start = el("input", { type: "number", min: "10", step: "1", value: String(s.start_timeout) });
+  const stop = el("input", { type: "number", min: "5", step: "1", value: String(s.stop_timeout) });
+  return advanced(t("serverset.timing"),
+    el("div", { class: "grid cols-2" },
+      field("start-timeout", t("serverset.start_timeout"), start),
+      field("stop-timeout", t("serverset.stop_timeout"), stop, t("serverset.stop_timeout_hint"))),
+    el("div", { class: "btn-row" }, saveButton(t("action.save"), () => {
+      const updates = {};
+      if (Number(start.value) !== Number(s.start_timeout)) updates["server.start_timeout"] = Number(start.value);
+      if (Number(stop.value) !== Number(s.stop_timeout)) updates["server.stop_timeout"] = Number(stop.value);
+      return updates;
+    })),
+    technical() ? el("p", { class: "hint mono" }, t("serverset.folder", { folder: s.directory || "—" })) : null);
+}
+
+function removeCard() {
+  const row = serverRow() || {};
+  const last = state.servers.length < 2;
+  return card(t("serverset.remove"),
+    el("p", { class: "hint mt-0" }, last ? t("serverset.remove_last") : t("serverset.remove_hint")),
+    el("button", {
+      class: "btn danger", type: "button", disabled: last ? "disabled" : false,
+      onclick: async () => {
+        const ok = await confirmDialog({
+          title: t("serverset.remove_title", { name: row.name }),
+          body: t("serverset.remove_body"),
+          confirmLabel: t("serverset.remove_confirm"), danger: true,
+        });
+        if (!ok) return;
+        try {
+          await api(`/servers/${encodeURIComponent(row.id)}`, { method: "DELETE" });
+          toast(t("serverset.removed", { name: row.name }), "success");
+          await loadServers();
+          state.page = "servers";
+          location.hash = "servers";
+        } catch (err) { toast(err.message, "error", 9000); }
+      },
+    }, t("serverset.remove_button")));
+}
+
 renderers.settings = (page) => loadInto(page, async () => {
   await loadServers();
-  const [data, own] = await Promise.all([
-    api("/settings"),
-    api(`/servers/${encodeURIComponent(state.serverId)}/settings`),
-  ]);
-  const config = data.config;
-  // The selected server's values, including its own overrides.
-  config.monitor = own.monitor;
-  const holder = el("div");
-  holder.append(serversCard());
-  const pending = {};
-  const track = (key, input, parse = (v) => v) => {
-    input.addEventListener("change", () => { pending[key] = parse(input.value ?? input.checked); });
-    return input;
-  };
-
-  const numberField = (key, label, value, note) => {
-    const input = el("input", { type: "number", value: String(value), step: "any" });
-    track(key, input, Number);
-    return el("div", { class: "field" }, el("label", {}, label), input,
-      note ? el("div", { class: "hint" }, note) : null);
-  };
-  const checkField = (key, label, checked) => {
-    const input = el("input", { type: "checkbox", checked: checked ? "checked" : false });
-    input.addEventListener("change", () => { pending[key] = input.checked; });
-    return el("label", { class: "check-row pad-y" }, input, label);
-  };
-
-  holder.append(el("div", { class: "gap-section" }, card(state.servers.length > 1
-    ? `Crash handling and restarts: ${serverName(state.serverId)}` : "Crash handling and restarts",
-    el("div", { class: "grid cols-3" },
-      el("div", {}, checkField("monitor.auto_restart", "Restart automatically after a crash", config.monitor.auto_restart)),
-      numberField("monitor.restart_delay", "Delay before restart (seconds)", config.monitor.restart_delay),
-      numberField("monitor.max_crashes", "Stop retrying after this many crashes", config.monitor.max_crashes,
-        `within ${config.monitor.crash_window_minutes} minutes`)))));
-
-  holder.append(el("div", { class: "gap-section" }, cpuCard(own.cpu, own.server.cpu_cores || [])));
-
-  holder.append(el("div", { class: "gap-section" }, card("Alert thresholds",
-    el("div", { class: "grid cols-3" },
-      numberField("thresholds.cpu_percent", "CPU alert above (%)", config.thresholds.cpu_percent),
-      numberField("thresholds.ram_percent", "RAM alert above (%)", config.thresholds.ram_percent),
-      numberField("thresholds.disk_free_gb", "Disk alert below (GB)", config.thresholds.disk_free_gb),
-      numberField("thresholds.tps_min", "TPS alert below", config.thresholds.tps_min),
-      numberField("thresholds.mspt_max", "MSPT alert above (ms)", config.thresholds.mspt_max),
-      numberField("notifications.min_interval_seconds", "Minimum seconds between repeat alerts",
-        config.notifications.min_interval_seconds)))));
-
-  const eventChecks = Object.entries(config.notifications.events).map(([key, value]) =>
-    checkField(`notifications.events.${key}`, key.replace(/_/g, " "), value));
-  holder.append(el("div", { class: "gap-section" }, card("Notifications",
-    el("div", { class: "grid cols-2" },
-      el("div", {},
-        checkField("notifications.discord_enabled", "Send to Discord", config.notifications.discord_enabled),
-        el("div", { class: "hint" }, data.secrets.discord_webhook_configured
-          ? "Webhook URL is configured in the agent's .env file."
-          : "No webhook URL configured. Add MCSC_DISCORD_WEBHOOK to the agent's .env file."),
-        el("button", {
-          class: "btn small mt-8",
-          onclick: async () => {
-            const result = await api("/notifications/test?channel=discord", { method: "POST" });
-            toast(result.sent ? "Discord test sent" : "Discord test failed, see notification history",
-              result.sent ? "info" : "error");
-          },
-        }, "Send test")),
-      el("div", {},
-        checkField("notifications.email_enabled", "Send email", config.notifications.email_enabled),
-        el("div", { class: "hint" }, data.secrets.smtp_configured
-          ? "SMTP credentials are configured in the agent's .env file."
-          : "No SMTP password configured. Add MCSC_SMTP_USERNAME and MCSC_SMTP_PASSWORD to .env."),
-        el("button", {
-          class: "btn small mt-8",
-          onclick: async () => {
-            const result = await api("/notifications/test?channel=email", { method: "POST" });
-            toast(result.sent ? "Email test sent" : "Email test failed, see notification history",
-              result.sent ? "info" : "error");
-          },
-        }, "Send test"))),
-    el("h3", { class: "subheading" }, "Which events to send"),
-    el("div", { class: "grid cols-3" }, eventChecks))));
-
-  const startupResult = el("div", { class: "mt-10" });
-  holder.append(el("div", { class: "gap-section" }, card("Windows startup",
-    el("p", { class: "hint" },
-      "Checks the scheduled task that starts this agent with Windows, reads it back from "
-      + "Windows, and shows what happened the last time the agent started."),
-    el("button", {
-      class: "btn small",
-      onclick: async () => {
-        startupResult.innerHTML = "";
-        startupResult.append(el("div", { class: "empty" }, "Asking Windows..."));
-        try {
-          const r = await api("/system/startup");
-          startupResult.innerHTML = "";
-          const yesNo = (v) => v === true ? "yes" : v === false ? "no" : "unknown";
-          const task = r.task || {};
-          const runtime = r.runtime || {};
-          const last = r.last_startup || {};
-          const initialised = (last.events || []).some((e) => e.event === "controller_initialized");
-          const verdictClass = r.verdict === "registered correctly" ? "ok"
-            : r.verdict === "unsupported" ? "" : "error";
-          startupResult.append(
-            el("div", { class: `banner ${verdictClass}` }, el("strong", {}, r.verdict.toUpperCase())),
-            table(["Check", "Result"], [
-              ["Startup registration", r.registered === true ? "found"
-                : r.registered === false ? "not found" : "unknown"],
-              ["Mechanism", r.mechanism || "none"],
-              ["Mode", task.mode === "boot" ? "at boot (no login needed)"
-                : task.mode === "logon" ? "when you log in" : "-"],
-              ["Registered executable", el("span", { class: "mono" }, task.command || "-")],
-              ["Registered working directory", el("span", { class: "mono" }, task.working_directory || "-")],
-              ["Points to this installation", yesNo(r.points_to_current_app)],
-              ["Windows last run", runtime.last_run_time || "unknown"],
-              ["Windows last result", runtime.last_result || "unknown"],
-              ["Last startup recorded by agent", last.started_at
-                ? `${last.started_at} (launched by ${last.launched_by})` : "none recorded"],
-              ["Controller initialised on that start", last.started_at ? (initialised ? "yes" : "no") : "-"],
-            ]),
-            (r.problems || []).length
-              ? el("div", { class: "banner error mt-10" },
-                  el("strong", {}, "Problems"),
-                  el("ul", {}, r.problems.map((p) => el("li", {}, p))))
-              : null,
-            el("p", { class: "hint" }, `Full log: ${r.startup_log}`));
-        } catch (err) {
-          startupResult.innerHTML = "";
-          startupResult.append(el("div", { class: "banner error" }, err.message));
-        }
-      },
-    }, "Test Windows Startup"),
-    startupResult)));
-
-  holder.append(el("div", { class: "gap-section" }, card("Maintenance mode",
-    checkField("maintenance.enabled", "Pause automatic restarts and scheduled tasks",
-      config.maintenance.enabled),
-    el("button", {
-      class: "btn small mt-8",
-      onclick: async () => {
-        const next = !(state.status && state.status.maintenance);
-        await api("/maintenance", { method: "POST", body: { enabled: next } });
-        toast(`Maintenance mode ${next ? "on" : "off"}`);
-        refreshStatus();
-      },
-    }, "Toggle maintenance mode now"))));
-
-  holder.append(el("div", { class: "mt-16" },
-    el("button", {
-      class: "btn primary",
-      onclick: async () => {
-        if (!Object.keys(pending).length) { toast("Nothing changed"); return; }
-        const mine = {}, agent = {};
-        const several = state.servers.length > 1;
-        for (const [key, value] of Object.entries(pending)) {
-          // With one server its settings stay where they always were.
-          (several && SERVER_KEYS.test(key) ? mine : agent)[key] = value;
-        }
-        try {
-          const results = [];
-          if (Object.keys(mine).length) {
-            results.push(await api(`/servers/${encodeURIComponent(state.serverId)}/settings`,
-              { method: "PUT", body: { updates: mine } }));
-          }
-          if (Object.keys(agent).length) {
-            results.push(await api("/settings", { method: "PUT", body: { updates: agent } }));
-          }
-          const applied = results.reduce((n, r) => n + Object.keys(r.applied).length, 0);
-          const rejected = results.flatMap((r) => Object.keys(r.rejected));
-          toast(`Saved ${applied} setting(s)`);
-          if (rejected.length) toast(`Rejected: ${rejected.join(", ")}`, "warn");
-        } catch (err) { toast(err.message, "error"); }
-      },
-    }, "Save settings"),
-    el("p", { class: "hint mt-10" },
-      "Secrets (Discord webhook, SMTP password, API token) are never edited here. "
-      + "They live in the agent's .env file on the Minecraft PC.")));
-  return holder;
+  const own = await api(serverUrl("/settings"));
+  return el("div", { class: "stack" },
+    identityCard(own),
+    crashCard(own),
+    memoryCard(own),
+    cpuCard(own.cpu, own.server.cpu_cores || []),
+    backupsCard(own),
+    advancedCard(own),
+    removeCard());
 });

@@ -86,7 +86,7 @@ def no_recent_backup(f: Facts) -> Recommendation | None:
         return Recommendation(
             id="no_backup",
             title="Take a first backup",
-            reason="If the world gets damaged, a backup is the only way to get it back.",
+            reason="If the world breaks, a backup is the only way back.",
             evidence="No checked backup of this server exists yet.",
             action={"label": "Back up now", "page": "backups"},
             fingerprint="none",
@@ -99,7 +99,7 @@ def no_recent_backup(f: Facts) -> Recommendation | None:
     return Recommendation(
         id="old_backup",
         title="Back up the world",
-        reason="The newest backup is over a week old, so a problem now would lose that play.",
+        reason="The newest backup is over a week old. A problem now would lose that week.",
         evidence=f"Last checked backup was {_days(age)} ago ({newest['name']}).",
         action={"label": "Back up now", "page": "backups"},
         fingerprint=f"backup:{newest['id']}",
@@ -114,8 +114,8 @@ def no_backup_schedule(f: Facts) -> Recommendation | None:
         id="no_backup_schedule",
         title="Back up automatically",
         reason="A daily backup means you never have to remember.",
-        evidence="No backup schedule is turned on for this server.",
-        action={"label": "Add a schedule", "page": "schedules"},
+        evidence="No backup schedule is on for this server.",
+        action={"label": "Add schedule", "page": "schedules"},
         fingerprint=f"schedules:{len(f.schedules)}",
         details={"schedules": len(f.schedules), "source": "schedules table"},
     )
@@ -209,7 +209,7 @@ def auto_restart_off(f: Facts) -> Recommendation | None:
         id="auto_restart_off",
         title="Restart after a crash",
         reason="With this off, a crash keeps the server down until someone starts it.",
-        evidence="Automatic restart after a crash is turned off.",
+        evidence="Restart after a crash is off.",
         action={"label": "Open settings", "page": "settings"},
         fingerprint="auto_restart:off",
         details={"setting": "monitor.auto_restart", "value": False},
@@ -232,7 +232,7 @@ def slow_while_busy(f: Facts) -> Recommendation | None:
         id="slow_while_busy",
         title="Reduce lag when friends play",
         reason="The server falls behind when several people are on.",
-        evidence=f"Server speed dropped below {f.tps_alert:g} of 20 in {len(slow)} of {len(busy)} "
+        evidence=f"Game speed dropped below {f.tps_alert:g} of 20 in {len(slow)} of {len(busy)} "
         f"readings with {BUSY_PLAYERS} or more players in the last hour (lowest {worst:.1f}).",
         action={"label": "Open performance", "page": "performance"},
         fingerprint=f"slow:{len(slow) // 10}",

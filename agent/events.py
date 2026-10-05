@@ -52,7 +52,8 @@ Handler = Callable[[Event], "Awaitable[None] | None"]
 class EventBus:
     def __init__(self) -> None:
         self._handlers: list[Handler] = []
-        self._queues: set[asyncio.Queue] = set()
+        # Each queue with the filter that decides what it receives (None: all).
+        self._queues: dict[asyncio.Queue, Callable[[Event], bool] | None] = {}
         # The event loop only holds weak references to tasks, so a
         # fire-and-forget publish is kept here until it has run.
         self._pending: set[asyncio.Task] = set()
@@ -65,20 +66,26 @@ class EventBus:
         if handler in self._handlers:
             self._handlers.remove(handler)
 
-    def queue(self, maxsize: int = 500) -> asyncio.Queue:
+    def queue(
+        self, maxsize: int = 500, accept: Callable[[Event], bool] | None = None
+    ) -> asyncio.Queue:
+        """A queue that receives every event ``accept`` lets through (all of
+        them without one). A full queue drops its oldest event."""
         q: asyncio.Queue = asyncio.Queue(maxsize=maxsize)
-        self._queues.add(q)
+        self._queues[q] = accept
         return q
 
     def release(self, q: asyncio.Queue) -> None:
-        self._queues.discard(q)
+        self._queues.pop(q, None)
 
     @property
     def subscriber_count(self) -> int:
         return len(self._queues)
 
     async def publish(self, event: Event) -> None:
-        for q in list(self._queues):
+        for q, accept in list(self._queues.items()):
+            if accept is not None and not accept(event):
+                continue
             if q.full():
                 try:
                     q.get_nowait()
@@ -138,8 +145,10 @@ class ServerBus(EventBus):
     def unsubscribe(self, handler: Handler) -> None:
         self.root.unsubscribe(handler)
 
-    def queue(self, maxsize: int = 500) -> asyncio.Queue:
-        return self.root.queue(maxsize)
+    def queue(
+        self, maxsize: int = 500, accept: Callable[[Event], bool] | None = None
+    ) -> asyncio.Queue:
+        return self.root.queue(maxsize, accept)
 
     def release(self, q: asyncio.Queue) -> None:
         self.root.release(q)

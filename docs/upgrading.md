@@ -33,6 +33,10 @@ new.
   [configuration.md](configuration.md#the-data-folder-pathsdata_dir).
 - Once you have checked everything works from the new folder, you may delete
   the old `mcsc-data` folder yourself. The agent never does.
+- When the dashboard saves `config.yaml` (Settings, adding or removing a
+  server), it writes the whole file again, which drops comments. Your file as
+  you wrote it is kept once as `config.yaml.original`, and the version before
+  each save as `config.yaml.bak`.
 
 ## Uninstalling
 

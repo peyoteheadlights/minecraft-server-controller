@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from . import __version__
@@ -23,7 +24,7 @@ from .config import ConfigError
 from .database.db import Database, ServerDb
 from .database.event_writer import EventWriter
 from .events import AGENT_SCOPE, Event, EventBus, ServerBus
-from .jobs import JobTracker
+from .jobs import JobConflict, JobHandle, JobTracker
 from .minecraft.crash import CrashReporter
 from .minecraft.process import MinecraftServer, ServerError
 from .mods.manager import ModManager
@@ -77,6 +78,26 @@ class ServerContext:
     @property
     def name(self) -> str:
         return self.config.server.name
+
+    async def mod_change(
+        self, title: str, change: Callable[[], Awaitable[Any]], user: str | None = None
+    ) -> Any:
+        """Run a change to this server's mods as a risky job, so it never
+        runs during a restore or another change (and they wait for it)."""
+        if self.server.held_by:
+            raise JobConflict(
+                f"Wait for '{self.server.held_by}' to finish first. A server runs one "
+                "change like this at a time."
+            )
+
+        async def run(job: JobHandle) -> Any:
+            job.step(title)
+            return await change()
+
+        _, result = await self.core.jobs.run(
+            "mods", f"{title} on {self.name}", run, server_id=self.server_id, risky=True, user=user
+        )
+        return result
 
     # ------------------------------------------------------------------
     async def handle(self, event: Event) -> None:

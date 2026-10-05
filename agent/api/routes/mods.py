@@ -7,6 +7,7 @@ import time
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
+from ...jobs import JobConflict
 from ...mods.dependencies import DependencyError
 from ...mods.modrinth import ModrinthError
 from ...security.auth import Principal
@@ -78,13 +79,19 @@ async def install_mod(
     ctx=Depends(get_server),
 ):
     try:
-        result = await ctx.mods.install_from_modrinth(
-            payload.project,
-            user=principal.user,
-            version_id=payload.version_id,
-            allow_replace=payload.allow_replace,
-            install_dependencies=payload.install_dependencies,
+        result = await ctx.mod_change(
+            f"Installing {payload.project}",
+            lambda: ctx.mods.install_from_modrinth(
+                payload.project,
+                user=principal.user,
+                version_id=payload.version_id,
+                allow_replace=payload.allow_replace,
+                install_dependencies=payload.install_dependencies,
+            ),
+            principal.user,
         )
+    except JobConflict:
+        raise
     except DOMAIN_ERRORS as exc:
         audit(ctx, request, "mod_install", target=payload.project, result="failed", detail=str(exc))
         ctx.mods.record(
@@ -106,7 +113,11 @@ async def upload_mod(
 ):
     data = await file.read(320 * 1024 * 1024)
     with audit_failure(ctx, request, "mod_upload", target=file.filename):
-        result = await ctx.mods.install_local_file(file.filename or "", data, user=principal.user)
+        result = await ctx.mod_change(
+            f"Adding {file.filename}",
+            lambda: ctx.mods.install_local_file(file.filename or "", data, user=principal.user),
+            principal.user,
+        )
     audit(ctx, request, "mod_upload", target=file.filename)
     return {"ok": True, **result}
 
@@ -127,7 +138,11 @@ async def remove_mod(
     ctx=Depends(get_server),
 ):
     with audit_failure(ctx, request, "mod_remove", target=payload.filename):
-        result = await ctx.mods.remove(payload.filename, user=principal.user)
+        result = await ctx.mod_change(
+            f"Removing {payload.filename}",
+            lambda: ctx.mods.remove(payload.filename, user=principal.user),
+            principal.user,
+        )
     audit(ctx, request, "mod_remove", target=payload.filename)
     return {"ok": True, **result}
 
@@ -139,7 +154,11 @@ async def enable_mod(
     principal: Principal = Depends(require(MODS_MANAGE)),
     ctx=Depends(get_server),
 ):
-    result = await ctx.mods.set_enabled(payload.filename, True, user=principal.user)
+    result = await ctx.mod_change(
+        f"Turning on {payload.filename}",
+        lambda: ctx.mods.set_enabled(payload.filename, True, user=principal.user),
+        principal.user,
+    )
     audit(ctx, request, "mod_enable", target=payload.filename)
     return {"ok": True, **result}
 
@@ -151,7 +170,11 @@ async def disable_mod(
     principal: Principal = Depends(require(MODS_MANAGE)),
     ctx=Depends(get_server),
 ):
-    result = await ctx.mods.set_enabled(payload.filename, False, user=principal.user)
+    result = await ctx.mod_change(
+        f"Turning off {payload.filename}",
+        lambda: ctx.mods.set_enabled(payload.filename, False, user=principal.user),
+        principal.user,
+    )
     audit(ctx, request, "mod_disable", target=payload.filename)
     return {"ok": True, **result}
 
@@ -181,8 +204,12 @@ async def update_mod(
     ctx=Depends(get_server),
 ):
     with respond_as(400), audit_failure(ctx, request, "mod_update", target=payload.filename):
-        result = await ctx.mods.update(
-            payload.filename, user=principal.user, version_id=payload.version_id
+        result = await ctx.mod_change(
+            f"Updating {payload.filename}",
+            lambda: ctx.mods.update(
+                payload.filename, user=principal.user, version_id=payload.version_id
+            ),
+            principal.user,
         )
     audit(ctx, request, "mod_update", target=payload.filename)
     return {"ok": True, **result}
@@ -203,7 +230,11 @@ async def rollback_mod(
     ctx=Depends(get_server),
 ):
     with audit_failure(ctx, request, "mod_rollback", target=payload.mod_id):
-        result = await ctx.mods.rollback(payload.mod_id, payload.archive_path, user=principal.user)
+        result = await ctx.mod_change(
+            f"Rolling back {payload.mod_id}",
+            lambda: ctx.mods.rollback(payload.mod_id, payload.archive_path, user=principal.user),
+            principal.user,
+        )
     audit(ctx, request, "mod_rollback", target=payload.mod_id)
     return {"ok": True, **result}
 
@@ -246,7 +277,11 @@ async def install_dependencies(
     ctx=Depends(get_server),
 ):
     with audit_failure(ctx, request, "dependencies_install"):
-        result = await ctx.mods.deps.install(payload.mod_ids, user=principal.user)
+        result = await ctx.mod_change(
+            "Installing dependencies",
+            lambda: ctx.mods.deps.install(payload.mod_ids, user=principal.user),
+            principal.user,
+        )
     installed = [r["title"] for r in result["results"] if r["result"] == "installed"]
     audit(ctx, request, "dependencies_install", detail=", ".join(installed) or "nothing installed")
     return result

@@ -441,3 +441,18 @@ def test_websocket_ready_lists_servers_and_tags_events(multi_client):
             ready = ws.receive_json()
         assert ready["server_id"] == "creative"
         assert [s["id"] for s in ready["servers"]] == ["survival", "creative"]
+
+
+def test_saving_keeps_the_config_as_you_wrote_it(config):
+    from agent.config import BACKUP_SUFFIX, ORIGINAL_SUFFIX
+
+    source = config.save()
+    source.with_name(source.name + ORIGINAL_SUFFIX).unlink(missing_ok=True)
+    source.write_text("# my notes\n" + source.read_text(encoding="utf-8"), encoding="utf-8")
+    written = source.read_text(encoding="utf-8")
+    config.save()
+    config.save()
+    original = source.with_name(source.name + ORIGINAL_SUFFIX)
+    assert original.read_text(encoding="utf-8") == written  # comments and all
+    previous = source.with_name(source.name + BACKUP_SUFFIX)
+    assert previous.read_text(encoding="utf-8") == source.read_text(encoding="utf-8")

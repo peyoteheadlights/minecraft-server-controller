@@ -368,11 +368,30 @@ def _point_tls_at_copies(config, remap: _Remapper) -> list[str]:
     return warnings
 
 
+def _tree_files(root: Path) -> dict[str, Path]:
+    if root.is_file():
+        return {"": root}
+    return {str(p.relative_to(root)): p for p in _source_files(root, set())}
+
+
+def _same_tree(staged: Path, existing: Path) -> bool:
+    """True when ``existing`` holds exactly the staged files, byte for byte:
+    what an earlier attempt that was cut off (a power cut, for example) had
+    already moved into place."""
+    if existing.is_symlink() or staged.is_file() != existing.is_file():
+        return False
+    ours, theirs = _tree_files(staged), _tree_files(existing)
+    if ours.keys() != theirs.keys():
+        return False
+    return all(_sha256(ours[k]) == _sha256(theirs[k]) for k in ours)
+
+
 def _switch(staging: Path, target: Path, database: str) -> None:
     """Move every staged entry except the database into the target folder.
     Checks every name first, so nothing is moved when anything would clash.
     Empty folders and the layout file (left by a tool that ran before this
-    first start) are not data and make way."""
+    first start) are not data and make way, and so does an entry that is
+    already exactly the staged copy (left by an attempt that was cut off)."""
     from .config import LAYOUT_FILE
 
     entries = [e for e in sorted(staging.iterdir()) if e.name != database]
@@ -384,11 +403,13 @@ def _switch(staging: Path, target: Path, database: str) -> None:
             continue
         if entry.name in (LAYOUT_FILE, RECORD_FILE) and destination.is_file():
             continue
+        if _same_tree(entry, destination):
+            continue
         raise MoveError(f"{destination} already exists, so nothing was replaced")
     for entry in entries:
         destination = target / entry.name
         if destination.is_dir() and not destination.is_symlink():
-            destination.rmdir()
+            shutil.rmtree(destination)  # empty, or exactly the staged copy
         elif destination.is_file():
             destination.unlink()
         os.replace(entry, destination)

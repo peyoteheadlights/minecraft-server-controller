@@ -39,7 +39,9 @@ from .api.routes import router
 from .api.ws import ws_router
 from .config import Config
 from .core import AgentCore
+from .datafolder import MoveResult, apply_at_startup
 from .diagnostics import run_diagnostics
+from .events import Event
 from .logging_setup import setup_logging
 from .security.tls import inspect_certificate
 
@@ -94,7 +96,7 @@ def resolve_tls(config: Config) -> tuple[str, str] | None:
     return str(cert), str(key)
 
 
-def create_app(config: Config) -> FastAPI:
+def create_app(config: Config, data_move: MoveResult | None = None) -> FastAPI:
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
         startup_diag.record("controller_initializing")
@@ -102,13 +104,27 @@ def create_app(config: Config) -> FastAPI:
             core = AgentCore(config)
             app.state.core = core
             await core.start()
+            if data_move is not None:
+                # Shown in the dashboard's history, so the move (or why it
+                # did not happen) is visible without reading log files.
+                await core.bus.publish(
+                    Event(
+                        type="data_folder_moved" if data_move.ok else "data_folder_not_moved",
+                        level="success" if data_move.ok else "warn",
+                        message=data_move.message,
+                        data=data_move.to_dict(),
+                    )
+                )
         except Exception as exc:
             startup_diag.record_exception("controller_initialization", exc)
             raise
         startup_diag.record(
             "controller_initialized",
             ok=True,
-            detail=f"state={core.server.state.value}, java={core.server.java_version or 'unknown'}",
+            detail=", ".join(
+                f"{sid}: state={ctx.server.state.value}, java={ctx.server.java_version or 'unknown'}"
+                for sid, ctx in core.servers.items()
+            ),
             url=config.base_url,
         )
         log.info("agent ready on %s", config.base_url)
@@ -397,6 +413,21 @@ def _main(argv: list[str] | None = None) -> int:
         config.set("network.port", args.port)
     if args.no_tls:
         config.set("tls.enabled", False)
+
+    data_move = None
+    if not args.check:
+        # Before anything creates folders in the new data folder or reads the
+        # certificate: an old <server>/mcsc-data is copied there once.
+        data_move = apply_at_startup(config)
+        if data_move is not None:
+            startup_diag.record(
+                "data_folder_moved" if data_move.ok else "data_folder_not_moved",
+                ok=data_move.ok,
+                detail=data_move.message,
+                source=str(data_move.source),
+                target=str(data_move.target),
+                warnings=data_move.warnings,
+            )
     config.ensure_dirs()
 
     host = config.network.host
@@ -413,6 +444,10 @@ def _main(argv: list[str] | None = None) -> int:
         return 0 if not report.failures else 1
 
     setup_logging(config.log_dir, level=config.logging.level)
+    if data_move is not None:
+        (log.info if data_move.ok else log.warning)("%s", data_move.message)
+        for warning in data_move.warnings:
+            log.warning("%s", warning)
 
     if not config.admin_password_hash and not config.api_token:
         log.error(
@@ -471,7 +506,7 @@ def _main(argv: list[str] | None = None) -> int:
     if ssl_files and config.tls.http_redirect:
         _run_redirect_listener(host, config.tls.http_redirect_port, port)
 
-    app = create_app(config)
+    app = create_app(config, data_move=data_move)
     startup_diag.record("server_binding", host=host, port=port, tls=bool(ssl_files))
     uvicorn.run(
         app,

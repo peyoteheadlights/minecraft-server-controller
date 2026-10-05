@@ -7,13 +7,16 @@ import asyncio
 from fastapi import APIRouter, Depends, Request
 
 from ...security.auth import Principal
-from ..deps import audit, get_core, require_auth
+from ...security.permissions import SECURITY_MANAGE, SECURITY_VIEW, require
+from ..deps import audit, get_core
 
 router = APIRouter()
 
 
 @router.get("/security")
-async def security_overview(principal: Principal = Depends(require_auth), core=Depends(get_core)):
+async def security_overview(
+    principal: Principal = Depends(require(SECURITY_VIEW)), core=Depends(get_core)
+):
     return {
         "agent_connected": True,
         "tls": core.metrics.certificate_status(),
@@ -33,7 +36,7 @@ async def security_overview(principal: Principal = Depends(require_auth), core=D
 
 @router.get("/security/audit")
 async def audit_log(
-    limit: int = 100, principal: Principal = Depends(require_auth), core=Depends(get_core)
+    limit: int = 100, principal: Principal = Depends(require(SECURITY_VIEW)), core=Depends(get_core)
 ):
     limit = max(1, min(int(limit), 500))
     return {"entries": core.db.audit_entries(limit)}
@@ -41,7 +44,9 @@ async def audit_log(
 
 @router.post("/security/revoke-sessions")
 async def revoke_sessions(
-    request: Request, principal: Principal = Depends(require_auth), core=Depends(get_core)
+    request: Request,
+    principal: Principal = Depends(require(SECURITY_MANAGE)),
+    core=Depends(get_core),
 ):
     count = core.auth.revoke_all()
     audit(core, request, "revoke_all_sessions", detail=str(count))
@@ -49,7 +54,9 @@ async def revoke_sessions(
 
 
 @router.get("/security/tls")
-async def tls_status(principal: Principal = Depends(require_auth), core=Depends(get_core)):
+async def tls_status(
+    principal: Principal = Depends(require(SECURITY_VIEW)), core=Depends(get_core)
+):
     """Certificate facts read from disk.
 
     Only metadata is returned. The private key is never read into a response,

@@ -22,6 +22,8 @@ export const state = {
   paused: false,
   filter: "",
   page: "dashboard",
+  // the current page's name, for the browser tab's title
+  pageTitle: "",
   socket: null,
   connected: false,
   reconnectDelay: 1000,

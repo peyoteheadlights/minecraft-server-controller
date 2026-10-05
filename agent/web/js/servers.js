@@ -4,7 +4,7 @@
    through api() (see serverPath in api.js). */
 
 import { api } from "./api.js";
-import { derive } from "./colors.js";
+import { badgeColors, derive } from "./colors.js";
 import { renderers, stateInfo, state } from "./state.js";
 import { t, tn } from "./strings.js";
 import { $, el, emptyState, fmt, icon, known, loadInto } from "./ui.js";
@@ -53,6 +53,32 @@ export async function selectServer(id, page = null) {
   else if (switching && hooks.afterSwitch) hooks.afterSwitch();
 }
 
+/* ------------------------------------------------------------ badges */
+
+/* The server's initials: the first letters of its first two words, or the
+   first letter of a one-word name. */
+export function monogram(name) {
+  const words = String(name || "").split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  if (!words.length) return "";
+  const first = (word) => Array.from(word)[0].toLocaleUpperCase();
+  return words.length > 1 ? first(words[0]) + first(words[1]) : first(words[0]);
+}
+
+/* A small square in the server's color with its initials, so each server
+   is recognisable at a glance in the tabs, the header and the cards. With
+   a tone, a status dot sits on its corner. */
+export function serverBadge(s, { size = "", tone = null, busy = false } = {}) {
+  const badge = el("span", { class: `server-badge${size ? ` ${size}` : ""}`, "aria-hidden": "true" },
+    monogram(s.name),
+    tone ? el("span", { class: `badge-dot status-dot tone-${tone}${busy ? " pulse" : ""}` }) : null);
+  const colors = badgeColors(s.color);
+  if (colors) {
+    badge.style.setProperty("--badge-fill", colors.fill);
+    badge.style.setProperty("--badge-text", colors.text);
+  }
+  return badge;
+}
+
 /* ------------------------------------------------------------ the tabs */
 
 function serverTab(s, selected) {
@@ -67,8 +93,7 @@ function serverTab(s, selected) {
     title: `${s.name}: ${t(info.label)}`,
     onclick: () => selectServer(s.id, state.scope === "server" ? null : "dashboard"),
   },
-    el("span", { class: `status-dot tone-${crashed ? "danger" : info.tone}${info.busy ? " pulse" : ""}`,
-      "aria-hidden": "true" }),
+    serverBadge(s, { size: "sm", tone: crashed ? "danger" : info.tone, busy: info.busy }),
     el("span", { class: "tab-name" }, s.name),
     el("span", { class: "sr-only" }, `, ${crashed ? t("tabs.crashed") : t(info.label)}`),
     crashed ? el("span", { class: "tab-badge", "aria-hidden": "true" }, "!") : null);
@@ -160,11 +185,11 @@ renderers.servers = (page) => loadInto(page, async () => {
     const info = stateInfo(s.state);
     const running = ["ONLINE", "STARTING", "STOPPING"].includes(s.state);
     const card = el("button", {
-      class: "server-card", type: "button",
+      class: `server-card${info.tone === "danger" ? " needs-attention" : ""}`, type: "button",
       onclick: () => selectServer(s.id, "dashboard"),
     },
       el("div", { class: "server-card-head" },
-        el("span", { class: "swatch", "aria-hidden": "true" }),
+        serverBadge(s),
         el("strong", {}, s.name),
         el("span", { class: "pill" },
           el("span", { class: `status-dot tone-${info.tone}${info.busy ? " pulse" : ""}` }), t(info.label))),

@@ -33,6 +33,9 @@ export const STRINGS = /* strings-table */ {
 
   "nav.server_pages": ["Pages for this server", "Pages for this server"],
   "nav.app_pages": ["Pages for this app", "Pages for this app"],
+  "nav.group_live": ["Right now", "Live"],
+  "nav.group_manage": ["Look after it", "Manage"],
+  "nav.group_history": ["What happened", "History"],
 
   "tabs.label": ["Servers", "Servers"],
   "tabs.crashed": ["crashed", "crashed"],

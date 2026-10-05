@@ -342,6 +342,29 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width
 }
 .tab.selected:focus-visible { box-shadow: inset 0 3px 0 var(--tab-edge, var(--accent-edge)), inset 0 0 0 2px var(--accent-ring); }
 .tab .status-dot { width: 7px; height: 7px; box-shadow: none; }
+
+/* A server's badge: its initials on its color (Arc's space icons, Linear's
+   team icons), with its state as a dot on the corner in the tabs. */
+.server-badge {
+  position: relative;
+  display: inline-grid; place-items: center; flex-shrink: 0;
+  width: 26px; height: 26px;
+  border-radius: 7px;
+  background: var(--badge-fill, var(--neutral));
+  color: var(--badge-text, #FFFFFF);
+  font-size: 12px; font-weight: 700; letter-spacing: 0.01em; line-height: 1;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+  user-select: none;
+}
+.server-badge.sm { width: 20px; height: 20px; border-radius: 6px; font-size: 10px; }
+.server-badge.lg { width: 40px; height: 40px; border-radius: 10px; font-size: 17px; letter-spacing: -0.01em; }
+.server-badge .badge-dot {
+  position: absolute; right: -3px; bottom: -3px;
+  width: 9px; height: 9px;
+  box-shadow: 0 0 0 2px var(--tab-fill, var(--tab-neutral));
+}
+.tab.selected .server-badge .badge-dot { box-shadow: 0 0 0 2px var(--accent-band); }
+.server-badge .badge-dot.pulse { animation: none; }
 .tab.add-tab { padding: 0 12px; }
 .tab-badge {
   display: inline-grid; place-items: center;
@@ -397,7 +420,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width
   background: var(--accent-band);
   border-radius: 0 var(--radius-lg) 0 0;
 }
-.sheet-id { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; }
+.sheet-id { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.sheet-titles { display: flex; align-items: baseline; gap: 4px var(--space-3); flex-wrap: wrap; min-width: 0; }
 .sheet-name { font-family: var(--font-display); font-size: 24px; font-weight: 650; letter-spacing: -0.02em;
               min-width: 0; overflow-wrap: anywhere; }
 .sheet-state { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 13.5px; }
@@ -414,6 +438,14 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width
   border-radius: 0 0 0 var(--radius-lg);
 }
 .subnav[hidden] { display: none; }
+/* small group labels in the list, like Linear's sidebar */
+.nav-group { display: flex; flex-direction: column; gap: 2px; }
+.nav-group + .nav-group { margin-top: var(--space-3); }
+.nav-group-label {
+  padding: 2px 10px 4px;
+  color: var(--text-tertiary);
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em;
+}
 .nav-item {
   display: flex; align-items: center; gap: 10px;
   min-height: 34px;
@@ -622,7 +654,10 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width
 .server-card:focus-visible { box-shadow: inset 0 4px 0 var(--card-color, var(--accent-edge)), var(--focus); border-radius: var(--radius-lg); }
 .server-card-head { display: flex; align-items: center; gap: var(--space-2); margin-top: 4px; }
 .server-card-head strong { flex: 1; min-width: 0; font-size: 15.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.server-card .swatch { width: 12px; height: 12px; background: var(--card-color, var(--accent-edge)); }
+/* a server that crashed says so from the card itself (Railway's canvas) */
+.server-card.needs-attention { box-shadow: inset 0 4px 0 var(--card-color, var(--accent-edge)), 0 0 0 1.5px var(--danger); }
+.server-card.needs-attention:focus-visible { box-shadow: inset 0 4px 0 var(--card-color, var(--accent-edge)), var(--focus); }
+.server-card.needs-attention .pill { color: var(--danger); font-weight: 600; }
 .facts { display: grid; grid-template-columns: auto 1fr; gap: 4px var(--space-4); margin: var(--space-3) 0 0; font-size: 13px; }
 .facts dt { color: var(--text-secondary); }
 .facts dd { margin: 0; text-align: right; }
@@ -819,7 +854,9 @@ p.hint { margin: var(--space-2) 0 0; }
 
 /* ------------------------------------------------------------------ tables */
 .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+/* numbers line up and don't jiggle as they update (Vercel's dashboards) */
+.stat .value, .facts dd, .sheet-state, .jobs, .num { font-variant-numeric: tabular-nums; }
 th { text-align: left; font-weight: 500; font-size: 12px; color: var(--text-secondary);
      padding: 9px var(--space-4) 7px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 td { padding: 9px var(--space-4); border-bottom: 1px solid var(--border); vertical-align: middle; }
@@ -996,6 +1033,11 @@ td .btn-row { flex-wrap: nowrap; justify-content: flex-end; }
   .subnav::-webkit-scrollbar { display: none; }
   .nav-item { flex-shrink: 0; min-height: 36px; white-space: nowrap; }
   .nav-item .icon { display: none; }
+  .nav-group { flex-direction: row; flex-shrink: 0; }
+  .nav-group + .nav-group { margin-top: 0; margin-left: var(--space-2); padding-left: var(--space-2);
+                            border-left: 1px solid var(--border); }
+  .nav-group-label { display: none; }
+  .server-badge.lg { width: 32px; height: 32px; border-radius: 8px; font-size: 14px; }
   .nav-item[aria-current="page"] { box-shadow: inset 0 -2.5px 0 var(--accent-ring), var(--shadow-control); }
   .sheet-body { padding: var(--space-4) var(--space-4) var(--space-7); }
   .toolbar { flex-wrap: wrap; }

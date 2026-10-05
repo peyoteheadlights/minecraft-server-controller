@@ -30,8 +30,8 @@ paths:
 
 tls:
   enabled: true
-  certificate: '{old}/certs/server.crt'   # keep this comment
-  private_key: '{old}/certs/server.key'
+  certificate: '{crt}'   # keep this comment
+  private_key: '{key}'
   ca_certificate: ''
 """
 
@@ -75,7 +75,13 @@ def legacy(tmp_path):
     db.close()
     path = tmp_path / "config.yaml"
     path.write_text(
-        CONFIG_TEMPLATE.format(server=server, old=old, python=sys.executable, fake=FAKE_SERVER),
+        CONFIG_TEMPLATE.format(
+            server=server,
+            crt=old / "certs" / "server.crt",
+            key=old / "certs" / "server.key",
+            python=sys.executable,
+            fake=FAKE_SERVER,
+        ),
         encoding="utf-8",
     )
     return Config.load(path), old

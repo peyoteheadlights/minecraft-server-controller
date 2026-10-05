@@ -30,15 +30,24 @@ dashboard you can open from your computer or phone over a private
 - Starts with Windows through a scheduled task, without anyone logging in
 - HTTPS, hashed passwords, session tokens, rate limiting, audit log,
   Tailscale-only access
-- Light and dark appearance, following your system by default
+- One tab per server, each in its own color (twelve to pick from, or any
+  color), with text kept readable on every color
+- Five themes (match your device, light, dark, graphite, high contrast) that
+  follow your account to every device
+- Simple mode in everyday words, or Technical mode with the exact terms (TPS,
+  MSPT, RSS, `-Xmx`) and extra detail; every label has both
 
 ## Screenshots
 
-![Overview in light mode](docs/screenshots/overview-light.png)
+![Overview in the light theme, Simple mode](docs/screenshots/overview-light.png)
 
-| Overview, dark | Console, dark |
+| Overview, dark theme | Console, dark theme, Technical mode |
 | --- | --- |
-| ![Overview in dark mode](docs/screenshots/overview-dark.png) | ![Console in dark mode](docs/screenshots/console-dark.png) |
+| ![Overview in the dark theme](docs/screenshots/overview-dark.png) | ![Console in the dark theme, Technical mode](docs/screenshots/console-dark.png) |
+
+| All servers | Overview on a phone |
+| --- | --- |
+| ![All servers, one card per server in its color](docs/screenshots/all-servers-light.png) | ![Overview on a phone](docs/screenshots/overview-phone.png) |
 
 ## Requirements
 
@@ -185,9 +194,10 @@ the lock files and pre-commit.
   with the settings in `pyproject.toml`.
 - **Unit tests** on both Linux and Windows.
 - **Dashboard in a real browser**: `scripts/ui_check.py --quick` signs in and
-  visits every page in headless Chromium, and fails on any JavaScript or
-  console error, failed request or sideways scrolling. The screenshots are
-  kept as a build artifact.
+  visits every page in headless Chromium in both Simple and Technical mode,
+  and fails on any JavaScript or console error, failed request, sideways
+  scrolling, code text such as `undefined` on the page, or text without
+  enough contrast. The screenshots are kept as a build artifact.
 
 ### Windows CI
 

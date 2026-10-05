@@ -46,7 +46,7 @@ def js_list(path: str, name: str) -> list[str]:
     assert match, f"{name} not found in {path}"
     body = match.group(1)
     if source[match.start() :].split("=", 1)[1].strip().startswith("{"):
-        return re.findall(r"^\s*(\w+):", body, re.M)
+        return re.findall(r"[\"']?(\w+)[\"']?\s*:", body)
     return re.findall(r"[\"']?([\w]+)[\"']?", body)
 
 
@@ -72,7 +72,9 @@ def used_keys() -> set[str]:
     strings = table()
     groups = {key.split(".")[0] for key in strings}
     keys: set[str] = set()
-    for text in sources().values():
+    for path, text in sources().items():
+        if path == "strings.js":  # the table itself
+            continue
         for match in re.finditer(r"\btn\(\s*\"([a-z0-9_.]+)\"", text):
             keys |= {f"{match.group(1)}.one", f"{match.group(1)}.other"}
         plural = {m.group(1) for m in re.finditer(r"\btn\(\s*\"([a-z0-9_.]+)\"", text)}

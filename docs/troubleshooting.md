@@ -31,7 +31,7 @@ any blocking problems. Common ones:
 
 ## It starts then immediately crashes
 
-Open **Crash history** and read the evidence. The most common causes:
+Open **Crashes** and press **Details** to read the evidence. The most common causes:
 
 | Category | Usual fix |
 | --- | --- |

@@ -6,6 +6,7 @@ shows at each step, including the loading and failure states.
 Usage:  python scripts/ui_flows.py [screenshot_dir]
 """
 
+import re
 import sys
 import tempfile
 import time
@@ -89,7 +90,7 @@ def main():
                 "Only Start is offered, as the primary action",
                 lambda: (
                     expect(actions.locator("button")).to_have_count(1),
-                    expect(actions.locator("button.primary")).to_have_text("Start Server"),
+                    expect(actions.locator("button.primary")).to_have_text("Start"),
                 )[-1],
             )
             check(
@@ -126,7 +127,7 @@ def main():
             check(
                 "Stop (destructive) and Restart are offered",
                 lambda: (
-                    expect(actions.locator("button.danger")).to_have_text("Stop Server"),
+                    expect(actions.locator("button.danger")).to_have_text("Stop"),
                     expect(actions.locator("button", has_text="Restart")).to_be_visible(),
                 )[-1],
             )
@@ -169,10 +170,8 @@ def main():
                 lambda: expect(page.locator(".row", has_text="Steve")).to_be_visible(timeout=5000),
             )
             check(
-                "Console line streams into Recent console",
-                lambda: expect(page.locator(".console-preview")).to_contain_text(
-                    "Steve joined the game", timeout=5000
-                ),
+                "Simple mode leaves the raw console off the Overview",
+                lambda: expect(page.locator(".console-preview")).to_have_count(0),
             )
 
             print("\n=== Stop, with confirmation ===")
@@ -227,15 +226,9 @@ def main():
             httpx.post(f"{base}/api/server/command", headers=auth, json={"command": "crash"})
             check("Hero says Crashed", lambda: expect(title).to_have_text("Crashed", timeout=10000))
             check(
-                "Explains in plain language, with the exit code",
+                "Explains in plain language",
                 lambda: expect(page.locator("#server-state-detail")).to_contain_text(
-                    "stopped unexpectedly"
-                ),
-            )
-            check(
-                "Shows this crash's exit code (1), not the previous stop's (0)",
-                lambda: expect(page.locator("#server-state-detail")).to_contain_text(
-                    "Exit code 1."
+                    "The server crashed."
                 ),
             )
             check(
@@ -247,14 +240,14 @@ def main():
             check(
                 "Offers crash details",
                 lambda: expect(
-                    actions.locator("button", has_text="View Crash Details")
+                    actions.locator("button", has_text="What happened?")
                 ).to_be_visible(),
             )
             check(
                 "A toast offers the details too",
-                lambda: expect(
-                    page.locator(".toast", has_text="stopped unexpectedly")
-                ).to_be_visible(timeout=5000),
+                lambda: expect(page.locator(".toast", has_text="The server crashed")).to_be_visible(
+                    timeout=5000
+                ),
             )
             page.screenshot(path=str(shots / "05-crashed.png"))
             check(
@@ -267,24 +260,26 @@ def main():
             countdown = page.locator(".countdown")
             check(
                 "A crash starts a visible countdown",
-                lambda: expect(countdown).to_contain_text("Restarting in", timeout=10000),
+                lambda: expect(countdown).to_contain_text("Restarting by itself in", timeout=10000),
             )
             check(
-                "Start Server is not offered during the countdown",
-                lambda: expect(actions.locator("button", has_text="Start Server")).to_have_count(0),
+                "Start is not offered during the countdown",
+                lambda: expect(
+                    actions.get_by_role("button", name="Start", exact=True)
+                ).to_have_count(0),
             )
             check(
-                "Restart Now and Cancel are offered",
+                "Restart now and Cancel are offered",
                 lambda: (
-                    expect(actions.locator("button", has_text="Restart Now")).to_be_visible(),
+                    expect(actions.locator("button", has_text="Restart now")).to_be_visible(),
                     expect(actions.locator("button", has_text="Cancel")).to_be_visible(),
                 )[-1],
             )
             import re as _re
 
-            first = int(_re.search(r"(\d+)s", countdown.inner_text()).group(1))
+            first = int(_re.search(r"(\d+)", countdown.inner_text()).group(1))
             page.wait_for_timeout(2100)
-            later = int(_re.search(r"(\d+)s", countdown.inner_text()).group(1))
+            later = int(_re.search(r"(\d+)", countdown.inner_text()).group(1))
             step("The countdown ticks down", later < first, f"{first}s then {later}s")
             page.screenshot(path=str(shots / "05b-countdown.png"))
             code = httpx.post(f"{base}/api/server/start", headers=auth).status_code
@@ -305,9 +300,9 @@ def main():
                 lambda: (
                     expect(title).to_have_text("Crashed"),
                     expect(page.locator("#server-state-detail")).to_contain_text(
-                        "Automatic restart cancelled"
+                        "automatic restart was cancelled"
                     ),
-                    expect(actions.locator("button", has_text="Start Server")).to_be_visible(),
+                    expect(actions.get_by_role("button", name="Start", exact=True)).to_be_visible(),
                 )[-1],
             )
             page.wait_for_timeout(6000)  # past the original 5 s deadline
@@ -315,21 +310,38 @@ def main():
                 "A cancelled restart does not fire later",
                 lambda: expect(title).to_have_text("Crashed"),
             )
-            actions.locator("button", has_text="Start Server").click()
+            actions.get_by_role("button", name="Start", exact=True).click()
             expect(title).to_have_text("Online", timeout=30000)
             httpx.post(f"{base}/api/server/command", headers=auth, json={"command": "crash"})
-            expect(countdown).to_contain_text("Restarting in", timeout=10000)
-            actions.locator("button", has_text="Restart Now").click()
+            expect(countdown).to_contain_text("Restarting by itself in", timeout=10000)
+            actions.locator("button", has_text="Restart now").click()
             check(
-                "Restart Now starts the server immediately",
+                "Restart now starts the server immediately",
                 lambda: expect(title).to_have_text("Online", timeout=20000),
+            )
+
+            print("\n=== Simple and Technical ===")
+            check(
+                "Simple mode says server speed in everyday words",
+                lambda: expect(page.locator(".stat").nth(1)).to_contain_text("Server speed"),
+            )
+            page.locator("#gear").click()
+            page.get_by_role("radio", name="Technical").check()
+            check(
+                "Technical mode applies at once, without a reload",
+                lambda: expect(page.locator("html")).to_have_attribute("data-mode", "technical"),
+            )
+            page.locator("#tab-ui").click()
+            check(
+                "Technical mode uses the precise term",
+                lambda: expect(page.locator(".stat").nth(1)).to_contain_text("TPS"),
             )
 
             print("\n=== TPS monitoring ===")
             page.locator(".nav-item", has_text="Performance").click()
-            panel = page.locator(".section", has_text="TPS monitoring")
+            panel = page.locator("details.advanced", has_text="TPS source")
             check(
-                "The TPS panel shows detection is active",
+                "The TPS panel is open in Technical mode and shows detection is active",
                 lambda: expect(panel).to_contain_text("Active", timeout=15000),
             )
             check(
@@ -337,7 +349,13 @@ def main():
             )
             check(
                 "It says the command was detected automatically",
-                lambda: expect(panel).to_contain_text("Automatic"),
+                lambda: expect(panel).to_contain_text(
+                    re.compile(r"Auto-detected|Auto \(remembered\)")
+                ),
+            )
+            check(
+                "Graphs have value and time axes",
+                lambda: expect(page.locator(".chart-box svg .tick.x").first).to_be_visible(),
             )
             page.screenshot(path=str(shots / "05c-tps.png"))
             page.locator(".nav-item", has_text="Overview").click()
@@ -347,19 +365,35 @@ def main():
                     "via tick query", timeout=10000
                 ),
             )
+            httpx.post(
+                f"{base}/api/server/command", headers=auth, json={"command": "fakejoin Alex"}
+            )
+            check(
+                "Technical mode shows the console streaming on the Overview",
+                lambda: expect(page.locator(".console-preview")).to_contain_text(
+                    "Alex joined the game", timeout=5000
+                ),
+            )
+            page.locator("#gear").click()
+            page.get_by_role("radio", name="Simple").check()
+            page.locator("#tab-ui").click()
+            check(
+                "Back in Simple mode the extra detail is folded away",
+                lambda: expect(page.locator(".stat").nth(1)).to_contain_text("Server speed"),
+            )
 
             print("\n=== Dependencies ===")
             actions.locator("button.danger").click()
             page.locator("[role=dialog] button.danger-filled").click()
             expect(title).to_have_text("Offline", timeout=20000)
             page.locator(".nav-item", has_text="Mods").click()
-            deps = page.locator(".section", has_text="Dependencies")
+            deps = page.locator(".section", has_text="What mods need")
             check(
                 "A missing dependency is shown in plain language",
                 lambda: (
-                    expect(deps).to_contain_text("Missing dependency", timeout=15000),
+                    expect(deps).to_contain_text("needed mod is missing", timeout=15000),
                     expect(deps).to_contain_text("Cloud"),
-                    expect(deps).to_contain_text("Required by SkinsRestorer"),
+                    expect(deps).to_contain_text("Needed by SkinsRestorer"),
                     expect(deps).to_contain_text("Version: Any version"),
                 )[-1],
             )
@@ -368,9 +402,9 @@ def main():
                 lambda: expect(page.locator("#page")).not_to_contain_text("cloud *"),
             )
             check(
-                "Install Missing Dependencies is offered",
+                "Install what's missing is offered",
                 lambda: expect(
-                    deps.locator("button", has_text="Install Missing Dependencies")
+                    deps.locator("button", has_text="Install what's missing")
                 ).to_be_enabled(),
             )
             page.screenshot(path=str(shots / "05d-dependencies.png"))
@@ -384,7 +418,7 @@ def main():
                 "Console lists lines",
                 lambda: expect(page.locator("#console-wrap .log-line").first).to_be_visible(),
             )
-            page.fill("input[aria-label='Filter console lines']", "Steve")
+            page.fill("input[aria-label='Show only lines containing']", "Steve")
             check(
                 "Filter narrows the lines",
                 lambda: (
@@ -392,16 +426,16 @@ def main():
                     f"{page.locator('#console-wrap .log-line').count()} matching lines",
                 )[-1],
             )
-            page.fill("input[aria-label='Filter console lines']", "zzz-nothing")
+            page.fill("input[aria-label='Show only lines containing']", "zzz-nothing")
             check(
                 "A filter with no matches shows an empty state",
-                lambda: expect(page.locator("#console-wrap")).to_contain_text("No matching lines"),
+                lambda: expect(page.locator("#console-wrap")).to_contain_text("Nothing matches"),
             )
-            page.fill("input[aria-label='Filter console lines']", "")
-            follow = page.locator("button", has_text="Auto-scroll")
+            page.fill("input[aria-label='Show only lines containing']", "")
+            follow = page.locator("button", has_text="Follow")
             follow.click()
             check(
-                "Auto-scroll toggles off",
+                "Follow toggles off",
                 lambda: expect(follow).to_have_attribute("aria-pressed", "false"),
             )
             follow.click()
@@ -411,13 +445,13 @@ def main():
                 "Copy puts the lines on the clipboard",
                 lambda: expect(page.locator(".toast", has_text="Copied")).to_be_visible(),
             )
-            page.fill("input[aria-label='Minecraft command']", "op Steve")
+            page.fill("input[aria-label='Command to send']", "op Steve")
             page.keyboard.press("Enter")
             check(
                 "A dangerous command asks first", lambda: expect(dialog).to_contain_text("operator")
             )
             dialog.locator("button", has_text="Cancel").click()
-            page.fill("input[aria-label='Minecraft command']", "say hello; shutdown")
+            page.fill("input[aria-label='Command to send']", "say hello; shutdown")
             page.keyboard.press("Enter")
             check(
                 "An invalid command is refused with a readable reason",
@@ -426,14 +460,53 @@ def main():
             page.locator("button", has_text="Clear").click()
             check(
                 "Clear empties the view",
-                lambda: expect(page.locator("#console-wrap")).to_contain_text(
-                    "No console output yet"
-                ),
+                lambda: expect(page.locator("#console-wrap")).to_contain_text("Nothing here yet"),
             )
             page.screenshot(path=str(shots / "06-console.png"))
 
+            print("\n=== Tabs and colors ===")
+            survival_band = page.evaluate(
+                "getComputedStyle(document.documentElement).getPropertyValue('--accent-band')"
+            )
+            page.locator("#tab-creative").click()
+            check(
+                "A server's tab opens its own sheet",
+                lambda: expect(page.locator("#sheet-name")).to_have_text("Creative"),
+            )
+            check(
+                "Each server's sheet has its own color",
+                lambda: (
+                    page.evaluate(
+                        "getComputedStyle(document.documentElement).getPropertyValue('--accent-band')"
+                    )
+                    != survival_band
+                ),
+            )
+            page.locator("#tab-creative").focus()
+            page.keyboard.press("ArrowLeft")
+            check(
+                "Arrow keys move between tabs",
+                lambda: expect(page.locator("#sheet-name")).to_have_text("Survival"),
+            )
+            page.locator(".nav-item", has_text="Server settings").click()
+            page.get_by_role("radio", name="Green").check()
+            page.locator("button", has_text="Save name and color").click()
+            check(
+                "Picking a color recolors the tab",
+                lambda: expect(page.locator("#tab-ui")).to_have_attribute(
+                    "style", re.compile("--tab-fill"), timeout=5000
+                ),
+            )
+            page.locator("#tab-all").click()
+            check(
+                "All servers shows a card per server",
+                lambda: expect(page.locator(".server-card")).to_have_count(2),
+            )
+            page.screenshot(path=str(shots / "06b-all-servers.png"))
+
             print("\n=== Appearance ===")
-            page.locator("button[aria-label='Dark appearance']").click()
+            page.locator("#gear").click()
+            page.get_by_role("radio", name="Dark").check()
             check(
                 "Dark appearance applies",
                 lambda: expect(page.locator("html")).to_have_attribute("data-theme", "dark"),
@@ -443,16 +516,18 @@ def main():
                 "Choice survives a reload",
                 lambda: expect(page.locator("html")).to_have_attribute("data-theme", "dark"),
             )
-            page.locator(".nav-item", has_text="Overview").click()
+            page.locator("#tab-ui").click()
             expect(title).to_have_text("Online", timeout=10000)
             page.screenshot(path=str(shots / "07-dark-online.png"))
-            page.locator("button[aria-label='Match system appearance']").click()
+            page.locator("#gear").click()
+            page.get_by_role("radio", name="Match my device").check()
             check(
-                "Match system removes the override",
+                "Match my device removes the override",
                 lambda: expect(page.locator("html")).not_to_have_attribute("data-theme", "dark"),
             )
 
             print("\n=== Keyboard and small screens ===")
+            page.locator("#tab-ui").click()
             page.keyboard.press("Tab")
             check(
                 "Keyboard focus is visible",
@@ -464,28 +539,20 @@ def main():
             )
             page.set_viewport_size({"width": 390, "height": 844})
             check(
-                "Menu button appears on a phone",
-                lambda: expect(page.locator("#menu-button")).to_be_visible(),
+                "On a phone the tabs stay in one row that scrolls sideways",
+                lambda: page.evaluate(
+                    "(() => { const t = document.getElementById('server-tabs');"
+                    " return getComputedStyle(t).overflowX === 'auto'"
+                    " && document.documentElement.scrollWidth <= window.innerWidth; })()"
+                ),
             )
-            page.locator("#menu-button").click()
-            check(
-                "Sections open as a drawer",
-                lambda: expect(page.locator("#app")).to_have_class("app visible nav-open"),
-            )
-            page.screenshot(path=str(shots / "08-phone-menu.png"))
             page.locator(".nav-item", has_text="Players").click()
             check(
-                "Choosing a section closes the drawer and navigates",
-                lambda: (
-                    expect(page.locator("#app")).not_to_have_class("app visible nav-open"),
-                    expect(page.locator("#page-title")).to_have_text("Players"),
-                )[-1],
+                "The server's pages are reachable on a phone",
+                lambda: expect(page.locator("#page-title")).to_have_text("Players"),
             )
+            page.screenshot(path=str(shots / "08-phone.png"))
             page.set_viewport_size({"width": 1440, "height": 900})
-            check(
-                "Menu button hidden on desktop",
-                lambda: expect(page.locator("#menu-button")).to_be_hidden(),
-            )
 
             print("\n=== Sign out ===")
             page.locator(".signout").click()

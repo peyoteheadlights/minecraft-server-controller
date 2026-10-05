@@ -68,9 +68,15 @@ class Version:
     released: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        from ..minecraft.java import required_java
+
         return {
             "minecraft": self.minecraft,
             "stable": self.stable,
+            # The oldest Java this Minecraft version runs on, so the New
+            # server panel can say so before anything is created. None for
+            # a version whose number can't be read (a snapshot name).
+            "java_required": required_java(self.minecraft),
             "loaders": self.loaders,
             "released": self.released,
         }
@@ -243,7 +249,8 @@ async def meta_plan(server_type: ServerType, minecraft: str, loader: str | None)
         installers = [
             str(entry.get("version") or "")
             for entry in (installer if isinstance(installer, list) else [])
-            if isinstance(entry, dict) and VERSION_RE.match(str(entry.get("version") or ""))
+            if isinstance(entry, dict)
+            and VERSION_RE.match(str(entry.get("version") or ""))
             and entry.get("stable", True)
         ]
         if not installers:
@@ -318,16 +325,18 @@ async def forge_versions(server_type: ServerType) -> list[Version]:
             Version(
                 minecraft=mc,
                 stable=True,
-                loaders=sorted(builds, key=lambda b: version_key(b.partition("-")[2]), reverse=True),
+                loaders=sorted(
+                    builds, key=lambda b: version_key(b.partition("-")[2]), reverse=True
+                ),
             )
             for mc, builds in sorted(by_game.items(), key=lambda i: version_key(i[0]), reverse=True)
         ]
     xml = await downloads.fetch_text(f"{NEOFORGE_MAVEN}/maven-metadata.xml")
     by_game = {}
     for entry in _maven_versions(xml):
-        minecraft = _neoforge_minecraft(entry)
-        if minecraft:
-            by_game.setdefault(minecraft, []).append(entry)
+        game = _neoforge_minecraft(entry)
+        if game:
+            by_game.setdefault(game, []).append(entry)
     return [
         Version(
             minecraft=mc,
@@ -342,11 +351,11 @@ async def forge_versions(server_type: ServerType) -> list[Version]:
 def _neoforge_minecraft(build: str) -> str | None:
     """The Minecraft version a NeoForge build is for.
 
-        21.1.9            Minecraft 1.21.1   (<minor>.<patch>.<build>)
-        21.0.3-beta       Minecraft 1.21
-        26.1.0.5          Minecraft 26.1     (year-based Minecraft versions:
-        26.1.1.2          Minecraft 26.1.1    <year>.<drop>.<hotfix>.<build>)
-        0.25w14a.3-beta   snapshot 25w14a
+    21.1.9            Minecraft 1.21.1   (<minor>.<patch>.<build>)
+    21.0.3-beta       Minecraft 1.21
+    26.1.0.5          Minecraft 26.1     (year-based Minecraft versions:
+    26.1.1.2          Minecraft 26.1.1    <year>.<drop>.<hotfix>.<build>)
+    0.25w14a.3-beta   snapshot 25w14a
     """
     parts = build.split("-")[0].split(".")
     if len(parts) < 3:

@@ -419,6 +419,11 @@ async def preflight(
         "content": content,
         "moved_aside": [c["filename"] for c in moved_aside],
         "unknown_support": [c["filename"] for c in content if c["declares_target"] is None],
+        # Add-ons that stay but say they don't support the target version:
+        # the ones most likely to stop the server starting.
+        "not_supporting": [
+            c["filename"] for c in content if c["fits_type"] and c["declares_target"] is False
+        ],
         "backup_first": True,
         "crossplay": ctx.config.server.crossplay,
         "crossplay_available": target.crossplay,
@@ -452,6 +457,10 @@ async def change_version(
     plan = await make_plan(target.id, minecraft, loader)
     directory = _server_dir(ctx)
     type_change = target.id != current.id
+    # What the console last reported, kept before the change clears it.
+    before = ctx.server.mc_version
+    previous_loader = ctx.server.loader_version
+    crossplay_was_on = bool(ctx.config.server.crossplay)
     title = (
         f"Changing {ctx.name} to {target.name} {minecraft}"
         if type_change
@@ -515,6 +524,14 @@ async def change_version(
         ctx.config.set("server.args_file", outcome["args_file"])
         if target.content_folder and target.content_folder != current.content_folder:
             ctx.config.set("mods.directory", target.content_folder)
+        # Geyser and Floodgate are built for one kind of server, so after a
+        # type change the ones in place belong to the old kind (they were
+        # moved aside with the other add-ons). Crossplay is switched off
+        # rather than shown as on when it can't work; turning it on again
+        # fetches the builds for the new kind.
+        crossplay_off = type_change and crossplay_was_on
+        if crossplay_off:
+            ctx.config.set("server.crossplay", False)
         ctx.config.save()
         ctx.core.db.set_server_software(ctx.server_id, target.id, outcome["loader_version"])
         ctx.core.db.register_server(
@@ -538,6 +555,7 @@ async def change_version(
                 "loader_version": outcome["loader_version"],
                 "previous": outcome["previous"],
                 "previous_type": current.id,
+                "previous_loader": previous_loader,
                 "content_moved_aside": outcome["content_moved_aside"],
                 "install_log": outcome["install_log"],
                 "verified": outcome["verified"],
@@ -561,7 +579,7 @@ async def change_version(
                 },
             )
         )
-        return outcome
+        return {**outcome, "crossplay_turned_off": crossplay_off}
 
     job, result = await ctx.core.jobs.run(
         "version_change", title, run, server_id=ctx.server_id, risky=True, user=user
@@ -570,7 +588,7 @@ async def change_version(
         "version_change",
         user=user,
         target=ctx.server_id,
-        detail=f"{current.id} {ctx.server.mc_version or 'unknown'} -> {target.id} {minecraft}",
+        detail=f"{current.id} {before or 'unknown'} -> {target.id} {minecraft}",
         server_id=ctx.server_id,
     )
     return {

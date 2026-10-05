@@ -43,10 +43,23 @@ LOADER_PATTERNS = (
         r"(?P<name>Forge|NeoForge) Mod Loader version (?P<loader>[\w.\-+]+) "
         r"for Minecraft (?P<mc>[\w.\-]+)"
     ),
+    # Forge and NeoForge, early in the log:
+    # "Forge mod loading, version 47.3.0, for MC 1.20.1 with MCP 20230612.114412"
+    re.compile(
+        r"(?P<name>Forge|NeoForge) mod loading, version (?P<loader>[\w.\-+]+), "
+        r"for MC (?P<mc>[\w.\-]+)"
+    ),
     # Paper/Purpur: "This server is running Paper version 1.21.1-129-main@... (MC: 1.21.1)"
     re.compile(
         r"This server is running (?P<name>Paper|Purpur)[\w\s]*? version "
         r"(?P<loader>[^\s(]+).*?\(MC: (?P<mc>[\w.\-]+)\)"
+    ),
+    # Newer Paper leaves the "(MC: ...)" off: "This server is running Paper
+    # version 1.21.4-232-ver/1.21.4@12ff3e3 (2025-03-12...) (Implementing API
+    # version 1.21.4-R0.1-SNAPSHOT)". The Minecraft version then comes from
+    # Minecraft's own "Starting minecraft server version" line.
+    re.compile(
+        r"This server is running (?P<name>Paper|Purpur)[\w\s]*? version (?P<loader>[^\s(]+)"
     ),
 )
 LOADER_NAMES = {

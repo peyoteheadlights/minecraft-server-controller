@@ -88,6 +88,9 @@ class ServerAddRequest(BaseModel):
     # The server jar inside that folder. Empty: fabric-server-launch.jar or
     # server.jar, whichever is there.
     jar: str = Field(default="", max_length=180)
+    # What kind of server is in the folder. Empty: Fabric, as before
+    # server types existed.
+    type: str | None = Field(default=None, max_length=32)
     id: str | None = Field(default=None, max_length=64)
     # A palette id or "#RRGGBB". Empty: the next color no server uses.
     color: str | None = Field(default=None, max_length=16)

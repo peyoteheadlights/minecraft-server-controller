@@ -119,7 +119,7 @@ def assert_not_symlink(path: Path) -> Path:
 def safe_existing(base: Path, name: str, allowed_extensions: set[str] | None = None) -> Path:
     target = safe_join(base, name, allowed_extensions=allowed_extensions)
     if not target.exists():
-        raise PathSafetyError(f"{name} was not found")
+        raise PathSafetyError(f"{name} isn't there.")
     assert_not_symlink(target)
     return target
 
@@ -185,7 +185,7 @@ def check_new_server_folder(
     path = Path(raw).expanduser()
     if not path.is_absolute():
         raise PathSafetyError(
-            "Enter the full path to the folder, for example C:\\Minecraft\\Survival"
+            "Enter the whole path to the folder, for example C:\\Minecraft\\Survival"
         )
     if path.exists():
         assert_not_symlink(path)
@@ -235,37 +235,41 @@ def check_server_folder(
     """
     raw = (value or "").strip()
     if not raw or "\0" in raw:
-        raise PathSafetyError("Enter the folder that contains your Minecraft server")
+        raise PathSafetyError("Enter the folder your Minecraft server is in.")
     path = Path(raw).expanduser()
     if not path.is_absolute():
         raise PathSafetyError(
-            "Enter the full path to the folder, for example C:\\Minecraft\\Survival"
+            "Enter the whole path to the folder, for example C:\\Minecraft\\Survival"
         )
     assert_not_symlink(path)
     if not path.is_dir():
-        raise PathSafetyError(f"{path} does not exist or is not a folder")
+        raise PathSafetyError(f"{path} isn't there, or isn't a folder.")
     resolved = path.resolve()
     if resolved.parent == resolved:
         raise PathSafetyError(
-            "A whole drive cannot be a server folder; pick the server's own folder"
+            "A whole drive can't be a server folder. Pick the server's own folder."
         )
     home = Path.home().resolve()
     if resolved == home:
         raise PathSafetyError(
-            "Your home folder cannot be a server folder; pick the server's own folder"
+            "Your home folder can't be a server folder. Pick the server's own folder."
         )
     for system in _system_folders():
         if is_inside(system, resolved):
-            raise PathSafetyError(f"{path} is inside a system folder ({system})")
+            raise PathSafetyError(f"{path} is inside a system folder ({system}).")
     for folder in protected:
         folder = Path(folder)
         if is_inside(folder, resolved) or is_inside(resolved, folder):
-            raise PathSafetyError(f"{path} overlaps the agent's own folder {folder}")
+            raise PathSafetyError(f"{path} overlaps this app's own folder {folder}.")
     for name, folder in registered:
         if is_inside(Path(folder), resolved) or is_inside(resolved, Path(folder)):
-            raise PathSafetyError(f"{path} overlaps the folder of the server '{name}'")
+            raise PathSafetyError(f"{path} overlaps the folder of the server '{name}'.")
+    if not jar:  # started from an argument file, checked by the caller
+        return resolved
     safe_filename(jar, {".jar"})
     jar_path = resolved / jar
     if not jar_path.is_file() or jar_path.is_symlink():
-        raise PathSafetyError(f"{jar} was not found in {path}")
+        raise PathSafetyError(
+            f"{path} has no {jar} in it. Check the folder, or name the server file under More options."
+        )
     return resolved

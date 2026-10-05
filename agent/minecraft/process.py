@@ -232,6 +232,18 @@ class MinecraftServer:
             return None
         return check_compatibility(self.java_info, self.mc_version)
 
+    def eula_not_accepted(self) -> bool:
+        """True when this server's eula.txt is there and doesn't say
+        eula=true. A missing file is not a refusal: Minecraft writes it."""
+        if not self.config.server_dir_configured:
+            return False
+        eula = self.config.server_dir / "eula.txt"
+        try:
+            lines = eula.read_text(encoding="utf-8", errors="replace").lower().splitlines()
+        except OSError:
+            return False
+        return not any(line.strip().replace(" ", "") == "eula=true" for line in lines)
+
     def build_command(self) -> list[str]:
         """The launch command, from configuration only. Forge and NeoForge
         are launched from the argument file their installer wrote."""
@@ -274,7 +286,7 @@ class MinecraftServer:
             return None
         jar = directory / self.config.server.jar
         if not jar.is_file():
-            return f"The server file is missing: {jar}"
+            return f"The server file isn't there: {jar}"
         return None
 
     def preflight(self) -> PreflightResult:
@@ -293,7 +305,7 @@ class MinecraftServer:
             return result
         directory = self.config.server_dir
         if not directory.is_dir():
-            result.problems.append(f"Server directory not found: {directory}")
+            result.problems.append(f"The server's folder isn't there: {directory}")
             return result
         if not self.config.server.raw_command:
             problem = self.launch_problem()
@@ -301,7 +313,7 @@ class MinecraftServer:
                 result.problems.append(problem)
             java = self.config.server.java
             if not (Path(java).is_file() or shutil.which(java)):
-                result.problems.append(f"Java not found on this machine: {java}")
+                result.problems.append(f"Java isn't installed on this PC (looked for {java}).")
             else:
                 # Detect the runtime and compare it against the Minecraft
                 # version we have actually observed. An unknown result is a
@@ -328,14 +340,11 @@ class MinecraftServer:
         content = self.config.server_type.content
         if content and not self.config.mods_dir.is_dir():
             result.warnings.append(f"The {content} folder is missing: {self.config.mods_dir}")
-        eula = directory / "eula.txt"
-        if eula.is_file():
-            text = eula.read_text(encoding="utf-8", errors="replace").lower()
-            if "eula=true" not in text:
-                result.problems.append(
-                    "Minecraft's rules (the EULA) haven't been accepted for this server yet, "
-                    "so it won't start. Accept them in Server settings."
-                )
+        if self.eula_not_accepted():
+            result.problems.append(
+                "Minecraft's rules (the EULA) haven't been accepted for this server yet, "
+                "so it won't start. Accept them in Server settings."
+            )
         try:
             free_gb = shutil.disk_usage(directory).free / 1024**3
             if free_gb < 2:
@@ -371,7 +380,7 @@ class MinecraftServer:
             "fabric_loader_source": "server console" if self.loader_version else None,
             "loader_version": self.loader_version,
             "loader_name": self.loader_name or self.config.server_type.loader_name,
-            "eula_required": self.eula_required,
+            "eula_required": self.eula_required or self.eula_not_accepted(),
             "java_version": self.java_version,
             "java": self.java_info.to_dict() if self.java_info else None,
             "java_compatibility": self.java_compatibility(),
@@ -653,7 +662,7 @@ class MinecraftServer:
         restart: bool = False,
     ) -> dict[str, Any]:
         if not self.running:
-            raise ServerError("Server is not running")
+            raise ServerError("The server isn't running.")
         timeout = timeout if timeout is not None else self.config.server.stop_timeout
         self._stop_requested = True
         self._stop_reason = reason
@@ -693,7 +702,7 @@ class MinecraftServer:
     async def kill(self, actor: str = "system") -> None:
         """Operator-requested force kill. Deliberately not a crash."""
         if not self.running:
-            raise ServerError("Server is not running")
+            raise ServerError("The server isn't running.")
         self._stop_requested = True
         self._stop_reason = ExitReason.FORCE_KILLED
         self._emit_console(f"[agent] force kill requested by {actor}")
@@ -986,7 +995,7 @@ class MinecraftServer:
         can never become two commands.
         """
         if not self.running or not self.process or not self.process.stdin:
-            raise ServerError("Server is not running")
+            raise ServerError("The server isn't running.")
         if "\n" in command or "\r" in command:
             raise ServerError("A command has to be one line.")
         try:

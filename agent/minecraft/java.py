@@ -20,6 +20,8 @@ VERSION_RE = re.compile(r'version\s+"(?P<full>[^"]+)"')
 
 # Minimum Java for each Minecraft generation, from Mojang's own requirements.
 MINECRAFT_JAVA_REQUIREMENTS: list[tuple[tuple[int, ...], int]] = [
+    # Year-numbered versions start at 26.1, which Mojang moved to Java 25.
+    ((26, 1), 25),
     ((1, 20, 5), 21),
     ((1, 18), 17),
     ((1, 17), 16),

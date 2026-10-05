@@ -65,12 +65,22 @@ async def add_server(
             color = colors.normalise(payload.color)
         except colors.ColorError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-    jar = payload.jar.strip()
-    if not jar:
-        from pathlib import Path
+    from pathlib import Path
 
-        folder = Path(payload.directory.strip()).expanduser()
-        jar = next((j for j in DEFAULT_JARS if (folder / j).is_file()), DEFAULT_JARS[0])
+    from ... import servertypes
+    from ...servertypes.install import find_args_file
+
+    server_type = servertypes.get(payload.type)  # empty: Fabric, as before
+    folder = Path(payload.directory.strip()).expanduser()
+    args_file = ""
+    jar = payload.jar.strip()
+    if server_type.launch == "args_file":
+        # Forge and NeoForge start from the argument file their installer
+        # wrote, not from a jar.
+        jar = ""
+    elif not jar:
+        names = (server_type.jar, *DEFAULT_JARS) if server_type.jar else DEFAULT_JARS
+        jar = next((j for j in names if (folder / j).is_file()), names[0])
     registered = [(ctx.name, ctx.config.server_dir) for ctx in core.servers.values()]
     try:
         directory = check_server_folder(
@@ -79,6 +89,14 @@ async def add_server(
             protected=[PROJECT_ROOT, core.config.data_dir],
             registered=registered,
         )
+        if server_type.launch == "args_file":
+            args_file = find_args_file(directory, server_type.id) or ""
+            if not args_file:
+                raise PathSafetyError(
+                    f"{directory} has no {server_type.name} start file (libraries/.../"
+                    "win_args.txt), so it doesn't look like a set-up "
+                    f"{server_type.name} server. Run {server_type.name}'s installer there first."
+                )
     except PathSafetyError as exc:
         audit(core, request, "server_add", target=payload.name, result="refused", detail=str(exc))
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -88,7 +106,7 @@ async def add_server(
     if port is None:
         port = core.ports.suggest() or 25565
         warnings.append(
-            "server.properties does not set a port yet, so Minecraft will use 25565 when it "
+            "server.properties doesn't set a port yet, so Minecraft will use 25565 when it "
             f"first starts. Port {port} is free if you want to set server-port to it."
         )
     else:
@@ -103,7 +121,9 @@ async def add_server(
         "id": server_id,
         "name": payload.name.strip(),
         "directory": str(directory),
+        "type": server_type.id,
         "jar": jar,
+        "args_file": args_file,
         # The Java program is the agent's own setting, never the dashboard's.
         "java": core.config.server.java,
         "port": port,
@@ -137,7 +157,7 @@ async def suggest_port(
     core=Depends(get_core),
 ):
     if protocol not in ("tcp", "udp"):
-        raise HTTPException(status_code=400, detail="protocol must be tcp or udp")
+        raise HTTPException(status_code=400, detail="Pick tcp or udp.")
     port = core.ports.suggest(protocol)
     used = [
         {"protocol": proto, "port": number, "server_id": owner}

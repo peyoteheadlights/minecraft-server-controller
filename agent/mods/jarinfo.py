@@ -331,6 +331,17 @@ def read_mod_jar(path: Path, compute_hash: bool = True) -> ModInfo:
                     "not be a mod or plugin."
                 )
             else:
+                if ("forge", "META-INF/mods.toml") in found and "neoforge" not in info.loaders:
+                    # NeoForge for Minecraft 1.20.1 to 1.20.4 still used
+                    # mods.toml; such a mod says so by depending on neoforge.
+                    if _depends_on_neoforge(zf):
+                        info.loaders = [
+                            "neoforge" if loader == "forge" else loader for loader in info.loaders
+                        ]
+                        found = [
+                            ("neoforge", name) if loader == "forge" else (loader, name)
+                            for loader, name in found
+                        ]
                 info.loader, member = found[0]
                 if member == "fabric.mod.json":
                     _read_fabric(info, json.loads(_text(zf, member), strict=False))
@@ -345,9 +356,11 @@ def read_mod_jar(path: Path, compute_hash: bool = True) -> ModInfo:
         info.loaders = ["unknown"]
         info.problems.append("This file isn't a readable .jar file.")
     except (ValueError, tomllib.TOMLDecodeError) as exc:
-        info.problems.append(f"The mod's {member or 'information'} file couldn't be read: {exc}")
+        log.info("could not read %s in %s: %s", member, filename, exc)
+        info.problems.append(_unreadable(member))
     except Exception as exc:  # a broken YAML file, an odd encoding
-        info.problems.append(f"The mod's {member or 'information'} file couldn't be read: {exc}")
+        log.info("could not read %s in %s: %s", member, filename, exc)
+        info.problems.append(_unreadable(member))
 
     if not info.mod_id:
         stem = filename[: -len(DISABLED_SUFFIX)] if not enabled else filename
@@ -359,6 +372,30 @@ def read_mod_jar(path: Path, compute_hash: bool = True) -> ModInfo:
         except OSError:  # pragma: no cover
             pass
     return info
+
+
+def _unreadable(member: str) -> str:
+    what = "plugin" if member.endswith(".yml") else "mod"
+    return (
+        f"The {what}'s own description inside the file ({member or 'none found'}) is damaged, "
+        "so its name, version and needs can't be shown."
+    )
+
+
+def _depends_on_neoforge(zf: zipfile.ZipFile) -> bool:
+    try:
+        data = tomllib.loads(zf.read("META-INF/mods.toml").decode("utf-8", errors="replace"))
+    except (KeyError, tomllib.TOMLDecodeError):
+        return False
+    dependencies = data.get("dependencies") or {}
+    if not isinstance(dependencies, dict):
+        return False
+    return any(
+        isinstance(entry, dict) and str(entry.get("modId", "")).lower() == "neoforge"
+        for entries in dependencies.values()
+        if isinstance(entries, list)
+        for entry in entries
+    )
 
 
 def _text(zf: zipfile.ZipFile, member: str) -> str:

@@ -8,6 +8,7 @@
 
 import { api } from "../api.js";
 import { newServerPanel } from "../panels/newserver.js";
+import { loadServerTypes } from "../panels/version.js";
 import { loadServers, selectServer } from "../servers.js";
 import { renderers, state } from "../state.js";
 import { t } from "../strings.js";
@@ -19,6 +20,14 @@ function existingServerForm() {
     class: "mono", placeholder: "C:\\Minecraft\\Creative", autocomplete: "off" });
   const jar = el("input", { id: "add-server-jar", maxlength: "180", autocomplete: "off",
     placeholder: "fabric-server-launch.jar" });
+  // The kind of server already in the folder. Fabric unless the person
+  // says otherwise; the console later warns if it says something else.
+  const kind = el("select", { id: "add-server-type" }, el("option", { value: "fabric" }, "Fabric"));
+  loadServerTypes().then((types) => {
+    kind.replaceChildren(...types.map((type) => el("option", {
+      value: type.id, selected: type.id === "fabric" ? "selected" : false,
+    }, type.name)));
+  }).catch(() => {});
   let chosen = state.nextColor;
   const used = new Set(state.servers.map((s) => s.color));
   const swatches = el("div", { class: "swatches", role: "radiogroup", "aria-label": t("serverset.color") },
@@ -41,6 +50,8 @@ function existingServerForm() {
     el("div", { class: "grid cols-2" },
       el("div", { class: "field" }, el("label", { for: "add-server-name" }, t("add.name")), name),
       el("div", { class: "field" }, el("label", { for: "add-server-folder" }, t("add.folder")), folder)),
+    el("div", { class: "field" }, el("label", { for: "add-server-type" }, t("add.kind")), kind,
+      el("div", { class: "hint" }, t("add.kind_hint"))),
     el("div", { class: "field" }, el("span", { class: "field-label" }, t("serverset.color")), swatches),
     advanced(t("add.more_options"),
       el("div", { class: "field" }, el("label", { for: "add-server-jar" }, t("add.jar")), jar,
@@ -59,7 +70,8 @@ function existingServerForm() {
       try {
         const result = await api("/servers", {
           method: "POST",
-          body: { name: name.value.trim(), directory: folder.value.trim(), jar: jar.value.trim(), color: chosen },
+          body: { name: name.value.trim(), directory: folder.value.trim(), jar: jar.value.trim(),
+            type: kind.value || null, color: chosen },
         });
         toast(t("add.added", { name: result.server.name }), "success");
         for (const warning of result.warnings || []) toast(warning, "warn", 12000);

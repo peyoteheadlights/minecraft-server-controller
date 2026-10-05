@@ -7,6 +7,8 @@ change itself, rolling it back, and the Bedrock crossplay switch.
 
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ... import crossplay as crossplay_module
@@ -183,6 +185,7 @@ async def accept_eula(
     if not ctx.config.server_dir_configured:
         raise HTTPException(status_code=400, detail="This server's folder isn't set.")
     path = create_module.write_eula(ctx.config.server_dir, True)
+    ctx.server.eula_required = False
     audit(ctx, request, "eula_accepted")
     return {"ok": True, "file": str(path), "url": create_module.EULA_URL}
 
@@ -201,7 +204,8 @@ async def crossplay_status(
         "suggested_port": None if status["enabled"] else ctx.core.ports.suggest_bedrock(),
         # The address Bedrock players type. Only from a measured Tailscale
         # address: null with a reason when this PC's address isn't known.
-        **crossplay_module.address(status),
+        # Asking Tailscale runs its command, so not on the event loop.
+        **(await asyncio.to_thread(crossplay_module.address, status)),
     }
 
 

@@ -39,6 +39,16 @@ DEFAULT_BEDROCK_PORT = 19132
 # Floodgate's default: Bedrock players appear as ".Name".
 USERNAME_PREFIX = "."
 DISABLED_SUFFIX = ".disabled"
+# Where each Geyser build reads its settings, relative to the server folder.
+# Mod builds use config/Geyser-<Platform>/; the plugin build uses its own
+# folder under plugins/.
+GEYSER_CONFIG_FOLDERS = {
+    "fabric": ("config", "Geyser-Fabric"),
+    "neoforge": ("config", "Geyser-NeoForge"),
+    "spigot": ("plugins", "Geyser-Spigot"),
+}
+# Mod builds of Geyser and Floodgate need these mods to load.
+REQUIRED_MODS = {"fabric": ("fabric-api", "Fabric API")}
 
 
 class CrossplayError(RuntimeError):
@@ -120,10 +130,11 @@ async def _latest(platform: str, project: str) -> FileSpec:
 def write_geyser_config(ctx: ServerContext, port: int) -> Path:
     """Geyser's config: the Bedrock port it listens on, and Floodgate for
     sign-in so Bedrock players need no Java account."""
-    folder = _folder(ctx).parent / "config" / "Geyser-Fabric"
-    server_type = ctx.config.server_type
-    if server_type.content == "plugins":
-        folder = _folder(ctx) / "Geyser-Spigot"
+    platform = ctx.config.server_type.geyser_platform or ""
+    parts = GEYSER_CONFIG_FOLDERS.get(platform)
+    if parts is None:
+        raise CrossplayError("This app doesn't know where Geyser keeps its settings on this kind.")
+    folder = ctx.config.server_dir.joinpath(*parts)
     folder.mkdir(parents=True, exist_ok=True)
     java_port = ctx.core.ports.port_of(ctx).port
     path = folder / "config.yml"
@@ -193,7 +204,9 @@ async def enable(
                     aside.unlink()  # replaced by the new download
                 fetched = await downloads.download(spec, folder, job=job)
                 files.append({**fetched.to_dict(), "project": project})
-        except DownloadError as exc:
+        except (DownloadError, CrossplayError) as exc:
+            # Geyser alone is no use without Floodgate: take back whatever
+            # did arrive, so a half-done switch leaves nothing behind.
             for entry in files:
                 (folder / entry["file"]).unlink(missing_ok=True)
             raise CrossplayError(str(exc)) from exc
@@ -275,6 +288,7 @@ def status(ctx: ServerContext) -> dict[str, Any]:
     port = int(ctx.config.server.bedrock_port or 0) or None
     files = installed(ctx)
     return {
+        "missing_mod": missing_mod(ctx),
         "available": server_type.crossplay,
         "unavailable_reason": None
         if server_type.crossplay
@@ -294,6 +308,22 @@ def status(ctx: ServerContext) -> dict[str, Any]:
             "tablets and Windows Bedrock can.",
         ],
     }
+
+
+def missing_mod(ctx: ServerContext) -> str | None:
+    """A mod Geyser needs on this kind of server that isn't installed, by
+    name, or None. Read from the mods folder, never assumed."""
+    need = REQUIRED_MODS.get(ctx.config.server_type.geyser_platform or "")
+    if not need:
+        return None
+    mod_id, name = need
+    try:
+        mods = ctx.mods.scan()
+    except Exception:  # no folder yet: the switch itself reports that
+        return None
+    if any(mod.mod_id == mod_id and mod.enabled for mod in mods):
+        return None
+    return name
 
 
 def address(state: dict[str, Any]) -> dict[str, Any]:

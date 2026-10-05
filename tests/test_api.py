@@ -81,7 +81,7 @@ def test_login_then_use_then_logout(client):
 def test_wrong_password_is_refused_and_recorded(client):
     response = client.post("/api/auth/login", json={"username": "admin", "password": "wrong"})
     assert response.status_code == 401
-    assert "not correct" in response.json()["detail"]
+    assert "isn't right" in response.json()["detail"]
 
 
 def test_repeated_failures_lock_the_account_out(client):

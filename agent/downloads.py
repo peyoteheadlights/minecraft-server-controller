@@ -200,7 +200,9 @@ async def _send(
             await response.aclose()
             raise DownloadError(_plain_status(response.status_code, source_name(url)))
         return response, url
-    raise DownloadError(f"{source_name(url)} sent the download round in circles.")
+    raise DownloadError(
+        f"{source_name(url)} kept sending the download somewhere else, so it was stopped."
+    )
 
 
 async def fetch_bytes(url: str, max_bytes: int = MAX_LIST_BYTES) -> bytes:

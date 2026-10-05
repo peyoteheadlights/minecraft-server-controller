@@ -146,12 +146,12 @@ def inspect_certificate(
     cert_file = Path(cert_path)
     info.certificate_present = cert_file.is_file()
     if not info.certificate_present:
-        info.problems.append(f"Certificate file not found: {cert_file}")
+        info.problems.append(f"The certificate file isn't there: {cert_file}")
         return info
     if key_path:
         info.key_present = Path(key_path).is_file()
         if not info.key_present:
-            info.problems.append(f"Private key file not found: {key_path}")
+            info.problems.append(f"The private key file isn't there: {key_path}")
 
     if not HAVE_CRYPTOGRAPHY:  # pragma: no cover
         info.parse_error = (
@@ -188,7 +188,7 @@ def inspect_certificate(
     info.days_remaining = (not_after - reference) / 86400
     info.expired = reference > not_after or reference < not_before
     if reference < not_before:
-        info.problems.append("The certificate is not valid yet (its start date is in the future)")
+        info.problems.append("The certificate isn't valid yet: its start date is in the future.")
     if reference > not_after:
         info.problems.append("The certificate has expired")
 
@@ -212,7 +212,7 @@ def inspect_certificate(
     if key_path and info.key_present:
         info.key_matches_certificate, info.key_check_error = _key_matches(Path(key_path), cert)
         if info.key_matches_certificate is False:
-            info.problems.append("The private key does not match this certificate")
+            info.problems.append("The private key doesn't belong to this certificate.")
     return info
 
 

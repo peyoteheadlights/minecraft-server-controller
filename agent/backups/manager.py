@@ -71,7 +71,15 @@ class BackupManager:
 
     # ------------------------------------------------------------------
     def _sources(self, includes: list[str] | None = None) -> list[Path]:
-        includes = includes or list(self.config.backups.include)
+        if not includes:
+            # The configured list, plus what this server's type keeps
+            # elsewhere (Paper's plugins/ and their data, Forge's
+            # defaultconfigs/), so a backup never leaves a server's
+            # add-ons behind.
+            includes = list(self.config.backups.include)
+            for extra in self.config.server_type.backup_extra:
+                if extra not in includes:
+                    includes.append(extra)
         base = self.config.server_dir
         found = []
         for name in includes:

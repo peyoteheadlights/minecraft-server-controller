@@ -68,7 +68,7 @@ def main():
                     page.fill("#username", "admin"),
                     page.fill("#password", "wrong password"),
                     page.click("#login-form button[type=submit]"),
-                    expect(page.locator("#login-error")).to_contain_text("not correct"),
+                    expect(page.locator("#login-error")).to_contain_text("isn't right"),
                 )[-1],
             )
             check(
@@ -462,7 +462,7 @@ def main():
             page.keyboard.press("Enter")
             check(
                 "An invalid command is refused with a readable reason",
-                lambda: expect(page.locator(".toast", has_text="not allowed")).to_be_visible(),
+                lambda: expect(page.locator(".toast", has_text="allowed")).to_be_visible(),
             )
             page.locator("button", has_text="Clear").click()
             check(

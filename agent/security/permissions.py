@@ -69,7 +69,7 @@ def check(principal: Principal, permission: str) -> None:
     if permission not in ALL:  # a typo in a route would otherwise lock everyone out
         raise ValueError(f"{permission!r} isn't a permission this app has.")
     if permission not in permissions_for(principal):
-        raise AuthError("Your account is not allowed to do that", status=403)
+        raise AuthError("Your account isn't allowed to do that.", status=403)
 
 
 @cache

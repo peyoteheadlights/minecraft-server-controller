@@ -249,9 +249,16 @@ sets it up and puts it on the list. It does **not** start it: you press Start,
 and only then does its console say which version it really is.
 
 **Server I already have** registers a folder that already holds a Minecraft
-server: its name, the full folder path, and a color (the next unused one is
-already picked). Nothing in the folder is changed and the server is not
-started; it opens on its own Overview.
+server: its name, the full folder path, which kind of server it is (Fabric
+unless you pick another; the console warns once it starts if it says
+otherwise), and a color (the next unused one is already picked). A Forge or
+NeoForge folder needs the start file its installer wrote
+(`libraries/.../win_args.txt`). Nothing in the folder is changed and the
+server is not started; it opens on its own Overview.
+
+With Bedrock players switched on, the Overview's Details also show the
+address they type (this PC's Tailscale address and the Bedrock port), until
+Phase 4's "How friends join" card takes it over.
 
 ## Security
 

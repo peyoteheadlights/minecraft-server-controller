@@ -137,8 +137,10 @@ nothing outside it asks `if type == "fabric"`:
   Forge, NeoForge, Paper, Purpur), saying what it accepts, what its add-ons
   are called and where they live, which metadata file they carry, which
   Modrinth loaders match, how it is launched (`-jar`, or `java @win_args.txt`
-  for Forge and NeoForge), where its versions come from, which TPS commands
-  to try, and whether GeyserMC publishes a build for it. The dashboard's
+  for Forge and NeoForge; `unix_args.txt` off Windows), its installer's
+  arguments, where its versions come from, which TPS commands to try, which
+  folders a backup must hold besides the configured list (`backup_extra`),
+  and whether GeyserMC publishes a build for it. The dashboard's
   comparison table is generated from exactly this, so it cannot drift.
 - `versions.py` — one provider per type, each asking that project's own API
   (Mojang's piston-meta, meta.fabricmc.net, meta.quiltmc.org, the Forge and

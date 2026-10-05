@@ -329,7 +329,7 @@ class TpsMonitor:
             try:
                 validate(value)  # a Minecraft command, and not one that needs confirmation
             except CommandError as exc:
-                raise ValueError(f"'{value}' cannot be used as the TPS command: {exc}") from exc
+                raise ValueError(f"'{value}' can't be used to read the game speed: {exc}") from exc
         self.config.set("monitor.tps_command", value or "off")
         try:
             self.config.save()
@@ -345,7 +345,9 @@ class TpsMonitor:
 
     async def redetect(self) -> dict[str, Any]:
         if self.server.state.value != "ONLINE":
-            raise ValueError("The server must be online to detect its TPS command.")
+            raise ValueError(
+                "Start the server first: the game speed can only be read while it runs."
+            )
         self.db.set_setting(SETTING_KEY, None)
         self.begin()
         return self.status()

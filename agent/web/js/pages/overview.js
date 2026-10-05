@@ -375,13 +375,26 @@ function renderRecommendations(view) {
     : el("p", { class: "all-good" }, t("rec.none")), ...(restore ? [restore] : []));
 }
 
+/* With crossplay on, the address Bedrock players type, shown under the
+   Details until Phase 4's "How friends join" card takes it over. Only a
+   measured Tailscale address is shown; otherwise the reason it isn't. */
+function bedrockRows(cross) {
+  if (!cross || !cross.enabled) return null;
+  return detailRows([
+    [t("cross.address"), cross.address || cross.address_unknown || null],
+    [t("cross.ready"), cross.ready ? t("cross.ready_yes") : t("cross.files_missing")],
+  ]);
+}
+
 async function fillCards() {
   const n = overview.nodes;
-  const [backups, schedules, recs] = await Promise.all([
+  const [backups, schedules, recs, cross] = await Promise.all([
     api("/backups").catch(() => null), api("/schedules").catch(() => null),
     api("/recommendations").catch((err) => ({ error: err.message })),
+    api(`/servers/${encodeURIComponent(state.serverId)}/crossplay`).catch(() => null),
   ]);
   if (n !== overview.nodes) return;
+  n.bedrock.replaceChildren(...[bedrockRows(cross)].filter(Boolean));
   n.backup.replaceChildren(backups ? lastBackupCard(backups.backups || []) : emptyState(t("value.unknown")));
   n.next.replaceChildren(schedules ? nextTaskCard(schedules.schedules || []) : emptyState(t("value.unknown")));
   if (recs.error) n.recs.replaceChildren(el("p", { class: "hint" }, recs.error));
@@ -408,6 +421,7 @@ renderers.dashboard = (page) => {
     recs: el("div", {}, el("div", { class: "empty" }, t("status.loading"))),
     players: el("div"),
     details: el("div"),
+    bedrock: el("div"),
     console: el("div", { class: "console-body", role: "log", "aria-label": t("overview.recent_console") }),
   };
   overview.nodes = nodes;
@@ -425,7 +439,7 @@ renderers.dashboard = (page) => {
       section(t("overview.next_task"), null, nodes.next),
       section(t("overview.players_online"), null, nodes.players)),
     el("div", { class: "gap-section" }, section(t("overview.recommendations"), null, nodes.recs)),
-    el("div", { class: "gap-section" }, section(t("overview.details"), null, nodes.details)),
+    el("div", { class: "gap-section" }, section(t("overview.details"), null, nodes.details, nodes.bedrock)),
     technical() ? el("section", { class: "section gap-section" },
       el("div", { class: "section-head" }, el("h2", {}, t("overview.recent_console")), el("div", { class: "grow" }),
         el("button", { class: "btn plain small", type: "button", onclick: () => navigate("console") },

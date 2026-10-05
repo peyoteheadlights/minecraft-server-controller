@@ -10,7 +10,14 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from ...minecraft.commands import CommandError, validate
 from ...minecraft.state import ExitReason
 from ...security.auth import Principal
-from ..deps import audit, get_core, require_auth
+from ...security.permissions import (
+    CONSOLE_SEND,
+    SERVER_CONTROL,
+    SERVER_VIEW,
+    SETTINGS_EDIT,
+    require,
+)
+from ..deps import audit, get_server
 from ..errors import audit_failure
 from .models import CommandRequest, StopRequest, TpsCommandRequest
 
@@ -18,24 +25,26 @@ router = APIRouter()
 
 
 @router.get("/status")
-async def status(principal: Principal = Depends(require_auth), core=Depends(get_core)):
-    return core.status()
+async def status(principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)):
+    return ctx.status()
 
 
 @router.get("/info")
-async def server_info(principal: Principal = Depends(require_auth), core=Depends(get_core)):
+async def server_info(
+    principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
+):
     import platform
 
     import psutil
 
-    status = core.server.status()
-    storage = await core.metrics.storage()
+    status = ctx.server.status()
+    storage = await ctx.metrics.storage()
     return {
         "server": status,
-        "java": core.server.java_info.to_dict() if core.server.java_info else None,
-        "java_compatibility": core.server.java_compatibility(),
-        "preflight": core.server.preflight().to_dict(),
-        "command": core.server.build_command(),
+        "java": ctx.server.java_info.to_dict() if ctx.server.java_info else None,
+        "java_compatibility": ctx.server.java_compatibility(),
+        "preflight": ctx.server.preflight().to_dict(),
+        "command": ctx.server.build_command(),
         "storage": storage,
         "machine": {
             "os": f"{platform.system()} {platform.release()}",
@@ -46,22 +55,24 @@ async def server_info(principal: Principal = Depends(require_auth), core=Depends
             "python": platform.python_version(),
         },
         "paths": {
-            "server_directory": str(core.config.server_dir),
-            "data_directory": str(core.config.data_dir),
-            "mods_directory": str(core.config.mods_dir),
-            "backup_directory": str(core.config.backup_dir),
-            "log_directory": str(core.config.log_dir),
+            "server_directory": str(ctx.config.server_dir),
+            "data_directory": str(ctx.config.data_dir),
+            "mods_directory": str(ctx.config.mods_dir),
+            "backup_directory": str(ctx.config.backup_dir),
+            "log_directory": str(ctx.config.log_dir),
         },
     }
 
 
 @router.post("/server/start")
 async def server_start(
-    request: Request, principal: Principal = Depends(require_auth), core=Depends(get_core)
+    request: Request,
+    principal: Principal = Depends(require(SERVER_CONTROL)),
+    ctx=Depends(get_server),
 ):
-    with audit_failure(core, request, "server_start"):
-        result = await core.server.start(actor=principal.user)
-    audit(core, request, "server_start", detail=f"pid={result['pid']}")
+    with audit_failure(ctx, request, "server_start"):
+        result = await ctx.server.start(actor=principal.user)
+    audit(ctx, request, "server_start", detail=f"pid={result['pid']}")
     # The process was launched. That is not the same as the server being up:
     # "started successfully" is only reported once the startup line appears in
     # the console, which arrives as a server_started event.
@@ -71,8 +82,8 @@ async def server_start(
         "or poll /api/status, to find out whether startup completes.",
         "pid": result["pid"],
         "command": result["command"],
-        "state": core.server.state.value,
-        "startup_confirmed": core.server.startup_confirmed,
+        "state": ctx.server.state.value,
+        "startup_confirmed": ctx.server.startup_confirmed,
     }
 
 
@@ -80,19 +91,19 @@ async def server_start(
 async def server_stop(
     payload: StopRequest,
     request: Request,
-    principal: Principal = Depends(require_auth),
-    core=Depends(get_core),
+    principal: Principal = Depends(require(SERVER_CONTROL)),
+    ctx=Depends(get_server),
 ):
-    with audit_failure(core, request, "server_stop"):
+    with audit_failure(ctx, request, "server_stop"):
         if payload.force:
-            await core.server.kill(actor=principal.user)
+            await ctx.server.kill(actor=principal.user)
             result = {"graceful": False, "forced": True}
         else:
-            result = await core.server.stop(
+            result = await ctx.server.stop(
                 actor=principal.user, reason=ExitReason.USER_STOP, timeout=payload.timeout
             )
-    audit(core, request, "server_stop", detail=str(result))
-    stopped = core.server.state.value in ("OFFLINE", "CRASHED")
+    audit(ctx, request, "server_stop", detail=str(result))
+    stopped = ctx.server.state.value in ("OFFLINE", "CRASHED")
     return {
         "result": "VERIFIED" if stopped else "IN_PROGRESS",
         "detail": (
@@ -101,18 +112,20 @@ async def server_stop(
             else "The stop was requested but the process has not exited yet."
         ),
         **result,
-        "state": core.server.state.value,
+        "state": ctx.server.state.value,
     }
 
 
 @router.post("/server/restart")
 async def server_restart(
-    request: Request, principal: Principal = Depends(require_auth), core=Depends(get_core)
+    request: Request,
+    principal: Principal = Depends(require(SERVER_CONTROL)),
+    ctx=Depends(get_server),
 ):
-    with audit_failure(core, request, "server_restart"):
-        result = await core.server.restart(actor=principal.user)
-    audit(core, request, "server_restart")
-    online = core.server.startup_confirmed and core.server.state.value == "ONLINE"
+    with audit_failure(ctx, request, "server_restart"):
+        result = await ctx.server.restart(actor=principal.user)
+    audit(ctx, request, "server_restart")
+    online = ctx.server.startup_confirmed and ctx.server.state.value == "ONLINE"
     return {
         "result": "VERIFIED" if online else "IN_PROGRESS",
         "detail": (
@@ -122,60 +135,66 @@ async def server_restart(
             "the server_started event."
         ),
         **result,
-        "state": core.server.state.value,
-        "startup_confirmed": core.server.startup_confirmed,
+        "state": ctx.server.state.value,
+        "startup_confirmed": ctx.server.startup_confirmed,
     }
 
 
 @router.post("/server/restart-now")
 async def restart_now(
-    request: Request, principal: Principal = Depends(require_auth), core=Depends(get_core)
+    request: Request,
+    principal: Principal = Depends(require(SERVER_CONTROL)),
+    ctx=Depends(get_server),
 ):
     """Skip the automatic-restart countdown and start immediately."""
-    with audit_failure(core, request, "restart_now", result="refused"):
-        await core.server.restart_now(actor=principal.user)
-    audit(core, request, "restart_now")
+    with audit_failure(ctx, request, "restart_now", result="refused"):
+        await ctx.server.restart_now(actor=principal.user)
+    audit(ctx, request, "restart_now")
     return {
         "result": "REQUESTED",
-        "state": core.server.state.value,
+        "state": ctx.server.state.value,
         "detail": "The server is starting. It is online once startup completes.",
     }
 
 
 @router.post("/server/cancel-restart")
 async def cancel_restart(
-    request: Request, principal: Principal = Depends(require_auth), core=Depends(get_core)
+    request: Request,
+    principal: Principal = Depends(require(SERVER_CONTROL)),
+    ctx=Depends(get_server),
 ):
     """Stop the automatic-restart countdown. The server stays stopped."""
-    with audit_failure(core, request, "cancel_restart", result="refused"):
-        await core.server.cancel_pending_restart(actor=principal.user)
-    audit(core, request, "cancel_restart")
+    with audit_failure(ctx, request, "cancel_restart", result="refused"):
+        await ctx.server.cancel_pending_restart(actor=principal.user)
+    audit(ctx, request, "cancel_restart")
     return {
         "result": "VERIFIED",
-        "state": core.server.state.value,
+        "state": ctx.server.state.value,
         "detail": "Automatic restart cancelled. The server will stay stopped.",
     }
 
 
 @router.post("/server/clear-crash-block")
 async def clear_crash_block(
-    request: Request, principal: Principal = Depends(require_auth), core=Depends(get_core)
+    request: Request,
+    principal: Principal = Depends(require(SERVER_CONTROL)),
+    ctx=Depends(get_server),
 ):
-    core.server.clear_crash_block()
-    audit(core, request, "clear_crash_block")
-    return {"ok": True, "auto_restart_blocked": core.server.auto_restart_blocked}
+    ctx.server.clear_crash_block()
+    audit(ctx, request, "clear_crash_block")
+    return {"ok": True, "auto_restart_blocked": ctx.server.auto_restart_blocked}
 
 
 @router.post("/server/command")
 async def server_command(
     payload: CommandRequest,
     request: Request,
-    principal: Principal = Depends(require_auth),
-    core=Depends(get_core),
+    principal: Principal = Depends(require(CONSOLE_SEND)),
+    ctx=Depends(get_server),
 ):
     validated = validate(payload.command, confirm=payload.confirm)
-    await core.server.send_command(validated.raw)
-    audit(core, request, "console_command", target=validated.name, detail=validated.raw)
+    await ctx.server.send_command(validated.raw)
+    audit(ctx, request, "console_command", target=validated.name, detail=validated.raw)
     return {
         "result": "SENT",
         "detail": "The command was written to the Minecraft console. Read the console "
@@ -185,9 +204,9 @@ async def server_command(
 
 
 @router.get("/server/command/check")
-async def check_command(command: str, principal: Principal = Depends(require_auth)):
+async def check_command(command: str, principal: Principal = Depends(require(CONSOLE_SEND))):
     """Ask whether a command needs confirmation, before sending it."""
-    from ..minecraft.commands import describe_danger
+    from ...minecraft.commands import describe_danger
 
     try:
         validate(command, confirm=True)
@@ -199,36 +218,40 @@ async def check_command(command: str, principal: Principal = Depends(require_aut
 
 @router.get("/performance")
 async def performance(
-    hours: float = 6, principal: Principal = Depends(require_auth), core=Depends(get_core)
+    hours: float = 6, principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):
     return {
-        "current": core.metrics.snapshot(),
-        "history": core.metrics.history(hours=max(0.1, min(hours, 168))),
-        "thresholds": core.config.thresholds.to_dict(),
-        "storage": await core.metrics.storage(),
+        "current": ctx.metrics.snapshot(),
+        "history": ctx.metrics.history(hours=max(0.1, min(hours, 168))),
+        "thresholds": ctx.config.thresholds.to_dict(),
+        "storage": await ctx.metrics.storage(),
     }
 
 
 @router.get("/health/server")
-async def server_health(principal: Principal = Depends(require_auth), core=Depends(get_core)):
+async def server_health(
+    principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
+):
     # online_count() returns None when the player list has not been
     # established, and the health page renders that as unknown.
     # The checks include `tailscale status` and a TCP connect, so they run
     # in a worker thread.
-    return await asyncio.to_thread(core.metrics.health, player_count=core.players.online_count())
+    return await asyncio.to_thread(ctx.metrics.health, player_count=ctx.players.online_count())
 
 
 @router.get("/worlds")
-async def worlds(principal: Principal = Depends(require_auth), core=Depends(get_core)):
-    return {"worlds": core.backups.world_summary()}
+async def worlds(principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)):
+    return {"worlds": ctx.backups.world_summary()}
 
 
 @router.post("/worlds/save")
 async def save_worlds(
-    request: Request, principal: Principal = Depends(require_auth), core=Depends(get_core)
+    request: Request,
+    principal: Principal = Depends(require(SERVER_CONTROL)),
+    ctx=Depends(get_server),
 ):
-    await core.server.send_command("save-all flush")
-    audit(core, request, "world_save")
+    await ctx.server.send_command("save-all flush")
+    audit(ctx, request, "world_save")
     return {
         "result": "REQUESTED",
         "detail": "save-all flush was written to the server console. Minecraft does not "
@@ -237,19 +260,21 @@ async def save_worlds(
 
 
 @router.get("/tps")
-async def tps_status(principal: Principal = Depends(require_auth), core=Depends(get_core)):
-    return core.tps.status()
+async def tps_status(principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)):
+    return ctx.tps.status()
 
 
 @router.post("/tps/detect")
 async def tps_detect(
-    request: Request, principal: Principal = Depends(require_auth), core=Depends(get_core)
+    request: Request,
+    principal: Principal = Depends(require(SERVER_CONTROL)),
+    ctx=Depends(get_server),
 ):
     try:
-        result = await core.tps.redetect()
+        result = await ctx.tps.redetect()
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    audit(core, request, "tps_redetect")
+    audit(ctx, request, "tps_redetect")
     return result
 
 
@@ -257,12 +282,12 @@ async def tps_detect(
 async def tps_set_command(
     payload: TpsCommandRequest,
     request: Request,
-    principal: Principal = Depends(require_auth),
-    core=Depends(get_core),
+    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    ctx=Depends(get_server),
 ):
     try:
-        result = await core.tps.set_command(payload.command)
+        result = await ctx.tps.set_command(payload.command)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    audit(core, request, "tps_command_set", detail=payload.command or "off")
+    audit(ctx, request, "tps_command_set", detail=payload.command or "off")
     return result

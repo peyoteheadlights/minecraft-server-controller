@@ -6,7 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ...config import ConfigError
 from ...security.auth import Principal
-from ..deps import audit, get_core, require_auth
+from ...security.permissions import SETTINGS_EDIT, SETTINGS_VIEW, require
+from ..deps import audit, get_core
 from .models import MaintenanceRequest, SettingsRequest
 
 router = APIRouter()
@@ -36,7 +37,9 @@ SETTABLE_PREFIXES = (
 
 
 @router.get("/settings")
-async def get_settings(principal: Principal = Depends(require_auth), core=Depends(get_core)):
+async def get_settings(
+    principal: Principal = Depends(require(SETTINGS_VIEW)), core=Depends(get_core)
+):
     return {
         "config": core.config.as_dict(redact_secrets=True),
         "editable": list(SETTABLE_PREFIXES),
@@ -52,7 +55,7 @@ async def get_settings(principal: Principal = Depends(require_auth), core=Depend
 async def update_settings(
     payload: SettingsRequest,
     request: Request,
-    principal: Principal = Depends(require_auth),
+    principal: Principal = Depends(require(SETTINGS_EDIT)),
     core=Depends(get_core),
 ):
     applied, rejected = {}, {}
@@ -84,7 +87,7 @@ async def update_settings(
 async def set_maintenance(
     payload: MaintenanceRequest,
     request: Request,
-    principal: Principal = Depends(require_auth),
+    principal: Principal = Depends(require(SETTINGS_EDIT)),
     core=Depends(get_core),
 ):
     result = core.set_maintenance(payload.enabled, user=principal.user)
@@ -96,7 +99,7 @@ async def set_maintenance(
 async def test_notification(
     channel: str,
     request: Request,
-    principal: Principal = Depends(require_auth),
+    principal: Principal = Depends(require(SETTINGS_EDIT)),
     core=Depends(get_core),
 ):
     try:
@@ -109,6 +112,6 @@ async def test_notification(
 
 @router.get("/notifications/history")
 async def notification_history(
-    limit: int = 50, principal: Principal = Depends(require_auth), core=Depends(get_core)
+    limit: int = 50, principal: Principal = Depends(require(SETTINGS_VIEW)), core=Depends(get_core)
 ):
     return {"history": core.notifier.history(max(1, min(limit, 200)))}

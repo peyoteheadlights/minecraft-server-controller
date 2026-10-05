@@ -14,11 +14,15 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from ..backups.manager import BackupError
+from ..config import ConfigError
+from ..core import UnknownServer
+from ..jobs import JobConflict, JobNotFound
 from ..minecraft.commands import CommandError
 from ..minecraft.process import ServerError
 from ..mods.dependencies import DependencyError
 from ..mods.manager import ModError
 from ..mods.modrinth import ModrinthError
+from ..safechange import SafeChangeError
 from ..scheduler.scheduler import ScheduleError
 from ..security.auth import AuthError
 from ..security.paths import PathSafetyError
@@ -34,6 +38,11 @@ ERROR_STATUS: dict[type[Exception], int] = {
     ScheduleError: 400,
     PathSafetyError: 400,
     ModrinthError: 502,  # Modrinth failed, not the request
+    UnknownServer: 404,
+    JobNotFound: 404,
+    JobConflict: 409,  # another change is already running on that server
+    SafeChangeError: 400,
+    ConfigError: 400,
 }
 DOMAIN_ERRORS: tuple[type[Exception], ...] = tuple(ERROR_STATUS)
 
@@ -69,12 +78,12 @@ def respond_as(status: int) -> Iterator[None]:
 
 @contextmanager
 def audit_failure(
-    core, request: Request, action: str, target: str | None = None, result: str = "failed"
+    owner, request: Request, action: str, target: str | None = None, result: str = "failed"
 ) -> Iterator[None]:
     """Record a domain error raised inside the block in the audit log, then
     let it propagate to its handler."""
     try:
         yield
     except DOMAIN_ERRORS as exc:
-        audit(core, request, action, target=target, result=result, detail=str(exc))
+        audit(owner, request, action, target=target, result=result, detail=str(exc))
         raise

@@ -40,6 +40,20 @@ class BackupError(RuntimeError):
     pass
 
 
+def _unique(path: Path) -> Path:
+    """path, or path with -2, -3... added, so two backups or two restores
+    within the same second never write over each other."""
+    if not path.exists():
+        return path
+    stem, suffix = (path.stem, path.suffix) if path.suffix == ".zip" else (path.name, "")
+    number = 2
+    while True:
+        candidate = path.with_name(f"{stem}-{number}{suffix}")
+        if not candidate.exists():
+            return candidate
+        number += 1
+
+
 class BackupManager:
     def __init__(self, config, bus: EventBus, db, server, jobs: JobTracker | None = None):
         self.config = config
@@ -157,8 +171,8 @@ class BackupManager:
             raise BackupError("Nothing to back up: none of the configured folders exist")
 
         stamp = time.strftime("%Y%m%d-%H%M%S")
-        base_name = safe_filename(f"{kind}-{stamp}{('-' + name) if name else ''}.zip", ARCHIVE_EXT)
-        target = self.directory / base_name
+        target = _unique(self.directory / f"{kind}-{stamp}{('-' + name) if name else ''}.zip")
+        base_name = safe_filename(target.name, ARCHIVE_EXT)
         free = shutil.disk_usage(self.directory).free
         estimated = sum(
             sum(f.stat().st_size for f in s.rglob("*") if f.is_file() and not f.is_symlink())
@@ -498,7 +512,7 @@ class BackupManager:
                 for top in tops:
                     live = base / top
                     if live.exists():
-                        retired = base / f"{top}.replaced-{time.strftime('%Y%m%d-%H%M%S')}"
+                        retired = _unique(base / f"{top}.replaced-{time.strftime('%Y%m%d-%H%M%S')}")
                         shutil.move(str(live), str(retired))
                         replaced.append(str(retired))
                 zf.extractall(base)

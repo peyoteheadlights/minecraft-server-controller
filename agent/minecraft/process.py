@@ -740,7 +740,10 @@ class MinecraftServer:
             return  # cancelled, or "restart now" took over
         finally:
             self._restart_sleeping = False
-        await self._run_pending_restart("auto-restart")
+        try:
+            await self._run_pending_restart("auto-restart")
+        except ServerError:
+            pass  # already published as auto_restart_failed
 
     async def _run_pending_restart(self, actor: str, forced: bool = False) -> dict[str, Any]:
         """Leave RESTART_PENDING by starting the server. Only this method may

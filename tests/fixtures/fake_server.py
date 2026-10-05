@@ -1,8 +1,14 @@
-"""A stand-in for a Fabric Minecraft server, used by the test-suite.
+"""A stand-in for a Minecraft server, used by the test-suite.
 
 It prints the same console lines a real server prints, accepts the same
 commands on stdin, and can be told to crash - so start/stop/crash/restart
 logic is tested for real, without a 6 GB JVM or a real world folder.
+
+FAKE_TYPE picks which server type it imitates (fabric, quilt, forge,
+neoforge, paper, purpur or vanilla), so each type's version and loader
+line is parsed from a real console line rather than asserted about.
+FAKE_MC_VERSION sets the Minecraft version it reports, which is how a
+version change is confirmed the way a real server confirms it.
 """
 
 import os
@@ -32,6 +38,12 @@ STOP_DELAY = float(os.environ.get("FAKE_STOP_DELAY", "0"))
 # get the same "Unknown or incomplete command" reply a real server gives.
 TPS_PROVIDER = os.environ.get("FAKE_TPS_PROVIDER", "tick")
 MSPT = os.environ.get("FAKE_MSPT", "31.0")
+# Which server type this fake imitates, and the version it reports.
+SERVER_TYPE = os.environ.get("FAKE_TYPE", "fabric")
+MC_VERSION = os.environ.get("FAKE_MC_VERSION", "1.21.1")
+LOADER_VERSION = os.environ.get("FAKE_LOADER_VERSION", "")
+# Refuse to start until eula.txt says eula=true, like the real server.
+CHECK_EULA = os.environ.get("FAKE_CHECK_EULA") == "1"
 
 
 def out(msg: str) -> None:
@@ -42,8 +54,57 @@ def stamp(thread: str, level: str, msg: str) -> str:
     return f"[{time.strftime('%H:%M:%S')}] [{thread}/{level}]: {msg}"
 
 
+def eula_accepted() -> bool:
+    try:
+        with open("eula.txt", encoding="utf-8") as fh:
+            return "eula=true" in fh.read().lower()
+    except OSError:
+        return False
+
+
+def startup_lines() -> list[str]:
+    """The version and loader lines this type prints when it starts."""
+    loader = LOADER_VERSION
+    if SERVER_TYPE in ("fabric", "quilt"):
+        name = "Fabric" if SERVER_TYPE == "fabric" else "Quilt"
+        version = loader or ("0.16.5" if SERVER_TYPE == "fabric" else "0.26.0")
+        return [
+            stamp("main", "INFO", f"Loading Minecraft {MC_VERSION} with {name} Loader {version}")
+        ]
+    if SERVER_TYPE in ("forge", "neoforge"):
+        name = "MinecraftForge" if SERVER_TYPE == "forge" else "NeoForge"
+        version = loader or ("47.3.0" if SERVER_TYPE == "forge" else "21.1.9")
+        return [
+            stamp("main", "INFO", f"Starting minecraft server version {MC_VERSION}"),
+            stamp("main", "INFO", f"{name} v{version} Initialized"),
+        ]
+    if SERVER_TYPE in ("paper", "purpur"):
+        name = "Paper" if SERVER_TYPE == "paper" else "Purpur"
+        version = loader or f"{MC_VERSION}-129-main@abc1234"
+        return [
+            stamp(
+                "Server thread",
+                "INFO",
+                f"This server is running {name} version {version} "
+                f"(Implementing API version {MC_VERSION}-R0.1-SNAPSHOT) (MC: {MC_VERSION})",
+            )
+        ]
+    return [stamp("Server thread", "INFO", f"Starting minecraft server version {MC_VERSION}")]
+
+
 def main() -> int:
-    out(stamp("main", "INFO", "Loading Minecraft 1.21.1 with Fabric Loader 0.16.5"))
+    if CHECK_EULA and not eula_accepted():
+        out(
+            stamp(
+                "main",
+                "WARN",
+                "You need to agree to the EULA in order to run the server. "
+                "Go to eula.txt for more info.",
+            )
+        )
+        return 0
+    for line in startup_lines():
+        out(line)
     # Behave like Fabric: scan the mods folder in the working directory and
     # load only files ending in exactly ".jar". Anything renamed to
     # ".jar.disabled" is ignored, which is what makes the disable feature
@@ -76,7 +137,8 @@ def main() -> int:
         )
         return 1
     time.sleep(BOOT_DELAY)
-    out(stamp("Server thread", "INFO", "Starting minecraft server version 1.21.1"))
+    if SERVER_TYPE in ("fabric", "quilt"):
+        out(stamp("Server thread", "INFO", f"Starting minecraft server version {MC_VERSION}"))
     out(stamp("Server thread", "INFO", f"Starting Minecraft server on *:{configured_port()}"))
     if os.environ.get("FAKE_HANG") == "1":
         while True:

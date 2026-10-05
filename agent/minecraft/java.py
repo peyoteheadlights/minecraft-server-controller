@@ -97,6 +97,12 @@ def detect_java(java: str = "java", timeout: float = 20.0) -> JavaInfo:
     return info
 
 
+def parse_minecraft(version: str) -> tuple[int, ...] | None:
+    """A Minecraft version as numbers ("1.20.1" -> (1, 20, 1)), or None when
+    it cannot be read (a snapshot name, or nothing observed yet)."""
+    return _parse_minecraft(version)
+
+
 def _parse_minecraft(version: str) -> tuple[int, ...] | None:
     cleaned = re.match(r"^(\d+(?:\.\d+)*)", str(version or "").strip())
     if not cleaned:

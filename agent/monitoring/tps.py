@@ -226,9 +226,7 @@ class TpsMonitor:
             order = [self.configured_command() or ""]
         else:
             remembered = (self.db.get_setting(SETTING_KEY) or {}).get("command")
-            order = candidates_for(
-                self.server.mc_version, remembered, self.server.tps_candidates
-            )
+            order = candidates_for(self.server.mc_version, remembered, self.server.tps_candidates)
 
         for command in order:
             if self.server.state.value != "ONLINE":

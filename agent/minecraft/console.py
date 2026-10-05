@@ -58,11 +58,12 @@ LOADER_NAMES = {
     "paper": "Paper",
     "purpur": "Purpur",
 }
-JOIN_RE = re.compile(r"\b(?P<name>[A-Za-z0-9_]{1,16})(?:\[[^\]]*\])? joined the game")
-LEAVE_RE = re.compile(r"\b(?P<name>[A-Za-z0-9_]{1,16}) left the game")
-UUID_RE = re.compile(
-    r"UUID of player (?P<name>[A-Za-z0-9_]{1,16}) is (?P<uuid>[0-9a-fA-F-]{32,36})"
-)
+# A player name, with Floodgate's prefix for a Bedrock player ("." by
+# default) allowed in front of it. The name is always shown as printed.
+PLAYER = r"\.?[A-Za-z0-9_]{1,16}"
+JOIN_RE = re.compile(rf"(?P<name>{PLAYER})(?:\[[^\]]*\])? joined the game")
+LEAVE_RE = re.compile(rf"(?P<name>{PLAYER}) left the game")
+UUID_RE = re.compile(rf"UUID of player (?P<name>{PLAYER}) is (?P<uuid>[0-9a-fA-F-]{{32,36}})")
 STOPPING_RE = re.compile(r"(Stopping the server|Stopping server|Saving worlds|Server closed)")
 PORT_RE = re.compile(r"Starting Minecraft server on (?P<host>[^:\s]*):(?P<port>\d+)")
 MODS_LOADED_RE = re.compile(r"Loading (?P<count>\d+) mods:")

@@ -238,6 +238,14 @@ MIGRATIONS: list[tuple[int, str]] = [
         ALTER TABLE servers ADD COLUMN loader TEXT;
         """,
     ),
+    (
+        6,
+        # Which edition a player joined from. Empty for everyone seen before
+        # crossplay existed: that is Unknown, not Java.
+        """
+        ALTER TABLE players ADD COLUMN edition TEXT;
+        """,
+    ),
 ]
 
 

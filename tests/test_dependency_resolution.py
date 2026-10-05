@@ -17,7 +17,7 @@ from agent.events import EventBus
 from agent.minecraft.process import MinecraftServer
 from agent.mods.dependencies import describe_range, valid_identifier
 from agent.mods.manager import ModError, ModManager
-from agent.mods.modrinth import ModrinthError, ModrinthNotFound
+from agent.mods.modrinth import ModrinthNotFound
 
 from .test_mods import make_jar
 

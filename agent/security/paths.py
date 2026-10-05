@@ -161,6 +161,58 @@ def _system_folders() -> list[Path]:
     return found
 
 
+def check_new_server_folder(
+    value: str,
+    protected: Iterable[Path] = (),
+    registered: Iterable[tuple[str, Path]] = (),
+) -> Path:
+    """Validate a folder a new server is about to be created in.
+
+    The same rules as check_server_folder, except that the folder may not
+    exist yet (its parent must) and, if it does exist, it must be empty:
+    a new server never writes into a folder that already holds files.
+    Nothing is created here.
+    """
+    raw = (value or "").strip()
+    if not raw or "\0" in raw:
+        raise PathSafetyError("Enter the folder the new server should live in.")
+    path = Path(raw).expanduser()
+    if not path.is_absolute():
+        raise PathSafetyError(
+            "Enter the full path to the folder, for example C:\\Minecraft\\Survival"
+        )
+    if path.exists():
+        assert_not_symlink(path)
+        if not path.is_dir():
+            raise PathSafetyError(f"{path} is a file, not a folder.")
+        if any(path.iterdir()):
+            raise PathSafetyError(
+                f"{path} already has files in it. Pick an empty or new folder, or add the "
+                "existing server instead."
+            )
+    parent = path.parent
+    if not parent.is_dir():
+        raise PathSafetyError(f"{parent} doesn't exist, so the new folder can't be made there.")
+    assert_not_symlink(parent)
+    resolved = (parent.resolve() / path.name) if not path.exists() else path.resolve()
+    if resolved.parent == resolved:
+        raise PathSafetyError("A whole drive can't be a server folder; pick a folder inside it.")
+    home = Path.home().resolve()
+    if resolved == home:
+        raise PathSafetyError("Your home folder can't be a server folder; pick a folder inside it.")
+    for system in _system_folders():
+        if is_inside(system, resolved):
+            raise PathSafetyError(f"{path} is inside a system folder ({system}).")
+    for folder in protected:
+        folder = Path(folder)
+        if is_inside(folder, resolved) or is_inside(resolved, folder):
+            raise PathSafetyError(f"{path} overlaps this app's own folder {folder}.")
+    for name, folder in registered:
+        if is_inside(Path(folder), resolved) or is_inside(resolved, Path(folder)):
+            raise PathSafetyError(f"{path} overlaps the folder of the server '{name}'.")
+    return resolved
+
+
 def check_server_folder(
     value: str,
     jar: str,

@@ -12,7 +12,6 @@ from agent.core import AgentCore
 from agent.database.db import MIGRATIONS, Database
 
 from .conftest import make_server_folder
-from .test_multi_server import multi, multi_client  # noqa: F401  (fixtures)
 
 # ------------------------------------------------------------------ palette
 # Color-blindness simulation (Machado, Oliveira and Fernandes 2009, full
@@ -180,7 +179,7 @@ def test_an_older_database_gains_the_color_column(tmp_path):
         db.close()
 
 
-def test_servers_get_different_colors_that_survive_a_restart(multi):  # noqa: F811
+def test_servers_get_different_colors_that_survive_a_restart(multi):
     core = AgentCore(multi)
     try:
         first = {sid: ctx.color for sid, ctx in core.servers.items()}
@@ -195,14 +194,14 @@ def test_servers_get_different_colors_that_survive_a_restart(multi):  # noqa: F8
 
 
 # ------------------------------------------------------------------ API
-def test_the_server_list_carries_colors_and_the_palette(multi_client):  # noqa: F811
+def test_the_server_list_carries_colors_and_the_palette(multi_client):
     data = multi_client.get("/api/servers").json()
     assert all(s["color"].startswith("#") for s in data["servers"])
     assert [p["hex"] for p in data["palette"]] == [h for _i, _n, h in colors.PALETTE]
     assert data["next_color"] not in {s["color"] for s in data["servers"]}
 
 
-def test_a_server_color_can_be_changed(multi_client):  # noqa: F811
+def test_a_server_color_can_be_changed(multi_client):
     response = multi_client.put("/api/servers/creative/color", json={"color": "#112233"})
     assert response.status_code == 200, response.text
     rows = {s["id"]: s["color"] for s in multi_client.get("/api/servers").json()["servers"]}
@@ -212,14 +211,14 @@ def test_a_server_color_can_be_changed(multi_client):  # noqa: F811
     assert response.json()["color"] == "#A61888"
 
 
-def test_a_bad_color_is_refused_and_nothing_changes(multi_client):  # noqa: F811
+def test_a_bad_color_is_refused_and_nothing_changes(multi_client):
     before = multi_client.get("/api/servers").json()["servers"]
     response = multi_client.put("/api/servers/creative/color", json={"color": "red"})
     assert response.status_code == 400
     assert multi_client.get("/api/servers").json()["servers"] == before
 
 
-def test_an_added_server_takes_the_chosen_or_next_color(multi_client, tmp_path):  # noqa: F811
+def test_an_added_server_takes_the_chosen_or_next_color(multi_client, tmp_path):
     nxt = multi_client.get("/api/servers").json()["next_color"]
     folder = make_server_folder(tmp_path / "Skyblock", 25567)
     added = multi_client.post("/api/servers", json={"name": "Skyblock", "directory": str(folder)})

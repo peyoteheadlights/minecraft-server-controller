@@ -96,8 +96,7 @@ class ModManager:
         path = self.config.mods_dir
         if not self.config.server_dir_configured:
             raise ModError(
-                "The Minecraft server folder isn't set. "
-                "Set server.directory in config/config.yaml."
+                "The Minecraft server folder isn't set. Set server.directory in config/config.yaml."
             )
         path.mkdir(parents=True, exist_ok=True)
         return path
@@ -303,12 +302,13 @@ class ModManager:
             return {
                 "verdict": "likely",
                 "detail": f"Modrinth lists this build for Minecraft {mc_version}, but the "
-                f"jar's own metadata could not confirm it. That is the "
-                f"publisher's claim, not a test result.",
+                f"file's own information doesn't confirm it. That's what the "
+                f"author says, not a test.",
             }
         return {
             "verdict": "unknown",
-            "detail": "Neither the jar metadata nor Modrinth confirmed this Minecraft version.",
+            "detail": "Neither the file's own information nor Modrinth confirms this "
+            "Minecraft version.",
         }
 
     def record(
@@ -633,9 +633,7 @@ class ModManager:
         path = Path(mod.path)
         assert_not_symlink(path)
         if not is_inside(self.mods_dir, path):
-            raise PathSafetyError(
-                f"That file isn't inside the {self.server_type.content} folder."
-            )
+            raise PathSafetyError(f"That file isn't inside the {self.server_type.content} folder.")
         archived = None
         if backup:
             archived = str(self.archive(path, mod, source="removed"))
@@ -740,9 +738,7 @@ class ModManager:
         else:
             version = await self.modrinth.latest_for(project, self.server.mc_version)
         if not version:
-            raise ModError(
-                f"Modrinth has no newer {self.server_type.name} version of {mod.name}."
-            )
+            raise ModError(f"Modrinth has no newer {self.server_type.name} version of {mod.name}.")
 
         data, new_filename, sha256 = await self.modrinth.download(version)
         target = safe_join(self.mods_dir, new_filename, allowed_extensions=JAR_EXT)
@@ -813,9 +809,7 @@ class ModManager:
         if row.get("sha256"):
             actual = sha256_file(source)
             if actual != row["sha256"]:
-                raise ModError(
-                    "The saved copy has changed since it was saved, so it wasn't used."
-                )
+                raise ModError("The saved copy has changed since it was saved, so it wasn't used.")
 
         current = self.find_by_id(mod_id)
         previous_version = current.version if current else None

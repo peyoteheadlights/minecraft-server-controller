@@ -265,8 +265,7 @@ def get(type_id: str | None) -> ServerType:
     found = TYPES.get(key)
     if found is None:
         raise UnknownServerType(
-            f"'{type_id}' is not a server type this app knows. "
-            f"Use one of: {', '.join(TYPES)}."
+            f"'{type_id}' is not a server type this app knows. Use one of: {', '.join(TYPES)}."
         )
     return found
 

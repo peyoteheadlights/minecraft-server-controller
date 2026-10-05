@@ -429,7 +429,7 @@ class DependencyResolver:
         dependencies, without downloading anything."""
         wanted = self._wanted(self.analyse(), mod_ids)
         installed = self._installed_index()
-        queue = [
+        queue: list[tuple[str, list[Range], list[str], int]] = [
             (
                 mod_id,
                 [(r["range"], r["syntax"]) for r in group["required_by"]],
@@ -473,7 +473,7 @@ class DependencyResolver:
     async def _plan_step(
         self,
         mod_id: str,
-        ranges: list[str],
+        ranges: list[Range],
         chain: list[str],
         depth: int,
         installed: dict[str, Any],

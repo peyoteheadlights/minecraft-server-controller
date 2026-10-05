@@ -20,6 +20,7 @@ Nothing downloaded here is executed by this module.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import os
@@ -261,7 +262,10 @@ async def download(
                     length = response.headers.get("content-length")
                     if length and length.isdigit():
                         job.set_total(int(length), "bytes")
-                with open(temp, "wb") as fh:
+                # Opened and written in a worker thread, so a slow disk
+                # never blocks the event loop while a large jar streams in.
+                fh = await asyncio.to_thread(temp.open, "wb")
+                try:
                     async for chunk in response.aiter_bytes(CHUNK):
                         size += len(chunk)
                         if size > spec.max_bytes:
@@ -269,11 +273,13 @@ async def download(
                                 f"{spec.name} is bigger than the "
                                 f"{spec.max_bytes // (1024 * 1024)} MB limit."
                             )
-                        fh.write(chunk)
+                        await asyncio.to_thread(fh.write, chunk)
                         for digest in digests.values():
                             digest.update(chunk)
                         if job:
                             job.advance(len(chunk))
+                finally:
+                    await asyncio.to_thread(fh.close)
             finally:
                 await response.aclose()
         if spec.size is not None and size != int(spec.size):

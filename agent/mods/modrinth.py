@@ -85,7 +85,9 @@ class ModrinthClient:
         if response.status_code == 404:
             raise ModrinthNotFound("Modrinth doesn't have that.")
         if response.status_code == 429:
-            raise ModrinthError("Modrinth is busy and asked us to slow down. Try again in a minute.")
+            raise ModrinthError(
+                "Modrinth is busy and asked us to slow down. Try again in a minute."
+            )
         if response.status_code >= 500:
             raise ModrinthError("Modrinth has a problem right now. Try again later.")
         if response.status_code >= 400:
@@ -283,5 +285,7 @@ class ModrinthClient:
         except downloads.DownloadError as exc:
             raise ModrinthError(str(exc)) from exc
         if not data.startswith(b"PK"):
-            raise ModrinthError("The downloaded file isn't a mod (.jar) file, so it was thrown away.")
+            raise ModrinthError(
+                "The downloaded file isn't a mod (.jar) file, so it was thrown away."
+            )
         return data, filename, fetched.sha256

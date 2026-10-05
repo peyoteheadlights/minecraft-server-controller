@@ -108,3 +108,35 @@ class PreferencesRequest(BaseModel):
 
 class RecommendationActionRequest(BaseModel):
     action: Literal["dismiss", "snooze", "restore"]
+
+
+class VersionChangeRequest(BaseModel):
+    # Empty: keep the type this server already is.
+    type: str | None = Field(default=None, max_length=32)
+    minecraft_version: str = Field(min_length=1, max_length=64)
+    # The loader or build version, where the type picks one separately.
+    loader_version: str | None = Field(default=None, max_length=64)
+    confirm: bool = False
+    start_after: bool = False
+
+
+class CreateServerRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    # The folder to create. Must be empty or not exist yet; checked by
+    # agent.security.paths.check_new_server_folder.
+    directory: str = Field(min_length=1, max_length=400)
+    type: str = Field(max_length=32)
+    minecraft_version: str = Field(min_length=1, max_length=64)
+    loader_version: str | None = Field(default=None, max_length=64)
+    memory_mb: int | None = Field(default=None, ge=512, le=65536)
+    # A palette id or "#RRGGBB". Empty: the next color no server uses.
+    color: str | None = Field(default=None, max_length=16)
+    # True only when the person ticked the box themselves. The agent never
+    # accepts Minecraft's rules on their behalf.
+    eula_accepted: bool = False
+
+
+class CrossplayRequest(BaseModel):
+    enabled: bool
+    # The UDP port Bedrock players use. Empty: the port manager picks a free one.
+    port: int | None = Field(default=None, ge=1, le=65535)

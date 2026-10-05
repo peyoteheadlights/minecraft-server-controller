@@ -1,12 +1,83 @@
 import { api } from "../api.js";
 import { refreshStatus } from "../live.js";
+import { render } from "../nav.js";
+import { loadServers, serverName } from "../servers.js";
 import { renderers, state } from "../state.js";
-import { card, el, loadInto, table, toast } from "../ui.js";
+import { card, confirmDialog, el, loadInto, table, toast } from "../ui.js";
+
+// Keys that belong to the selected server (saved with its own settings);
+// every other key is the agent's.
+const SERVER_KEYS = /^(monitor\.|server\.)/;
+
+function serversCard() {
+  const name = el("input", { id: "add-server-name", maxlength: "60", placeholder: "Creative" });
+  const folder = el("input", { id: "add-server-folder", maxlength: "400",
+    placeholder: "C:\\Minecraft\\Creative", class: "mono" });
+  const jar = el("input", { id: "add-server-jar", maxlength: "180",
+    placeholder: "fabric-server-launch.jar or server.jar" });
+  const rows = state.servers.map((s) => [
+    s.name,
+    el("span", { class: "mono" }, s.directory || "-"),
+    s.default ? "first server" : "",
+    el("button", {
+      class: "btn small danger",
+      disabled: state.servers.length < 2 ? "disabled" : false,
+      title: state.servers.length < 2 ? "The last server cannot be removed" : null,
+      onclick: async () => {
+        const ok = await confirmDialog({
+          title: `Remove ${s.name} from the list?`,
+          body: "The agent stops watching this server. Its folder, world, mods and backups "
+            + "are not deleted or moved, and it can be added again later.",
+          confirmLabel: "Remove from list", danger: true,
+        });
+        if (!ok) return;
+        try {
+          await api(`/servers/${encodeURIComponent(s.id)}`, { method: "DELETE" });
+          toast(`${s.name} removed from the list. Its folder was not touched.`);
+          await loadServers();
+          render();
+        } catch (err) { toast(err.message, "error"); }
+      },
+    }, "Remove"),
+  ]);
+  return card("Servers",
+    table(["Name", "Folder", "", ""], rows),
+    el("h3", { class: "subheading" }, "Add a server"),
+    el("p", { class: "hint" },
+      "Point the agent at a folder that already holds a Minecraft server. Nothing in the "
+      + "folder is changed and the server is not started."),
+    el("div", { class: "grid cols-3" },
+      el("div", { class: "field" }, el("label", { for: "add-server-name" }, "Name"), name),
+      el("div", { class: "field" }, el("label", { for: "add-server-folder" }, "Folder"), folder),
+      el("div", { class: "field" }, el("label", { for: "add-server-jar" }, "Server jar (optional)"), jar)),
+    el("button", {
+      class: "btn small",
+      onclick: async () => {
+        try {
+          const result = await api("/servers", {
+            method: "POST",
+            body: { name: name.value.trim(), directory: folder.value.trim(), jar: jar.value.trim() },
+          });
+          toast(`Added ${result.server.name}`);
+          for (const warning of result.warnings || []) toast(warning, "warn", 9000);
+          await loadServers();
+          render();
+        } catch (err) { toast(err.message, "error", 9000); }
+      },
+    }, "Add server"));
+}
 
 renderers.settings = (page) => loadInto(page, async () => {
-  const data = await api("/settings");
+  await loadServers();
+  const [data, own] = await Promise.all([
+    api("/settings"),
+    api(`/servers/${encodeURIComponent(state.serverId)}/settings`),
+  ]);
   const config = data.config;
+  // The selected server's values, including its own overrides.
+  config.monitor = own.monitor;
   const holder = el("div");
+  holder.append(serversCard());
   const pending = {};
   const track = (key, input, parse = (v) => v) => {
     input.addEventListener("change", () => { pending[key] = parse(input.value ?? input.checked); });
@@ -25,12 +96,13 @@ renderers.settings = (page) => loadInto(page, async () => {
     return el("label", { class: "check-row pad-y" }, input, label);
   };
 
-  holder.append(card("Crash handling and restarts",
+  holder.append(el("div", { class: "gap-section" }, card(state.servers.length > 1
+    ? `Crash handling and restarts: ${serverName(state.serverId)}` : "Crash handling and restarts",
     el("div", { class: "grid cols-3" },
       el("div", {}, checkField("monitor.auto_restart", "Restart automatically after a crash", config.monitor.auto_restart)),
       numberField("monitor.restart_delay", "Delay before restart (seconds)", config.monitor.restart_delay),
       numberField("monitor.max_crashes", "Stop retrying after this many crashes", config.monitor.max_crashes,
-        `within ${config.monitor.crash_window_minutes} minutes`))));
+        `within ${config.monitor.crash_window_minutes} minutes`)))));
 
   holder.append(el("div", { class: "gap-section" }, card("Alert thresholds",
     el("div", { class: "grid cols-3" },
@@ -144,12 +216,25 @@ renderers.settings = (page) => loadInto(page, async () => {
       class: "btn primary",
       onclick: async () => {
         if (!Object.keys(pending).length) { toast("Nothing changed"); return; }
+        const mine = {}, agent = {};
+        const several = state.servers.length > 1;
+        for (const [key, value] of Object.entries(pending)) {
+          // With one server its settings stay where they always were.
+          (several && SERVER_KEYS.test(key) ? mine : agent)[key] = value;
+        }
         try {
-          const result = await api("/settings", { method: "PUT", body: { updates: pending } });
-          toast(`Saved ${Object.keys(result.applied).length} setting(s)`);
-          if (Object.keys(result.rejected).length) {
-            toast(`Rejected: ${Object.keys(result.rejected).join(", ")}`, "warn");
+          const results = [];
+          if (Object.keys(mine).length) {
+            results.push(await api(`/servers/${encodeURIComponent(state.serverId)}/settings`,
+              { method: "PUT", body: { updates: mine } }));
           }
+          if (Object.keys(agent).length) {
+            results.push(await api("/settings", { method: "PUT", body: { updates: agent } }));
+          }
+          const applied = results.reduce((n, r) => n + Object.keys(r.applied).length, 0);
+          const rejected = results.flatMap((r) => Object.keys(r.rejected));
+          toast(`Saved ${applied} setting(s)`);
+          if (rejected.length) toast(`Rejected: ${rejected.join(", ")}`, "warn");
         } catch (err) { toast(err.message, "error"); }
       },
     }, "Save settings"),

@@ -6,6 +6,10 @@ Rules that do not bend:
   * a backup is verified (zip integrity + SHA-256) before it is restored
   * the server is stopped before a restore, and only started again if asked
   * retention never touches the live world, only files under the backup folder
+
+Creating and restoring run as jobs (agent/jobs.py), so the dashboard shows
+their real progress and a server never runs two at once. Restoring goes
+through the safe-change routine (agent/safechange.py).
 """
 
 from __future__ import annotations
@@ -18,10 +22,14 @@ import shutil
 import time
 import zipfile
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..events import Event, EventBus
+from ..safechange import SafeChange, run_safe_change
 from ..security.paths import PathSafetyError, is_inside, safe_existing, safe_filename
+
+if TYPE_CHECKING:
+    from ..jobs import JobHandle, JobTracker
 
 log = logging.getLogger("msc.backups")
 
@@ -33,11 +41,12 @@ class BackupError(RuntimeError):
 
 
 class BackupManager:
-    def __init__(self, config, bus: EventBus, db, server):
+    def __init__(self, config, bus: EventBus, db, server, jobs: JobTracker | None = None):
         self.config = config
         self.bus = bus
         self.db = db
         self.server = server
+        self.jobs = jobs
         self._running = False
 
     @property
@@ -66,34 +75,45 @@ class BackupManager:
                 digest.update(chunk)
         return digest.hexdigest()
 
-    def _zip_sync(self, target: Path, sources: list[Path], base: Path) -> tuple[int, int]:
+    @staticmethod
+    def _collect(sources: list[Path]) -> list[Path]:
+        """Every file a backup of ``sources`` will hold."""
+        files: list[Path] = []
+        for source in sources:
+            if source.is_file():
+                files.append(source)
+                continue
+            for root, dirs, names in os.walk(source, followlinks=False):
+                dirs[:] = [d for d in dirs if not os.path.islink(os.path.join(root, d))]
+                for name in names:
+                    full = Path(root) / name
+                    if full.is_symlink():
+                        continue
+                    # session.lock is held open by the JVM on Windows
+                    if name in ("session.lock",):
+                        continue
+                    files.append(full)
+        return files
+
+    def _zip_sync(
+        self, target: Path, files: list[Path], base: Path, progress=None
+    ) -> tuple[int, int]:
         compression = (
             zipfile.ZIP_DEFLATED
             if self.config.backups.compression != "store"
             else zipfile.ZIP_STORED
         )
-        files = 0
+        written = 0
         with zipfile.ZipFile(target, "w", compression=compression, allowZip64=True) as zf:
-            for source in sources:
-                if source.is_file():
-                    zf.write(source, source.relative_to(base))
-                    files += 1
-                    continue
-                for root, dirs, names in os.walk(source, followlinks=False):
-                    dirs[:] = [d for d in dirs if not os.path.islink(os.path.join(root, d))]
-                    for name in names:
-                        full = Path(root) / name
-                        if full.is_symlink():
-                            continue
-                        # session.lock is held open by the JVM on Windows
-                        if name in ("session.lock",):
-                            continue
-                        try:
-                            zf.write(full, full.relative_to(base))
-                            files += 1
-                        except (OSError, ValueError) as exc:
-                            log.warning("skipping %s: %s", full, exc)
-        return files, target.stat().st_size
+            for full in files:
+                try:
+                    zf.write(full, full.relative_to(base))
+                    written += 1
+                except (OSError, ValueError) as exc:
+                    log.warning("skipping %s: %s", full, exc)
+                if progress:
+                    progress(1)
+        return written, target.stat().st_size
 
     # ------------------------------------------------------------------
     async def create(
@@ -103,9 +123,35 @@ class BackupManager:
         includes: list[str] | None = None,
         user: str = "system",
         note: str | None = None,
+        job: JobHandle | None = None,
+    ) -> dict[str, Any]:
+        """Create and verify a backup. Runs as a job of its own unless it is
+        one step of another job (``job`` given)."""
+        if job is None and self.jobs is not None:
+            created, result = await self.jobs.run(
+                "backup",
+                f"Backing up {self.config.server.name}",
+                lambda handle: self._create(name, kind, includes, user, note, handle),
+                server_id=self.server.server_id,
+                risky=True,
+                user=user,
+            )
+            return {**result, "job_id": created.id}
+        return await self._create(name, kind, includes, user, note, job)
+
+    async def _create(
+        self,
+        name: str | None,
+        kind: str,
+        includes: list[str] | None,
+        user: str,
+        note: str | None,
+        job: JobHandle | None,
     ) -> dict[str, Any]:
         if self._running:
             raise BackupError("A backup is already running")
+        if job:
+            job.step("Finding the files to back up")
         sources = self._sources(includes)
         if not sources:
             raise BackupError("Nothing to back up: none of the configured folders exist")
@@ -141,9 +187,18 @@ class BackupManager:
                 except Exception:
                     log.warning("could not flush the world before backup", exc_info=True)
 
+            members = await asyncio.to_thread(self._collect, sources)
+            if job:
+                job.step("Writing the backup", total=len(members), unit="files")
             files, size = await asyncio.to_thread(
-                self._zip_sync, target, sources, self.config.server_dir
+                self._zip_sync,
+                target,
+                members,
+                self.config.server_dir,
+                job.advance if job else None,
             )
+            if job:
+                job.step("Checking the backup")
             digest = await asyncio.to_thread(self._sha256, target)
         except Exception as exc:
             target.unlink(missing_ok=True)
@@ -342,33 +397,94 @@ class BackupManager:
         start_after: bool = False,
         safety_backup: bool = True,
     ) -> dict[str, Any]:
-        """Stop, verify, safety-backup, restore. The current world is never
-        removed before the safety backup exists."""
+        """Stop, verify, safety-backup, restore, check. The current world is
+        never removed before the safety backup exists, and a restore whose
+        result does not check out is put back from that safety backup."""
         row = self.get(backup_id)
         check = self.verify(backup_id)
         if not check["ok"]:
             raise BackupError(f"This backup did not verify: {check['reason']}")
-
-        was_running = self.server.running
-        if was_running:
-            await self.bus.publish(
-                Event(type="restore_stopping", message="Stopping the server before restoring")
-            )
-            from ..minecraft.state import ExitReason
-
-            await self.server.stop(actor=user, reason=ExitReason.USER_STOP)
-
-        safety = None
-        if safety_backup:
-            safety = await self.create(
-                name="pre-restore",
-                kind="safety",
-                user=user,
-                note=f"Automatic safety copy before restoring {row['name']}",
-            )
-
         path = Path(row["path"])
         base = self.config.server_dir
+
+        async def change(job: JobHandle | None) -> dict[str, Any]:
+            replaced = await asyncio.to_thread(self._extract, path, base)
+            return {"restored": row["name"], "replaced": replaced}
+
+        async def verify_result(result: dict[str, Any]) -> tuple[bool, str]:
+            return await asyncio.to_thread(self._verify_restored, path, base)
+
+        plan = SafeChange(
+            title=f"Restoring {row['name']}",
+            change=change,
+            check=verify_result,
+            start_after=start_after,
+            take_backup=safety_backup,
+            backup_name="pre-restore",
+            backup_note=f"Automatic safety copy before restoring {row['name']}",
+            undo_on_change_error=False,
+        )
+
+        async def run(job: JobHandle | None) -> dict[str, Any]:
+            try:
+                return await run_safe_change(self.server, self, plan, job=job, user=user)
+            except Exception as exc:
+                await self.bus.publish(
+                    Event(type="restore_failed", level="error", message=f"Restore failed: {exc}")
+                )
+                if isinstance(exc, BackupError):
+                    raise
+                raise BackupError(f"Restore failed: {exc}") from exc
+
+        job_id = None
+        if self.jobs is not None:
+            created, result = await self.jobs.run(
+                "restore",
+                f"Restoring {row['name']} on {self.config.server.name}",
+                run,
+                server_id=self.server.server_id,
+                risky=True,
+                user=user,
+            )
+            job_id = created.id
+        else:
+            result = await run(None)
+        safety = result["safety_backup"]
+        self.db.audit(
+            "backup_restore",
+            user=user,
+            target=row["name"],
+            detail=f"safety={safety['name'] if safety else 'none'}; verified",
+        )
+        await self.bus.publish(
+            Event(
+                type="backup_restored",
+                level="warn",
+                message=f"Restored {row['name']}",
+                data={
+                    "backup": row["name"],
+                    "safety_backup": safety["name"] if safety else None,
+                    "replaced": result["replaced"],
+                },
+            )
+        )
+        return {
+            **result,
+            "verified": True,
+            "verification": result["check"],
+            "job_id": job_id,
+        }
+
+    async def put_back(self, backup_id: int) -> list[str]:
+        """Extract a backup over the server folder with no safety copy of its
+        own. Only the safe-change routine uses this, to undo a failed change
+        from the safety backup it has just taken."""
+        row = self.get(backup_id)
+        return await asyncio.to_thread(self._extract, Path(row["path"]), self.config.server_dir)
+
+    def _extract(self, path: Path, base: Path) -> list[str]:
+        """Move the archive's top-level folders aside, then extract it. If
+        anything fails, what was moved aside is put back."""
         replaced: list[str] = []
         try:
             with zipfile.ZipFile(path) as zf:
@@ -388,73 +504,15 @@ class BackupManager:
                 zf.extractall(base)
         except Exception as exc:
             # put back whatever was moved aside
-            for retired in replaced:
-                original = Path(retired)
+            for moved in replaced:
+                original = Path(moved)
                 name = original.name.split(".replaced-")[0]
                 if original.exists() and not (base / name).exists():
                     shutil.move(str(original), str(base / name))
-            await self.bus.publish(
-                Event(type="restore_failed", level="error", message=f"Restore failed: {exc}")
-            )
             raise BackupError(
                 f"Restore failed and the previous files were put back: {exc}"
             ) from exc
-
-        # Check the files are actually back before reporting success.
-        restored_ok, restore_detail = self._verify_restored(path, base)
-        if not restored_ok:
-            await self.bus.publish(
-                Event(
-                    type="restore_failed",
-                    level="error",
-                    message=f"Restore could not be verified: {restore_detail}",
-                )
-            )
-            raise BackupError(
-                f"The archive was extracted but the result could not be verified: {restore_detail}"
-            )
-        self.db.audit(
-            "backup_restore",
-            user=user,
-            target=row["name"],
-            detail=f"safety={safety['name'] if safety else 'none'}; verified",
-        )
-        await self.bus.publish(
-            Event(
-                type="backup_restored",
-                level="warn",
-                message=f"Restored {row['name']}",
-                data={
-                    "backup": row["name"],
-                    "safety_backup": safety["name"] if safety else None,
-                    "replaced": replaced,
-                },
-            )
-        )
-        started = False
-        if start_after:
-            from ..minecraft.process import ServerError
-
-            try:
-                await self.server.start(actor=user)
-                started = await self.server.wait_online()
-            except ServerError as exc:
-                await self.bus.publish(
-                    Event(
-                        type="restore_start_failed",
-                        level="error",
-                        message=f"The server did not start after restoring: {exc}",
-                    )
-                )
-        return {
-            "restored": row["name"],
-            "safety_backup": safety,
-            "replaced": replaced,
-            "server_started": started,
-            "was_running": was_running,
-            "verified": True,
-            "verification": restore_detail,
-        }
+        return replaced
 
     def _verify_restored(self, archive: Path, base: Path) -> tuple[bool, str]:
         """Confirm the extracted files are actually on disk and the right size.

@@ -545,7 +545,7 @@ export const STRINGS = /* strings-table */ {
   "console.sending": ["Sending…", "Sending…"],
   "console.run_title": ["Run {command}?", "Run {command}?"],
   "console.run": ["Run", "Run"],
-  "console.hint": ["Commands go straight to the server, as if typed in its window.", "Sent to server stdin; output appears above."],
+  "console.hint": ["Commands go to the Minecraft server only, never to Windows. Ones that affect players ask first.", "Sent to the server's console only, never to Windows. Commands that affect players ask for confirmation."],
   "console.load_more": ["Show older lines", "Load more"],
 
   "mods.running_notice": ["The server is {state}. Stop it to add, update or remove mods.", "Server is {state}: mod changes need it stopped."],

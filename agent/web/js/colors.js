@@ -175,14 +175,29 @@ export function applyServerColor(baseHex) {
   setFavicon(baseHex);
 }
 
-/* The browser tab's icon: the app's cube on the server's color. */
-export function setFavicon(baseHex) {
+/* A server's badge: its color as a fill, with text that reads on it. */
+export function badgeColors(baseHex) {
+  const base = rgb(baseHex);
+  if (!base) return null;
+  const { fill, text } = fillWithText(base);
+  return { fill: hex(fill), text: hex(text) };
+}
+
+/* The browser tab's icon: the app's cube on the server's color, with the
+   server's state as a dot in the corner when it has one (dotHex). */
+let lastFavicon = "";
+export function setFavicon(baseHex, dotHex = null) {
   const base = rgb(baseHex);
   const fill = base ? fillWithText(base) : { fill: [60, 60, 67], text: WHITE };
+  const dot = rgb(dotHex);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">`
     + `<rect width="32" height="32" rx="8" fill="${hex(fill.fill)}"/>`
     + `<g fill="none" stroke="${hex(fill.text)}" stroke-width="2.2" stroke-linejoin="round">`
-    + `<path d="M16 5.5l9.5 5.2v10.6L16 26.5l-9.5-5.2V10.7z"/><path d="M6.8 11 16 16l9.2-5M16 16v10"/></g></svg>`;
+    + `<path d="M16 5.5l9.5 5.2v10.6L16 26.5l-9.5-5.2V10.7z"/><path d="M6.8 11 16 16l9.2-5M16 16v10"/></g>`
+    + (dot ? `<circle cx="25" cy="25" r="6.5" fill="${hex(dot)}" stroke="#FFFFFF" stroke-width="2"/>` : "")
+    + `</svg>`;
+  if (svg === lastFavicon) return;
+  lastFavicon = svg;
   let link = document.querySelector("link[rel=icon]");
   if (!link) {
     link = document.createElement("link");

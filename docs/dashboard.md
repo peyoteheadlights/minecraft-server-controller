@@ -9,10 +9,18 @@ Each server has a tab across the top, like the dividers in a folder, with
 **All servers** on the left and **+** (add a server) on the right. The whole
 page under a tab takes that server's color: the header, the page itself and
 its cards are all tinted with it, and its buttons are filled with it. The
-server's own pages (Overview, Players, Backups, Mods, Schedules,
-Performance, Console, Events, Crashes, Server settings) are listed down the
-left side of the page, under its name. The browser tab's icon takes the
-server's color too. Left/Right arrow keys move between tabs, Home and End
+server's own pages are listed down the left side of the page, under its
+name, in three groups: **Right now** (Overview, Players, Console,
+Performance), **Look after it** (Backups, Mods, Schedules, Server settings)
+and **What happened** (Events, Crashes). Technical mode calls them Live,
+Manage and History.
+
+Each server has a badge: its initials on its color. It is on the server's
+tab, with a dot on its corner for the server's state, before its name at the
+top of the page, and on its card under **All servers**. The browser tab
+shows the state too: its title names it (for example "Survival (Online) ·
+Overview") and its icon, in the server's color, gets a green, amber or red
+dot, so you can keep an eye on a server from another tab. Left/Right arrow keys move between tabs, Home and End
 jump to the ends, and the dashboard remembers the last server you looked at.
 
 Every server has one of twelve colors, or any color you pick, set in
@@ -23,10 +31,12 @@ contrast keeps the tint faint.
 
 If another server crashes, its tab gets a red **!**, and a message names it
 with a button to switch to it. **All servers** shows one card per server with
-its state, players, uptime and port.
+its state, players, uptime and port; a crashed server's card is outlined in
+red.
 
 On a phone, the tabs scroll sideways, and the page list becomes a row under
-the server's name that scrolls sideways too; nothing on a page is wider than
+the server's name that scrolls sideways too, with thin lines between the
+groups; nothing on a page is wider than
 the screen.
 
 ## Settings for this app (the gear)

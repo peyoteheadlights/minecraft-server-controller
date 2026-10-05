@@ -3,7 +3,8 @@ import { signOut } from "./auth.js";
 import { navigate, render, renderRail } from "./nav.js";
 import { appendConsoleLine, renderConsoleLines } from "./pages/console.js";
 import { loadLatestCrash, overviewConsoleAppend, overviewUpdate } from "./pages/overview.js";
-import { handleJobEvent, loadServers, selectServer, serverName, updateJobs } from "./servers.js";
+import { setFavicon } from "./colors.js";
+import { handleJobEvent, loadServers, selectServer, serverName, serverRow, updateJobs } from "./servers.js";
 import { stateInfo, state } from "./state.js";
 import { t } from "./strings.js";
 import { $, announce, el, known, toast } from "./ui.js";
@@ -223,5 +224,24 @@ export function updateStatusViews() {
     line.replaceChildren(...parts);
   }
   updateJobs();
+  updateTitle();
   if (state.page === "dashboard") overviewUpdate();
+}
+
+/* The browser tab says how the server is doing, so it can be checked from
+   another tab: the state in the title, and a status dot on the icon. */
+export function updateTitle() {
+  const page = state.pageTitle || t("app.name");
+  const row = state.scope === "server" ? serverRow() : null;
+  if (!row) {
+    document.title = `${page} · ${t("app.name")}`;
+    setFavicon(null);
+    return;
+  }
+  const name = state.status && state.status.state;
+  const info = name ? stateInfo(name) : null;
+  document.title = info && name !== "UNKNOWN" ? `${row.name} (${t(info.label)}) · ${page}` : `${row.name} · ${page}`;
+  const dot = info && info.tone !== "neutral"
+    ? getComputedStyle(document.documentElement).getPropertyValue(`--${info.tone}`).trim() : null;
+  setFavicon(row.color, dot);
 }

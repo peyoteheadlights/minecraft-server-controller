@@ -39,7 +39,7 @@ from .api.routes import router
 from .api.ws import ws_router
 from .config import Config
 from .core import AgentCore
-from .datafolder import MoveResult, apply_at_startup
+from .datafolder import MoveResult, apply_at_startup, use_data_in_use
 from .diagnostics import run_diagnostics
 from .events import Event
 from .logging_setup import setup_logging
@@ -415,7 +415,12 @@ def _main(argv: list[str] | None = None) -> int:
         config.set("tls.enabled", False)
 
     data_move = None
-    if not args.check:
+    data_plan = None
+    if args.check:
+        # Read-only: report on the folder actually in use, create nothing in
+        # the new one before the agent has copied the old one there.
+        data_plan = use_data_in_use(config)
+    else:
         # Before anything creates folders in the new data folder or reads the
         # certificate: an old <server>/mcsc-data is copied there once.
         data_move = apply_at_startup(config)
@@ -434,7 +439,7 @@ def _main(argv: list[str] | None = None) -> int:
     port = config.network.port
 
     if args.check:
-        report = run_diagnostics(config, deep=args.deep)
+        report = run_diagnostics(config, deep=args.deep, data_plan=data_plan)
         if args.json:
             import json
 

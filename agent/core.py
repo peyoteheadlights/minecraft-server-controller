@@ -389,25 +389,30 @@ class AgentCore:
                 raise ServerError(f"Stop {ctx.name} before removing it from the list")
             if self.jobs.risky_job(server_id):
                 raise ServerError(f"Wait for {ctx.name}'s running job to finish first")
+            name, directory = ctx.name, str(ctx.config.server_dir)
+            # Stop supervising first: the managers still read this server's
+            # settings while they shut down.
+            await ctx.stop()
             entry = self.config.remove_server(server_id)
             try:
                 self.config.save()
             except OSError as exc:
                 self.config.add_server(entry)
+                self.servers[server_id] = restored = ServerContext(self, server_id)
+                await restored.start()
                 raise ConfigError(f"The server list could not be saved: {exc}") from exc
-            await ctx.stop()
             del self.servers[server_id]
         self.db.audit("server_remove", user=user, target=server_id, server_id=server_id)
         await self.bus.publish(
             Event(
                 type="server_removed",
                 level="warn",
-                message=f"Removed {ctx.name} from the list. Its folder was not touched.",
-                data={"server_name": ctx.name, "directory": str(ctx.config.server_dir)},
+                message=f"Removed {name} from the list. Its folder was not touched.",
+                data={"server_name": name, "directory": directory},
                 server_id=server_id,
             )
         )
-        return {"removed": server_id, "name": ctx.name, "directory": str(ctx.config.server_dir)}
+        return {"removed": server_id, "name": name, "directory": directory}
 
     # ------------------------------------------------------------------
     def agent_status(self, ctx: ServerContext | None = None) -> dict[str, Any]:

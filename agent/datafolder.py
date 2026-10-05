@@ -368,6 +368,52 @@ def _point_tls_at_copies(config, remap: _Remapper) -> list[str]:
     return warnings
 
 
+def _switch(staging: Path, target: Path, database: str) -> None:
+    """Move every staged entry except the database into the target folder.
+    Checks every name first, so nothing is moved when anything would clash.
+    Empty folders and the layout file (left by a tool that ran before this
+    first start) are not data and make way."""
+    from .config import LAYOUT_FILE
+
+    entries = [e for e in sorted(staging.iterdir()) if e.name != database]
+    for entry in entries:
+        destination = target / entry.name
+        if not destination.exists():
+            continue
+        if destination.is_dir() and not destination.is_symlink() and not any(destination.iterdir()):
+            continue
+        if entry.name in (LAYOUT_FILE, RECORD_FILE) and destination.is_file():
+            continue
+        raise MoveError(f"{destination} already exists, so nothing was replaced")
+    for entry in entries:
+        destination = target / entry.name
+        if destination.is_dir() and not destination.is_symlink():
+            destination.rmdir()
+        elif destination.is_file():
+            destination.unlink()
+        os.replace(entry, destination)
+
+
+def _write_record(
+    target: Path, plan: MovePlan, source: Path, files: int, size: int, tables: dict[str, int]
+) -> None:
+    from .config import LAYOUT_FILE, LAYOUT_VERSION
+
+    record = {
+        "moved_from": str(source),
+        "moved_at": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
+        "files": files,
+        "bytes": size,
+        "database_rows": tables,
+        "note": "The old folder was left in place and was not changed.",
+    }
+    (target / RECORD_FILE).write_text(json.dumps(record, indent=2), encoding="utf-8")
+    (target / LAYOUT_FILE).write_text(
+        json.dumps({"layout": LAYOUT_VERSION, "flat_server": plan.server_id}, indent=2),
+        encoding="utf-8",
+    )
+
+
 def run_move(config, plan: MovePlan) -> MoveResult:
     """Copy, verify, then switch. The old folder is only read."""
     if plan.status != "pending" or plan.source is None:
@@ -392,12 +438,12 @@ def run_move(config, plan: MovePlan) -> MoveResult:
             size += _copy_verified(path, staging / relative)
             copied += 1
         _rewrite_paths(staging / database, _Remapper(source, target))
-        # Switch: move each staged entry into the target folder.
-        for entry in sorted(staging.iterdir()):
-            destination = target / entry.name
-            if destination.exists():
-                raise MoveError(f"{destination} already exists, so nothing was replaced")
-            os.replace(entry, destination)
+        _switch(staging, target, database)
+        result.files, result.bytes = copied, size
+        _write_record(target, plan, source, copied, size, result.tables)
+        # The database goes in last: until it is there, the next start sees
+        # an unfinished move and simply copies again.
+        os.replace(staging / database, target / database)
         staging.rmdir()
     except Exception as exc:
         shutil.rmtree(staging, ignore_errors=True)
@@ -405,22 +451,6 @@ def run_move(config, plan: MovePlan) -> MoveResult:
             shutil.rmtree(target, ignore_errors=True)
         result.message = f"The data folder could not be copied: {exc}"
         return result
-    result.files, result.bytes = copied, size
-    record = {
-        "moved_from": str(source),
-        "moved_at": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
-        "files": copied,
-        "bytes": size,
-        "database_rows": result.tables,
-        "note": "The old folder was left in place and was not changed.",
-    }
-    (target / RECORD_FILE).write_text(json.dumps(record, indent=2), encoding="utf-8")
-    from .config import LAYOUT_FILE, LAYOUT_VERSION
-
-    (target / LAYOUT_FILE).write_text(
-        json.dumps({"layout": LAYOUT_VERSION, "flat_server": plan.server_id}, indent=2),
-        encoding="utf-8",
-    )
     try:
         result.warnings += _point_tls_at_copies(config, _Remapper(source, target))
     except OSError as exc:
@@ -434,6 +464,17 @@ def run_move(config, plan: MovePlan) -> MoveResult:
         f"({copied} files, {size / 1024**2:.0f} MB). The old folder was left in place."
     )
     return result
+
+
+def use_data_in_use(config) -> MovePlan:
+    """For tools that run before the agent's first start after the upgrade
+    (--check, make_certs, setup): while the old folder has not been copied
+    yet, look at and write to the old folder, so nothing lands in the new
+    one ahead of the copy. Changes nothing on disk."""
+    plan = plan_move(config)
+    if plan.status in ("pending", "blocked") and plan.source is not None:
+        config.use_data_dir_for_this_run(plan.source)
+    return plan
 
 
 def apply_at_startup(config) -> MoveResult | None:

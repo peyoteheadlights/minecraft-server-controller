@@ -64,6 +64,7 @@ def test_every_recommendation_has_evidence_and_a_way_to_the_fix():
             "minecraft_version": "1.21.1",
         },
         samples=samples(60, proc_ram_mb=4000, players=3, tps=9.0),
+        crashes=[oom(1)],
     )
     found = rec.evaluate(f)
     assert len(found) == len(rec.RULES)
@@ -97,26 +98,34 @@ def test_no_backup_schedule():
 
 
 # ------------------------------------------------------------------ memory
-def test_memory_near_the_limit_for_most_of_the_hour():
-    f = facts(samples=samples(20, proc_ram_mb=1000) + samples(40, proc_ram_mb=3900))
-    found = rec.evaluate(f)
-    assert [r.id for r in found] == ["memory_near_limit"]
-    assert "40 of the last 60 minutes" in found[0].evidence
+def oom(days_ago, crash_id=1, category="OutOfMemoryError"):
+    return {"id": crash_id, "ts": NOW - days_ago * DAY, "category": category}
+
+
+def test_an_out_of_memory_crash_recommends_more_memory():
+    found = rec.evaluate(facts(crashes=[oom(0.5, 2), oom(3, 1)]))
+    assert [r.id for r in found] == ["memory_ran_out"]
+    assert "2 times in the last 7 days, last under a day ago" in found[0].evidence
     assert "4 GB" in found[0].evidence
 
 
-def test_memory_near_the_limit_only_briefly_is_fine():
-    f = facts(samples=samples(50, proc_ram_mb=1000) + samples(10, proc_ram_mb=3900))
-    assert ids(f) == []
+def test_memory_use_near_the_limit_alone_is_not_a_recommendation():
+    # Java's own overhead comes on top of -Xmx, so process memory at or
+    # above the limit is normal for a healthy server.
+    assert ids(facts(samples=samples(60, proc_ram_mb=4600))) == []
 
 
-def test_memory_is_never_judged_without_enough_measurements():
-    assert ids(facts(samples=samples(20, proc_ram_mb=4000))) == []
-    assert ids(facts(samples=samples(60, proc_ram_mb=None))) == []
+def test_old_or_other_crashes_do_not_count():
+    assert ids(facts(crashes=[oom(8)])) == []
+    assert ids(facts(crashes=[oom(1, category="MixinError")])) == []
 
 
-def test_memory_is_never_judged_without_a_known_limit():
-    assert ids(facts(memory_limit_mb=None, samples=samples(60, proc_ram_mb=9000))) == []
+def test_a_new_out_of_memory_crash_ends_a_snooze():
+    db = FakeDb()
+    rec.act(db, rec.evaluate(facts(crashes=[oom(2, 1)])), "memory_ran_out", "snooze")
+    assert rec.visible(db, rec.evaluate(facts(crashes=[oom(2, 1)])))["recommendations"] == []
+    shown = rec.visible(db, rec.evaluate(facts(crashes=[oom(0.1, 2), oom(2, 1)])))
+    assert [r["id"] for r in shown["recommendations"]] == ["memory_ran_out"]
 
 
 # ------------------------------------------------------------------ speed

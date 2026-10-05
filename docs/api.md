@@ -86,6 +86,10 @@ an estimate. A server runs one risky job at a time; a second gets 409.
 `GET /api/performance?hours=`, `GET /api/health/server`,
 `GET /api/worlds`, `POST /api/worlds/save`.
 
+`/api/performance` also takes `storage=false` to leave out the disk-use
+breakdown, which walks the whole server folder (the Overview's hover
+summaries use this).
+
 ## Backups
 
 | Method | Path | Purpose |

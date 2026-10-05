@@ -317,7 +317,7 @@ class MetricsMonitor:
             await alert(
                 "cpu",
                 "high_cpu",
-                f"CPU at {sample['cpu_percent']:.0f}% (threshold {th.cpu_percent}%)",
+                f"CPU use {sample['cpu_percent']:.0f}% (alert at {th.cpu_percent:g}%)",
                 {"value": sample["cpu_percent"], "threshold": th.cpu_percent},
                 machine=True,
             )
@@ -325,7 +325,7 @@ class MetricsMonitor:
             await alert(
                 "ram",
                 "high_ram",
-                f"RAM at {sample['ram_percent']:.0f}% "
+                f"PC memory use {sample['ram_percent']:.0f}% "
                 f"({sample['ram_used_mb'] / 1024:.1f} of {sample['ram_total_mb'] / 1024:.1f} GB)",
                 {"value": sample["ram_percent"], "threshold": th.ram_percent},
                 machine=True,
@@ -334,21 +334,23 @@ class MetricsMonitor:
             await alert(
                 "disk",
                 "low_disk",
-                f"Only {sample['disk_free_gb']:.1f} GB free (threshold {th.disk_free_gb} GB)",
+                f"Only {sample['disk_free_gb']:.1f} GB free on the server's drive "
+                f"(alert at {th.disk_free_gb:g} GB)",
                 {"value": sample["disk_free_gb"], "threshold": th.disk_free_gb},
             )
         if sample["tps"] is not None and sample["tps"] < th.tps_min:
             await alert(
                 "tps",
                 "low_tps",
-                f"TPS at {sample['tps']:.1f} (threshold {th.tps_min})",
+                f"Game speed {sample['tps']:.1f} of 20 (alert below {th.tps_min:g})",
                 {"value": sample["tps"], "threshold": th.tps_min},
             )
         if sample["mspt"] is not None and sample["mspt"] > th.mspt_max:
             await alert(
                 "mspt",
                 "high_mspt",
-                f"MSPT at {sample['mspt']:.0f} ms (threshold {th.mspt_max} ms)",
+                f"Game falling behind: each tick takes {sample['mspt']:.0f} ms "
+                f"(alert above {th.mspt_max:g} ms)",
                 {"value": sample["mspt"], "threshold": th.mspt_max},
             )
 

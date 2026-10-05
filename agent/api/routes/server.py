@@ -219,8 +219,13 @@ async def check_command(command: str, principal: Principal = Depends(require(CON
 
 @router.get("/performance")
 async def performance(
-    hours: float = 6, principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
+    hours: float = 6,
+    storage: bool = True,
+    principal: Principal = Depends(require(SERVER_VIEW)),
+    ctx=Depends(get_server),
 ):
+    # storage=false skips the disk-use breakdown, which walks the whole
+    # server folder; the Overview's hover summaries don't need it.
     hours = max(0.1, min(hours, 168))
     return {
         "current": ctx.metrics.snapshot(),
@@ -229,7 +234,7 @@ async def performance(
         "sample_interval": ctx.config.monitor.sample_interval,
         "memory_limit_mb": memory_limit_mb(ctx.config.server.jvm_args),
         "thresholds": ctx.config.thresholds.to_dict(),
-        "storage": await ctx.metrics.storage(),
+        "storage": await ctx.metrics.storage() if storage else None,
     }
 
 

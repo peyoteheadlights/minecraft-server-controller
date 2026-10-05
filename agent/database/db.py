@@ -219,6 +219,14 @@ MIGRATIONS: list[tuple[int, str]] = [
         CREATE INDEX idx_jobs_created ON jobs(created_at DESC);
         """,
     ),
+    (
+        4,
+        # Each server's color, so it follows the server to every device.
+        # Empty until the agent assigns the next unused palette color.
+        """
+        ALTER TABLE servers ADD COLUMN color TEXT;
+        """,
+    ),
 ]
 
 
@@ -304,6 +312,13 @@ class Database:
             "ON CONFLICT(id) DO UPDATE SET name=excluded.name, directory=excluded.directory",
             (server_id, name, directory, time.time()),
         )
+
+    def server_color(self, server_id: str) -> str | None:
+        row = self.query_one("SELECT color FROM servers WHERE id = ?", (server_id,))
+        return row["color"] if row else None
+
+    def set_server_color(self, server_id: str, color: str) -> None:
+        self.execute("UPDATE servers SET color = ? WHERE id = ?", (color, server_id))
 
     def add_event(
         self,

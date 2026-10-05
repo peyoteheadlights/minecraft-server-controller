@@ -7,6 +7,7 @@ import re
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from ... import colors
 from ...config import PROJECT_ROOT, ConfigError
 from ...ports import read_properties_port
 from ...security.auth import Principal
@@ -29,7 +30,12 @@ async def servers(principal: Principal = Depends(require(SERVER_VIEW)), core=Dep
         row = ctx.summary()
         row["current"] = row["default"]
         rows.append(row)
-    return {"servers": rows, "default": core.config.default_server_id}
+    return {
+        "servers": rows,
+        "default": core.config.default_server_id,
+        "palette": colors.palette(),
+        "next_color": colors.next_unused(ctx.color for ctx in core.servers.values()),
+    }
 
 
 def _new_id(name: str, taken: list[str]) -> str:
@@ -53,6 +59,12 @@ async def add_server(
 ):
     """Register an existing Minecraft server folder. Nothing in the folder is
     changed and Minecraft is not started."""
+    color = None
+    if payload.color:
+        try:
+            color = colors.normalise(payload.color)
+        except colors.ColorError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     jar = payload.jar.strip()
     if not jar:
         from pathlib import Path
@@ -101,6 +113,8 @@ async def add_server(
     except ConfigError as exc:
         audit(core, request, "server_add", target=payload.name, result="failed", detail=str(exc))
         raise
+    if color:
+        core.db.set_server_color(ctx.server_id, color)
     return {"ok": True, "server": ctx.summary(), "warnings": warnings}
 
 

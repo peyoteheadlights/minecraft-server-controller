@@ -290,6 +290,32 @@ class AuthManager:
         self.db.audit("sessions_revoked", user=user or "all")
         return cur.rowcount
 
+    # -- preferences -----------------------------------------------------
+    # How each account likes the dashboard (Simple or Technical, theme),
+    # kept here so the choice follows the person to every device.
+    PREFERENCE_CHOICES: dict[str, tuple[str, ...]] = {
+        "mode": ("simple", "technical"),
+        "theme": ("system", "light", "dark", "graphite", "contrast"),
+    }
+    PREFERENCE_DEFAULTS: dict[str, str] = {"mode": "simple", "theme": "system"}
+
+    def preferences(self, user: str) -> dict[str, str]:
+        saved = self.db.get_setting(f"user:{user}:preferences", {}) or {}
+        prefs = dict(self.PREFERENCE_DEFAULTS)
+        for key, choices in self.PREFERENCE_CHOICES.items():
+            if saved.get(key) in choices:
+                prefs[key] = saved[key]
+        return prefs
+
+    def set_preferences(self, user: str, updates: dict[str, str]) -> dict[str, str]:
+        prefs = self.preferences(user)
+        for key, value in updates.items():
+            if value not in self.PREFERENCE_CHOICES.get(key, ()):
+                raise ValueError(f"{value!r} is not a choice for {key}")
+            prefs[key] = value
+        self.db.set_setting(f"user:{user}:preferences", prefs)
+        return prefs
+
     def purge_expired(self) -> int:
         cur = self.db.execute("DELETE FROM sessions WHERE expires_at < ?", (time.time(),))
         return cur.rowcount

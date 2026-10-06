@@ -17,6 +17,17 @@ from .conftest import build_multi_config, fake_server_entry, make_server_folder
 from .test_mods import make_jar
 
 
+async def stop_core(core):
+    """Stop Minecraft, then the agent. AgentCore.stop() leaves Minecraft
+    running on purpose (the real agent restarts without kicking players), so
+    a test that started a server stops it itself; otherwise its fake server
+    outlives the test and the event loop that was watching it."""
+    for ctx in list(core.servers.values()):
+        if ctx.server.running:
+            await ctx.server.stop(actor="test")
+    await core.stop()
+
+
 async def wait_for(predicate, timeout=15.0):
     for _ in range(int(timeout / 0.1)):
         if predicate():
@@ -133,7 +144,7 @@ async def test_two_servers_run_side_by_side(multi):
         await a.server.stop(actor="tester")
         assert b.server.state is ServerState.ONLINE
     finally:
-        await core.stop()
+        await stop_core(core)
 
 
 async def test_mods_on_one_server_do_not_appear_on_the_other(multi):
@@ -179,7 +190,7 @@ async def test_a_crash_on_one_server_does_not_restart_the_other(tmp_path):
         rows = core.db.query("SELECT DISTINCT server_id FROM events WHERE type='server_crashed'")
         assert [r["server_id"] for r in rows] == ["survival"]
     finally:
-        await core.stop()
+        await stop_core(core)
 
 
 async def test_every_event_carries_its_server(multi):
@@ -209,7 +220,7 @@ async def test_a_server_refuses_to_start_on_a_port_another_running_server_uses(t
         assert "Survival" in str(info.value)
         assert "25565" in str(info.value)
     finally:
-        await core.stop()
+        await stop_core(core)
 
 
 async def test_a_server_refuses_to_start_in_a_folder_another_running_server_uses(tmp_path):
@@ -233,7 +244,7 @@ async def test_a_server_refuses_to_start_in_a_folder_another_running_server_uses
             await core.get_server("inner").server.start()
         assert "Outer" in str(info.value)
     finally:
-        await core.stop()
+        await stop_core(core)
 
 
 async def test_unknown_server_id(multi):
@@ -295,7 +306,7 @@ async def test_an_old_single_server_install_starts_unchanged(config):
         assert core.server is core.default.server
         assert core.config.for_server("test").backup_dir == config.data_dir / "backups"
     finally:
-        await core.stop()
+        await stop_core(core)
 
 
 # ------------------------------------------------------------------ API

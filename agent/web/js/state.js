@@ -49,6 +49,7 @@ export const PAGES = [
   ["players", "page.players", "server", "players"],
   ["backups", "page.backups", "server", "backups"],
   ["mods", "page.mods", "server", "mods"],
+  ["game-settings", "page.game_settings", "server", "game"],
   ["schedules", "page.schedules", "server", "schedules"],
   ["performance", "page.performance", "server", "performance"],
   ["console", "page.console", "server", "console"],

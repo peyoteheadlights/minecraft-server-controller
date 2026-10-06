@@ -9,6 +9,7 @@ import { t } from "./strings.js";
 const PER_SERVER = new Set([
   "status", "info", "server", "logs", "events", "crashes", "players", "performance",
   "worlds", "tps", "mods", "backups", "schedules", "recommendations",
+  "game-settings", "join", "duplicate", "modpack",
 ]);
 
 export function serverPath(path, serverId = state.serverId) {
@@ -40,8 +41,11 @@ export async function api(path, options = {}) {
     throw new Error(t("error.session_ended"));
   }
   if (!response.ok) {
-    throw new Error((payload && typeof payload.detail === "string" && payload.detail)
+    const error = new Error((payload && typeof payload.detail === "string" && payload.detail)
       || t("error.request_failed", { status: response.status }));
+    // A form's per-field reasons, when the agent gave them.
+    error.problems = (payload && typeof payload.problems === "object" && payload.problems) || null;
+    throw error;
   }
   return payload;
 }

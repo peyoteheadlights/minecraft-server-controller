@@ -281,6 +281,49 @@ function advancedCard(own) {
     technical() ? el("p", { class: "hint mono" }, t("serverset.folder", { folder: s.directory || "—" })) : null);
 }
 
+/* ------------------------------------------------------------ duplicate */
+
+/* A new server with the same software, add-ons and game settings. The
+   copy runs as a job; the new server's tab appears when it is checked. */
+async function duplicateCard() {
+  let suggestion;
+  try {
+    suggestion = await api(serverUrl("/duplicate"));
+  } catch (err) {
+    return card(t("dup.title"), el("p", { class: "hint mt-0" }, err.message));
+  }
+  const name = el("input", { id: "dup-name", maxlength: "60", value: suggestion.name, autocomplete: "off" });
+  const folder = el("input", { id: "dup-folder", maxlength: "400", class: "mono",
+    value: suggestion.directory, autocomplete: "off" });
+  const choice = (value, labelKey, hintKey, checked) => el("label", { class: "choice" },
+    el("input", { type: "radio", name: "dup-world", value, checked: checked ? "checked" : false }),
+    el("span", { class: "choice-text" }, el("strong", {}, t(labelKey)), el("span", { class: "hint" }, t(hintKey))));
+  const world = el("div", { class: "choices", role: "radiogroup", "aria-label": t("dup.world") },
+    choice("copy", "dup.world_copy", "dup.world_copy_hint", true),
+    choice("fresh", "dup.world_fresh", "dup.world_fresh_hint", false));
+  const button = el("button", { class: "btn primary", type: "button" }, t("dup.button"));
+  button.addEventListener("click", () => {
+    if (!name.value.trim() || !folder.value.trim()) { toast(t("add.need_name_and_folder"), "warn"); return; }
+    const picked = world.querySelector("input:checked");
+    busy(button, t("dup.starting"), async () => {
+      try {
+        await api(serverUrl("/duplicate"), { method: "POST",
+          body: { name: name.value.trim(), directory: folder.value.trim(), world: picked ? picked.value : "copy" } });
+        toast(t("dup.started", { name: name.value.trim() }), "success", 9000);
+      } catch (err) { toast(err.message, "error", 12000); }
+    });
+  });
+  return card(t("dup.title"),
+    el("p", { class: "hint mt-0" }, t("dup.intro")),
+    el("div", { class: "grid cols-2" },
+      field("dup-name", t("dup.name"), name),
+      field("dup-folder", t("dup.folder"), folder, t("dup.folder_hint"))),
+    el("div", { class: "field" }, el("span", { class: "field-label" }, t("dup.world")), world),
+    suggestion.running ? el("p", { class: "hint" }, t("dup.running")) : null,
+    suggestion.crossplay ? el("p", { class: "hint" }, t("dup.crossplay")) : null,
+    el("div", { class: "btn-row mt-12" }, button, el("span", { class: "hint" }, t("dup.after"))));
+}
+
 function removeCard() {
   const row = serverRow() || {};
   const last = state.servers.length < 2;
@@ -309,10 +352,11 @@ function removeCard() {
 renderers.settings = (page) => loadInto(page, async () => {
   await loadServers();
   await loadServerTypes();
-  const [own, version, crossplay] = await Promise.all([
+  const [own, version, crossplay, duplicate] = await Promise.all([
     api(serverUrl("/settings")),
     api(serverUrl("/version")),
     crossplayPanel(() => render()),
+    duplicateCard(),
   ]);
   return el("div", { class: "stack" },
     identityCard(own),
@@ -323,5 +367,6 @@ renderers.settings = (page) => loadInto(page, async () => {
     cpuCard(own.cpu, own.server.cpu_cores || []),
     backupsCard(own),
     advancedCard(own),
+    duplicate,
     removeCard());
 });

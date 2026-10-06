@@ -48,6 +48,7 @@ PAGES = [
     "performance",
     "backups",
     "mods",
+    "game-settings",
     "schedules",
     "events",
     "crashes",

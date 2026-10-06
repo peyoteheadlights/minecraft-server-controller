@@ -53,7 +53,7 @@ function renderHead() {
    what is happening now, looking after the server, and what happened. */
 const NAV_GROUPS = [
   ["nav.group_live", ["dashboard", "players", "console", "performance"]],
-  ["nav.group_manage", ["backups", "mods", "schedules", "settings"]],
+  ["nav.group_manage", ["backups", "mods", "game-settings", "schedules", "settings"]],
   ["nav.group_history", ["events", "crashes"]],
 ];
 

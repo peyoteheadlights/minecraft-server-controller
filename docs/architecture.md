@@ -194,13 +194,21 @@ agent/
   logging_setup.py     rotating agent logs
   main.py              FastAPI app, security headers, error handlers, entrypoint
   tailscale.py         what the Tailscale client reports about this machine
+  gamesettings.py      saving server.properties through the safe-change routine
+  duplicate.py         copying a server into a new one, as a job
+  modpack.py           reading and importing Modrinth .mrpack files
+  joininfo.py          the addresses friends type, read from this machine
   api/                 deps.py, errors.py (domain error -> HTTP status), ws.py,
                        routes/ (one router per area: server, console, players,
-                       mods, backups, schedules, server_settings (per server);
+                       mods, backups, schedules, server_settings, gamesettings,
+                       duplicate, modpacks, friends (per server);
                        auth, settings, security, system, jobs (agent-wide))
   backups/manager.py
   database/db.py       schema + migrations
-  minecraft/           state, process, console, commands, analyzer, crash
+  minecraft/           state, process, console, commands, analyzer, crash,
+                       properties (server.properties reader/writer that keeps
+                       comments and unknown keys), playeractions (the player
+                       buttons and the console answers that confirm them)
   crossplay.py         Geyser and Floodgate: Bedrock players on a Java server
   downloads.py         the one safe downloader (allow-list, size caps, checksums)
   mods/                jarinfo, modrinth, manager

@@ -182,6 +182,12 @@ export function handleEvent(event) {
     if (state.page === "players") render();
     return;
   }
+  // A whitelist, operator or ban change the console confirmed (from this
+  // device or another): Minecraft's own lists have changed.
+  if (event.type === "player_action") {
+    if (state.page === "players") render();
+    return;
+  }
   if (event.type === "server_crashed") loadLatestCrash();  // the record now exists
   const level = NOTABLE[event.type];
   if (level) {

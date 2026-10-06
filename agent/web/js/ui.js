@@ -40,6 +40,8 @@ export const ICONS = {
          ["circle", { cx: 12, cy: 12, r: 6.2 }]],
   security: [["path", { d: "M12 3l7.5 3v5.5c0 4.5-3.1 8.2-7.5 9.5-4.4-1.3-7.5-5-7.5-9.5V6z" }], ["path", { d: "M9 12l2 2 4-4" }]],
   plus: [["path", { d: "M12 5v14M5 12h14" }]],
+  game: [["rect", { x: 3, y: 7, width: 18, height: 11, rx: 3.5 }], ["path", { d: "M7.5 12.5h3M9 11v3" }],
+         ["path", { d: "M15 11.5h.01M17 13.5h.01" }]],
   info: [["circle", { cx: 12, cy: 12, r: 8.5 }], ["path", { d: "M12 11v5.5M12 7.8h.01" }]],
   chevron: [["path", { d: "M9 6l6 6-6 6" }]],
   search: [["circle", { cx: 11, cy: 11, r: 6.5 }], ["path", { d: "M16 16l4.5 4.5" }]],

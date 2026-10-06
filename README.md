@@ -20,6 +20,18 @@ dashboard you can open from your computer or phone over a private
   and names a likely cause with its confidence
 - Automatic restart after a crash, with crash-loop protection
 - Player tracking: who's online, sessions and total playtime
+- Player buttons: whitelist, operator, kick, ban and unban, shown as "Sent"
+  until the server's console confirms them, with the lists read from
+  Minecraft's own files
+- Game settings: the main `server.properties` settings as a form that keeps
+  every comment and setting it doesn't show, with a copy of the old file
+  kept, and the whole file as text in Technical mode
+- Duplicate a server, with a copy of its world or a fresh one, its own port
+  and color
+- Import a Modrinth modpack (`.mrpack`) as a new server or into one: see
+  everything in it first, every mod checked against the pack's SHA-512
+- "How friends join": the addresses to type, read from this PC, with copy
+  buttons
 - Backups of worlds, config and mods, verified before they're trusted, with
   safe restore, one-click undo and retention
 - Limit each server to some of the PC's CPU cores, applied to the running
@@ -181,6 +193,8 @@ agent/              the server agent
   mods/  backups/  monitoring/  notifications/  scheduler/  security/
   downloads.py      the one safe downloader
   crossplay.py      Geyser and Floodgate for Bedrock players
+  modpack.py        Modrinth modpack import
+  duplicate.py      copying a server
   web/              the dashboard (plain HTML, CSS and JavaScript)
   main.py           entry point
 installer/          secrets, certificates, firewall, Windows startup

@@ -8,6 +8,7 @@ import "./pages/backups.js";
 import "./pages/console.js";
 import "./pages/crashes.js";
 import "./pages/events.js";
+import "./pages/game-settings.js";
 import "./pages/mods.js";
 import "./pages/overview.js";
 import "./pages/performance.js";

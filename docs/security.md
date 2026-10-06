@@ -38,6 +38,15 @@ There's no endpoint that runs a shell command. Minecraft is launched with an
 argument list and no shell, from a fixed working directory, using values
 that only come from `config.yaml`.
 
+The Players page's buttons (whitelist, operator, kick, ban, unban) never
+take a command from the browser. The API takes an action name from a fixed
+list and a player name that must be a Minecraft name (`^\.?[A-Za-z0-9_]{1,16}$`,
+Floodgate's `.` allowed); kick and ban take an optional reason limited to
+one short line of letters, numbers and basic punctuation. The command is
+built from a fixed template and then passes the same validation as anything
+typed in the console (`agent/minecraft/commands.py`). Kick and ban need
+`confirm: true`. See `agent/minecraft/playeractions.py`.
+
 ### The one program the agent runs that isn't Minecraft
 
 Forge, NeoForge and Quilt publish an installer rather than a server jar: it
@@ -87,7 +96,29 @@ directory; symlinks and NTFS reparse points are refused rather than
 followed.
 
 Backup restore also validates every member of a zip before extracting, so a
-crafted archive can't write outside the server folder (zip-slip).
+crafted archive can't write outside the server folder (zip-slip). The check
+is `check_archive_member` in `paths.py`, shared with modpack import and
+server duplication: an absolute path, a drive letter, `..` that climbs out,
+or a link (a zip entry marked as a symlink) is refused.
+
+**Game settings** write only `server.properties` in the server's own folder,
+through a temporary file and a rename, after every known key's value has
+passed its check. A copy of the old file is kept as a safety backup first.
+
+**Duplicating a server** writes only inside the new folder, which passes
+`check_new_server_folder` (below). It reads only the source server's own
+folder, never follows links out of it, and leaves the agent's own folders
+behind if they sit inside it. A running source is told to save and pause
+saving (`save-all flush`, `save-off`, then `save-on`), so the world is never
+copied while Minecraft is writing it; a server that is starting or stopping
+is refused. A copy that fails its check is deleted again.
+
+**Modpack import** (`agent/modpack.py`) refuses the whole pack if any
+override path would land outside the server folder or is a link, and
+refuses any mod whose path isn't a safe single file name inside the folder.
+Client-only folders and files with executable extensions in the overrides
+are skipped. An uploaded pack is kept in the data folder under a random
+token, at most 1 GB, and cleared after 24 hours if not imported.
 
 Two routes take a folder path: adding a server that already exists (`POST
 /api/servers`) and creating a new one (`POST /api/new-server`). The second
@@ -137,6 +168,10 @@ Every REST route declares the permission it needs (`server.control`,
 `agent/security/permissions.py`), and a test fails if a route is added without
 one. WebSocket messages are checked the same way. Today every signed-in
 account has every permission; this is the hook helper accounts will use.
+The player buttons need `players.manage`, game settings and importing a
+modpack into a server need `settings.edit`, reading a modpack needs
+`mods.manage`, and duplicating or creating a server from a pack needs
+`servers.manage`.
 
 ## Downloads
 
@@ -158,6 +193,13 @@ Where a source publishes no checksum — the Fabric launcher jar is one — the
 file is recorded as **unverified** and the dashboard says so, rather than
 the result being presented as checked (see `docs/honesty.md`). Mod downloads
 additionally refuse anything Modrinth hasn't published a checksum for.
+
+Modpack mods are stricter still: each one must be on `cdn.modrinth.com`
+and must come with a SHA-512 in the pack; anything else blocks the import
+before a single file is downloaded. Each file is checked against that
+SHA-512 (`allow_unverified=False`), and a mismatch stops the import: a new
+server is removed again, and an existing one is put back from the backup
+taken first.
 
 Nothing downloaded is executed by the agent, with the single documented
 exception of the loader installer described under Command injection.

@@ -50,13 +50,20 @@ def main():
             page = ctx.new_page()
             page.on("pageerror", lambda e: errors.append(str(e)))
             # Chrome logs every 4xx response as a console error. The one 401 this
-            # script causes on purpose (the wrong password) is not a script error.
-            page.on(
-                "console",
-                lambda m: (
-                    m.type == "error" and "status of 401" not in m.text and errors.append(m.text)
-                ),
-            )
+            # script causes on purpose (the wrong password) is not a script error,
+            # and neither is the one 400 below.
+            # The one 400 is the bad game setting saved on purpose below.
+            allowed_400 = [1]
+
+            def console_error(m):
+                if m.type != "error" or "status of 401" in m.text:
+                    return
+                if "status of 400" in m.text and allowed_400[0] > 0:
+                    allowed_400[0] -= 1
+                    return
+                errors.append(m.text)
+
+            page.on("console", console_error)
             title = page.locator("#server-state-title")
             actions = page.locator(".hero-actions")
 
@@ -538,8 +545,8 @@ def main():
             )
             page.locator("#tab-add").click()
             check(
-                "The + tab offers a new server and a folder you already have",
-                lambda: expect(page.locator(".add-ways button")).to_have_count(2),
+                "The + tab offers a new server, a modpack and a folder you already have",
+                lambda: expect(page.locator(".add-ways button")).to_have_count(3),
             )
             check(
                 "Every kind of server this app supports is in the table",
@@ -562,6 +569,76 @@ def main():
             check(
                 "The folder-I-already-have way is still there",
                 lambda: expect(page.locator("#add-server-folder")).to_be_visible(),
+            )
+
+            page.get_by_role("button", name="From a modpack").click()
+            check(
+                "A modpack is read first: only a file picker until one is chosen",
+                lambda: (
+                    expect(page.locator("#pack-file-new")).to_be_visible(),
+                    expect(page.locator("#pack-name")).to_have_count(0),
+                )[-1],
+            )
+
+            print("\n=== Everyday features ===")
+            page.locator("#tab-ui").click()
+            page.locator(".nav-item", has_text="Game settings").click()
+            check(
+                "Game settings shows the known settings as a form",
+                lambda: (
+                    expect(page.locator("#game-difficulty")).to_be_visible(),
+                    expect(page.locator("#game-max-players")).to_be_visible(),
+                )[-1],
+            )
+            page.fill("#game-max-players", "0")
+            page.locator("button", has_text="Save").first.click()
+            check(
+                "A bad value is marked on its field and nothing is saved",
+                lambda: expect(page.locator("#game-max-players-error")).not_to_be_empty(),
+            )
+            page.fill("#game-max-players", "12")
+            page.locator("button", has_text="Save").first.click()
+            check(
+                "A good value saves and says when it takes effect",
+                lambda: expect(page.locator(".toast").last).to_contain_text("Saved"),
+            )
+            page.screenshot(path=str(shots / "09-game-settings.png"))
+            page.locator(".nav-item", has_text="Players").click()
+            check(
+                "Players has an add-by-name card and Minecraft's own lists",
+                lambda: (
+                    expect(page.locator("#player-add-name")).to_be_visible(),
+                    expect(page.locator(".section h2", has_text="Whitelist")).to_be_visible(),
+                )[-1],
+            )
+            add = page.locator("button", has_text="Add to whitelist").first
+            if add.is_enabled():
+                page.fill("#player-add-name", "Alex")
+                add.click()
+                check(
+                    "Whitelisting shows Sent, then Done once the console confirms",
+                    lambda: expect(page.locator(".action-lines li").first).to_contain_text(
+                        "Done", timeout=10000
+                    ),
+                )
+            page.fill("#player-add-name", "bad name!")
+            check(
+                "A name that isn't a Minecraft name is not sent",
+                lambda: (
+                    page.locator("button", has_text="Add to whitelist").first.click()
+                    if page.locator("button", has_text="Add to whitelist").first.is_enabled()
+                    else None,
+                    expect(page.locator(".action-lines li", has_text="bad name")).to_have_count(0),
+                )[-1],
+            )
+            page.screenshot(path=str(shots / "10-players.png"))
+            page.locator(".nav-item", has_text="Overview").click()
+            check(
+                "Overview shows how friends join, with copy buttons",
+                lambda: (
+                    expect(page.locator(".join-card")).to_be_visible(),
+                    expect(page.locator(".join-card")).to_contain_text("not known"),
+                )[-1],
             )
 
             print("\n=== Appearance ===")

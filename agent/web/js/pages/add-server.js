@@ -1,12 +1,14 @@
-/* The "+" tab, with two ways in:
+/* The "+" tab, with three ways in:
 
    New server    - downloaded and set up from scratch (panels/newserver.js)
+   Modpack       - set up from a Modrinth modpack file (panels/modpack.js)
    Already have  - a Minecraft server that is already in a folder on this PC
 
    The second one changes nothing in the folder and does not start the
    server; it only puts it on the list. */
 
 import { api } from "../api.js";
+import { modpackPanel } from "../panels/modpack.js";
 import { newServerPanel } from "../panels/newserver.js";
 import { loadServerTypes } from "../panels/version.js";
 import { loadServers, selectServer } from "../servers.js";
@@ -95,6 +97,8 @@ renderers["add-server"] = (page) => {
     }
     if (which === "new") {
       body.replaceChildren(newServerPanel());
+    } else if (which === "pack") {
+      body.replaceChildren(modpackPanel("new"));
     } else {
       const existing = existingServerForm();
       body.replaceChildren(existing.form);
@@ -103,6 +107,7 @@ renderers["add-server"] = (page) => {
   };
   tabs.append(
     el("button", { type: "button", "data-way": "new", onclick: () => show("new") }, t("add.way_new")),
+    el("button", { type: "button", "data-way": "pack", onclick: () => show("pack") }, t("add.way_modpack")),
     el("button", { type: "button", "data-way": "have", onclick: () => show("have") }, t("add.way_have")));
 
   page.append(el("div", { class: "stack" }, tabs, body));

@@ -53,7 +53,7 @@ def local_addresses() -> list[dict[str, Any]]:
         stats = psutil.net_if_stats()
     except Exception:  # pragma: no cover - psutil reads the OS; reported as none
         return []
-    found = []
+    found: list[dict[str, Any]] = []
     for name, entries in addresses.items():
         state = stats.get(name)
         if state is not None and not state.isup:

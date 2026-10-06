@@ -231,6 +231,8 @@ class JobTracker:
         )
 
     def _touch(self, job: Job) -> None:
+        if job.state != RUNNING:
+            return  # a late progress update; the job's last event has gone out
         job.updated_at = time.time()
         try:
             self._save(job)

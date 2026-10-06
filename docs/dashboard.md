@@ -79,6 +79,15 @@ the last hour. Then three cards: **Last backup** (with **Back up now**),
 the most recent console lines. Anything the agent cannot measure says
 **Unknown**.
 
+**How friends join** gives the address and port to type into Minecraft,
+each with a **Copy** button: the PC's address on the home network (read from
+its network adapters; adapters of virtual machines show in Technical mode
+only) and its Tailscale address and name. With Bedrock players on, it adds
+the address and the UDP port they use. An address that can't be read is
+said to be missing rather than filled in. Whether the server can be reached
+from the internet is always shown as **not known**: the app doesn't test
+it and doesn't open router ports.
+
 **Suggestions** appear when there is a reason for one, such as no backup
 schedule or no backup in a week. Each says why and what it is based on.
 **Not now** hides it until the evidence changes; **Don't show again** hides it
@@ -108,6 +117,31 @@ total time played. IP addresses are deliberately not recorded.
 A player who came in from Bedrock carries a **Bedrock** badge. That comes
 from Floodgate's `.` prefix on the name the server printed, and the name is
 always shown exactly as printed. With crossplay off, nobody is badged.
+
+While the server is running, each player has buttons: **Add to whitelist**
+or **Remove from whitelist**, **Make operator** or **Remove operator**,
+**Kick** (online players) and **Ban** or **Unban**. **Add a player by name**
+does the same for someone who hasn't joined yet. Kick and ban ask first and
+take an optional reason. Each button sends Minecraft's own command and the
+line at the top says **Sent** until the server's console confirms it, then
+**Done** (or "Nothing changed", "Failed", or "No answer" if the console said
+nothing). The **Whitelist**, **Operators** and **Banned players** cards read
+Minecraft's own files, so they show what the server has, not what was sent.
+
+## Game settings
+
+The main settings in `server.properties`, as a form: game mode, difficulty,
+PvP, the server description (MOTD), player limit, whitelist on or off, world
+seed, view distance and port. A setting the file doesn't contain says so and
+names Minecraft's default. The seed is read-only once the world exists. The
+port is checked against the other servers and this PC.
+
+**Save** rewrites only the settings you changed: comments, the order of the
+file and every setting this page doesn't show are kept exactly. A copy of
+the old file is kept as a safety backup (undo it from Backups). A running
+server keeps the old settings until it restarts; the page says so and offers
+**Restart now**. Technical mode adds the whole file as text to edit; the
+known settings are still checked when you save it.
 
 ## Performance
 
@@ -209,6 +243,13 @@ Each server's own settings, on its tab:
   will notice are listed before you turn anything on.
 - **Backups**: how many daily, weekly and monthly backups to keep, and the
   start and stop timeouts.
+- **Duplicate this server** makes a new server with the same software, mods,
+  config files and game settings. Choose a name, an empty or new folder, and
+  whether to **copy the world** or **start a fresh world** (which also clears
+  the seed, so Minecraft picks a new one). The copy gets the next free port
+  and an unused color, and isn't started. A running server is told to save
+  and pause saving while it is copied. Logs, crash reports and this app's
+  own files stay with the original.
 - **Remove from list** takes the server off the dashboard after you
   confirm; its folder, world, mods and backups stay where they are.
 
@@ -219,7 +260,8 @@ the API even if the request is crafted by hand.
 
 ## Adding a server
 
-The **+** tab has two ways in.
+The **+** tab has three ways in: **New server**, **From a modpack** and
+**Server I already have**.
 
 **New server** makes one from scratch:
 
@@ -256,9 +298,16 @@ NeoForge folder needs the start file its installer wrote
 (`libraries/.../win_args.txt`). Nothing in the folder is changed and the
 server is not started; it opens on its own Overview.
 
-With Bedrock players switched on, the Overview's Details also show the
-address they type (this PC's Tailscale address and the Bedrock port), until
-Phase 4's "How friends join" card takes it over.
+**From a modpack** makes a server from a Modrinth modpack (`.mrpack`).
+Choosing the file only reads it: the panel shows the pack's Minecraft
+version, loader and loader version, and every file in it, with what will be
+skipped (files only the game itself uses) or refused and why. Then a name,
+an empty or new folder and Minecraft's rules, as for a new server. See
+[mods.md](mods.md#modpacks). The Mods page has the same panel to import a
+pack into the server that is open.
+
+The address Bedrock players type is on the Overview's **How friends join**
+card.
 
 ## Security
 

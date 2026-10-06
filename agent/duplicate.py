@@ -33,6 +33,7 @@ import logging
 import os
 import shutil
 import time
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -83,6 +84,12 @@ def world_folders(directory: Path) -> set[str]:
 
 def files_to_copy(ctx: ServerContext, world: str) -> list[tuple[Path, str, int]]:
     """(source file, path inside the folder, size) for everything copied."""
+    return walk_source(ctx, world)[0]
+
+
+def walk_source(ctx: ServerContext, world: str) -> tuple[list[tuple[Path, str, int]], list[str]]:
+    """The files to copy, and every folder (paths inside the server folder)
+    so that empty ones such as mods/ are made in the copy too."""
     source = ctx.config.server_dir
     skip_top = set(LEFT_BEHIND)
     if world == "fresh":
@@ -95,6 +102,7 @@ def files_to_copy(ctx: ServerContext, world: str) -> list[tuple[Path, str, int]]
         if p and is_inside(source, p) and Path(p).resolve() != source.resolve()
     ]
     found: list[tuple[Path, str, int]] = []
+    folders: list[str] = []
     for root, dirs, names in os.walk(source, followlinks=False):
         here = Path(root)
         relative_root = here.relative_to(source)
@@ -110,6 +118,7 @@ def files_to_copy(ctx: ServerContext, world: str) -> list[tuple[Path, str, int]]
                 continue
             kept_dirs.append(name)
         dirs[:] = kept_dirs
+        folders.extend((relative_root / name).as_posix() for name in kept_dirs)
         for name in names:
             full = here / name
             if full.is_symlink():
@@ -123,11 +132,15 @@ def files_to_copy(ctx: ServerContext, world: str) -> list[tuple[Path, str, int]]
             except OSError:
                 continue
             found.append((full, (relative_root / name).as_posix(), size))
-    return found
+    return found, folders
 
 
-def _copy_files(files: list[tuple[Path, str, int]], target: Path, advance) -> tuple[int, int]:
+def _copy_files(
+    files: list[tuple[Path, str, int]], target: Path, advance, folders: Sequence[str] = ()
+) -> tuple[int, int]:
     copied = size = 0
+    for relative in folders:
+        check_archive_member(target, relative).mkdir(parents=True, exist_ok=True)
     for source, relative, length in files:
         destination = check_archive_member(target, relative)
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -207,7 +220,7 @@ async def start_duplicate(
 
     async def run(job: JobHandle) -> dict[str, Any]:
         job.step("Finding the files to copy")
-        files = await asyncio.to_thread(files_to_copy, ctx, world)
+        files, folders = await asyncio.to_thread(walk_source, ctx, world)
         total = sum(size for _, _, size in files)
 
         async def copy(handle: JobHandle | None) -> dict[str, Any]:
@@ -224,7 +237,9 @@ async def start_duplicate(
             try:
                 job.step("Copying files", total=total, unit="bytes")
                 folder.mkdir(parents=True, exist_ok=True)
-                copied, size = await asyncio.to_thread(_copy_files, files, folder, job.advance)
+                copied, size = await asyncio.to_thread(
+                    _copy_files, files, folder, job.advance, folders
+                )
             finally:
                 if paused:
                     try:

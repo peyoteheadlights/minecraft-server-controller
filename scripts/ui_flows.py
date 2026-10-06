@@ -720,7 +720,9 @@ def main():
             )
             check(
                 "It says it will try again by itself",
-                lambda: expect(page.locator("#offline-next")).to_contain_text("Trying", timeout=8000),
+                lambda: expect(page.locator("#offline-next")).to_contain_text(
+                    "Trying", timeout=8000
+                ),
             )
             page.screenshot(path=str(shots / "12-offline.png"))
             page.unroute("**/api/**")

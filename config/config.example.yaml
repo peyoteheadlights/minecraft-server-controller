@@ -136,6 +136,10 @@ backups:
   keep_monthly: 3
   compression: deflate       # 'store' is much faster but much larger
   stop_server_for_backup: false
+  # A second copy of each checked backup, on another drive or a folder a
+  # cloud app syncs (OneDrive, Google Drive, Dropbox). Empty is off. Best
+  # chosen from the Backups page, which checks the folder first.
+  offsite_directory: ""
 
 mods:
   directory: mods            # relative to the Minecraft server folder
@@ -206,6 +210,10 @@ paths:
   # explicit folder is never moved.
   data_dir: ""
   database: mcsc.sqlite3
+
+power:
+  # Ask Windows not to sleep while any server is running.
+  keep_awake: true
 
 maintenance:
   enabled: false

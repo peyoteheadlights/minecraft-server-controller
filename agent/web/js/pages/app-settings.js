@@ -254,7 +254,7 @@ renderers["app-settings"] = (page) => loadInto(page, async () => {
   const [data, push] = await Promise.all([
     api("/settings"),
     api("/push").catch(() => ({ configured: false, enabled: false, phones: [], public_key: "",
-      setup_command: "python -m installer.make_push_keys" })),
+      setup_command: ".\\setup.ps1" })),
   ]);
   return el("div", { class: "stack" },
     appearanceCard(),

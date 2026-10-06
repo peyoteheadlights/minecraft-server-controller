@@ -33,6 +33,12 @@ def root(tmp_path, monkeypatch):
     monkeypatch.delenv("MCSC_SETUP_PASSWORD", raising=False)
     monkeypatch.delenv("MCSC_ADMIN_PASSWORD_HASH", raising=False)
     monkeypatch.delenv("MCSC_SETUP_PRE", raising=False)
+    monkeypatch.delenv("MCSC_SETUP_PUSH_CONTACT", raising=False)
+    # Loading the new .env puts its values in the environment; registering
+    # the keys here makes sure they are taken out again after the test.
+    for key in setup_tool.PUSH_KEYS:
+        monkeypatch.setenv(key, "")
+        monkeypatch.delenv(key)
     return r, server
 
 
@@ -154,7 +160,8 @@ def test_check_passes_on_a_configured_installation(root, monkeypatch):
 
 def test_an_invalid_folder_is_rejected_then_a_valid_one_accepted(root):
     r, server = root
-    answers = iter(["C:\\does\\not\\exist", str(server.parent), str(server)])
+    # The last answer skips the optional phone-alert contact address.
+    answers = iter(["C:\\does\\not\\exist", str(server.parent), str(server), ""])
     out = []
     ctx = Context(
         mode="setup",
@@ -246,3 +253,72 @@ def test_the_python_half_works_from_another_directory(tmp_path):
     assert "Minecraft Server Controller Health Check" in proc.stdout, proc.stderr[-800:]
     assert "[" in proc.stdout and "Python" in proc.stdout
     assert list(elsewhere.iterdir()) == [], "nothing may be written to the working directory"
+
+
+# ---------------------------------------------------------------- phone alert keys
+def test_setup_makes_the_phone_alert_keys(root, monkeypatch):
+    from agent.notifications.push import key_problem
+
+    r, _ = root
+    monkeypatch.setenv("MCSC_SETUP_PUSH_CONTACT", "owner@example.com")
+    code, out = configure(root, monkeypatch)
+    assert code == setup_tool.EXIT_OK, "\n".join(out)
+    env = read_env(r / ".env")
+    assert key_problem(env["MCSC_VAPID_PUBLIC_KEY"], env["MCSC_VAPID_PRIVATE_KEY"]) is None
+    assert env["MCSC_PUSH_SUBJECT"] == "mailto:owner@example.com"
+    printed = "\n".join(out)
+    assert "[OK] Phone alert keys" in printed
+    # The private half is a secret like the password: never on screen.
+    assert env["MCSC_VAPID_PRIVATE_KEY"] not in printed
+
+
+def test_setup_keeps_working_phone_alert_keys(root, monkeypatch):
+    r, _ = root
+    configure(root, monkeypatch)
+    before = read_env(r / ".env")
+    _code, out = configure(root, monkeypatch)
+    after = read_env(r / ".env")
+    # Replacing them would sign every phone out.
+    for key in setup_tool.PUSH_KEYS:
+        assert after[key] == before[key]
+    assert "existing keys kept" in "\n".join(out)
+
+
+def test_setup_replaces_phone_alert_keys_that_cannot_work(root, monkeypatch):
+    from agent.notifications.push import generate_keys, key_problem
+
+    r, _ = root
+    configure(root, monkeypatch)
+    other_public, _private = generate_keys()
+    write_env_value(r / ".env", "MCSC_VAPID_PUBLIC_KEY", other_public)
+
+    ctx, out = ctx_for(r, mode="check")
+    setup_tool.run(ctx)
+    assert "[FAIL] Phone alert keys" in "\n".join(out)
+
+    _code, out = configure(root, monkeypatch)
+    env = read_env(r / ".env")
+    assert key_problem(env["MCSC_VAPID_PUBLIC_KEY"], env["MCSC_VAPID_PRIVATE_KEY"]) is None
+    assert "replaced keys" in "\n".join(out)
+
+
+def test_an_install_from_before_phone_alerts_is_a_warning_not_a_failure(root, monkeypatch):
+    r, _ = root
+    configure(root, monkeypatch)
+    lines = [
+        line
+        for line in (r / ".env").read_text().splitlines()
+        if not line.startswith(setup_tool.PUSH_KEYS)
+    ]
+    (r / ".env").write_text("\n".join(lines) + "\n")
+
+    ctx, out = ctx_for(r, mode="check")
+    assert setup_tool.run(ctx) == setup_tool.EXIT_OK, "\n".join(out)
+    assert "[WARN] Phone alert keys" in "\n".join(out)
+
+
+def test_a_contact_that_is_not_an_email_is_not_saved(root, monkeypatch):
+    r, _ = root
+    monkeypatch.setenv("MCSC_SETUP_PUSH_CONTACT", "not an email")
+    configure(root, monkeypatch)
+    assert read_env(r / ".env")["MCSC_PUSH_SUBJECT"] == ""

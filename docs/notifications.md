@@ -59,15 +59,15 @@ anywhere: the browser gives this app an address on its own push service, and
 the agent posts encrypted messages to it. The message is encrypted for that one
 phone, so the push service carries text it cannot read.
 
-1. On the Minecraft PC, make the key pair once:
-
-```
-python -m installer.make_push_keys
-```
-
-That appends `MCSC_VAPID_PUBLIC_KEY`, `MCSC_VAPID_PRIVATE_KEY` and
-`MCSC_PUSH_SUBJECT` to `.env`. It refuses to overwrite keys that are already
-there, because replacing them signs every phone out.
+1. Setup makes the key pair for you: `.\setup.ps1` creates it on a new
+   install, and running it again on an existing one adds it while keeping
+   everything else. It asks for an optional email address the push services
+   can contact you at (Apple's service may refuse alerts without one). The
+   keys go in `.env` as `MCSC_VAPID_PUBLIC_KEY`, `MCSC_VAPID_PRIVATE_KEY` and
+   `MCSC_PUSH_SUBJECT`. Keys that already work are kept, because replacing
+   them signs every phone out; a pair that can't work is replaced.
+   `.\setup.ps1 --check` reports them, and `python -m
+   installer.make_push_keys` runs just this one step.
 
 2. Restart the agent.
 3. On the phone, open the dashboard, then **Settings → Alerts → Phone**, tick

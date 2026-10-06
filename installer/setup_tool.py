@@ -435,6 +435,77 @@ def step_secrets(ctx: Context) -> Step:
     )
 
 
+PUSH_KEYS = ("MCSC_VAPID_PUBLIC_KEY", "MCSC_VAPID_PRIVATE_KEY", "MCSC_PUSH_SUBJECT")
+
+
+def _push_contact(ctx: Context) -> str:
+    """An optional email push services can contact the owner at. Apple's
+    service refuses some senders without a real one, so it is asked for, but
+    a blank answer is fine."""
+    if ctx.interactive:
+        ctx.say(
+            "      Phone alerts: an email address the phone makers' push services can "
+            "contact you at."
+        )
+        answer = ctx.ask("      Email (optional, press Enter to skip): ")
+    else:
+        answer = os.environ.get("MCSC_SETUP_PUSH_CONTACT", "")
+    contact = answer.strip().removeprefix("mailto:").strip()
+    if contact and ("@" not in contact or " " in contact or "\n" in contact):
+        ctx.say("      That doesn't look like an email address, so none was saved.")
+        return ""
+    return contact
+
+
+def step_push_keys(ctx: Context) -> Step:
+    """The key pair phone alerts are signed with (Web Push, RFC 8292).
+
+    Kept when it is already there and usable: replacing it would sign every
+    phone out. Made when it is missing, or replaced when it can't work. The
+    private half is never printed.
+    """
+    from agent.notifications.push import generate_keys, key_problem
+
+    name = "Phone alert keys"
+    values = read_env(ctx.env_path)
+    public, private = values.get(PUSH_KEYS[0], ""), values.get(PUSH_KEYS[1], "")
+    present = bool(public or private)
+    problem = key_problem(public, private) if present else None
+    if present and problem is None:
+        return ctx.add(Step(name, "OK", f"existing keys kept (in {ctx.env_path})"))
+    if not ctx.writing:
+        if not present:
+            # Optional: the dashboard works without them, so this is not a failure.
+            return ctx.add(
+                Step(
+                    name,
+                    "WARN",
+                    "not made yet, so phone alerts can't be turned on",
+                    "Run setup.ps1 again; it keeps everything already configured.",
+                )
+            )
+        return ctx.add(
+            Step(
+                name,
+                "FAIL",
+                problem or "unusable",
+                "Run setup.ps1 again to replace them. Each phone then turns alerts on once more.",
+            )
+        )
+
+    contact = values.get(PUSH_KEYS[2], "").removeprefix("mailto:") or _push_contact(ctx)
+    public, private = generate_keys()
+    write_env_value(ctx.env_path, PUSH_KEYS[0], public)
+    write_env_value(ctx.env_path, PUSH_KEYS[1], private)
+    write_env_value(ctx.env_path, PUSH_KEYS[2], f"mailto:{contact}" if contact else "")
+    detail = (
+        f"replaced keys that could not work ({problem}); each phone turns alerts on once more"
+        if present
+        else "made and stored in .env (not shown)"
+    )
+    return ctx.add(Step(name, "OK", detail))
+
+
 def step_certificate(ctx: Context) -> Step:
     if ctx.skip_certs:
         return ctx.add(Step("Certificate", "SKIP", "skipped by request"))
@@ -630,6 +701,7 @@ def run(ctx: Context) -> int:
             step_dependencies(ctx)
         config_ok = step_config(ctx).status == "OK"
         step_secrets(ctx)
+        step_push_keys(ctx)
         if config_ok:
             step_certificate(ctx)
         else:

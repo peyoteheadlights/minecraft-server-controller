@@ -150,9 +150,8 @@ mods:
 notifications:
   discord_enabled: false
   email_enabled: false
-  # Phone alerts (Web Push). Make the keys once with
-  # `python -m installer.make_push_keys`; they live in .env. Each phone also
-  # has to be turned on from Settings -> Alerts on that phone.
+  # Phone alerts (Web Push). setup.ps1 makes the keys; they live in .env.
+  # Each phone also has to be turned on from Settings -> Alerts on that phone.
   push_enabled: false
   min_interval_seconds: 300  # minimum gap between repeats of the same alert type
   events:

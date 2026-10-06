@@ -11,7 +11,8 @@ Two standards do the work, and both are implemented here with
   * RFC 8292 (VAPID): every request carries a signed token saying who is
     sending, so a push service can tell this app's messages apart from
     anyone else's. The keys live in ``.env`` like the other secrets, and
-    are made by ``python -m installer.make_push_keys``.
+    are made by setup (``.\\setup.ps1``), or on their own by
+    ``python -m installer.make_push_keys``.
   * RFC 8291 (message encryption): the message is encrypted for that one
     subscription with a key agreed with the browser, so the push service
     carries text it cannot read.
@@ -103,9 +104,30 @@ def load_private_key(encoded: str) -> ec.EllipticCurvePrivateKey:
         return ec.derive_private_key(int.from_bytes(unb64(encoded), "big"), ec.SECP256R1())
     except (ValueError, TypeError) as exc:
         raise PushError(
-            "MCSC_VAPID_PRIVATE_KEY is not a key this app can read. Make a new pair with "
-            "python -m installer.make_push_keys"
+            "MCSC_VAPID_PRIVATE_KEY is not a key this app can read. Run setup again "
+            "(.\\setup.ps1) to make a new pair, or python -m installer.make_push_keys"
         ) from exc
+
+
+def key_problem(public_key: str, private_key: str) -> str | None:
+    """Why a stored key pair can't be used, or None when it can.
+
+    The two halves must belong together: phones sign up with the public one
+    and messages are signed with the private one.
+    """
+    if not public_key or not private_key:
+        return "one of the two keys is missing"
+    try:
+        derived = (
+            load_private_key(private_key)
+            .public_key()
+            .public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
+        )
+    except PushError:
+        return "the private key can't be read"
+    if b64(derived) != public_key.strip():
+        return "the public and private keys don't belong together"
+    return None
 
 
 @dataclass(frozen=True)

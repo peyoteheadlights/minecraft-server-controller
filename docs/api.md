@@ -114,6 +114,32 @@ summaries use this).
 (what would be downloaded, recursively; downloads nothing),
 `POST /api/mods/dependencies/install` (`{"mod_ids": [...]}` or all missing).
 
+## Server types, versions and crossplay
+
+Agent-wide:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/server-types` | Every type with its capabilities. The dashboard's comparison table is generated from this |
+| GET | `/api/server-types/{type}/versions` | The Minecraft versions that type offers, from its own official source, with the loader or build versions for each |
+| GET | `/api/new-server/options` | What the New server panel needs: types, default memory and why, a free port, a free color, the EULA link |
+| POST | `/api/new-server` | Create one. Refused without `eula_accepted: true`. Downloads, installs and registers; starts nothing |
+
+Per server:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/servers/{id}/version` | What it is, as observed, plus what the last change kept to go back to |
+| POST | `/api/servers/{id}/version/preflight` | What a change would do, before anything happens: direction, Java verdict, which add-ons would be moved aside, which declare nothing |
+| POST | `/api/servers/{id}/version` | Make the change. Needs `confirm: true`. Stops the server, takes a verified backup, installs, checks |
+| POST | `/api/servers/{id}/version/roll-back` | Put the previous software back |
+| POST | `/api/servers/{id}/eula` | Record that the person accepted Minecraft's rules. The only thing that writes `eula=true` |
+| GET\|PUT | `/api/servers/{id}/crossplay` | Whether Bedrock players can join, the port, and the differences; `PUT {"enabled": true}` installs Geyser and Floodgate |
+
+A version change does **not** set the version. The chosen one is kept as
+`pending_version` and becomes `minecraft_version` only when that server's own
+console reports it — see `docs/honesty.md`.
+
 ## TPS monitoring
 
 `GET /api/tps` (state, command, how it was detected, what was tried),

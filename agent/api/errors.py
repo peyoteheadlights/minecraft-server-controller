@@ -16,6 +16,8 @@ from fastapi.responses import JSONResponse
 from ..backups.manager import BackupError
 from ..config import ConfigError
 from ..core import UnknownServer
+from ..crossplay import CrossplayError
+from ..downloads import DownloadError
 from ..jobs import JobConflict, JobNotFound
 from ..minecraft.commands import CommandError
 from ..minecraft.process import ServerError
@@ -26,6 +28,9 @@ from ..safechange import SafeChangeError
 from ..scheduler.scheduler import ScheduleError
 from ..security.auth import AuthError
 from ..security.paths import PathSafetyError
+from ..servertypes import UnknownServerType
+from ..servertypes.install import InstallError
+from ..servertypes.versions import VersionError
 from .deps import audit
 
 # The default status for each domain error.
@@ -43,6 +48,11 @@ ERROR_STATUS: dict[type[Exception], int] = {
     JobConflict: 409,  # another change is already running on that server
     SafeChangeError: 400,
     ConfigError: 400,
+    UnknownServerType: 400,
+    VersionError: 502,  # the official source could not be read, or has no such version
+    DownloadError: 502,  # the download failed, not the request
+    InstallError: 400,
+    CrossplayError: 400,
 }
 DOMAIN_ERRORS: tuple[type[Exception], ...] = tuple(ERROR_STATUS)
 

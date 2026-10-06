@@ -1,26 +1,30 @@
 """Modrinth API client.
 
-Only Modrinth's official API is used as a mod source. Downloads are accepted
-only when:
+Only Modrinth's official API is used as a mod and plugin source. Searches
+and version lists are filtered by the server's own loaders (Fabric, Quilt,
+Forge, NeoForge, or Paper and its relatives for plugins), read from the
+server type's capabilities. Downloads go through the safe downloader
+(agent/downloads.py) and are accepted only when:
 
   * the URL is https and its host is a Modrinth CDN host
   * the filename passes agent.security.paths.safe_filename with the .jar
     allow-list
-  * the downloaded bytes match the SHA-512 (and SHA-1 when present) that
-    Modrinth published for that file
+  * the downloaded bytes match the SHA-512 (or SHA-1) that Modrinth
+    published for that file
 
 Nothing downloaded here is ever executed by the agent.
 """
 
 from __future__ import annotations
 
-import hashlib
+import json
 import logging
 from typing import Any
 from urllib.parse import urlparse
 
 import httpx
 
+from .. import downloads
 from ..security.paths import PathSafetyError, safe_filename
 
 log = logging.getLogger("msc.modrinth")
@@ -33,11 +37,28 @@ class ModrinthError(RuntimeError):
     pass
 
 
+class ModrinthNotFound(ModrinthError):
+    """Modrinth answered that the project or version does not exist."""
+
+
 class ModrinthClient:
     def __init__(self, config):
+        self.config = config
         self.base = config.mods.modrinth_api.rstrip("/")
         self.user_agent = config.mods.user_agent
         self._client: httpx.AsyncClient | None = None
+
+    @property
+    def loaders(self) -> tuple[str, ...]:
+        """The Modrinth loaders that fit this server's type, read each time
+        because a server's type can change."""
+        server_type = getattr(self.config, "server_type", None)
+        return tuple(server_type.modrinth_loaders) if server_type else ("fabric",)
+
+    @property
+    def project_kind(self) -> str:
+        server_type = getattr(self.config, "server_type", None)
+        return "plugin" if server_type and server_type.content == "plugins" else "mod"
 
     async def _http(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
@@ -58,33 +79,43 @@ class ModrinthClient:
         try:
             response = await client.get(url, params=params)
         except httpx.HTTPError as exc:
-            raise ModrinthError(f"Modrinth is unreachable: {exc}") from exc
+            raise ModrinthError(
+                "Couldn't reach Modrinth. Check the PC's internet connection and try again."
+            ) from exc
         if response.status_code == 404:
-            raise ModrinthError("Not found on Modrinth")
+            raise ModrinthNotFound("Modrinth doesn't have that.")
         if response.status_code == 429:
-            raise ModrinthError("Modrinth rate limit reached. Wait a minute and try again.")
+            raise ModrinthError(
+                "Modrinth is busy and asked us to slow down. Try again in a minute."
+            )
+        if response.status_code >= 500:
+            raise ModrinthError("Modrinth has a problem right now. Try again later.")
         if response.status_code >= 400:
-            raise ModrinthError(f"Modrinth returned HTTP {response.status_code}")
+            raise ModrinthError("Modrinth turned the request down. Try again in a few minutes.")
         try:
             return response.json()
         except ValueError as exc:
-            raise ModrinthError("Modrinth returned a response that could not be read") from exc
+            raise ModrinthError("Modrinth sent an answer that couldn't be read.") from exc
 
     # ------------------------------------------------------------------
     async def search(
         self,
         query: str,
         minecraft_version: str | None = None,
-        loader: str = "fabric",
+        loaders: tuple[str, ...] | None = None,
         limit: int = 20,
         offset: int = 0,
     ) -> dict[str, Any]:
-        facets: list[list[str]] = [["project_type:mod"]]
-        if loader:
-            facets.append([f"categories:{loader}"])
+        loaders = self.loaders if loaders is None else loaders
+        facets: list[list[str]] = []
+        if self.project_kind == "mod":
+            facets.append(["project_type:mod"])
+        if loaders:
+            # Inside one list Modrinth reads the facets as "any of these".
+            facets.append([f"categories:{loader}" for loader in loaders])
         if minecraft_version:
             facets.append([f"versions:{minecraft_version}"])
-        import json as _json
+        _json = json
 
         data = await self._get(
             "/search",
@@ -114,7 +145,7 @@ class ModrinthClient:
                     "server_side": hit.get("server_side"),
                     "icon_url": hit.get("icon_url"),
                     "license": hit.get("license"),
-                    "page": f"https://modrinth.com/mod/{hit.get('slug')}",
+                    "page": f"https://modrinth.com/{self.page_kind(hit)}/{hit.get('slug')}",
                 }
             )
         return {
@@ -139,17 +170,24 @@ class ModrinthClient:
             "server_side": data.get("server_side"),
             "license": (data.get("license") or {}).get("id"),
             "icon_url": data.get("icon_url"),
-            "page": f"https://modrinth.com/mod/{data.get('slug')}",
+            "page": f"https://modrinth.com/{self.page_kind(data)}/{data.get('slug')}",
         }
 
-    async def versions(
-        self, id_or_slug: str, minecraft_version: str | None = None, loader: str = "fabric"
-    ) -> list[dict[str, Any]]:
-        import json as _json
+    def page_kind(self, project: dict[str, Any]) -> str:
+        kind = str(project.get("project_type") or self.project_kind)
+        return kind if kind in ("mod", "plugin", "modpack") else self.project_kind
 
+    async def versions(
+        self,
+        id_or_slug: str,
+        minecraft_version: str | None = None,
+        loaders: tuple[str, ...] | None = None,
+    ) -> list[dict[str, Any]]:
+        _json = json
+        loaders = self.loaders if loaders is None else loaders
         params: dict[str, Any] = {}
-        if loader:
-            params["loaders"] = _json.dumps([loader])
+        if loaders:
+            params["loaders"] = _json.dumps(list(loaders))
         if minecraft_version:
             params["game_versions"] = _json.dumps([minecraft_version])
         data = await self._get(f"/project/{id_or_slug}/version", params)
@@ -200,10 +238,10 @@ class ModrinthClient:
         self,
         id_or_slug: str,
         minecraft_version: str | None,
-        loader: str = "fabric",
+        loaders: tuple[str, ...] | None = None,
         allow_types: tuple[str, ...] = ("release", "beta", "alpha"),
     ) -> dict | None:
-        versions = await self.versions(id_or_slug, minecraft_version, loader)
+        versions = await self.versions(id_or_slug, minecraft_version, loaders)
         for release_type in allow_types:
             for version in versions:
                 if version["release_type"] == release_type:
@@ -212,54 +250,42 @@ class ModrinthClient:
 
     # ------------------------------------------------------------------
     async def download(self, version: dict[str, Any]) -> tuple[bytes, str, str]:
-        """Download and verify a mod file. Returns (bytes, filename, sha256)."""
+        """Download and check a mod file. Returns (bytes, filename, sha256)."""
         file_info = version.get("file") or {}
         url = file_info.get("url")
         filename = file_info.get("filename")
         if not url or not filename:
-            raise ModrinthError("This Modrinth version has no downloadable file")
+            raise ModrinthError("This version on Modrinth has no file to download.")
 
         parsed = urlparse(url)
         if parsed.scheme != "https" or parsed.hostname not in ALLOWED_HOSTS:
-            raise ModrinthError(f"Refusing to download from an unexpected host: {parsed.hostname}")
+            raise ModrinthError(
+                "This file isn't hosted on Modrinth's own servers, so it wasn't downloaded."
+            )
         try:
             safe_filename(filename, {".jar"})
         except PathSafetyError as exc:
-            raise ModrinthError(f"Refusing this file: {exc}") from exc
-
-        client = await self._http()
-        payload = bytearray()
+            raise ModrinthError(f"This file can't be used: {exc}") from exc
+        if not file_info.get("sha512") and not file_info.get("sha1"):
+            raise ModrinthError(
+                "Modrinth published no checksum for this file, so it can't be checked "
+                "and wasn't installed."
+            )
+        spec = downloads.FileSpec(
+            url=url,
+            name=filename,
+            sha512=file_info.get("sha512"),
+            sha1=None if file_info.get("sha512") else file_info.get("sha1"),
+            size=int(file_info["size"]) if file_info.get("size") else None,
+            allow_unverified=False,
+            max_bytes=MAX_DOWNLOAD_BYTES,
+        )
         try:
-            async with client.stream("GET", url) as response:
-                if response.status_code >= 400:
-                    raise ModrinthError(f"Download failed with HTTP {response.status_code}")
-                async for chunk in response.aiter_bytes():
-                    payload.extend(chunk)
-                    if len(payload) > MAX_DOWNLOAD_BYTES:
-                        raise ModrinthError("The file is larger than the 300 MB limit")
-        except httpx.HTTPError as exc:
-            raise ModrinthError(f"Download failed: {exc}") from exc
-
-        data = bytes(payload)
-        expected_size = file_info.get("size")
-        if expected_size and len(data) != int(expected_size):
-            raise ModrinthError(
-                f"Size mismatch: expected {expected_size} bytes, received {len(data)}"
-            )
-        sha512 = file_info.get("sha512")
-        if sha512:
-            actual = hashlib.sha512(data).hexdigest()
-            if actual.lower() != str(sha512).lower():
-                raise ModrinthError("SHA-512 checksum did not match. The download was discarded.")
-        sha1 = file_info.get("sha1")
-        if sha1:
-            actual1 = hashlib.sha1(data).hexdigest()
-            if actual1.lower() != str(sha1).lower():
-                raise ModrinthError("SHA-1 checksum did not match. The download was discarded.")
-        if not sha512 and not sha1:
-            raise ModrinthError(
-                "Modrinth published no checksum for this file, so it was not installed"
-            )
+            data, fetched = await downloads.download_bytes(spec)
+        except downloads.DownloadError as exc:
+            raise ModrinthError(str(exc)) from exc
         if not data.startswith(b"PK"):
-            raise ModrinthError("The downloaded file is not a zip/jar archive")
-        return data, filename, hashlib.sha256(data).hexdigest()
+            raise ModrinthError(
+                "The downloaded file isn't a mod (.jar) file, so it was thrown away."
+            )
+        return data, filename, fetched.sha256

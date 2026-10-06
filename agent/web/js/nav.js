@@ -9,7 +9,7 @@ import { setLink, updateStatusViews, updateTitle } from "./live.js";
 import { overview } from "./pages/overview.js";
 import { hooks as prefHooks } from "./prefs.js";
 import { hooks, renderTabs, serverBadge, serverRow, jobsIndicator } from "./servers.js";
-import { PAGES, pageEntry, renderers, stateInfo, state } from "./state.js";
+import { PAGES, contentPage, pageEntry, renderers, stateInfo, state } from "./state.js";
 import { t } from "./strings.js";
 import { $, el, icon } from "./ui.js";
 
@@ -36,7 +36,9 @@ function renderHead() {
   const head = $("#sheet-head");
   if (state.scope !== "server") {
     head.replaceChildren(el("div", { class: "sheet-id" },
-      el("span", { class: "sheet-name" }, state.scope === "app" ? t("head.app") : t(pageEntry(state.page)[1]))));
+      el("span", { class: "sheet-name" }, state.scope === "app"
+        ? t("head.app")
+        : pageLabel(state.page, pageEntry(state.page)[1]))));
     return;
   }
   const row = serverRow();
@@ -55,17 +57,27 @@ const NAV_GROUPS = [
   ["nav.group_history", ["events", "crashes"]],
 ];
 
+/* The label of a page in this server's sheet. The add-ons page is the one
+   that changes its name with the server's type. */
+function pageLabel(key, label) {
+  if (key !== "mods") return t(label);
+  return t(contentPage(serverRow()) || label);
+}
+
 function navLink([key, label, , iconName]) {
   return el("a", {
     class: "nav-item", href: `#${key}`,
     "aria-current": state.page === key ? "page" : null,
     onclick: (event) => { event.preventDefault(); navigate(key); },
-  }, icon(iconName), el("span", { class: "nav-label" }, t(label)));
+  }, icon(iconName), el("span", { class: "nav-label" }, pageLabel(key, label)));
 }
 
 function renderSubnav() {
   const nav = $("#subnav");
-  const items = PAGES.filter(([, , scope]) => scope === state.scope && scope !== "all" && scope !== "add");
+  const items = PAGES.filter(([key, , scope]) =>
+    scope === state.scope && scope !== "all" && scope !== "add"
+    // Vanilla takes neither mods nor plugins, so it gets no add-ons page.
+    && !(key === "mods" && state.scope === "server" && !contentPage(serverRow())));
   nav.hidden = !items.length;
   nav.setAttribute("aria-label", state.scope === "server" ? t("nav.server_pages") : t("nav.app_pages"));
   if (state.scope !== "server") {
@@ -125,7 +137,7 @@ export function clearTimers() {
 export function render() {
   const page = $("#page");
   const entry = pageEntry(state.page) || pageEntry("dashboard");
-  const title = t(entry[1]);
+  const title = pageLabel(entry[0], entry[1]);
   $("#page-title").textContent = title;
   // the sheet's heading band names the page; the h1 is for screen readers
   $("#page-title").classList.add("sr-only");

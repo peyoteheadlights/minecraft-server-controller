@@ -6,6 +6,27 @@ on:
   workflow_dispatch:
 
 jobs:
+  authorship:
+    name: Commits are under the owner's name
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Pull request commits
+        if: github.event_name == 'pull_request'
+        run: python scripts/check_authorship.py "origin/${{ github.base_ref }}..${{ github.event.pull_request.head.sha }}"
+      - name: Pushed commits
+        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
+        run: python scripts/check_authorship.py "${{ github.event.before }}..${{ github.sha }}"
+      - name: Commits on a new branch
+        if: github.event_name == 'push' && github.event.before == '0000000000000000000000000000000000000000'
+        run: python scripts/check_authorship.py "origin/main..${{ github.sha }}"
+
   lint:
     name: Lint and type check
     runs-on: ubuntu-latest

@@ -78,23 +78,25 @@ class ValidatedCommand:
 
 def validate(command: str, confirm: bool = False) -> ValidatedCommand:
     if command is None:
-        raise CommandError("No command supplied")
+        raise CommandError("Type a command first.")
     text = command.strip()
     if not text:
-        raise CommandError("No command supplied")
+        raise CommandError("Type a command first.")
     if len(text) > MAX_LENGTH:
-        raise CommandError(f"Command is longer than {MAX_LENGTH} characters")
+        raise CommandError(
+            f"That command is longer than {MAX_LENGTH} characters, so it wasn't sent."
+        )
     if "\n" in command or "\r" in command or "\0" in command:
-        raise CommandError("A command must be a single line")
+        raise CommandError("A command has to be one line.")
     if SHELL_META_RE.search(text):
-        raise CommandError("Command contains characters that are not allowed")
+        raise CommandError("That command has characters in it that aren't allowed.")
     if not ALLOWED_CHARS_RE.match(text):
-        raise CommandError("Command contains characters that are not allowed")
+        raise CommandError("That command has characters in it that aren't allowed.")
 
     name_token = text.split(" ", 1)[0]
     if not COMMAND_NAME_RE.match(name_token):
         raise CommandError(
-            "The first word must be a Minecraft command name, for example 'say' or 'whitelist'"
+            "The first word has to be a Minecraft command, like 'say' or 'whitelist'."
         )
     name = name_token.lstrip("/").lower()
     args = text.split(" ", 1)[1] if " " in text else ""

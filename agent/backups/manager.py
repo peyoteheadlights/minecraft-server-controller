@@ -373,14 +373,16 @@ class BackupManager:
             (backup_id, self.server.server_id),
         )
         if not row:
-            raise BackupError("That backup is not in the database")
+            raise BackupError("That backup isn't on this server's list.")
         return row
 
     def verify(self, backup_id: int) -> dict[str, Any]:
         row = self.get(backup_id)
         path = Path(row["path"])
         if not is_inside(self.directory, path):
-            raise PathSafetyError("The backup path is outside the backup folder")
+            raise PathSafetyError(
+                "That backup file isn't in the backups folder, so it wasn't used."
+            )
         result = self._verify_file(path, row.get("sha256"))
         if result["ok"]:
             result["sha256"] = row.get("sha256")
@@ -394,7 +396,7 @@ class BackupManager:
         row = self.get(backup_id)
         path = Path(row["path"])
         if not is_inside(self.directory, path):
-            raise PathSafetyError("Refusing to delete a file outside the backup folder")
+            raise PathSafetyError("That file isn't in the backups folder, so nothing was deleted.")
         path.unlink(missing_ok=True)
         self.db.execute("DELETE FROM backups WHERE id = ?", (backup_id,))
         self.db.audit("backup_delete", user=user, target=row["name"])

@@ -1,6 +1,7 @@
 # Minecraft Server Controller
 
-A self-hosted control panel for a Fabric Minecraft server on Windows. A small
+A self-hosted control panel for Minecraft servers on Windows — Vanilla,
+Fabric, Quilt, Forge, NeoForge, Paper and Purpur. A small
 agent runs on the server PC, supervises the Minecraft process, and serves a
 dashboard you can open from your computer or phone over a private
 [Tailscale](https://tailscale.com) network, using HTTPS.
@@ -24,7 +25,16 @@ dashboard you can open from your computer or phone over a private
 - Limit each server to some of the PC's CPU cores, applied to the running
   server at once and read back from its process
 - Mod manager: install from Modrinth with checksum verification, enable,
-  disable, update, roll back, and dependency checks
+  disable, update, roll back, and dependency checks. On Paper and Purpur it
+  is the plugins folder instead, and it says so
+- Make a new server from scratch: pick the kind from a comparison table and
+  a Minecraft version, and it is downloaded, checked against the checksum
+  its own project published, and set up
+- Change a server's version, up or down, or change the kind of server it is.
+  It stops, takes a verified backup, tells you first what will happen, and
+  one button puts the old version back
+- Let Bedrock players join a Java server (Geyser and Floodgate), with the
+  differences they will notice written out in plain words
 - Scheduled tasks: backups, restarts, log cleanup, maintenance windows
 - Discord and email alerts
 - Starts with Windows through a scheduled task, without anyone logging in
@@ -53,7 +63,8 @@ dashboard you can open from your computer or phone over a private
 
 - Windows 10 or 11 on the server PC
 - Python 3.11 or newer, from [python.org](https://www.python.org)
-- A working Fabric server and the Java version it needs
+- Java, the version your Minecraft needs. A server you already have works as
+  it is; a new one can be made from the dashboard
 - [Tailscale](https://tailscale.com) on the server PC and on every device you
   want to connect from
 
@@ -98,7 +109,8 @@ by `make_secrets` and never committed.
 | Setting | What to set |
 | --- | --- |
 | `server.directory` | **Required.** The folder that contains your server jar. There is no default. Several servers go in a `servers:` list instead ([how](docs/configuration.md#server-or-servers)). |
-| `server.jar` | Your server jar, e.g. `fabric-server-launch.jar` |
+| `server.type` | `vanilla`, `fabric`, `quilt`, `forge`, `neoforge`, `paper` or `purpur`. Left out, it is read as `fabric`, as before |
+| `server.jar` | Your server jar, e.g. `fabric-server-launch.jar`. Forge and NeoForge use `server.args_file` instead, written by their installer |
 | `server.java` | `java`, or the full path to `java.exe` |
 | `server.jvm_args` | Memory and JVM options, e.g. `["-Xmx6G"]` |
 | `network.host` | This PC's Tailscale address, from `tailscale ip -4` |
@@ -165,7 +177,10 @@ run, the agent starts by itself whenever Windows starts; check it with
 agent/              the server agent
   api/              REST API and live WebSocket
   minecraft/        process control, console parsing, crash analysis
+  servertypes/      what each kind of server is, its versions and installs
   mods/  backups/  monitoring/  notifications/  scheduler/  security/
+  downloads.py      the one safe downloader
+  crossplay.py      Geyser and Floodgate for Bedrock players
   web/              the dashboard (plain HTML, CSS and JavaScript)
   main.py           entry point
 installer/          secrets, certificates, firewall, Windows startup

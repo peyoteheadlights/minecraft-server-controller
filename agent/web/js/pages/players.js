@@ -3,6 +3,19 @@ import { renderers } from "../state.js";
 import { t, technical } from "../strings.js";
 import { card, el, emptyState, fmt, loadInto, table } from "../ui.js";
 
+/* A player's name exactly as the server printed it, with a badge when the
+   server said they came in from Bedrock. "java" and null look the same on
+   purpose: with crossplay off everyone is a Java player, and when nothing
+   said otherwise the name stands on its own rather than being labelled on
+   a guess. */
+function playerName(player) {
+  return el("div", { class: "player-name" },
+    el("span", {}, player.username),
+    player.edition === "bedrock"
+      ? el("span", { class: "tag", title: t("players.bedrock_hint") }, t("players.bedrock"))
+      : null);
+}
+
 renderers.players = (page) => loadInto(page, async () => {
   const data = await api("/players");
   const holder = el("div", { class: "stack" });
@@ -11,7 +24,7 @@ renderers.players = (page) => loadInto(page, async () => {
     data.online.length
       ? table([t("players.col_player"), ...(uuid ? [t("players.col_uuid")] : []), t("players.col_session")],
           data.online.map((p) => [
-            p.username,
+            playerName(p),
             ...(uuid ? [el("span", { class: "mono" }, p.uuid || "—")] : []),
             fmt.duration(p.session_seconds)]))
       : emptyState(t("players.nobody"))));

@@ -26,12 +26,24 @@ import re
 import time
 from typing import Any
 
-from .jarinfo import version_satisfies
-from .modrinth import ModrinthError
+from .jarinfo import range_satisfies
+from .modrinth import ModrinthError, ModrinthNotFound
 
 log = logging.getLogger("msc.mods.deps")
 
-PLATFORM_IDS = {"minecraft", "java", "fabricloader", "fabric-loader"}
+# Dependencies on the platform (Minecraft, Java, the loader itself) rather
+# than on another mod, for every loader's way of naming them.
+PLATFORM_IDS = {
+    "minecraft",
+    "java",
+    "fabricloader",
+    "fabric-loader",
+    "quilt_loader",
+    "forge",
+    "neoforge",
+    "fml",
+    "javafml",
+}
 REQUIRED_KINDS = {"depends"}
 OPTIONAL_KINDS = {"recommends", "suggests"}
 MAX_DEPTH = 6
@@ -123,10 +135,21 @@ def describe_range(spec: str | None) -> str:
     return " or ".join(alternatives) if alternatives else spec
 
 
-def combined_satisfies(version: str, ranges: list[str]) -> bool | None:
+Range = str | tuple[str, str]  # a range, or (range, syntax) as jarinfo reads it
+
+
+def range_text(spec: Range) -> str:
+    return spec if isinstance(spec, str) else spec[0]
+
+
+def combined_satisfies(version: str, ranges: list[Range]) -> bool | None:
     """True if every range accepts the version, False if any rejects it, None
     if at least one range could not be evaluated."""
-    verdicts = [version_satisfies(version, r) for r in ranges if r]
+    verdicts = [
+        range_satisfies(version, *((r, "fabric") if isinstance(r, str) else r))
+        for r in ranges
+        if range_text(r)
+    ]
     if any(v is False for v in verdicts):
         return False
     if any(v is None for v in verdicts):
@@ -164,22 +187,27 @@ class DependencyResolver:
         Loader / Java: platform_ok or platform_incompatible.
         """
         installed = self._installed_index()
-        platform = {
-            "minecraft": self.server.mc_version,
-            "fabricloader": self.server.loader_version,
-            "fabric-loader": self.server.loader_version,
-            "java": None,
-        }
         groups = self._group_dependencies(self.manager.scan())
         for dep_id, group in groups.items():
-            ranges = [r["range"] for r in group["required_by"]]
-            group["range_text"] = " and ".join(sorted({describe_range(r) for r in ranges}))
+            ranges: list[Range] = [(r["range"], r["syntax"]) for r in group["required_by"]]
+            group["range_text"] = " and ".join(
+                sorted({describe_range(range_text(r)) for r in ranges})
+            )
             if group["platform"]:
-                self._judge_platform(group, platform.get(dep_id), ranges)
+                self._judge_platform(group, self._platform_version(dep_id), ranges)
             else:
                 self._judge_mod(group, self._find_installed(dep_id, installed), ranges)
         items = sorted(groups.values(), key=lambda g: (g["kind"] != "required", g["name"].lower()))
         return self._report(items)
+
+    def _platform_version(self, dep_id: str) -> str | None:
+        """What the server runs, as read from its console: Minecraft, or the
+        loader itself (Fabric Loader, Quilt Loader, Forge, NeoForge)."""
+        if dep_id == "minecraft":
+            return self.server.mc_version
+        if dep_id == "java":
+            return None
+        return self.server.loader_version
 
     @staticmethod
     def _group_dependencies(mods) -> dict[str, dict[str, Any]]:
@@ -213,6 +241,7 @@ class DependencyResolver:
                         "name": mod.name,
                         "filename": mod.filename,
                         "range": dep.version_range,
+                        "syntax": dep.syntax,
                         "range_text": describe_range(dep.version_range),
                         "kind": kind,
                     }
@@ -233,8 +262,8 @@ class DependencyResolver:
         return present
 
     @staticmethod
-    def _judge_platform(group: dict[str, Any], actual: str | None, ranges: list[str]) -> None:
-        """Minecraft, Fabric Loader or Java: compare with what the server runs."""
+    def _judge_platform(group: dict[str, Any], actual: str | None, ranges: list[Range]) -> None:
+        """Minecraft, the loader or Java: compare with what the server runs."""
         dep_id = group["mod_id"]
         group["installed_version"] = actual
         if not actual:
@@ -256,7 +285,7 @@ class DependencyResolver:
 
     @staticmethod
     def _judge_mod(
-        group: dict[str, Any], present: dict[str, Any] | None, ranges: list[str]
+        group: dict[str, Any], present: dict[str, Any] | None, ranges: list[Range]
     ) -> None:
         """Another mod: missing, disabled, or installed at a matching version."""
         if present is None:
@@ -267,15 +296,15 @@ class DependencyResolver:
         group["installed_filename"] = mod.filename
         if not present["enabled"]:
             group["status"] = "disabled"
-            group["reason"] = f"{mod.name} is installed but disabled. Enable it on the Mods page."
+            group["reason"] = f"{mod.name} is installed but turned off. Turn it on to use it."
             return
         verdict = combined_satisfies(mod.version, ranges)
         group["status"] = {True: "satisfied", False: "incompatible", None: "unverified"}[verdict]
         if verdict is False:
             group["reason"] = (
                 f"{mod.name} {mod.version} is installed, but "
-                f"{group['range_text']} is required. It was not replaced "
-                "automatically; update or roll it back from the Mods page."
+                f"{group['range_text']} is needed. It wasn't replaced "
+                "automatically: update it or go back to another version."
             )
 
     def _report(self, items: list[dict[str, Any]]) -> dict[str, Any]:
@@ -308,7 +337,7 @@ class DependencyResolver:
     async def resolve_project(self, mod_id: str) -> dict[str, Any] | None:
         """Find the Modrinth project for a mod id. Cached; None if not found."""
         if not valid_identifier(mod_id):
-            raise DependencyError(f"'{mod_id}' is not a valid mod identifier")
+            raise DependencyError(f"'{mod_id}' isn't a name a mod can have.")
         cache_key = f"dep_project:{mod_id}"
         cached = self.db.get_setting(cache_key)
         if cached and time.time() - cached.get("cached_at", 0) < CACHE_SECONDS:
@@ -323,9 +352,7 @@ class DependencyResolver:
                 "title": info["title"],
                 "page": info["page"],
             }
-        except ModrinthError as exc:
-            if "not found" not in str(exc).lower():
-                raise
+        except ModrinthNotFound:
             try:
                 found = await self.modrinth.search(mod_id, minecraft_version=None, limit=10)
             except ModrinthError:
@@ -365,18 +392,19 @@ class DependencyResolver:
 
     # ------------------------------------------------------------------ planning
     async def _pick_version(
-        self, slug: str, ranges: list[str]
+        self, slug: str, ranges: list[Range]
     ) -> tuple[dict | None, bool | None, str]:
         versions = await self.modrinth.versions(slug, self.server.mc_version)
         if not versions:
             mc = self.server.mc_version
+            kind = self.manager.config.server_type.name
             return (
                 None,
                 None,
                 (
-                    f"No Fabric build was published for Minecraft {mc}"
+                    f"There's no {kind} version of it for Minecraft {mc}."
                     if mc
-                    else "No Fabric build was found"
+                    else f"There's no {kind} version of it."
                 ),
             )
         undecided = None
@@ -387,11 +415,13 @@ class DependencyResolver:
             if verdict is None and undecided is None:
                 undecided = version
         if undecided is not None:
-            return undecided, None, "The required range could not be checked against this version"
+            return undecided, None, "The needed version range couldn't be checked against this one."
         return (
             None,
             False,
-            (f"No published version satisfies {' and '.join(describe_range(r) for r in ranges)}"),
+            "No version on Modrinth fits "
+            + " and ".join(describe_range(range_text(r)) for r in ranges)
+            + ".",
         )
 
     async def plan(self, mod_ids: list[str] | None = None) -> dict[str, Any]:
@@ -399,10 +429,10 @@ class DependencyResolver:
         dependencies, without downloading anything."""
         wanted = self._wanted(self.analyse(), mod_ids)
         installed = self._installed_index()
-        queue = [
+        queue: list[tuple[str, list[Range], list[str], int]] = [
             (
                 mod_id,
-                [r["range"] for r in group["required_by"]],
+                [(r["range"], r["syntax"]) for r in group["required_by"]],
                 [r["name"] for r in group["required_by"]],
                 0,
             )
@@ -415,7 +445,8 @@ class DependencyResolver:
         items = sorted(result["planned"].values(), key=lambda i: -i["depth"])  # deepest first
         for item in items:
             item["range_text"] = (
-                " and ".join(sorted({describe_range(r) for r in item["ranges"]})) or "Any version"
+                " and ".join(sorted({describe_range(range_text(r)) for r in item["ranges"]}))
+                or "Any version"
             )
         return {
             "items": items,
@@ -435,14 +466,14 @@ class DependencyResolver:
         if mod_ids:
             for mod_id in mod_ids:
                 if not valid_identifier(mod_id):
-                    raise DependencyError(f"'{mod_id}' is not a valid mod identifier")
+                    raise DependencyError(f"'{mod_id}' isn't a name a mod can have.")
             wanted = {k: v for k, v in wanted.items() if k in set(mod_ids)}
         return wanted
 
     async def _plan_step(
         self,
         mod_id: str,
-        ranges: list[str],
+        ranges: list[Range],
         chain: list[str],
         depth: int,
         installed: dict[str, Any],

@@ -114,7 +114,9 @@ class RateLimiter:
             hits.popleft()
         if len(hits) >= self.limit:
             retry = int(self.window - (now - hits[0])) + 1
-            raise AuthError("Too many requests. Slow down.", status=429, retry_after=retry)
+            raise AuthError(
+                "That is too many tries at once. Wait a moment.", status=429, retry_after=retry
+            )
         hits.append(now)
 
     def reset(self, key: str) -> None:
@@ -236,7 +238,7 @@ class AuthManager:
 
     def authenticate(self, token: str | None, source_ip: str = "") -> Principal:
         if not token:
-            raise AuthError("This request needs a valid token")
+            raise AuthError("You have to be signed in to do that.")
         api_token = self.config.api_token
         if api_token and hmac.compare_digest(token, api_token):
             return Principal(user="api-token", kind="api_token")
@@ -257,7 +259,7 @@ class AuthManager:
     def rotate(self, principal: Principal, source_ip: str = "") -> dict[str, Any]:
         """Issue a fresh session token and invalidate the current one."""
         if principal.kind != "session" or not principal.token_hash:
-            raise AuthError("Only interactive sessions can be rotated", status=400)
+            raise AuthError("Only a sign-in from a browser can be given a new key.", status=400)
         token = secrets.token_urlsafe(TOKEN_BYTES)
         hours = self.config.security.session_hours
         expires = time.time() + hours * 3600

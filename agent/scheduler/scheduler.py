@@ -87,7 +87,7 @@ def next_run(kind: str, expr: str, after: float | None = None) -> float:
             raise ScheduleError("The shortest interval is 30 seconds")
         return (now + timedelta(seconds=seconds)).timestamp()
 
-    raise ScheduleError("Kind must be daily, weekly or interval")
+    raise ScheduleError("Pick daily, weekly, or every so often.")
 
 
 class Scheduler:

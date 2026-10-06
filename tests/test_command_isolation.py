@@ -124,7 +124,7 @@ async def test_newline_cannot_smuggle_a_second_command_into_stdin(config):
     await server.start()
     await server.wait_online(timeout=20)
     try:
-        with pytest.raises(ServerError, match="single line"):
+        with pytest.raises(ServerError, match="has to be one line"):
             await server.send_command("say hello\nstop")
         assert server.state.value == "ONLINE", "the server must still be running"
     finally:
@@ -280,3 +280,74 @@ async def test_five_crashes_stop_automatic_restarts(make_config):
         assert events.count("crash_loop") >= 1
     finally:
         os.environ.pop("FAKE_CRASH_ON_START", None)
+
+
+# ====================================================================
+# 3. The two documented exceptions, and nothing beyond them
+# ====================================================================
+def subprocess_sites() -> list[Path]:
+    """Every file in the agent that starts a program."""
+    found = []
+    for path in python_sources():
+        text = path.read_text(encoding="utf-8")
+        if re.search(r"create_subprocess_exec|subprocess\.(run|Popen|call)", text):
+            found.append(path)
+    return found
+
+
+def test_only_the_documented_places_start_a_program():
+    """House rule 2 says the dashboard never runs programs on the PC. The
+    exceptions are documented in docs/security.md, so any new file that
+    starts a program has to be added here on purpose."""
+    allowed = {
+        "process.py",  # launching Minecraft itself
+        "install.py",  # the Forge/NeoForge/Quilt installer (documented exception)
+        "java.py",  # asking the installed Java for its version
+        "tailscale.py",  # asking Tailscale for this PC's address
+        "certs.py",  # making this app's own HTTPS certificate
+        "autostart.py",  # the Windows entry that starts this app at sign-in
+    }
+    unexpected = sorted(path.name for path in subprocess_sites() if path.name not in allowed)
+    assert not unexpected, (
+        "these files start a program, which house rule 2 allows only in the documented "
+        f"exceptions: {unexpected}. Update docs/security.md if this is on purpose."
+    )
+
+
+def test_the_installer_is_run_as_an_argument_list_with_no_shell():
+    from agent.servertypes import install
+
+    source = inspect.getsource(install.run_installer)
+    # the whole command is built here, from values this app controls
+    assert 'command = [java, "-jar", installer, "--installServer"]' in source
+    assert "*command," in source
+    assert "shell" not in source
+    # the working directory is fixed to the server's own folder, and the
+    # installer gets no input of its own
+    assert "cwd=str(directory)" in source
+    assert "stdin=asyncio.subprocess.DEVNULL" in source
+    # its output is captured into the install log, not left on a console
+    assert "stdout=asyncio.subprocess.PIPE" in source
+    assert "log_file.write_text" in source
+
+
+def test_the_installer_file_name_is_never_taken_from_a_request():
+    """The name comes from the plan this app built out of the official
+    source's answer, and the path is checked to be inside the server folder."""
+    from agent.api.routes import servertypes as routes
+    from agent.servertypes import install
+
+    assert "is_inside(directory, path.resolve())" in inspect.getsource(install.run_installer)
+    assert "run_installer" not in inspect.getsource(routes), (
+        "the API must never run the installer directly: it goes through install.py"
+    )
+
+
+@pytest.mark.parametrize(
+    "payload", ["../../etc/passwd", "1.21.1 && calc", "1.21.1;rm -rf /", "a" * 80, ""]
+)
+def test_a_requested_version_never_reaches_a_file_name_or_a_url(payload):
+    from agent.servertypes.versions import VersionError, check_version
+
+    with pytest.raises(VersionError):
+        check_version(payload)

@@ -189,10 +189,43 @@ def isolated_app_data(tmp_path_factory, monkeypatch):
 
 @pytest.fixture(autouse=True)
 def clean_fake_env():
-    keys = ["FAKE_CRASH_ON_START", "FAKE_MIXIN_CRASH", "FAKE_HANG", "FAKE_BOOT_DELAY"]
+    keys = [
+        "FAKE_CRASH_ON_START",
+        "FAKE_MIXIN_CRASH",
+        "FAKE_HANG",
+        "FAKE_BOOT_DELAY",
+        "FAKE_TYPE",
+        "FAKE_MC_VERSION",
+        "FAKE_LOADER_VERSION",
+        "FAKE_CHECK_EULA",
+    ]
     saved = {k: os.environ.pop(k, None) for k in keys}
     yield
     for k, v in saved.items():
         os.environ.pop(k, None)
         if v is not None:
             os.environ[k] = v
+
+
+@pytest.fixture
+def multi(tmp_path):
+    return build_multi_config(tmp_path)
+
+
+@pytest.fixture
+def multi_client(multi, monkeypatch):
+    """The real app with several servers, signed in as admin."""
+    from fastapi.testclient import TestClient
+
+    from agent.main import create_app
+    from agent.security.auth import hash_password
+
+    monkeypatch.setenv("MCSC_ADMIN_USERNAME", "admin")
+    monkeypatch.setenv("MCSC_ADMIN_PASSWORD_HASH", hash_password(PASSWORD, rounds=1000))
+    monkeypatch.delenv("MCSC_API_TOKEN", raising=False)
+    with TestClient(create_app(multi)) as client:
+        token = client.post(
+            "/api/auth/login", json={"username": "admin", "password": PASSWORD}
+        ).json()["token"]
+        client.headers["Authorization"] = f"Bearer {token}"
+        yield client

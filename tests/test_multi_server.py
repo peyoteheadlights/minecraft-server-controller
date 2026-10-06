@@ -13,31 +13,8 @@ from agent.events import Event
 from agent.minecraft.process import ServerError
 from agent.minecraft.state import ServerState
 
-from .conftest import PASSWORD, build_multi_config, fake_server_entry, make_server_folder
+from .conftest import build_multi_config, fake_server_entry, make_server_folder
 from .test_mods import make_jar
-
-
-@pytest.fixture
-def multi(tmp_path):
-    return build_multi_config(tmp_path)
-
-
-@pytest.fixture
-def multi_client(multi, monkeypatch):
-    from fastapi.testclient import TestClient
-
-    from agent.main import create_app
-    from agent.security.auth import hash_password
-
-    monkeypatch.setenv("MCSC_ADMIN_USERNAME", "admin")
-    monkeypatch.setenv("MCSC_ADMIN_PASSWORD_HASH", hash_password(PASSWORD, rounds=1000))
-    monkeypatch.delenv("MCSC_API_TOKEN", raising=False)
-    with TestClient(create_app(multi)) as client:
-        token = client.post(
-            "/api/auth/login", json={"username": "admin", "password": PASSWORD}
-        ).json()["token"]
-        client.headers["Authorization"] = f"Bearer {token}"
-        yield client
 
 
 async def wait_for(predicate, timeout=15.0):

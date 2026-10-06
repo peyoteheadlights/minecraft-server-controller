@@ -57,6 +57,24 @@ PAGES = [
 ]
 
 
+def chromium_path() -> str | None:
+    """The Chromium to drive. Playwright's own copy is used when it is the
+    one this version expects; MCSC_CHROMIUM overrides it, and otherwise any
+    Chromium already in the browsers folder is used, so the check runs on a
+    machine where the two versions don't line up."""
+    chosen = os.environ.get("MCSC_CHROMIUM")
+    if chosen:
+        return chosen
+    base = Path(os.environ.get("PLAYWRIGHT_BROWSERS_PATH", ""))
+    if not base.is_dir():
+        return None
+    for candidate in sorted(base.glob("chromium-*/chrome-linux/chrome"), reverse=True):
+        return str(candidate)
+    for candidate in sorted(base.glob("chromium-*/chrome-win/chrome.exe"), reverse=True):
+        return str(candidate)
+    return None
+
+
 def choose(page, key: str, value: str) -> None:
     """Change the theme or mode the way the gear page does."""
     page.evaluate(
@@ -207,7 +225,7 @@ def main():
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch()
+            browser = p.chromium.launch(executable_path=chromium_path())
             for scheme in ["light"] if quick else ["light", "dark"]:
                 context = browser.new_context(
                     viewport={"width": 1440, "height": 900},

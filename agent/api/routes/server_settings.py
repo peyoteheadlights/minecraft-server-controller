@@ -109,7 +109,10 @@ async def update_server_settings(
             ) from exc
         if "server.name" in applied:
             ctx.core.db.register_server(
-                ctx.server_id, ctx.config.server.name, str(ctx.config.server_dir)
+                ctx.server_id,
+                ctx.config.server.name,
+                str(ctx.config.server_dir),
+                ctx.config.server.type,
             )
             await _announce_change(ctx, f"Renamed the server to {ctx.name}")
         audit(ctx, request, "server_settings_update", detail=", ".join(applied))

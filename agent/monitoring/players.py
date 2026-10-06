@@ -1,8 +1,13 @@
 """Player presence and playtime tracking.
 
-Only a username, the Mojang UUID printed by the server, and timestamps are
-stored. IP addresses are deliberately not captured: the server prints them on
-connect, and this tracker drops them.
+Only a username, the UUID printed by the server, which edition the player
+joined from, and timestamps are stored. IP addresses are deliberately not
+captured: the server prints them on connect, and this tracker drops them.
+
+With crossplay on, Floodgate gives Bedrock players a name prefix (".Name").
+That prefix is what marks them as Bedrock players, and their name is always
+shown exactly as the server printed it: a Bedrock player's Java name is
+never guessed, because they may not have one.
 """
 
 from __future__ import annotations
@@ -56,18 +61,33 @@ class PlayerTracker:
         """Player count, or None when it has not been established."""
         return len(self.online()) if self.verified else None
 
+    def edition_of(self, username: str) -> str | None:
+        """ "bedrock", "java", or None when it cannot be told.
+
+        With crossplay off every player came in through the Java port, so
+        "java" is a fact. With it on, Floodgate's prefix marks a Bedrock
+        player; a name without it came through the Java port.
+        """
+        from ..crossplay import is_bedrock_name
+
+        if not getattr(self.config.server, "crossplay", False):
+            return "java"
+        return "bedrock" if is_bedrock_name(username) else "java"
+
     async def player_joined(self, username: str) -> None:
         now = time.time()
         self.mark_verified("join observed in console")
         uuid = self._pending_uuid.pop(username, None)
+        edition = self.edition_of(username)
         row = self.db.query_one(
             "SELECT * FROM players WHERE server_id = ? AND username = ?", (self.server_id, username)
         )
         if row:
             self.db.execute(
                 "UPDATE players SET online = 1, session_started = ?, last_seen = ?, "
-                "sessions = sessions + 1, uuid = COALESCE(?, uuid) WHERE server_id = ? AND username = ?",
-                (now, now, uuid, self.server_id, username),
+                "sessions = sessions + 1, uuid = COALESCE(?, uuid), edition = ? "
+                "WHERE server_id = ? AND username = ?",
+                (now, now, uuid, edition, self.server_id, username),
             )
         else:
             self.db.insert(
@@ -82,6 +102,7 @@ class PlayerTracker:
                     "sessions": 1,
                     "online": 1,
                     "session_started": now,
+                    "edition": edition,
                 },
             )
         self.db.insert(
@@ -98,7 +119,12 @@ class PlayerTracker:
             Event(
                 type="player_joined",
                 message=f"{username} joined",
-                data={"username": username, "uuid": uuid, "online": len(self.online())},
+                data={
+                    "username": username,
+                    "uuid": uuid,
+                    "edition": edition,
+                    "online": len(self.online()),
+                },
             )
         )
 
@@ -157,8 +183,9 @@ class PlayerTracker:
     # ------------------------------------------------------------------
     def online(self) -> list[dict[str, Any]]:
         rows = self.db.query(
-            "SELECT username, uuid, session_started, total_seconds, sessions, first_seen, last_seen "
-            "FROM players WHERE server_id = ? AND online = 1 ORDER BY session_started ASC",
+            "SELECT username, uuid, session_started, total_seconds, sessions, first_seen, "
+            "last_seen, edition FROM players WHERE server_id = ? AND online = 1 "
+            "ORDER BY session_started ASC",
             (self.server_id,),
         )
         now = time.time()

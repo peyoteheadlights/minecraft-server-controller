@@ -4,6 +4,8 @@
 
 import { api } from "../api.js";
 import { render } from "../nav.js";
+import { crossplayPanel } from "../panels/crossplay.js";
+import { loadServerTypes, versionCard } from "../panels/version.js";
 import { loadServers, serverRow } from "../servers.js";
 import { renderers, state } from "../state.js";
 import { t, technical } from "../strings.js";
@@ -306,9 +308,16 @@ function removeCard() {
 
 renderers.settings = (page) => loadInto(page, async () => {
   await loadServers();
-  const own = await api(serverUrl("/settings"));
+  await loadServerTypes();
+  const [own, version, crossplay] = await Promise.all([
+    api(serverUrl("/settings")),
+    api(serverUrl("/version")),
+    crossplayPanel(() => render()),
+  ]);
   return el("div", { class: "stack" },
     identityCard(own),
+    versionCard(version, () => render()),
+    crossplay,
     crashCard(own),
     memoryCard(own),
     cpuCard(own.cpu, own.server.cpu_cores || []),

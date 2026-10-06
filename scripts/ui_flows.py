@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from ui_check import PASSWORD, start_agent  # noqa: E402
+from ui_check import PASSWORD, chromium_path, start_agent  # noqa: E402
 
 RESULTS = []
 
@@ -45,7 +45,7 @@ def main():
     errors = []
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch()
+            browser = p.chromium.launch(executable_path=chromium_path())
             ctx = browser.new_context(viewport={"width": 1440, "height": 900}, color_scheme="light")
             page = ctx.new_page()
             page.on("pageerror", lambda e: errors.append(str(e)))
@@ -510,6 +510,59 @@ def main():
                 lambda: expect(page.locator(".server-card")).to_have_count(2),
             )
             page.screenshot(path=str(shots / "06b-all-servers.png"))
+
+            print("\n=== Server types ===")
+            page.locator("#tab-ui").click()
+            page.locator(".nav-item", has_text="Server settings").click()
+            check(
+                "The settings page names the kind of server",
+                lambda: expect(
+                    page.locator(".section", has_text="Kind and version")
+                ).to_be_visible(),
+            )
+            check(
+                "The version shown is the one the console reported",
+                lambda: expect(
+                    page.locator(".row", has_text="Minecraft version").locator(".row-value")
+                ).to_have_text("1.21.1"),
+            )
+            check(
+                "Bedrock crossplay is offered, switched off",
+                lambda: expect(
+                    page.locator("button", has_text="Let Bedrock players join")
+                ).to_be_visible(),
+            )
+            check(
+                "The Bedrock differences are spelled out before anything is turned on",
+                lambda: expect(page.locator(".plain-list li").first).to_contain_text("Bedrock"),
+            )
+            page.locator("#tab-add").click()
+            check(
+                "The + tab offers a new server and a folder you already have",
+                lambda: expect(page.locator(".add-ways button")).to_have_count(2),
+            )
+            check(
+                "Every kind of server this app supports is in the table",
+                lambda: expect(page.locator(".type-table tbody tr")).to_have_count(7),
+            )
+            check(
+                "One kind is marked as the one to pick",
+                lambda: expect(page.locator(".type-table .rec-tag")).to_have_count(1),
+            )
+            check(
+                "Nothing is chosen for the person",
+                lambda: expect(page.locator(".type-table .btn.primary")).to_have_count(0),
+            )
+            check(
+                "Bedrock servers say they come later rather than being offered",
+                lambda: expect(page.get_by_role("radio", name="Bedrock Edition")).to_be_disabled(),
+            )
+            page.screenshot(path=str(shots / "06c-new-server.png"))
+            page.get_by_role("button", name="Server I already have").click()
+            check(
+                "The folder-I-already-have way is still there",
+                lambda: expect(page.locator("#add-server-folder")).to_be_visible(),
+            )
 
             print("\n=== Appearance ===")
             page.locator("#gear").click()

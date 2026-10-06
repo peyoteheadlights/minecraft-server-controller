@@ -55,15 +55,19 @@ class PathSafetyError(ValueError):
 def safe_filename(name: str, allowed_extensions: set[str] | None = None) -> str:
     """Validate a single filename. Returns it unchanged, or raises."""
     if not name or name in (".", ".."):
-        raise PathSafetyError("Empty or relative filename")
+        raise PathSafetyError("No file name was given.")
     if "/" in name or "\\" in name or "\0" in name:
-        raise PathSafetyError(f"A filename must not contain a path: {name!r}")
+        raise PathSafetyError(f"{name!r} is a path, not a file name.")
     if name != name.strip() or name.endswith("."):
-        raise PathSafetyError(f"Filename has stray whitespace or a trailing dot: {name!r}")
+        raise PathSafetyError(
+            f"{name!r} starts or ends with a space or a dot, which Windows can't handle."
+        )
     if not SAFE_NAME_RE.match(name):
-        raise PathSafetyError(f"Filename contains characters that are not allowed: {name!r}")
+        raise PathSafetyError(f"{name!r} has characters in it that a file name can't have.")
     if name.split(".")[0].upper() in WINDOWS_RESERVED:
-        raise PathSafetyError(f"{name!r} is a reserved Windows device name")
+        raise PathSafetyError(
+            f"Windows keeps the name {name!r} for itself, so a file can't be called that."
+        )
     suffix = Path(name).suffix.lower()
     if suffix in EXECUTABLE_EXTENSIONS:
         raise PathSafetyError(f"{suffix} files are never downloaded or written by this agent")
@@ -92,19 +96,21 @@ def safe_join(base: Path, *parts: str, allowed_extensions: set[str] | None = Non
         safe_filename(part, allowed_extensions if last else None)
     candidate = base.joinpath(*parts)
     if not is_inside(base, candidate):
-        raise PathSafetyError("The resolved path escapes its base directory")
+        raise PathSafetyError("That path leads outside the folder it has to stay in.")
     return candidate
 
 
 def assert_not_symlink(path: Path) -> Path:
     p = Path(path)
     if p.is_symlink():
-        raise PathSafetyError(f"{p} is a symbolic link; refusing to follow it")
+        raise PathSafetyError(f"{p} is a shortcut to somewhere else, so it wasn't followed.")
     if os.name == "nt" and p.exists():
         try:
             attrs = os.stat(p, follow_symlinks=False).st_file_attributes  # type: ignore[attr-defined]
             if attrs & getattr(stat_module, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400):
-                raise PathSafetyError(f"{p} is a reparse point; refusing to follow it")
+                raise PathSafetyError(
+                    f"{p} points somewhere else on the disk, so it wasn't followed."
+                )
         except (AttributeError, OSError):  # pragma: no cover
             pass
     return p
@@ -159,6 +165,58 @@ def _system_folders() -> list[Path]:
     if os.name != "nt":
         found += [Path(p) for p in ("/bin", "/boot", "/dev", "/etc", "/proc", "/sys", "/usr")]
     return found
+
+
+def check_new_server_folder(
+    value: str,
+    protected: Iterable[Path] = (),
+    registered: Iterable[tuple[str, Path]] = (),
+) -> Path:
+    """Validate a folder a new server is about to be created in.
+
+    The same rules as check_server_folder, except that the folder may not
+    exist yet (its parent must) and, if it does exist, it must be empty:
+    a new server never writes into a folder that already holds files.
+    Nothing is created here.
+    """
+    raw = (value or "").strip()
+    if not raw or "\0" in raw:
+        raise PathSafetyError("Enter the folder the new server should live in.")
+    path = Path(raw).expanduser()
+    if not path.is_absolute():
+        raise PathSafetyError(
+            "Enter the full path to the folder, for example C:\\Minecraft\\Survival"
+        )
+    if path.exists():
+        assert_not_symlink(path)
+        if not path.is_dir():
+            raise PathSafetyError(f"{path} is a file, not a folder.")
+        if any(path.iterdir()):
+            raise PathSafetyError(
+                f"{path} already has files in it. Pick an empty or new folder, or add the "
+                "existing server instead."
+            )
+    parent = path.parent
+    if not parent.is_dir():
+        raise PathSafetyError(f"{parent} doesn't exist, so the new folder can't be made there.")
+    assert_not_symlink(parent)
+    resolved = (parent.resolve() / path.name) if not path.exists() else path.resolve()
+    if resolved.parent == resolved:
+        raise PathSafetyError("A whole drive can't be a server folder; pick a folder inside it.")
+    home = Path.home().resolve()
+    if resolved == home:
+        raise PathSafetyError("Your home folder can't be a server folder; pick a folder inside it.")
+    for system in _system_folders():
+        if is_inside(system, resolved):
+            raise PathSafetyError(f"{path} is inside a system folder ({system}).")
+    for folder in protected:
+        folder = Path(folder)
+        if is_inside(folder, resolved) or is_inside(resolved, folder):
+            raise PathSafetyError(f"{path} overlaps this app's own folder {folder}.")
+    for name, folder in registered:
+        if is_inside(Path(folder), resolved) or is_inside(resolved, Path(folder)):
+            raise PathSafetyError(f"{path} overlaps the folder of the server '{name}'.")
+    return resolved
 
 
 def check_server_folder(

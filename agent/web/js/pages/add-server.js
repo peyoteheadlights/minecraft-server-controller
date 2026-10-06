@@ -1,14 +1,19 @@
-/* The "+" tab: add a Minecraft server that already exists in a folder on
-   the PC. Nothing in the folder is changed and the server is not started.
-   (Creating a brand-new server comes with the New server panel later.) */
+/* The "+" tab, with two ways in:
+
+   New server    - downloaded and set up from scratch (panels/newserver.js)
+   Already have  - a Minecraft server that is already in a folder on this PC
+
+   The second one changes nothing in the folder and does not start the
+   server; it only puts it on the list. */
 
 import { api } from "../api.js";
+import { newServerPanel } from "../panels/newserver.js";
 import { loadServers, selectServer } from "../servers.js";
 import { renderers, state } from "../state.js";
 import { t } from "../strings.js";
 import { advanced, busy, card, el, toast } from "../ui.js";
 
-renderers["add-server"] = (page) => {
+function existingServerForm() {
   const name = el("input", { id: "add-server-name", maxlength: "60", required: true, autocomplete: "off" });
   const folder = el("input", { id: "add-server-folder", maxlength: "400", required: true,
     class: "mono", placeholder: "C:\\Minecraft\\Creative", autocomplete: "off" });
@@ -63,6 +68,31 @@ renderers["add-server"] = (page) => {
       } catch (err) { toast(err.message, "error", 9000); }
     });
   });
-  page.append(form);
-  name.focus({ preventScroll: true });
+  return { form, focus: () => name.focus({ preventScroll: true }) };
+}
+
+renderers["add-server"] = (page) => {
+  const body = el("div", {});
+  let which = "new";
+
+  const tabs = el("div", { class: "segmented add-ways", role: "group", "aria-label": t("add.ways") });
+  const show = (choice) => {
+    which = choice;
+    for (const button of tabs.children) {
+      button.setAttribute("aria-pressed", button.dataset.way === which ? "true" : "false");
+    }
+    if (which === "new") {
+      body.replaceChildren(newServerPanel());
+    } else {
+      const existing = existingServerForm();
+      body.replaceChildren(existing.form);
+      existing.focus();
+    }
+  };
+  tabs.append(
+    el("button", { type: "button", "data-way": "new", onclick: () => show("new") }, t("add.way_new")),
+    el("button", { type: "button", "data-way": "have", onclick: () => show("have") }, t("add.way_have")));
+
+  page.append(el("div", { class: "stack" }, tabs, body));
+  show(which);
 };

@@ -462,5 +462,5 @@ class Notifier:
         elif channel == "email":
             ok = await self.send_email(event)
         else:
-            raise ValueError("Channel must be 'discord' or 'email'")
+            raise ValueError("Pick either Discord or email.")
         return {"channel": channel, "sent": ok}

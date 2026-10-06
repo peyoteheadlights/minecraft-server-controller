@@ -67,7 +67,7 @@ def permissions_for(principal: Principal) -> frozenset[str]:
 
 def check(principal: Principal, permission: str) -> None:
     if permission not in ALL:  # a typo in a route would otherwise lock everyone out
-        raise ValueError(f"Unknown permission {permission!r}")
+        raise ValueError(f"{permission!r} isn't a permission this app has.")
     if permission not in permissions_for(principal):
         raise AuthError("Your account is not allowed to do that", status=403)
 
@@ -80,7 +80,7 @@ def require(permission: str):
     carries ``.permission`` so the test can read what each route declared.
     """
     if permission not in ALL:
-        raise ValueError(f"Unknown permission {permission!r}")
+        raise ValueError(f"{permission!r} isn't a permission this app has.")
     from ..api.deps import require_auth
 
     async def dependency(request: Request, principal: Principal = Depends(require_auth)):

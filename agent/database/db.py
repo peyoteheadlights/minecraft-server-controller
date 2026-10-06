@@ -227,6 +227,25 @@ MIGRATIONS: list[tuple[int, str]] = [
         ALTER TABLE servers ADD COLUMN color TEXT;
         """,
     ),
+    (
+        5,
+        # Server types. Every server registered before them is Fabric. The
+        # loader column records the loader version this app installed
+        # (empty when the app did not install it); what is actually running
+        # is only ever read from the console.
+        """
+        ALTER TABLE servers ADD COLUMN type TEXT NOT NULL DEFAULT 'fabric';
+        ALTER TABLE servers ADD COLUMN loader TEXT;
+        """,
+    ),
+    (
+        6,
+        # Which edition a player joined from. Empty for everyone seen before
+        # crossplay existed: that is Unknown, not Java.
+        """
+        ALTER TABLE players ADD COLUMN edition TEXT;
+        """,
+    ),
 ]
 
 
@@ -306,12 +325,24 @@ class Database:
             self._conn.close()
 
     # -- helpers ----------------------------------------------------------
-    def register_server(self, server_id: str, name: str, directory: str) -> None:
+    def register_server(
+        self, server_id: str, name: str, directory: str, type_: str = "fabric"
+    ) -> None:
         self.execute(
-            "INSERT INTO servers (id, name, directory, created_at) VALUES (?, ?, ?, ?) "
-            "ON CONFLICT(id) DO UPDATE SET name=excluded.name, directory=excluded.directory",
-            (server_id, name, directory, time.time()),
+            "INSERT INTO servers (id, name, directory, created_at, type) VALUES (?, ?, ?, ?, ?) "
+            "ON CONFLICT(id) DO UPDATE SET name=excluded.name, directory=excluded.directory, "
+            "type=excluded.type",
+            (server_id, name, directory, time.time(), type_),
         )
+
+    def set_server_software(self, server_id: str, type_: str, loader: str | None) -> None:
+        """Record the type and the loader version this app installed."""
+        self.execute(
+            "UPDATE servers SET type = ?, loader = ? WHERE id = ?", (type_, loader, server_id)
+        )
+
+    def server_row(self, server_id: str) -> dict | None:
+        return self.query_one("SELECT * FROM servers WHERE id = ?", (server_id,))
 
     def server_color(self, server_id: str) -> str | None:
         row = self.query_one("SELECT color FROM servers WHERE id = ?", (server_id,))

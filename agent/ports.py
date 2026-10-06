@@ -1,10 +1,12 @@
 """The port manager: one place that knows which ports the servers use.
 
-Minecraft Java servers listen on a TCP port (Bedrock and Geyser, in later
-phases, on UDP). This module:
+Minecraft Java servers listen on a TCP port; Geyser (Bedrock players) and
+Bedrock servers listen on a UDP port. This module:
 
   * reads each server's real game port from its server.properties
-  * checks whether a port is really free on this machine by trying to bind it
+  * knows each server's Bedrock (Geyser) UDP port when crossplay is on
+  * checks whether a port is really free on this machine by trying to bind
+    it, as TCP or as UDP, whichever that port is for
   * suggests a port that no configured server uses and nothing else holds
   * refuses to start a server whose port or folder collides with another
     running server, naming that server
@@ -23,6 +25,8 @@ if TYPE_CHECKING:
 
 # What Minecraft itself uses when server.properties does not set a port.
 MINECRAFT_DEFAULT_PORT = 25565
+# What Minecraft Bedrock tries first, and Geyser's own default.
+BEDROCK_DEFAULT_PORT = 19132
 SUGGEST_RANGE = 200
 
 
@@ -101,15 +105,39 @@ class PortManager:
     def port_of(self, ctx: ServerContext) -> GamePort:
         return game_port(ctx.config.server_dir, ctx.server.detected_port)
 
+    def bedrock_port_of(self, ctx: ServerContext) -> GamePort | None:
+        """The UDP port Bedrock players reach this server on, or None when
+        crossplay is off."""
+        if not ctx.config.server.crossplay:
+            return None
+        port = int(ctx.config.server.bedrock_port or 0)
+        if not port:
+            return None
+        return GamePort(port, "udp", "Geyser's settings")
+
     def used(self, exclude: str | None = None) -> dict[tuple[str, int], str]:
-        """(protocol, port) -> server id, for every configured server."""
+        """(protocol, port) -> server id, for every configured server. Holds
+        each server's Java (TCP) port and, with crossplay on, its Bedrock
+        (UDP) port."""
         taken: dict[tuple[str, int], str] = {}
         for server_id, ctx in self.core.servers.items():
             if server_id == exclude:
                 continue
             port = self.port_of(ctx)
             taken.setdefault((port.protocol, port.port), server_id)
+            bedrock = self.bedrock_port_of(ctx)
+            if bedrock:
+                taken.setdefault((bedrock.protocol, bedrock.port), server_id)
         return taken
+
+    def suggest_bedrock(self) -> int | None:
+        """A free UDP port for Geyser, checked as UDP."""
+        return self.suggest("udp", BEDROCK_DEFAULT_PORT)
+
+    def bedrock_owner(self, port: int, exclude: str | None = None) -> str | None:
+        """The name of the server already using this UDP port, or None."""
+        owner = self.used(exclude=exclude).get(("udp", int(port)))
+        return self.core.servers[owner].name if owner else None
 
     def suggest(self, protocol: str = "tcp", start: int = MINECRAFT_DEFAULT_PORT) -> int | None:
         """The first port from ``start`` that no server uses and is free here."""
@@ -125,10 +153,18 @@ class PortManager:
         """Reasons this server must not start now because of another one."""
         problems = []
         mine = self.port_of(ctx)
+        my_bedrock = self.bedrock_port_of(ctx)
         for other in self.core.servers.values():
             if other is ctx or not other.server.running:
                 continue
             theirs = self.port_of(other)
+            their_bedrock = self.bedrock_port_of(other)
+            if my_bedrock and their_bedrock and my_bedrock.port == their_bedrock.port:
+                problems.append(
+                    f"Bedrock players would use port {my_bedrock.port}, which the running "
+                    f"server '{other.name}' already uses for them. Change one of them in "
+                    "Server settings, or stop the other server first."
+                )
             if (theirs.protocol, theirs.port) == (mine.protocol, mine.port):
                 problems.append(
                     f"Port {mine.port} is already used by the running server "
@@ -143,10 +179,17 @@ class PortManager:
         return problems
 
     def start_warnings(self, ctx: ServerContext) -> list[str]:
+        warnings = []
         mine = self.port_of(ctx)
         if not is_free(mine.port, mine.protocol):
-            return [
+            warnings.append(
                 f"Port {mine.port} looks busy on this PC (another program may be using it), "
                 "so Minecraft may fail to start."
-            ]
-        return []
+            )
+        bedrock = self.bedrock_port_of(ctx)
+        if bedrock and not is_free(bedrock.port, "udp"):
+            warnings.append(
+                f"Port {bedrock.port}, which Bedrock players use, looks busy on this PC, "
+                "so they may not be able to join."
+            )
+        return warnings

@@ -143,7 +143,7 @@ def test_the_token_says_who_is_sending_and_can_be_checked():
 
 
 def test_a_bad_private_key_is_reported_in_words():
-    with pytest.raises(push.PushError, match="make_push_keys"):
+    with pytest.raises(push.PushError, match="setup"):
         push.vapid_headers("https://push.example/x", "pub", "!!!", "")
 
 
@@ -304,12 +304,12 @@ def test_phone_alerts_are_off_and_unset_until_the_owner_sets_them_up(client):
     assert state["configured"] is False
     assert state["enabled"] is False
     assert state["phones"] == []
-    assert "make_push_keys" in state["setup_command"]
+    assert "setup.ps1" in state["setup_command"]
 
     payload, _private = browser_subscription()
     answer = client.post("/api/push/subscribe", json={"subscription": payload, "label": "Phone"})
     assert answer.status_code == 409
-    assert "make_push_keys" in answer.json()["detail"]
+    assert "setup.ps1" in answer.json()["detail"]
 
 
 def test_a_phone_can_sign_up_and_leave(client, keys):
@@ -364,3 +364,21 @@ def test_signing_up_needs_permission(client, keys):
         401,
         403,
     )
+
+
+def test_a_key_pair_is_checked_as_a_pair():
+    public, private = push.generate_keys()
+    other_public, _other_private = push.generate_keys()
+    assert push.key_problem(public, private) is None
+    assert "missing" in push.key_problem("", private)
+    assert "belong together" in push.key_problem(other_public, private)
+    assert "can't be read" in push.key_problem(public, "!!!")
+
+
+def test_a_broken_key_pair_does_not_count_as_set_up(client, monkeypatch):
+    login(client)
+    public, _private = push.generate_keys()
+    _other, private = push.generate_keys()
+    monkeypatch.setenv("MCSC_VAPID_PUBLIC_KEY", public)
+    monkeypatch.setenv("MCSC_VAPID_PRIVATE_KEY", private)
+    assert client.get("/api/push").json()["configured"] is False

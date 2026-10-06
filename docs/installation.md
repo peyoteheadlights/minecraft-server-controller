@@ -82,6 +82,17 @@ shown again.
 If you ever forget your password, run `make_secrets` again after deleting
 `.env`, then restart the agent.
 
+### Phone alert keys
+
+```powershell
+python -m installer.make_push_keys
+```
+
+Makes the key pair phone alerts are signed with and adds it to `.env`, with an
+optional email address the push services can contact you at. `setup.ps1` does
+this for you. Keys that already work are kept, because replacing them signs
+every phone out.
+
 ## 6. Set up HTTPS
 
 HTTPS is required: the agent refuses to serve plain HTTP on anything but

@@ -14,6 +14,10 @@ from .models import PushSubscribeRequest, PushUnsubscribeRequest
 
 router = APIRouter()
 
+# Setup makes the keys and keeps everything already configured, so running
+# it again on an existing install is safe.
+SETUP_COMMAND = ".\\setup.ps1"
+
 
 @router.get("/push")
 async def push_status(
@@ -25,11 +29,14 @@ async def push_status(
     never leaves the agent.
     """
     return {
-        "configured": bool(core.config.vapid_public_key and core.config.vapid_private_key),
+        # A pair that is there but unusable is not "configured": phones would
+        # sign up and then never get anything.
+        "configured": push.key_problem(core.config.vapid_public_key, core.config.vapid_private_key)
+        is None,
         "public_key": core.config.vapid_public_key,
         "enabled": core.config.notifications.push_enabled,
         "phones": push.listed(core.db),
-        "setup_command": "python -m installer.make_push_keys",
+        "setup_command": SETUP_COMMAND,
     }
 
 
@@ -41,10 +48,10 @@ async def subscribe(
     core=Depends(get_core),
 ):
     """Remember a browser's push subscription, so alerts can reach it."""
-    if not core.config.vapid_private_key:
+    if push.key_problem(core.config.vapid_public_key, core.config.vapid_private_key):
         raise HTTPException(
             status_code=409,
-            detail="Phone alerts aren't set up yet. Run: python -m installer.make_push_keys",
+            detail=f"Phone alerts aren't set up yet. On the PC, run: {SETUP_COMMAND}",
         )
     subscription = push.Subscription.from_browser(payload.subscription, label=payload.label)
     stored = push.store(core.db, subscription, user=principal.user)

@@ -252,11 +252,12 @@ and to deliver phone alerts.
 
 ## Phone alerts
 
-The VAPID key pair lives in `.env` with the other secrets, made by
-`python -m installer.make_push_keys`, which refuses to overwrite an existing
-pair. The public half is handed to each phone's browser, which is what it is
-for; the private half never leaves the PC, and `/api/push` serves only the
-public one.
+The VAPID key pair lives in `.env` with the other secrets, made by setup
+(`.\setup.ps1`, or `python -m installer.make_push_keys` for just that step),
+which keeps a pair that works and never prints the private half. The public
+half is handed to each phone's browser, which is what it is for; the private
+half never leaves the PC, and `/api/push` serves only the public one. A pair
+whose halves don't belong together counts as not set up.
 
 Each message is encrypted for one subscription (RFC 8291) before it is
 posted, so the browser vendor's push service carries text it cannot read,

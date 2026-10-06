@@ -6,8 +6,8 @@ evidence it is based on, and where in the dashboard the fix is. A rule
 never fires from a value nobody measured, and nothing here changes
 anything on the PC; the person always presses the button themselves.
 
-Later features add rules here (install spark, off-PC backups, PC may sleep,
-updates) instead of adding banners of their own.
+Later features add rules here (updates) instead of adding banners of
+their own.
 
 The person can dismiss a recommendation (hidden on this server until they
 bring it back) or snooze it (hidden until its evidence changes, or until the
@@ -21,6 +21,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from . import memory
 from .minecraft.java import memory_limit_mb
 
 DAY = 86400.0
@@ -48,6 +49,15 @@ class Facts:
     java: dict[str, Any] | None  # java_compatibility from the server status
     auto_restart: bool
     crashes: list[dict[str, Any]] = field(default_factory=list)  # newest first
+    # TPS detection's result for this start (agent/monitoring/tps.py).
+    tps: dict[str, Any] | None = None
+    modrinth: bool = False  # this server type installs mods from Modrinth
+    spark_installed: bool | None = None
+    # The running servers' memory limits added up, against the PC's
+    # measured total (agent/memory.py). None when RAM couldn't be read.
+    memory: dict[str, Any] | None = None
+    power: dict[str, Any] | None = None  # agent/keepawake.py status()
+    offsite_folder: str = ""  # backups.offsite_directory, "" when off
 
 
 @dataclass
@@ -244,6 +254,108 @@ def slow_while_busy(f: Facts) -> Recommendation | None:
     )
 
 
+def install_spark(f: Facts) -> Recommendation | None:
+    """Only when automatic detection asked and nothing answered. spark adds
+    a way to read the game speed; it does not make anything faster."""
+    tps = f.tps or {}
+    if (
+        not f.modrinth
+        or f.spark_installed is not False
+        or tps.get("mode") != "auto"
+        or tps.get("state") != "unavailable"
+        or not tps.get("tried")
+    ):
+        return None
+    tried = ", ".join(str(t.get("command")) for t in tps["tried"])
+    return Recommendation(
+        id="install_spark",
+        title="Install spark to see game speed",
+        reason="Game speed shows as Unknown because nothing on this server reports it.",
+        evidence=f"Asked with {tried} when the server started; none answered.",
+        action={"label": "Find spark", "page": "mods", "search": "spark"},
+        fingerprint="spark:" + ",".join(sorted(str(t.get("command")) for t in tps["tried"])),
+        details={"tried": [t.get("command") for t in tps["tried"]], "source": "TPS detection"},
+    )
+
+
+def memory_over_pc(f: Facts) -> Recommendation | None:
+    m = f.memory
+    if not m or not m.get("total_mb") or m["together_mb"] <= m["total_mb"]:
+        return None
+    names = ", ".join(m["names"])
+    return Recommendation(
+        id="memory_over_pc",
+        title="Lower the memory limits",
+        reason="Running servers are allowed more memory than the PC has, so one may crash.",
+        evidence=f"{names} may use up to {m['together_mb'] / 1024:.1f} GB together; this PC "
+        f"has {m['total_mb'] / 1024:.1f} GB.",
+        action={"label": "Open game settings", "page": "game-settings"},
+        fingerprint=f"memory:{m['together_mb']}:{m['total_mb']}",
+        details={**m, "source": "-Xmx of running servers; total memory measured by psutil"},
+    )
+
+
+def pc_may_sleep(f: Facts) -> Recommendation | None:
+    p = f.power
+    if not p or not p.get("supported"):
+        return None
+    if not p.get("enabled"):
+        return Recommendation(
+            id="pc_may_sleep",
+            title="Keep the PC awake",
+            reason="If Windows sleeps, the server stops for everyone playing.",
+            evidence="Keep the PC awake is off.",
+            action={"label": "Open app settings", "page": "app-settings"},
+            fingerprint="keep_awake:off",
+            details={"setting": "power.keep_awake", "value": False},
+        )
+    notes = p.get("still_sleeps") or []
+    if not notes:
+        return None
+    if "on_battery" in notes:
+        evidence = "This PC is running on battery. Windows can still sleep when it runs low."
+    else:
+        evidence = "Closing the lid puts this PC to sleep (Windows power settings)."
+    return Recommendation(
+        id="pc_may_sleep",
+        title="Windows can still sleep",
+        reason="Keep awake is on, but some things still put the PC to sleep.",
+        evidence=evidence,
+        action={"label": "Open app settings", "page": "app-settings"},
+        fingerprint="sleep:" + ",".join(sorted(notes)),
+        details={"still_sleeps": notes, "source": "battery (psutil), lid (Windows power plan)"},
+    )
+
+
+def offsite_backups(f: Facts) -> Recommendation | None:
+    good = [b for b in f.backups if b.get("status") == "ok"]
+    if not good:
+        return None  # no_backup comes first
+    if not f.offsite_folder:
+        return Recommendation(
+            id="offsite_backups",
+            title="Keep a copy off this PC",
+            reason="Backups on the same drive are lost if the drive fails.",
+            evidence="No folder for second copies is set.",
+            action={"label": "Open backups", "page": "backups"},
+            fingerprint="offsite:none",
+            details={"setting": "backups.offsite_directory", "value": ""},
+        )
+    newest = good[0]
+    copy = newest.get("copy") or {}
+    if copy.get("state") in ("failed", "unreachable", "missing"):
+        return Recommendation(
+            id="offsite_copy_failed",
+            title="Copy the newest backup off the PC",
+            reason="The newest backup has no second copy.",
+            evidence=f"{newest['name']}: {copy.get('reason') or 'not copied'}.",
+            action={"label": "Open backups", "page": "backups"},
+            fingerprint=f"offsite:{newest['id']}:{copy.get('state')}",
+            details={"backup": newest["name"], "copy": copy, "source": "backups table"},
+        )
+    return None
+
+
 RULES: tuple[Rule, ...] = (
     java_too_old,
     no_recent_backup,
@@ -251,7 +363,11 @@ RULES: tuple[Rule, ...] = (
     disk_low,
     memory_ran_out,
     slow_while_busy,
+    memory_over_pc,
+    offsite_backups,
+    pc_may_sleep,
     auto_restart_off,
+    install_spark,
     mod_updates,
 )
 
@@ -271,11 +387,18 @@ def gather(ctx) -> Facts:
     # The sampler's latest reading. Taking a fresh one here would restart
     # the sampler's network and process CPU windows.
     last = ctx.metrics.last or {}
+    installed = ctx.mods.list_installed(use_cache=True)
     updates = [
-        {"mod_id": m["mod_id"], "name": m["name"]}
-        for m in ctx.mods.list_installed(use_cache=True)
-        if m.get("update_available")
+        {"mod_id": m["mod_id"], "name": m["name"]} for m in installed if m.get("update_available")
     ]
+    server_type = ctx.config.server_type
+    spark = any(
+        "spark" in str(m.get(k) or "").lower() for m in installed for k in ("mod_id", "name", "filename")
+    )
+    total = memory.total_ram_mb()
+    running_mb, rows = memory.together_mb(ctx, include_self=ctx.server.running)
+    running = [r for r in rows if r["running"]]
+    keepawake = getattr(ctx.core, "keepawake", None)
     return Facts(
         now=time.time(),
         backups=ctx.backups.list_backups(),
@@ -290,6 +413,20 @@ def gather(ctx) -> Facts:
         java=status.get("java_compatibility"),
         auto_restart=bool(ctx.config.monitor.auto_restart),
         crashes=ctx.crashes.list_crashes(limit=50),
+        tps=dict(ctx.server.tps_status or {}) if getattr(ctx.server, "tps_status", None) else None,
+        modrinth=server_type.modrinth,
+        spark_installed=spark if server_type.modrinth else None,
+        memory=(
+            {
+                "total_mb": total,
+                "together_mb": running_mb,
+                "names": [r["name"] for r in running],
+            }
+            if total and running
+            else None
+        ),
+        power=keepawake.status() if keepawake else None,
+        offsite_folder=ctx.config.backups.offsite_directory.strip(),
     )
 
 

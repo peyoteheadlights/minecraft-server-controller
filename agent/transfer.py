@@ -148,7 +148,7 @@ def _backups(config, db, server_id: str) -> list[tuple[dict[str, Any], Path]]:
 def _config_yaml(config) -> str:
     data = copy.deepcopy(config._data)
     servers = data.pop("servers")
-    return yaml.safe_dump({"servers": servers, **data}, sort_keys=False, allow_unicode=True)
+    return yaml.safe_dump({"servers": servers, **data}, sort_keys=False, allow_unicode=True, width=10**6)
 
 
 def _properties_without_secrets(path: Path) -> tuple[bytes, dict[str, str]]:
@@ -337,7 +337,7 @@ def _new_config(text: str, places: dict[str, str]) -> str:
     for server in servers:
         if isinstance(server.get("backups"), dict):
             server["backups"].pop("offsite_directory", None)
-    return yaml.safe_dump(loaded, sort_keys=False, allow_unicode=True)
+    return yaml.safe_dump(loaded, sort_keys=False, allow_unicode=True, width=10**6)
 
 
 def _insert(db, table: str, row: dict[str, Any], drop: tuple[str, ...] = ("id",)) -> None:

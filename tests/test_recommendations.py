@@ -17,7 +17,15 @@ def facts(**overrides) -> rec.Facts:
     measured that would worry anyone."""
     base = dict(
         now=NOW,
-        backups=[{"id": 7, "name": "daily-1", "created_at": NOW - 3600, "status": "ok"}],
+        backups=[
+            {
+                "id": 7,
+                "name": "daily-1",
+                "created_at": NOW - 3600,
+                "status": "ok",
+                "copy": {"state": "ok"},
+            }
+        ],
         schedules=[{"task": "backup", "enabled": 1}],
         samples=[],
         sample_interval=60.0,
@@ -33,6 +41,7 @@ def facts(**overrides) -> rec.Facts:
             "minecraft_version": "1.21.1",
         },
         auto_restart=True,
+        offsite_folder="E:\\Backups",
     )
     base.update(overrides)
     return rec.Facts(**base)
@@ -52,9 +61,22 @@ def test_a_healthy_server_has_no_recommendations():
 
 def test_every_recommendation_has_evidence_and_a_way_to_the_fix():
     f = facts(
-        backups=[],
+        backups=[
+            {
+                "id": 3,
+                "name": "daily-3",
+                "created_at": NOW - 9 * DAY,
+                "status": "ok",
+                "copy": {"state": "unreachable", "reason": "drive not connected"},
+            }
+        ],
         schedules=[],
         disk_free_gb=1.0,
+        tps={"mode": "auto", "state": "unavailable", "tried": [{"command": "tick query"}]},
+        modrinth=True,
+        spark_installed=False,
+        memory={"total_mb": 8192, "together_mb": 12288, "names": ["Survival", "Creative"]},
+        power={"supported": True, "enabled": False, "still_sleeps": []},
         auto_restart=False,
         mod_updates=[{"mod_id": "lithium", "name": "Lithium"}],
         java={
@@ -261,3 +283,73 @@ def test_the_api_lists_and_dismisses(client):
         ).status_code
         == 404
     )
+
+
+# ------------------------------------------------------------------ Phase 6 rules
+NO_ANSWER = {"mode": "auto", "state": "unavailable", "tried": [{"command": "tick query"}]}
+
+
+def test_spark_is_suggested_only_when_nothing_answered():
+    found = rec.evaluate(facts(tps=NO_ANSWER, modrinth=True, spark_installed=False))
+    assert [r.id for r in found] == ["install_spark"]
+    spark = found[0]
+    assert spark.action == {"label": "Find spark", "page": "mods", "search": "spark"}
+    # it never claims to fix anything
+    text = f"{spark.title} {spark.reason} {spark.evidence}".lower()
+    assert "fix" not in text and "faster" not in text
+    assert "tick query" in spark.evidence
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"tps": {**NO_ANSWER, "mode": "manual"}, "modrinth": True, "spark_installed": False},
+        {"tps": {**NO_ANSWER, "state": "active"}, "modrinth": True, "spark_installed": False},
+        {"tps": {**NO_ANSWER, "tried": []}, "modrinth": True, "spark_installed": False},
+        {"tps": NO_ANSWER, "modrinth": True, "spark_installed": True},
+        {"tps": NO_ANSWER, "modrinth": False, "spark_installed": None},
+        {"tps": None, "modrinth": True, "spark_installed": False},
+    ],
+)
+def test_spark_is_not_suggested_otherwise(overrides):
+    assert ids(facts(**overrides)) == []
+
+
+def test_memory_over_the_pc_uses_measured_totals_only():
+    over = {"total_mb": 8192, "together_mb": 12288, "names": ["A", "B"]}
+    found = rec.evaluate(facts(memory=over))
+    assert [r.id for r in found] == ["memory_over_pc"]
+    assert "8.0 GB" in found[0].evidence and "12.0 GB" in found[0].evidence
+    # unknown total: nothing is said
+    assert ids(facts(memory=None)) == []
+    assert ids(facts(memory={**over, "total_mb": None})) == []
+    assert ids(facts(memory={**over, "together_mb": 4096})) == []
+
+
+def test_pc_may_sleep():
+    off = {"supported": True, "enabled": False, "still_sleeps": []}
+    assert ids(facts(power=off)) == ["pc_may_sleep"]
+    on = {"supported": True, "enabled": True, "still_sleeps": []}
+    assert ids(facts(power=on)) == []
+    battery = {**on, "still_sleeps": ["on_battery"]}
+    assert "battery" in rec.evaluate(facts(power=battery))[0].evidence
+    assert ids(facts(power={**off, "supported": False})) == []
+    assert ids(facts(power=None)) == []
+
+
+def test_offsite_rules():
+    assert ids(facts(offsite_folder="")) == ["offsite_backups"]
+    failed = [
+        {
+            "id": 9,
+            "name": "daily-9",
+            "created_at": NOW - 60,
+            "status": "ok",
+            "copy": {"state": "failed", "reason": "the drive is full"},
+        }
+    ]
+    found = rec.evaluate(facts(backups=failed))
+    assert [r.id for r in found] == ["offsite_copy_failed"]
+    assert "the drive is full" in found[0].evidence
+    # with no backup at all, only "take a first backup" is shown
+    assert ids(facts(backups=[], offsite_folder="")) == ["no_backup"]

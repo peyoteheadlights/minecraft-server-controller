@@ -255,12 +255,16 @@ async def test_port_suggestions_skip_ports_servers_use(core):
 
 # ------------------------------------------------------------------ permissions
 def test_every_route_declares_its_permission():
-    from agent.api.routes import router
+    from agent.api.routes import api_routes
 
     public = {"/api/health", "/api/auth/login"}
     missing = []
-    for route in router.routes:
-        if not isinstance(route, APIRoute) or route.path in public:
+    routes = api_routes()
+    # The routers' own list holds included routers rather than routes in this
+    # FastAPI version, so walking it checked nothing; api_routes() reads them.
+    assert len(routes) > 100
+    for path, route, _scope in routes:
+        if path in public:
             continue
         declared = [
             dep.call.permission
@@ -268,7 +272,7 @@ def test_every_route_declares_its_permission():
             if hasattr(dep.call, "permission")
         ]
         if not declared or declared[0] not in permissions.ALL:
-            missing.append(f"{sorted(route.methods)} {route.path}")
+            missing.append(f"{sorted(route.methods)} {path}")
     assert not missing, missing
 
 

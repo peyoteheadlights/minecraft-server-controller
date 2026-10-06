@@ -7,6 +7,8 @@ it through the same validation as any console command. An action is
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from agent.core import AgentCore
@@ -211,3 +213,50 @@ def test_players_lists_say_when_minecraft_hasnt_written_them(multi_client):
     assert body["running"] is False
     assert body["lists"]["whitelist"]["players"] is None
     assert body["actions"] == []
+
+
+# ------------------------------------------------------------ answers
+class _Server:
+    running = True
+
+    state = SimpleNamespace(value="ONLINE")
+
+    def __init__(self):
+        self.sent = []
+
+    async def send_command(self, command):
+        self.sent.append(command)
+
+
+class _Bus:
+    def __init__(self):
+        self.events = []
+
+    async def publish(self, event):
+        self.events.append(event)
+
+
+def _line(message, source="stdout"):
+    from agent.minecraft.console import parse_line
+
+    return parse_line(f"[12:00:00] [Server thread/INFO]: {message}", 1, source)
+
+
+async def test_a_chat_message_with_the_same_words_does_not_confirm_an_action():
+    actions = playeractions.PlayerActions(_Server(), _Bus())
+    pending = await actions.send("whitelist_add", "Bob")
+    # A player typing Minecraft's answer in chat, and another operator's
+    # echoed command, are not the server answering this button.
+    await actions.handle(None, _line("<Steve> Added Bob to the whitelist"))
+    await actions.handle(None, _line("[Steve: Added Bob to the whitelist]"))
+    assert actions.get(pending.id).state == "sent"
+    await actions.handle(None, _line("Added Bob to the whitelist"))
+    assert actions.get(pending.id).state == "done"
+
+
+async def test_the_answer_is_matched_whatever_the_names_case():
+    actions = playeractions.PlayerActions(_Server(), _Bus())
+    pending = await actions.send("op", "alex")
+    # Minecraft prints the account's own spelling.
+    await actions.handle(None, _line("Made Alex a server operator"))
+    assert actions.get(pending.id).state == "done"

@@ -116,6 +116,7 @@ ACTIONS: dict[str, Action] = {
         "pardon {name}",
         done=(r"Unbanned {name}\b",),
         unchanged=(r"Nothing changed\. The player isn't banned",),
+        failed=(r"That player does not exist",),
     ),
 }
 
@@ -239,14 +240,23 @@ class PlayerActions:
 
     async def handle(self, sig, line: ConsoleLine) -> None:
         """Console hook: match the server's answer to the oldest action
-        still waiting for one."""
-        text = line.message or line.raw
+        still waiting for one.
+
+        Only a line that *starts* with Minecraft's answer counts. A chat
+        message ("<Steve> Added Bob to the whitelist") or another operator's
+        echoed command ("[Steve: Made Bob a server operator]") contains the
+        same words but is not the server answering this button. Names are
+        matched without regard to case: Minecraft prints the account's own
+        spelling ("Alex"), which may differ from what was typed ("alex")."""
+        if line.source != "stdout":
+            return
+        text = (line.message or line.raw).strip()
         for pending in list(self._actions.values()):
             self._expire(pending)
             if pending.state != SENT:
                 continue
             for state, patterns in pending.patterns.items():
-                if any(re.search(p, text) for p in patterns):
+                if any(re.match(p, text, re.IGNORECASE) for p in patterns):
                     await self._answer(pending, state, text)
                     return
 

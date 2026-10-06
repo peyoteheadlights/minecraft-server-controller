@@ -61,11 +61,19 @@ export function friendsCard(info) {
     java.default_port ? ` ${t("join.default_port")}` : "");
 
   const bedrock = info.bedrock;
+  const bedrockHome = bedrock ? (bedrock.local || []).filter((a) => technical() || !a.virtual) : [];
+  const bedrockRows = bedrock && bedrock.port
+    ? [
+        ...bedrockHome.map((a) => addressRow(a.address,
+          `${t("join.bedrock_port", { port: bedrock.port })} · ${t("join.home")}`)),
+        bedrock.address
+          ? addressRow(bedrock.address, `${t("join.bedrock_port", { port: bedrock.port })} · ${t("join.tailscale")}`)
+          : el("p", { class: "unknown-note" }, t("join.no_tailscale")),
+      ]
+    : [el("p", { class: "unknown-note" }, t("join.no_bedrock_port"))];
   const bedrockBlock = bedrock
     ? block("join.bedrock", "join.bedrock_hint",
-        bedrock.address && bedrock.port
-          ? addressRow(bedrock.address, t("join.bedrock_port", { port: bedrock.port }))
-          : el("p", { class: "unknown-note" }, t("join.no_tailscale")),
+        ...bedrockRows,
         bedrock.ready ? null : el("p", { class: "hint" }, t("cross.files_missing")),
         el("p", { class: "hint" }, t("join.consoles")))
     : null;

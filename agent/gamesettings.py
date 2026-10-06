@@ -47,11 +47,22 @@ def port_problem(ctx: ServerContext, port: int) -> str | None:
 
 
 def waiting_for_restart(ctx: ServerContext, modified_at: float | None) -> bool:
-    """True when the file was changed after the running server started, so
-    what it is using now is not what the file says. Measured from the
-    file's own time and the server's start time."""
-    started = ctx.server.started_at
-    return bool(ctx.server.running and started and modified_at and modified_at > started)
+    """True when the file was changed after the running server finished
+    starting, so what it is using now is not what the file says. Measured
+    from the file's own time and the moment the console said "Done".
+
+    Not from the moment the process started: Minecraft rewrites
+    server.properties itself early in every start, so that would make every
+    running server look as if it were waiting for a restart. While it is
+    still starting nothing is claimed."""
+    online = ctx.server.online_at
+    return bool(
+        ctx.server.running
+        and ctx.server.state.value == "ONLINE"
+        and online
+        and modified_at
+        and modified_at > online
+    )
 
 
 def view(ctx: ServerContext) -> dict[str, Any]:

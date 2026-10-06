@@ -83,7 +83,7 @@ the most recent console lines. Anything the agent cannot measure says
 each with a **Copy** button: the PC's address on the home network (read from
 its network adapters; adapters of virtual machines show in Technical mode
 only) and its Tailscale address and name. With Bedrock players on, it adds
-the address and the UDP port they use. An address that can't be read is
+the same addresses with the UDP port Bedrock players use. An address that can't be read is
 said to be missing rather than filled in. Whether the server can be reached
 from the internet is always shown as **not known**: the app doesn't test
 it and doesn't open router ports.
@@ -140,8 +140,14 @@ port is checked against the other servers and this PC.
 file and every setting this page doesn't show are kept exactly. A copy of
 the old file is kept as a safety backup (undo it from Backups). A running
 server keeps the old settings until it restarts; the page says so and offers
-**Restart now**. Technical mode adds the whole file as text to edit; the
-known settings are still checked when you save it.
+**Restart now**. "Waiting for a restart" is measured from the file's time
+and the moment the console said the server was ready, because Minecraft
+rewrites `server.properties` itself early in every start (and in doing so
+drops comments; this page never does). The console commands `whitelist on`
+and `whitelist off` also rewrite the file from what the running server
+loaded, so typed while changes are waiting they overwrite them: restart
+first. Technical mode adds the whole
+file as text to edit; the known settings are still checked when you save it.
 
 ## Performance
 

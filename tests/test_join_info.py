@@ -97,3 +97,24 @@ def test_tailscales_own_address_is_shown_when_it_reports_one(multi_client, adapt
     assert ts["address"] == "100.101.102.103" and ts["verified"] is True
     assert ts["dns_name"] == "gaming-pc.tail1234.ts.net"
     assert body["java"]["default_port"] is True
+
+
+def test_bedrock_players_get_the_home_address_too(adapters, monkeypatch):
+    """Geyser listens on every adapter, so a phone on the same Wi-Fi joins
+    on the home address; only addresses read from the PC are listed."""
+    from agent import crossplay
+
+    adapters({"Wi-Fi": [addr("192.168.1.20")]})
+    monkeypatch.setattr(
+        tailscale, "connection_status", lambda: {"address": None, "verified": False}
+    )
+    monkeypatch.setattr(crossplay, "status", lambda ctx: {"enabled": True, "ready": True})
+    ports = SimpleNamespace(
+        port_of=lambda ctx: SimpleNamespace(port=25565, source="server.properties"),
+        bedrock_port_of=lambda ctx: SimpleNamespace(port=19132),
+    )
+    ctx = SimpleNamespace(core=SimpleNamespace(ports=ports), server=SimpleNamespace(running=False))
+    bedrock = joininfo.join_info(ctx)["bedrock"]
+    assert bedrock["port"] == 19132 and bedrock["protocol"] == "udp"
+    assert [a["address"] for a in bedrock["local"]] == ["192.168.1.20"]
+    assert bedrock["address"] is None  # no Tailscale address was read

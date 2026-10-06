@@ -51,6 +51,7 @@ from .security.paths import (
     EXECUTABLE_EXTENSIONS,
     PathSafetyError,
     check_archive_member,
+    is_inside,
     safe_filename,
     zip_member_is_symlink,
 )
@@ -528,22 +529,36 @@ async def import_into(ctx: ServerContext, token: str, user: str = "system") -> d
     folder = ctx.config.server_dir
     title = f"Importing the {pack.name} modpack into {ctx.name}"
 
-    async def change(job: JobHandle | None) -> dict[str, Any]:
-        moved = await asyncio.to_thread(_move_content_aside, ctx)
-        result = await put_in_place(pack, archive, folder, job)
-        return {**result, "moved_aside": moved}
+    targets = await asyncio.to_thread(_pack_targets, pack, archive)
 
-    async def check(result: dict[str, Any]) -> tuple[bool, str]:
-        return await asyncio.to_thread(check_in_place, pack, folder, result)
+    async def change(job: JobHandle | None) -> dict[str, Any]:
+        # Files the pack adds that weren't there before. The safety backup
+        # puts back what was there; these are taken away again if the
+        # import fails, so nothing of a half-done import is left loaded.
+        new_files = [rel for rel in targets if not (folder / rel).exists()]
+        try:
+            moved = await asyncio.to_thread(_move_content_aside, ctx)
+            result = await put_in_place(pack, archive, folder, job)
+            ok, detail = await asyncio.to_thread(check_in_place, pack, folder, result)
+            if not ok:
+                raise ModpackError(f"The import couldn't be checked: {detail}")
+        except BaseException:
+            await asyncio.to_thread(_remove_new_files, folder, new_files)
+            raise
+        return {**result, "moved_aside": moved, "detail": detail}
 
     plan = SafeChange(
         title=title,
         change=change,
-        check=check,
+        check=None,  # the change checks itself, so it can tidy up first
         stop_server=True,
         take_backup=True,
         backup_name="pre-modpack",
         backup_note=f"Automatic safety copy before: {title}",
+        # The usual backup list plus every top-level folder or file the
+        # pack writes to (kubejs/, defaultconfigs/, scripts/ and the like),
+        # so the undo covers everything the import changes.
+        backup_includes=_backup_list(ctx, targets),
     )
 
     async def run(job: JobHandle | None) -> dict[str, Any]:
@@ -553,7 +568,7 @@ async def import_into(ctx: ServerContext, token: str, user: str = "system") -> d
         "modpack", title, run, server_id=ctx.server_id, risky=True, user=user
     )
     forget(ctx.core, token)
-    summary = _summary(pack, outcome, outcome["check"])
+    summary = _summary(pack, outcome, outcome["detail"])
     ctx.core.db.audit(
         "modpack_import",
         user=user,
@@ -569,6 +584,49 @@ async def import_into(ctx: ServerContext, token: str, user: str = "system") -> d
         "version_change": version_result is not None,
         "undo": outcome.get("undo"),
     }
+
+
+def _pack_targets(pack: Pack, archive: Path) -> list[str]:
+    """Every path inside the server folder the import writes: the mods it
+    downloads and the override files it extracts."""
+    targets = [f.path.replace("\\", "/") for f in pack.downloads]
+    with zipfile.ZipFile(archive) as zf:
+        for _member, relative in _override_members(zf):
+            top = relative.split("/", 1)[0]
+            if top in CLIENT_ONLY or Path(relative).suffix.lower() in EXECUTABLE_EXTENSIONS:
+                continue
+            targets.append(relative)
+    return list(dict.fromkeys(targets))
+
+
+def _backup_list(ctx: ServerContext, targets: list[str]) -> list[str]:
+    includes = list(ctx.config.backups.include)
+    for extra in ctx.config.server_type.backup_extra:
+        if extra not in includes:
+            includes.append(extra)
+    for relative in targets:
+        top = relative.split("/", 1)[0]
+        if top and top not in includes:
+            includes.append(top)
+    return includes
+
+
+def _remove_new_files(folder: Path, relatives: list[str]) -> None:
+    """Take away files a failed import added, and folders it left empty."""
+    for relative in relatives:
+        try:
+            path = check_archive_member(folder, relative)
+        except PathSafetyError:
+            continue
+        if path.is_file() and not path.is_symlink():
+            path.unlink(missing_ok=True)
+        parent = path.parent
+        while parent != folder and is_inside(folder, parent):
+            try:
+                parent.rmdir()  # only when empty
+            except OSError:
+                break
+            parent = parent.parent
 
 
 def _move_content_aside(ctx: ServerContext) -> dict[str, Any]:

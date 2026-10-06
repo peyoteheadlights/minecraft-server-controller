@@ -7,8 +7,8 @@ Only addresses the agent actually read from this PC are shown:
   * on Tailscale: the address and name the Tailscale client reports
   * the port: what the server's console said it listens on, else what its
     server.properties sets, else Minecraft's own default, saying which
-  * Bedrock players (with crossplay on): the Tailscale address and the UDP
-    port Geyser was set up with
+  * Bedrock players (with crossplay on): the same home and Tailscale
+    addresses, with the UDP port Geyser was set up with
 
 Whether the server can be reached from the internet is never guessed: this
 app doesn't test it and doesn't open router ports, so it is reported as
@@ -102,6 +102,7 @@ def join_info(ctx: ServerContext) -> dict[str, Any]:
 
     port = ctx.core.ports.port_of(ctx)
     tailscale = tailscale_address()
+    local = local_addresses()
     bedrock = None
     status = crossplay.status(ctx)
     if status.get("enabled"):
@@ -111,6 +112,9 @@ def join_info(ctx: ServerContext) -> dict[str, Any]:
             "protocol": "udp",
             "ready": status.get("ready"),
             "address": tailscale["address"],
+            # Geyser listens on every adapter, so phones and tablets on the
+            # same Wi-Fi use the home address, like Java players do.
+            "local": local,
             "consoles_note": True,
         }
     return {
@@ -118,7 +122,7 @@ def join_info(ctx: ServerContext) -> dict[str, Any]:
             "port": port.port,
             "port_source": port.source,
             "default_port": port.port == MINECRAFT_DEFAULT_PORT,
-            "local": local_addresses(),
+            "local": local,
             "tailscale": tailscale,
         },
         "bedrock": bedrock,

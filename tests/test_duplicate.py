@@ -233,3 +233,46 @@ def test_the_api_refuses_a_world_choice_it_doesnt_know(multi_client, tmp_path):
         json={"name": "X", "directory": str(tmp_path / "X"), "world": "maybe"},
     )
     assert response.status_code == 422
+
+
+async def test_a_stopped_source_cant_be_started_while_it_is_copied(core, tmp_path, monkeypatch):
+    source = core.servers["survival"]
+    seen = []
+    real = duplicate._copy_files
+
+    def copy_and_look(*args, **kwargs):
+        # Part way through the copy: starting the source must be refused.
+        seen.append(source.server.preflight().problems)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(duplicate, "_copy_files", copy_and_look)
+    done = await finish(
+        core,
+        await duplicate.start_duplicate(
+            core, source, name="Held", directory=str(tmp_path / "Held"), world="copy"
+        ),
+    )
+    assert done.state == SUCCEEDED, done.message
+    assert seen and any("Wait for" in problem for problem in seen[0])
+    # And it can start again once the copy is done.
+    assert source.server.held_by is None
+
+
+def test_full_path_folder_settings_never_point_the_copy_at_the_source(core, tmp_path):
+    source = core.servers["survival"]
+    folder = source.config.server_dir
+    elsewhere = tmp_path / "shared-backups"
+    root = source.config.root
+    entry = root._server_entry(source.server_id)[1]
+    entry["mods"] = {"directory": str(folder / "mods"), "trash_directory": "mod-trash"}
+    entry["backups"] = {"directory": str(elsewhere)}
+    target = tmp_path / "Copy"
+    copied = duplicate._entry_for_copy(source, target)
+    # Inside the source's folder: the same place in the copy's folder.
+    assert copied["mods"]["directory"] == str(target / "mods")
+    # A relative setting already resolves per server, so it stays.
+    assert copied["mods"]["trash_directory"] == "mod-trash"
+    # Anywhere else: dropped, so the copy uses its own default.
+    assert "backups" not in copied
+    # The source's own entry is untouched.
+    assert entry["backups"] == {"directory": str(elsewhere)}

@@ -327,3 +327,29 @@ def test_importing_into_a_server_needs_confirming(multi_client):
         "/api/servers/survival/modpack", json={"token": "0" * 32, "confirm": False}
     )
     assert response.status_code == 400
+
+
+async def test_a_failed_import_undoes_every_folder_the_pack_wrote(core, tmp_path, monkeypatch):
+    """Overrides often write folders the usual backup list leaves out
+    (kubejs/, scripts/). A failed import puts those back too, and takes
+    away what it added, even into a mods folder that was empty."""
+    ctx = core.servers["survival"]
+    base = ctx.config.server_dir
+    for jar in ctx.config.mods_dir.glob("*"):
+        jar.unlink()
+    (base / "kubejs").mkdir()
+    (base / "kubejs" / "startup.js").write_text("mine\n")
+    pack = make_pack(
+        tmp_path / "p.mrpack",
+        overrides={
+            "overrides/kubejs/startup.js": "the pack's\n",
+            "overrides/brand-new/extra.txt": "new\n",
+        },
+    )
+    token = upload(core, pack)
+    monkeypatch.setattr(modpack, "check_in_place", lambda *a: (False, "a file differs"))
+    with pytest.raises(Exception, match="a file differs"):
+        await modpack.import_into(ctx, token)
+    assert (base / "kubejs" / "startup.js").read_text() == "mine\n"
+    assert not (base / "brand-new").exists()
+    assert not (ctx.config.mods_dir / "lithium.jar").exists()

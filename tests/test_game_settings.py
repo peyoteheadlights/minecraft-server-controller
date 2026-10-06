@@ -95,6 +95,7 @@ def test_an_unchanged_value_rewrites_nothing(tmp_path):
         ("max-players", "12abc"),
         ("max-players", True),
         ("view-distance", 99),
+        ("view-distance", 2),
         ("pvp", "yes"),
         ("motd", "two\nlines"),
         ("motd", "x" * 151),
@@ -239,6 +240,32 @@ async def test_a_change_while_running_waits_for_a_restart(tmp_path):
         assert result["restart_needed"] is True
         # The server was never stopped for this.
         assert ctx.server.running
+    finally:
+        await ctx.server.stop()
+        await ctx.stop()
+        await core.jobs.stop()
+        core.db.close()
+
+
+async def test_minecraft_rewriting_the_file_as_it_starts_is_not_a_pending_change(tmp_path):
+    """Minecraft rewrites server.properties early in every start. That
+    write, before the console says Done, must not read as a change waiting
+    for a restart."""
+    import os
+
+    from agent import gamesettings
+
+    core = AgentCore(build_multi_config(tmp_path))
+    ctx = core.servers["survival"]
+    await ctx.start()
+    try:
+        await ctx.server.start()
+        assert await ctx.server.wait_online(20)
+        path = ctx.config.server_dir / "server.properties"
+        # As Minecraft does: written after the process started, before Done.
+        written = (ctx.server.started_at + ctx.server.online_at) / 2
+        os.utime(path, (written, written))
+        assert gamesettings.view(ctx)["restart_needed"] is False
     finally:
         await ctx.server.stop()
         await ctx.stop()

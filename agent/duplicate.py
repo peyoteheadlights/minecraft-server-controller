@@ -172,6 +172,32 @@ def _prepare_properties(target: Path, port: int, name: str, world: str) -> None:
     edited.write(path)
 
 
+def _entry_for_copy(ctx: ServerContext, folder: Path) -> dict[str, Any]:
+    """The source's config entry, for the copy. A folder setting written as
+    a full path (mods, mod backups, mod trash, backups) would point the copy
+    at the source's own folder, so the two would share mods or backups:
+    one inside the source's folder is moved to the same place in the copy,
+    and any other is dropped so the copy uses its own default."""
+    entry = ctx.config.root.server_entry(ctx.server_id)
+    source = ctx.config.server_dir
+    for section in ("mods", "backups"):
+        settings = entry.get(section)
+        if not isinstance(settings, dict):
+            continue
+        for key in [k for k in settings if k == "directory" or k.endswith("_directory")]:
+            value = settings[key]
+            if not isinstance(value, str) or not Path(value).expanduser().is_absolute():
+                continue
+            path = Path(value).expanduser()
+            if is_inside(source, path) and path.resolve() != source.resolve():
+                settings[key] = str(folder / path.resolve().relative_to(source.resolve()))
+            else:
+                del settings[key]
+        if not settings:
+            del entry[section]
+    return entry
+
+
 def check_request(
     core: AgentCore, ctx: ServerContext, name: str, directory: str, world: str
 ) -> tuple[str, Path]:
@@ -224,7 +250,14 @@ async def start_duplicate(
         total = sum(size for _, _, size in files)
 
         async def copy(handle: JobHandle | None) -> dict[str, Any]:
-            paused = False
+            paused = held = False
+            if not ctx.server.running:
+                # Nothing (a click, a schedule, another device) may start
+                # the source while its files are being read.
+                if ctx.server.held_by:
+                    raise DuplicateError(f"Wait for '{ctx.server.held_by}' to finish first.")
+                ctx.server.held_by = title
+                held = True
             if ctx.server.running:
                 # Minecraft writes the world in the background. Save it all
                 # now and pause saving, so the copy is of a still world.
@@ -241,6 +274,8 @@ async def start_duplicate(
                     _copy_files, files, folder, job.advance, folders
                 )
             finally:
+                if held:
+                    ctx.server.held_by = None
                 if paused:
                     try:
                         await ctx.server.send_command("save-on", internal=True)
@@ -259,7 +294,7 @@ async def start_duplicate(
             outcome = await run_safe_change(ctx.server, ctx.backups, plan, job=job, user=user)
             job.step("Setting up the new server")
             await asyncio.to_thread(_prepare_properties, folder, port, name, world)
-            entry = ctx.config.root.server_entry(ctx.server_id)
+            entry = _entry_for_copy(ctx, folder)
             entry.update(id=new_id, name=name, directory=str(folder), port=port)
             if bedrock:
                 entry["bedrock_port"] = bedrock

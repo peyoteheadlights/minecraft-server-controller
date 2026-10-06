@@ -6,7 +6,7 @@
    server said instead). Who is on the whitelist, an operator or banned
    comes from Minecraft's own files, not from what was sent. */
 
-import { api } from "../api.js";
+import { api, serverPath } from "../api.js";
 import { render } from "../nav.js";
 import { renderers, state } from "../state.js";
 import { t, technical } from "../strings.js";
@@ -64,13 +64,14 @@ function actionLine(action) {
     technical() && action.message ? el("span", { class: "hint mono" }, action.message) : null);
 }
 
-async function follow(actionId, line) {
+async function follow(actionId, line, serverId) {
   const until = Date.now() + POLL_FOR_MS;
   while (Date.now() < until) {
     await new Promise((resolve) => setTimeout(resolve, POLL_MS));
     let found;
     try {
-      found = (await api(`/players/actions/${encodeURIComponent(actionId)}`)).action;
+      // The server it was sent to, even if another server's tab is open now.
+      found = (await api(serverPath(`/players/actions/${encodeURIComponent(actionId)}`, serverId))).action;
     } catch (err) { return; }
     const next = actionLine(found);
     if (line.isConnected) line.replaceWith(next);
@@ -79,7 +80,7 @@ async function follow(actionId, line) {
       const [stateKey] = STATE_WORDS[found.state];
       const level = { done: "success", failed: "error", no_answer: "warn" }[found.state] || "info";
       toast(`${t(ACTION_WORDS[found.kind])} ${found.name}: ${t(stateKey)}`, level, 6000);
-      if (found.state === "done" && state.page === "players") render();
+      if (found.state === "done" && state.page === "players" && state.serverId === serverId) render();
       return;
     }
   }
@@ -99,6 +100,7 @@ async function act(kind, name, button, log) {
     if (!ok) return;
     reason = input.value.trim();
   }
+  const serverId = state.serverId;
   await busy(button, t("players.sending"), async () => {
     try {
       const result = await api("/players/actions", { method: "POST",
@@ -106,7 +108,7 @@ async function act(kind, name, button, log) {
       const line = actionLine(result.action);
       log.prepend(line);
       log.closest("section").hidden = false;
-      follow(result.action.id, line);
+      follow(result.action.id, line, serverId);
     } catch (err) { toast(err.message, "error", 9000); }
   });
 }

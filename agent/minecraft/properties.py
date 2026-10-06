@@ -311,6 +311,15 @@ def world_folder(directory: Path, values: dict[str, str]) -> Path:
     return directory / name
 
 
+def world_folders(directory: Path) -> set[str]:
+    """The folders that make up the world: level-name and, for Paper,
+    Purpur and Spigot's split dimensions, its _nether and _the_end."""
+    path = directory / FILENAME
+    values = PropertiesFile.read(path).values() if path.is_file() else {}
+    name = world_folder(directory, values).name
+    return {name, f"{name}_nether", f"{name}_the_end"}
+
+
 def world_exists(directory: Path, values: dict[str, str]) -> bool:
     """A world exists once Minecraft has written its level.dat."""
     return (world_folder(directory, values) / "level.dat").is_file()

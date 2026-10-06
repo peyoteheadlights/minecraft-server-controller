@@ -113,13 +113,25 @@ function alertsCard(data, push) {
    which is the browser's own choice and has to be made on each phone. */
 function phoneCard(push, pendingFor) {
   const list = el("div", { class: "mt-10" });
+  // A lost or replaced phone can be taken off the list from any device.
+  const remove = (phone) => async (e) => busy(e.currentTarget, t("push.removing"), async () => {
+    try {
+      const own = await currentSubscription().catch(() => null);
+      const result = own && own.endpoint === phone.endpoint
+        ? await disablePush()
+        : await api("/push/unsubscribe", { method: "POST", body: { endpoint: phone.endpoint } });
+      if (own && own.endpoint === phone.endpoint) drawThisPhone(false);
+      refresh((result && result.phones) || []);
+      toast(t("push.removed"), "success");
+    } catch (err) { toast(err.message, "error", 9000); }
+  });
   const refresh = (phones) => list.replaceChildren(phones.length
     ? el("ul", { class: "phone-list" }, phones.map((p) => el("li", {},
         el("span", {}, p.label || p.service),
         el("span", { class: "hint" }, p.last_sent ? t("push.last_sent", { when: fmt.ago(p.last_sent) })
-          : t("push.not_sent_yet")))))
+          : t("push.not_sent_yet")),
+        el("button", { class: "btn plain small", type: "button", onclick: remove(p) }, t("push.remove")))))
     : el("p", { class: "hint" }, t("push.no_phones")));
-  refresh(push.phones || []);
 
   const thisPhone = el("div", { class: "btn-row mt-10" });
   const drawThisPhone = (subscribed) => thisPhone.replaceChildren(
@@ -152,6 +164,7 @@ function phoneCard(push, pendingFor) {
         } catch (err) { toast(err.message, "error", 9000); }
       }) }, t("appset.send_test")));
   drawThisPhone(false);
+  refresh(push.phones || []);
   if (pushSupported()) {
     currentSubscription().then((sub) => drawThisPhone(Boolean(sub))).catch(() => {});
   }

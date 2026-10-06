@@ -47,11 +47,13 @@ export async function currentSubscription() {
    Error with a plain sentence when any step is refused. */
 export async function enablePush(publicKey, label) {
   if (!pushSupported()) throw new Error(t("push.unsupported"));
+  // Asked first, straight from the button press: Safari on iPhone only
+  // shows the permission question while it still counts as the tap.
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") throw new Error(t("push.blocked"));
   const registration = (await navigator.serviceWorker.getRegistration(SW_URL))
     || (await registerServiceWorker());
   if (!registration) throw new Error(t("push.unsupported"));
-  const permission = await Notification.requestPermission();
-  if (permission !== "granted") throw new Error(t("push.blocked"));
   const existing = await registration.pushManager.getSubscription();
   const subscription = existing || (await registration.pushManager.subscribe({
     userVisibleOnly: true,

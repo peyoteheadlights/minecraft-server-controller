@@ -78,7 +78,9 @@ self.addEventListener("push", (event) => {
     body: data.body || "",
     icon: "/assets/icons/icon-192.png",
     badge: "/assets/icons/icon-192.png",
-    tag: data.event || "mcsc",
+    // One alert per kind of event per server: a second crash replaces the
+    // first, but Creative crashing never hides Survival crashing.
+    tag: `${data.event || "mcsc"}:${data.server_id || ""}`,
     timestamp: data.ts ? data.ts * 1000 : Date.now(),
     data: { server_id: data.server_id || null },
   }));

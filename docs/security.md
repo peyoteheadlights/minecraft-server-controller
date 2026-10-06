@@ -265,6 +265,13 @@ can tell this app's messages apart from anyone else's. Both are implemented
 in `agent/notifications/push.py` with `cryptography` — no extra dependency,
 no third-party service account.
 
+The agent sends each alert to the endpoint the browser supplied, so only
+endpoints on the browser makers' push services are accepted (HTTPS, port
+443, and a host under `fcm.googleapis.com`, `push.services.mozilla.com`,
+`push.apple.com` or `notify.windows.com`). An address on the home network or
+anywhere else is refused, so the subscribe endpoint can't be used to make
+the agent post to another machine.
+
 A subscription is stored only with the endpoint and the two keys the browser
 supplied, and is deleted the first time its push service answers 404 or 410.
 At most 20 phones can be signed up. The list shown in the dashboard never

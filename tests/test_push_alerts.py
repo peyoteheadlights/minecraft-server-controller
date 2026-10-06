@@ -43,7 +43,7 @@ def keys(monkeypatch):
     return public, private
 
 
-def browser_subscription(endpoint="https://push.example/send/abc"):
+def browser_subscription(endpoint="https://fcm.googleapis.com/fcm/send/abc"):
     """What a browser's PushSubscription.toJSON() looks like, with a real
     key pair so the result can be decrypted again."""
     private = ec.generate_private_key(ec.SECP256R1())
@@ -152,10 +152,32 @@ def test_only_a_real_https_push_address_is_accepted():
     good, _private = browser_subscription()
     assert push.Subscription.from_browser(good).endpoint == good["endpoint"]
 
-    for bad_endpoint in ("http://push.example/send/abc", "file:///etc/passwd", "", "not a url"):
+    for bad_endpoint in (
+        "http://fcm.googleapis.com/fcm/send/abc",
+        "file:///etc/passwd",
+        "",
+        "not a url",
+        # Somewhere other than a browser's push service: the agent would post
+        # to it, so it is refused.
+        "https://192.168.1.10/admin",
+        "https://router.local/send",
+        "https://fcm.googleapis.com.evil.example/send",
+        "https://fcm.googleapis.com:8443/send",
+    ):
         payload = {**good, "endpoint": bad_endpoint}
         with pytest.raises(push.PushError):
             push.Subscription.from_browser(payload)
+
+
+def test_each_browsers_push_service_is_accepted():
+    good, _private = browser_subscription()
+    for endpoint in (
+        "https://fcm.googleapis.com/fcm/send/abc",
+        "https://updates.push.services.mozilla.com/wpush/v2/abc",
+        "https://web.push.apple.com/QGx1",
+        "https://wns2-par02p.notify.windows.com/w/?token=abc",
+    ):
+        assert push.Subscription.from_browser({**good, "endpoint": endpoint}).endpoint == endpoint
 
 
 def test_keys_that_are_not_the_expected_size_are_refused():
@@ -171,9 +193,9 @@ def test_keys_that_are_not_the_expected_size_are_refused():
 
 def test_there_is_a_limit_on_how_many_phones_sign_up(db):
     for index in range(push.MAX_SUBSCRIPTIONS):
-        payload, _private = browser_subscription(f"https://push.example/send/{index}")
+        payload, _private = browser_subscription(f"https://fcm.googleapis.com/fcm/send/{index}")
         push.store(db, push.Subscription.from_browser(payload), user="admin")
-    payload, _private = browser_subscription("https://push.example/send/one-too-many")
+    payload, _private = browser_subscription("https://fcm.googleapis.com/fcm/send/one-too-many")
     with pytest.raises(push.PushError, match="already"):
         push.store(db, push.Subscription.from_browser(payload), user="admin")
 
@@ -190,7 +212,7 @@ def test_signing_up_the_same_phone_twice_refreshes_it(db):
     assert listed[0]["label"] == "Same phone"
     # The list never hands the phone's keys back out.
     assert "p256dh" not in listed[0] and "auth" not in listed[0]
-    assert listed[0]["service"] == "push.example"
+    assert listed[0]["service"] == "fcm.googleapis.com"
 
 
 # ----------------------------------------------------------------- sending
@@ -318,9 +340,20 @@ def test_the_test_alert_goes_to_the_phones_that_signed_up(client, keys, monkeypa
         "TRANSPORT",
         httpx.MockTransport(lambda request: (calls.append(request.url), httpx.Response(201))[1]),
     )
+    sent_messages = []
+    real_send = push.send
+
+    async def spy(subscription, message, *args):
+        sent_messages.append(message)
+        return await real_send(subscription, message, *args)
+
+    monkeypatch.setattr(push, "send", spy)
     answer = client.post("/api/push/test").json()
     assert answer["sent"] is True
     assert len(calls) == 1
+    # A lock screen shows the title alone: it says "test", not that a
+    # server came online.
+    assert sent_messages[0]["title"] == "Test alert"
 
 
 def test_signing_up_needs_permission(client, keys):

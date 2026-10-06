@@ -34,9 +34,14 @@ log = logging.getLogger("msc.autosleep")
 # How often the watcher looks. Fast enough that the warning and the stop
 # land close to the minute they were promised, slow enough to cost nothing.
 CHECK_SECONDS = 15.0
-# How long before the stop the players are warned. A warning only goes out
-# when the wait is longer than this, so a one-minute wait is not all warning.
+# How long before the stop the players are warned. With a wait this short or
+# shorter, the warning goes out as soon as the server is seen empty.
 WARN_SECONDS = 60.0
+# How long to wait for Minecraft's answer to "list" before giving up.
+LIST_ANSWER_SECONDS = 5.0
+# How often to ask while nobody has established the count, so a server that
+# was started and never joined can still be seen to be empty.
+PROBE_SECONDS = 300.0
 
 
 class AutoSleep:
@@ -49,6 +54,11 @@ class AutoSleep:
         self.empty_since: float | None = None
         self.warned = False
         self._task: asyncio.Task | None = None
+        # When "list" was last sent because the count was unknown.
+        self._probed_at: float | None = None
+        # Whether Minecraft answered the last "list" this sent (None: not
+        # asked yet). A server that never answers is never stopped.
+        self.list_answered: bool | None = None
 
     # ------------------------------------------------------------------
     @property
@@ -73,6 +83,7 @@ class AutoSleep:
             "empty_since": self.empty_since,
             "stops_in": remaining,
             "warned": self.warned,
+            "list_answered": self.list_answered,
         }
 
     # ------------------------------------------------------------------
@@ -115,8 +126,15 @@ class AutoSleep:
             return "off"
         if not server.running or server.state.value != "ONLINE":
             self._reset()
+            self._probed_at = None
             return "not_online"
         count = self.ctx.players.online_count()
+        if count is None and (self._probed_at is None or now - self._probed_at >= PROBE_SECONDS):
+            # Nobody has established the count yet (the server was started
+            # and nobody has joined, say). Ask Minecraft rather than waiting
+            # for a join that may never come.
+            self._probed_at = now
+            count = await self.ask_minecraft()
         if count is None:
             # Not a verified zero: never stop on a count nobody established.
             self._reset()
@@ -134,16 +152,44 @@ class AutoSleep:
 
         wait = self.minutes * 60
         empty_for = now - self.empty_since
-        if empty_for < wait:
-            if not self.warned and wait > WARN_SECONDS and empty_for >= wait - WARN_SECONDS:
-                await self._warn()
-                return "warned"
+        due_to_warn = not self.warned and empty_for >= max(0.0, wait - WARN_SECONDS)
+        if empty_for < wait and not due_to_warn:
             return "waiting"
+        # About to act on "nobody is online": confirm it with Minecraft's own
+        # answer first. Joins are read from "joined the game" lines, which
+        # plugins can change or hide, so the tracker alone could miss people.
+        confirmed = await self.ask_minecraft()
+        if confirmed != 0:
+            self._reset()
+            return "players" if confirmed else "unknown"
+        if empty_for < wait:
+            await self._warn(wait - empty_for)
+            return "warned"
         return await self._sleep(empty_for)
 
-    async def _warn(self) -> None:
+    async def ask_minecraft(self) -> int | None:
+        """Send "list" and wait for Minecraft's reply. The player count it
+        gives, or None when no reply came (a plugin replaced the command, or
+        the server is too busy to answer)."""
+        players = self.ctx.players
+        asked = time.time()
+        try:
+            await self.ctx.server.send_command("list", internal=True)
+        except ServerError:
+            return None
+        deadline = asked + LIST_ANSWER_SECONDS
+        while time.time() < deadline:
+            await asyncio.sleep(0.1)
+            source = players.verified_source or ""
+            if players.verified_at and players.verified_at >= asked and source.startswith("/list"):
+                self.list_answered = True
+                return players.online_count()
+        self.list_answered = False
+        return None
+
+    async def _warn(self, seconds_left: float) -> None:
         self.warned = True
-        minutes = int(round(WARN_SECONDS / 60)) or 1
+        minutes = max(1, int(-(-seconds_left // 60)))
         try:
             await say(
                 self.ctx.server,

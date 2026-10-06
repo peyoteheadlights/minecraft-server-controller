@@ -333,8 +333,7 @@ export function detailRows(pairs) {
 /* A small "?" next to a setting that needs explaining: one or two plain
    sentences, and a "Learn more" link into the project's docs where there
    is one. The words live in the strings table like every other label
-   ("help.<topic>" and the optional "help.<topic>_more_label"); DOCS is
-   where "Learn more" points. Keyboard-operable: it is a button, and its
+   ("help.<topic>"); "Learn more" opens docs/<doc>.md on GitHub. Keyboard-operable: it is a button, and its
    panel is tied to it with aria-controls and aria-expanded. */
 const DOCS = "https://github.com/peyoteheadlights/minecraft-server-controller/blob/main/docs/";
 
@@ -347,7 +346,7 @@ export function help(topic, doc = null) {
   const id = `help-${topic.replace(/[^a-z0-9]/g, "-")}-${Math.random().toString(36).slice(2, 7)}`;
   const panel = el("div", { class: "help-text", id, hidden: true },
     el("p", {}, t(`help.${topic}`)),
-    doc ? el("a", { class: "btn plain small", href: DOCS + doc, target: "_blank", rel: "noopener noreferrer" },
+    doc ? el("a", { class: "btn plain small", href: `${DOCS}${doc}.md`, target: "_blank", rel: "noopener noreferrer" },
       t("help.learn_more")) : null);
   const button = el("button", {
     class: "help-button", type: "button", "aria-expanded": "false", "aria-controls": id,

@@ -18,6 +18,14 @@ function evidence(entry) {
   };
 }
 
+/* Opens where the item is done. "Invite a friend" is the "How friends
+   join" card further down this same page, so that one scrolls instead. */
+function open(entry) {
+  const card = entry.id === "friend_joined" ? document.getElementById("join-card") : null;
+  if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+  else navigate(entry.page);
+}
+
 function item(entry) {
   const label = t(`start.${entry.id}`);
   return el("li", { class: `check-item${entry.done ? " is-done" : ""}` },
@@ -27,7 +35,7 @@ function item(entry) {
       el("div", { class: "hint" }, t(`start.${entry.evidence_key}`, evidence(entry)))),
     entry.done
       ? el("span", { class: "tag ok" }, t("start.done"))
-      : el("button", { class: "btn small", type: "button", onclick: () => navigate(entry.page) },
+      : el("button", { class: "btn small", type: "button", onclick: () => open(entry) },
           t(`start.${entry.id}_action`)));
 }
 

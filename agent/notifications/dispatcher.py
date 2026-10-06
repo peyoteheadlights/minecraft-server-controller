@@ -26,6 +26,10 @@ from . import push
 
 log = logging.getLogger("msc.notify")
 
+# A test alert lands on a lock screen with no context around it, so it says
+# it is a test rather than borrowing a real event's title ("Survival is online").
+PUSH_TEST_TITLE = "Test alert"
+
 # event type -> (settings key, emoji, colour, title). "{server}" in a title is
 # replaced with the server's name, so an alert reads "Survival crashed".
 EVENT_MAP: dict[str, tuple[str, str, int, str]] = {
@@ -384,7 +388,7 @@ class Notifier:
             return False
 
     # ------------------------------------------------------------------
-    async def send_push(self, event: Event) -> bool:
+    async def send_push(self, event: Event, title: str | None = None) -> bool:
         """One short message to every phone signed up for alerts.
 
         A phone the push service says is gone is forgotten; every other
@@ -398,10 +402,11 @@ class Notifier:
         if not subscriptions:
             self._log("push", event.type, "skipped", "No phone has signed up for alerts")
             return False
-        emoji, _colour, title = self.title(event)
+        emoji, _colour, event_title = self.title(event)
+        heading = title or f"{emoji} {event_title}"
         message = {
-            "title": f"{emoji} {title}",
-            "body": (event.message or title)[:300],
+            "title": heading,
+            "body": (event.message or event_title)[:300],
             "event": event.type,
             "level": event.level,
             "server_id": event.server_id,
@@ -521,7 +526,7 @@ class Notifier:
         elif channel == "email":
             ok = await self.send_email(event)
         elif channel == "push":
-            ok = await self.send_push(event)
+            ok = await self.send_push(event, title=PUSH_TEST_TITLE)
         else:
             raise ValueError("Pick Discord, email or phone alerts.")
         return {"channel": channel, "sent": ok}

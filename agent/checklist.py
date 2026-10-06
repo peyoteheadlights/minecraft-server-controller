@@ -60,13 +60,25 @@ def _friend_joined(ctx: ServerContext) -> dict[str, Any]:
 
 
 def _alerts_on(ctx: ServerContext) -> dict[str, Any]:
-    notifications = ctx.core.config.notifications
+    """Done once at least one channel is switched on *and* could deliver:
+    a switch with no webhook, no mail password or no phone signed up sends
+    nothing, so it doesn't count."""
+    from .notifications import push
+
+    config = ctx.core.config
+    notifications = config.notifications
+    phones = bool(push.subscriptions(ctx.core.db)) if notifications.push_enabled else False
     channels = [
         name
         for name, on in (
-            ("discord", notifications.discord_enabled),
-            ("email", notifications.email_enabled),
-            ("push", notifications.push_enabled),
+            ("discord", notifications.discord_enabled and bool(config.discord_webhook)),
+            ("email", notifications.email_enabled and bool(config.smtp_password)),
+            (
+                "push",
+                notifications.push_enabled
+                and bool(config.vapid_public_key and config.vapid_private_key)
+                and phones,
+            ),
         )
         if on
     ]

@@ -54,8 +54,21 @@ TTL_SECONDS = 600
 TOKEN_SECONDS = 12 * 3600
 RECORD_SIZE = 4096
 TIMEOUT = 15.0
-# A push endpoint has to be an HTTPS URL on the browser's own push service.
+# A push endpoint has to be an HTTPS URL on a browser maker's push service.
+# The agent posts to whatever address is stored here, so an address anywhere
+# else (a machine on the home network, say) is refused rather than sent to.
 ALLOWED_SCHEMES = ("https",)
+PUSH_SERVICES = (
+    "fcm.googleapis.com",  # Chrome, Edge on Android, Samsung Internet, Opera
+    "push.services.mozilla.com",  # Firefox
+    "push.apple.com",  # Safari on iPhone, iPad and Mac
+    "notify.windows.com",  # Edge on Windows
+)
+
+
+def known_push_service(host: str) -> bool:
+    host = (host or "").lower().rstrip(".")
+    return any(host == s or host.endswith("." + s) for s in PUSH_SERVICES)
 
 
 class PushError(RuntimeError):
@@ -111,8 +124,12 @@ class Subscription:
         p256dh = str(keys.get("p256dh") or "").strip()
         auth = str(keys.get("auth") or "").strip()
         parsed = urlparse(endpoint)
-        if parsed.scheme not in ALLOWED_SCHEMES or not parsed.netloc:
+        if parsed.scheme not in ALLOWED_SCHEMES or not parsed.hostname:
             raise PushError("That isn't a push address this app can send to.")
+        if parsed.port not in (None, 443) or not known_push_service(parsed.hostname):
+            raise PushError(
+                "That push address isn't on a browser's push service, so nothing will be sent to it."
+            )
         if len(endpoint) > 1000:
             raise PushError("That push address is far longer than any browser sends.")
         try:

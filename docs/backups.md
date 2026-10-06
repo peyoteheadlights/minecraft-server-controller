@@ -15,6 +15,10 @@ backups:
     - mods
 ```
 
+The world is always included as `server.properties` names it: with
+`level-name=survival`, the folders `survival`, `survival_nether` and
+`survival_the_end` are backed up even though the list says `world`.
+
 Each backup is a single `.zip` in `backups/` in the data folder (`servers/<id>/backups/` for a second server), with a SHA-256 recorded
 in the database.
 
@@ -62,11 +66,18 @@ it yourself once you are happy.
 **Restore world** is the same restore, arranged as a timeline instead of a
 list of files: every backup that holds a world, newest first, each with what
 going back to it would lose in plain words ("3 hours ago · about 2 hours of
-play lost"). The play figure comes from the sessions the player tracker
-recorded. Where nothing was recorded, it says so rather than claiming nobody
+play would be lost"). The play figure is how long anybody was on, from the
+sessions the player tracker recorded; friends playing together for an hour
+count as one hour, not one per player. Where nothing was recorded, it says so rather than claiming nobody
 played.
 
-Two things are different from the Backups page:
+Three things are different from the Backups page:
+
+- **Only the world goes back.** The world folders (the one `level-name` in
+  `server.properties` names, plus its `_nether` and `_the_end`) are put back;
+  mods, config and `server.properties` stay as they are now, so a mod added
+  since the backup is still there. The Backups page restores everything the
+  backup holds.
 
 - **The server must already be off.** This page does not stop Minecraft for
   you: stopping a server people are playing on is not part of choosing a

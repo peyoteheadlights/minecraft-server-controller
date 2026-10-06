@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ...events import Event
 from ...notifications import push
+from ...notifications.dispatcher import PUSH_TEST_TITLE
 from ...security.auth import Principal
 from ...security.permissions import SETTINGS_EDIT, SETTINGS_VIEW, require
 from ..deps import audit, get_core
@@ -76,6 +77,6 @@ async def test_push(
         message="Test alert from Minecraft Server Control",
         data={"startup_seconds": 0.0},
     )
-    sent = await core.notifier.send_push(event)
+    sent = await core.notifier.send_push(event, title=PUSH_TEST_TITLE)
     audit(core, request, "push_test", detail=str(sent))
     return {"channel": "push", "sent": sent, "phones": push.listed(core.db)}

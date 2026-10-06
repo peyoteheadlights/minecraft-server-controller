@@ -59,9 +59,21 @@ async function send(input, button) {
   } catch (err) {
     toast(err.message, "error", 8000);
   } finally {
-    button.disabled = false;
+    updateChatControls();
     input.focus();
   }
+}
+
+/* The box follows the server: it opens when the server comes online and
+   closes when it stops, without leaving the page. */
+export function updateChatControls() {
+  const running = (state.status || {}).state === "ONLINE";
+  const input = $("#chat-input");
+  const button = $("#chat-send");
+  const hint = $("#chat-hint");
+  if (input) input.disabled = !running;
+  if (button) button.disabled = !running;
+  if (hint) hint.textContent = running ? t("chat.hint") : t("chat.offline");
 }
 
 renderers.chat = (page) => {
@@ -69,19 +81,19 @@ renderers.chat = (page) => {
   const wrap = el("div", { class: "chat-body", id: "chat-wrap", role: "log",
                            "aria-label": t("chat.log_label"), tabindex: "0" });
   const input = el("input", {
-    class: "input", type: "text", maxlength: "220", placeholder: t("chat.placeholder"),
+    id: "chat-input", class: "input", type: "text", maxlength: "220", placeholder: t("chat.placeholder"),
     "aria-label": t("chat.input_label"), autocomplete: "off",
     disabled: running ? false : true,
     onkeydown: (event) => { if (event.key === "Enter") send(input, button); },
   });
-  const button = el("button", { class: "btn primary small", type: "button",
+  const button = el("button", { id: "chat-send", class: "btn primary small", type: "button",
     disabled: running ? false : true, onclick: () => send(input, button) }, t("chat.send"));
 
   page.append(
     el("div", { class: "chat" }, wrap,
       el("div", { class: "chat-foot" },
         el("span", { class: "chat-as" }, t("chat.as_server")), input, button)),
-    el("p", { class: "hint" }, running ? t("chat.hint") : t("chat.offline")));
+    el("p", { class: "hint", id: "chat-hint" }, running ? t("chat.hint") : t("chat.offline")));
 
   renderChatLines();
   // The log only holds what this browser has seen live, so load the recent

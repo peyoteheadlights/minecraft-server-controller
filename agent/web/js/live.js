@@ -1,7 +1,7 @@
 import { api } from "./api.js";
 import { signOut } from "./auth.js";
 import { navigate, render, renderRail } from "./nav.js";
-import { appendChatLine } from "./pages/chat.js";
+import { appendChatLine, updateChatControls } from "./pages/chat.js";
 import { appendConsoleLine, renderConsoleLines } from "./pages/console.js";
 import { loadLatestCrash, overviewConsoleAppend, overviewUpdate } from "./pages/overview.js";
 import { setFavicon } from "./colors.js";
@@ -166,6 +166,9 @@ export function handleEvent(event) {
     if (data.state === "STARTING") state.startingSince = event.ts;
     announce(t("live.state_announce", { state: t(stateInfo(data.state).label) }));
     updateStatusViews();
+    // Pages whose buttons depend on the server being on or off.
+    if (state.page === "chat") updateChatControls();
+    if (state.page === "world") render();
     renderRail();
     scheduleRefresh();
     return;

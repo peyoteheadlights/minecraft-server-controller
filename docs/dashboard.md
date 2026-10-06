@@ -147,7 +147,14 @@ It becomes a `say` command and passes exactly the checks a console command
 passes, so the chat box can no more reach Windows than the console can.
 Letters, numbers and basic punctuation only, up to 220 characters; anything
 else is refused with the reason. The box is disabled while the server is
-off.
+off, and opens by itself when the server comes online.
+
+Chat is found in the console of every server type: Vanilla, Fabric and Quilt
+(`[12:00:00] [Server thread/INFO]: <Alex> hi`), Forge and NeoForge
+(`... [minecraft/MinecraftServer]: <Alex> hi`) and Paper and Purpur
+(`[12:00:00 INFO]: <Alex> hi`). Chat plugins that rewrite the chat format
+(rank prefixes such as `[Admin] Alex: hi`) are not recognised, and those
+lines stay on the Console page only.
 
 ## Players
 
@@ -310,8 +317,14 @@ Each server's own settings, on its tab:
   planned stop, not a crash, so no crash alert goes out and no automatic
   restart follows — **the server does not start again by itself**, which the
   setting says plainly. While the player count is Unknown, nothing is
-  stopped: "nobody is online" would be a guess. The card shows the measured
-  count and how long is left.
+  stopped: "nobody is online" would be a guess. When nobody has joined since
+  the server started, the app asks Minecraft with `list` (at most every five
+  minutes) instead of waiting for a join. Before the warning and again
+  before the stop it asks once more and acts only on Minecraft's own answer
+  of zero, because plugins can change or hide "joined the game" lines. If the
+  server never answers `list` (a plugin replaced the command), it is never
+  stopped, and the card says so. The card shows the measured count and how
+  long is left.
 - **Backups**: how many daily, weekly and monthly backups to keep, and the
   start and stop timeouts.
 - **Duplicate this server** makes a new server with the same software, mods,

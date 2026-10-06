@@ -82,7 +82,16 @@ Edge and Firefox do not need that.
 
 A phone that is signed out, reinstalled, or whose browser data was cleared is
 dropped automatically the first time its push service says it is gone. Up to
-20 phones can be signed up; removing one is done from the same page.
+20 phones can be signed up. Each phone in the list has a **Remove** button, so
+a lost phone can be taken off from any other device.
+
+**Send a test** sends an alert titled "Test alert", so it can't be mistaken
+for a real one on a lock screen.
+
+Only the push services of the browser makers are accepted as a phone's
+address (Google's for Chrome, Edge on Android and Samsung Internet;
+Mozilla's for Firefox; Apple's for Safari; Microsoft's for Edge on Windows).
+The agent posts each alert to that address, so anything else is refused.
 
 Phone alerts need the dashboard to be reachable over HTTPS, which it is over
 Tailscale (see `docs/tailscale.md`). A browser will not register the service

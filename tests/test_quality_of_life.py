@@ -6,6 +6,7 @@ stopped on a player count nobody established, and the chat box can no more
 reach the operating system than the console can.
 """
 
+import asyncio
 import time
 
 import pytest
@@ -57,11 +58,26 @@ async def test_autosleep_is_off_until_a_server_turns_it_on(ctx):
     assert ctx.autosleep.status()["enabled"] is False
 
 
-async def test_autosleep_never_stops_a_server_while_the_count_is_unknown(ctx):
+def silence_list(ctx, monkeypatch):
+    """Make "list" go unanswered, as when a plugin replaced the command."""
+    real = ctx.server.send_command
+
+    async def send(command, internal=False):
+        if command == "list":
+            return True
+        return await real(command, internal=internal)
+
+    monkeypatch.setattr(ctx.server, "send_command", send)
+    monkeypatch.setattr("agent.autosleep.LIST_ANSWER_SECONDS", 0.3)
+
+
+async def test_autosleep_never_stops_a_server_while_the_count_is_unknown(ctx, monkeypatch):
     ctx.config.set("server.autosleep", True)
     ctx.config.set("server.autosleep_minutes", 1)
     await online(ctx)
-    # Nothing has established the count: no join, no leave, no /list reply.
+    silence_list(ctx, monkeypatch)
+    # Nothing has established the count: no join, no leave, and Minecraft
+    # doesn't answer "list".
     assert ctx.players.online_count() is None
 
     assert await ctx.autosleep.check() == "unknown"
@@ -69,6 +85,61 @@ async def test_autosleep_never_stops_a_server_while_the_count_is_unknown(ctx):
     # a fact to begin with.
     assert await ctx.autosleep.check(now=time.time() + 24 * 3600) == "unknown"
     assert ctx.autosleep.empty_since is None
+    assert ctx.autosleep.status()["list_answered"] is False
+    assert ctx.server.running is True
+
+
+async def test_autosleep_asks_minecraft_when_nobody_ever_joined(ctx):
+    """A server started and never joined has no join or leave to go on, so
+    auto-sleep asks with "list" and takes Minecraft's answer."""
+    ctx.config.set("server.autosleep", True)
+    ctx.config.set("server.autosleep_minutes", 1)
+    await online(ctx)
+    assert ctx.players.online_count() is None
+    now = time.time()
+    assert await ctx.autosleep.check(now=now) == "waiting"
+    assert ctx.players.online_count() == 0
+    assert ctx.autosleep.status()["list_answered"] is True
+    # With a one-minute wait the warning goes out at once, then the stop.
+    assert await ctx.autosleep.check(now=now + 15) == "warned"
+    assert await ctx.autosleep.check(now=now + 61) == "slept"
+    assert ctx.server.running is False
+
+
+async def test_autosleep_does_not_stop_when_minecraft_says_someone_is_on(ctx):
+    """The tracker can miss a join (a plugin may change the join message).
+    Minecraft's own list is asked before the stop and wins."""
+    ctx.config.set("server.autosleep", True)
+    ctx.config.set("server.autosleep_minutes", 1)
+    await online(ctx)
+    await ctx.players.player_joined("Alex")
+    await ctx.players.player_left("Alex")
+    # Somebody really is on, but the tracker never saw them join.
+    await ctx.server.send_command("fakejoin Steve", internal=True)
+    for _ in range(50):
+        if ctx.players.online_count():
+            break
+        await asyncio.sleep(0.05)
+    await ctx.players.player_left("Steve")
+    assert ctx.players.online_count() == 0
+
+    now = time.time()
+    assert await ctx.autosleep.check(now=now) == "waiting"
+    assert await ctx.autosleep.check(now=now + 120) == "players"
+    assert ctx.server.running is True
+    assert ctx.players.online_count() == 1
+
+
+async def test_autosleep_never_stops_when_list_goes_unanswered(ctx, monkeypatch):
+    ctx.config.set("server.autosleep", True)
+    ctx.config.set("server.autosleep_minutes", 1)
+    await online(ctx)
+    await ctx.players.player_joined("Alex")
+    await ctx.players.player_left("Alex")
+    silence_list(ctx, monkeypatch)
+    now = time.time()
+    assert await ctx.autosleep.check(now=now) == "waiting"
+    assert await ctx.autosleep.check(now=now + 3600) == "unknown"
     assert ctx.server.running is True
 
 
@@ -225,6 +296,59 @@ async def test_timeline_says_the_server_has_to_be_off(ctx):
     assert state["can_restore"] is False
 
 
+async def test_undo_puts_back_the_world_and_leaves_mods_alone(ctx):
+    """Restore world restores the world. A mod added since the backup stays,
+    and so does a setting changed since."""
+    base = ctx.config.server_dir
+    (base / "world").mkdir(exist_ok=True)
+    (base / "world" / "level.dat").write_bytes(b"old world")
+    (base / "mods").mkdir(exist_ok=True)
+    (base / "mods" / "old.jar").write_bytes(b"jar")
+    created = await ctx.backups.create(user="tester")
+    (base / "world" / "level.dat").write_bytes(b"new world")
+    (base / "mods" / "added-since.jar").write_bytes(b"jar")
+    (base / "server.properties").write_text("motd=changed since\n")
+
+    await restore(ctx, created["id"], user="tester")
+
+    assert (base / "world" / "level.dat").read_bytes() == b"old world"
+    assert (base / "mods" / "added-since.jar").is_file()
+    assert (base / "server.properties").read_text() == "motd=changed since\n"
+
+
+async def test_undo_follows_the_level_name(ctx):
+    """A world called "survival" in server.properties is the world, both in
+    backups and on the timeline."""
+    base = ctx.config.server_dir
+    (base / "server.properties").write_text("level-name=survival\n")
+    (base / "survival").mkdir()
+    (base / "survival" / "level.dat").write_bytes(b"before")
+    created = await ctx.backups.create(user="tester")
+    assert "survival" in ctx.backups.get(created["id"])["includes"].split(",")
+    assert [p["backup_id"] for p in timeline(ctx)["points"]] == [created["id"]]
+
+    (base / "survival" / "level.dat").write_bytes(b"after")
+    await restore(ctx, created["id"], user="tester")
+    assert (base / "survival" / "level.dat").read_bytes() == b"before"
+
+
+async def test_play_lost_counts_friends_playing_together_once(ctx):
+    now = time.time()
+    for name in ("Alex", "Sam", "Kim"):
+        ctx.db.insert(
+            "player_sessions",
+            {
+                "server_id": ctx.server_id,
+                "username": name,
+                "uuid": None,
+                "joined_at": now - 3600,
+                "left_at": now - 1800,
+            },
+        )
+    # Three people for the same half hour: half an hour of the world changing.
+    assert played_seconds(ctx, now - 7200, now) == pytest.approx(1800)
+
+
 async def test_play_lost_is_unknown_when_nothing_was_recorded(ctx):
     now = time.time()
     # No sessions at all: how much was played is not known, not zero.
@@ -314,7 +438,8 @@ async def test_chat_appears_only_once_the_console_prints_it(ctx):
 
 
 # -------------------------------------------------------- getting started
-async def test_checklist_ticks_only_what_the_app_measured(ctx):
+async def test_checklist_ticks_only_what_the_app_measured(ctx, monkeypatch):
+    monkeypatch.setenv("MCSC_DISCORD_WEBHOOK", "https://discord.com/api/webhooks/1/x")
     state = status(ctx)
     ids = [item["id"] for item in state["items"]]
     assert ids == ["server_ready", "backup_taken", "friend_joined", "alerts_on"]
@@ -333,7 +458,8 @@ async def test_checklist_ticks_only_what_the_app_measured(ctx):
     assert state["done"] == state["total"]
 
 
-async def test_checklist_is_finished_for_good_once_everything_is_done(ctx):
+async def test_checklist_is_finished_for_good_once_everything_is_done(ctx, monkeypatch):
+    monkeypatch.setenv("MCSC_DISCORD_WEBHOOK", "https://discord.com/api/webhooks/1/x")
     await ctx.backups.create(user="tester")
     await ctx.players.player_joined("Alex")
     ctx.core.config.set("notifications.discord_enabled", True)
@@ -344,6 +470,18 @@ async def test_checklist_is_finished_for_good_once_everything_is_done(ctx):
     state = status(ctx)
     assert state["finished"] is True
     assert state["show"] is False
+
+
+async def test_an_alert_switch_that_cannot_deliver_is_not_ticked(ctx, monkeypatch):
+    """Discord switched on with no webhook, or phone alerts on with no phone
+    signed up, sends nothing, so "Alerts are on" would not be true."""
+    monkeypatch.delenv("MCSC_DISCORD_WEBHOOK", raising=False)
+    monkeypatch.setenv("MCSC_VAPID_PUBLIC_KEY", "pub")
+    monkeypatch.setenv("MCSC_VAPID_PRIVATE_KEY", "priv")
+    ctx.core.config.set("notifications.discord_enabled", True)
+    ctx.core.config.set("notifications.push_enabled", True)
+    done = {item["id"]: item["done"] for item in status(ctx)["items"]}
+    assert done["alerts_on"] is False
 
 
 async def test_checklist_can_be_dismissed_per_server(core):
@@ -395,3 +533,59 @@ def test_the_checklist_can_be_dismissed_over_the_api(multi_client):
     assert multi_client.get(url).json()["show"] is True
     assert multi_client.post(f"{url}/dismiss").json()["show"] is False
     assert multi_client.get(url).json()["show"] is False
+
+
+# ---------------------------------------------- console formats and fakes
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "[12:00:00] [Server thread/INFO]: <Alex> hi there",
+        "[12:00:00] [Server thread/INFO] (Minecraft) <Alex> hi there",
+        "[12:00:00] [Server thread/INFO] [minecraft/MinecraftServer]: <Alex> hi there",
+        "[12:00:00 INFO]: <Alex> hi there",
+        "[12:00:00] [Async Chat Thread - #0/INFO]: <Alex> hi there",
+        "\x1b[0;37m[12:00:00 INFO]: <Alex> hi there\x1b[m",
+    ],
+)
+def test_chat_is_read_from_every_server_types_console(raw):
+    """Vanilla, Fabric, Forge/NeoForge and Paper/Purpur print their consoles
+    differently; chat must be found in all of them."""
+    from agent.minecraft.console import parse_line
+
+    assert parse_chat(parse_line(raw, 1)) == ("player", "Alex", "hi there")
+
+
+@pytest.mark.parametrize(
+    "raw,joined,left",
+    [
+        ("[12:00:00 INFO]: Steve joined the game", "Steve", None),
+        (
+            "[12:00:00] [Server thread/INFO] [minecraft/MinecraftServer]: Steve left the game",
+            None,
+            "Steve",
+        ),
+        (
+            "[12:00:00] [Server thread/INFO]: Steve (formerly known as Bob) joined the game",
+            "Steve",
+            None,
+        ),
+        # Typed in chat: not a join or a leave.
+        ("[12:00:00] [Server thread/INFO]: <Bob> Steve joined the game", None, None),
+        ("[12:00:00 INFO]: <Bob> Steve left the game", None, None),
+    ],
+)
+def test_joins_and_leaves_are_only_the_servers_own_lines(raw, joined, left):
+    from agent.minecraft.console import extract_signals, parse_line
+
+    sig = extract_signals(parse_line(raw, 1))
+    assert sig.player_joined == joined
+    assert sig.player_left == left
+
+
+def test_a_player_cannot_fake_the_player_list():
+    from agent.minecraft.console import extract_signals, parse_line
+
+    fake = "[12:00:00] [Server thread/INFO]: <Bob> There are 0 of a max of 20 players online:"
+    assert extract_signals(parse_line(fake, 1)).player_list is None
+    real = "[12:00:00 INFO]: There are 1 of a max of 20 players online: Bob"
+    assert extract_signals(parse_line(real, 1)).player_list == (1, 20, ["Bob"])

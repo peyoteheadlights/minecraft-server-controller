@@ -438,7 +438,7 @@ renderers.dashboard = (page) => {
       section(t("overview.last_backup"), null, nodes.backup),
       section(t("overview.next_task"), null, nodes.next),
       section(t("overview.players_online"), null, nodes.players)),
-    el("div", { class: "gap-section" }, section(t("join.title"), null, nodes.join)),
+    el("div", { class: "gap-section", id: "join-card" }, section(t("join.title"), null, nodes.join)),
     el("div", { class: "gap-section" }, section(t("overview.recommendations"), null, nodes.recs)),
     el("section", { class: "section gap-section" },
       el("div", { class: "section-head" }, el("h2", {}, t("overview.activity")), el("div", { class: "grow" }),

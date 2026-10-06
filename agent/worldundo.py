@@ -2,8 +2,9 @@
 
 This adds no new way of storing anything. It reads the backups that already
 exist, picks the ones that hold a world, and presents them as a timeline
-with what going back to each one would lose. The restore itself is
-``BackupManager.restore``, which verifies the archive, takes a fresh backup
+with what going back to each one would lose. Only the world folders are put
+back (mods, config and server.properties stay as they are now). The restore
+itself is ``BackupManager.restore``, which verifies the archive, takes a fresh backup
 of the current world first (so the undo can itself be undone) and runs
 through the safe-change routine.
 
@@ -18,26 +19,35 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING, Any
 
+from .minecraft.properties import world_folders
+
 if TYPE_CHECKING:
     from .core import ServerContext
 
-# A backup counts for the timeline when it holds at least one of these.
-WORLD_FOLDERS = ("world", "world_nether", "world_the_end")
 # The longest timeline shown; older backups are still on the Backups page.
 LIMIT = 40
 
 
-def _holds_world(backup: dict[str, Any]) -> bool:
-    includes = backup.get("includes") or ""
-    return any(folder in includes for folder in WORLD_FOLDERS)
+def world_parts(ctx: ServerContext) -> set[str]:
+    """This server's world folders, from its level-name."""
+    return world_folders(ctx.config.server_dir)
+
+
+def _world_in(backup: dict[str, Any], parts: set[str]) -> set[str]:
+    """Which of the world folders a backup holds (its top-level entries are
+    recorded as a comma-separated list)."""
+    includes = {p.strip() for p in (backup.get("includes") or "").split(",") if p.strip()}
+    return includes & parts
 
 
 def played_seconds(ctx: ServerContext, since: float, until: float) -> float | None:
-    """How much play the tracker recorded between two moments, in seconds.
+    """How long anybody was playing between two moments, in seconds.
 
-    Sessions are counted only for the part that falls inside the window. The
-    result is None when this server has no session history at all, which is
-    not the same as nobody having played.
+    Sessions are counted only for the part that falls inside the window, and
+    overlapping sessions count once: three friends playing together for an
+    hour is one hour of the world changing, not three. The result is None
+    when this server has no session history at all, which is not the same as
+    nobody having played.
     """
     rows = ctx.db.query(
         "SELECT joined_at, left_at FROM player_sessions WHERE server_id = ? "
@@ -48,21 +58,34 @@ def played_seconds(ctx: ServerContext, since: float, until: float) -> float | No
         "SELECT 1 AS found FROM player_sessions WHERE server_id = ? LIMIT 1", (ctx.server_id,)
     ):
         return None
+    spans = sorted(
+        (max(float(row["joined_at"]), since), min(float(row["left_at"] or until), until))
+        for row in rows
+    )
     total = 0.0
-    for row in rows:
-        start = max(float(row["joined_at"]), since)
-        end = min(float(row["left_at"] or until), until)
-        if end > start:
-            total += end - start
+    current_start: float | None = None
+    current_end = 0.0
+    for start, end in spans:
+        if end <= start:
+            continue
+        if current_start is None or start > current_end:
+            if current_start is not None:
+                total += current_end - current_start
+            current_start, current_end = start, end
+        else:
+            current_end = max(current_end, end)
+    if current_start is not None:
+        total += current_end - current_start
     return total
 
 
 def timeline(ctx: ServerContext, now: float | None = None) -> dict[str, Any]:
     """The points this server's world can be put back to, newest first."""
     now = now if now is not None else time.time()
+    parts = world_parts(ctx)
     points = []
     for backup in ctx.backups.list_backups():
-        if not _holds_world(backup) or not backup.get("exists"):
+        if not _world_in(backup, parts) or not backup.get("exists"):
             continue
         created = float(backup["created_at"])
         points.append(
@@ -120,5 +143,10 @@ async def restore(ctx: ServerContext, backup_id: int, user: str = "system") -> d
         raise WorldUndoError(
             f"That backup was not checked ({point['status']}), so it is not offered as an undo."
         )
-    result = await ctx.backups.restore(backup_id, user=user, start_after=False, safety_backup=True)
+    # Only the world goes back. The backup may also hold mods, config and
+    # server.properties, and putting those back would quietly undo every
+    # mod or setting changed since, which "Restore world" never promised.
+    result = await ctx.backups.restore(
+        backup_id, user=user, start_after=False, safety_backup=True, only=world_parts(ctx)
+    )
     return {**result, "point": point}

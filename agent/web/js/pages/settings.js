@@ -139,6 +139,7 @@ function sleepCard(own) {
   // Only what was measured: the count, and what it is waiting for.
   const live = !settings.autosleep ? t("serverset.sleep_off")
     : !sleep ? t("value.unknown")
+    : sleep.list_answered === false ? t("serverset.sleep_no_answer")
     : sleep.players_online === null ? t("serverset.sleep_unknown_players")
     : sleep.players_online > 0 ? t("serverset.sleep_players", { count: sleep.players_online })
     : sleep.stops_in !== null ? t("serverset.sleep_countdown", { duration: fmt.duration(sleep.stops_in) })

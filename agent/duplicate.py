@@ -74,12 +74,8 @@ class DuplicateError(RuntimeError):
 
 
 def world_folders(directory: Path) -> set[str]:
-    """The folders that make up the world: level-name and, for Paper,
-    Purpur and Vanilla's split dimensions, its _nether and _the_end."""
-    path = directory / properties.FILENAME
-    values = properties.PropertiesFile.read(path).values() if path.is_file() else {}
-    name = properties.world_folder(directory, values).name
-    return {name, f"{name}_nether", f"{name}_the_end"}
+    """The folders that make up the world (see properties.world_folders)."""
+    return properties.world_folders(directory)
 
 
 def files_to_copy(ctx: ServerContext, world: str) -> list[tuple[Path, str, int]]:

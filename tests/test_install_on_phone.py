@@ -140,3 +140,18 @@ def test_registering_the_worker_is_the_only_place_it_is_named():
     # A browser without service workers (an older iPhone) still gets a
     # working dashboard: everything here is behind a support check.
     assert "serviceWorker" in pwa and "function supported()" in pwa
+
+
+def test_every_learn_more_link_opens_a_real_doc():
+    """A "?" button's "Learn more" opens docs/<name>.md on GitHub, so each
+    name passed to it has to be a file in docs/."""
+    docs = WEB.parent.parent / "docs"
+    ui = (WEB / "js" / "ui.js").read_text(encoding="utf-8")
+    assert "${doc}.md" in ui
+    used = set()
+    for page in (WEB / "js").rglob("*.js"):
+        text = page.read_text(encoding="utf-8")
+        used |= set(re.findall(r'withHelp\([^;]*?"[a-z_]+", "([a-z-]+)"\)', text, re.S))
+    assert used, "no help buttons found"
+    for name in used:
+        assert (docs / f"{name}.md").is_file(), name

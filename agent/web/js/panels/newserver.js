@@ -73,11 +73,12 @@ function versionPicker(payload, onPick) {
     const loaders = (entry && entry.loaders) || [];
     loader.replaceChildren(...loaders.map((v, index) => el("option",
       { value: v, selected: index === 0 ? "selected" : false }, v)));
-    onPick(select.value, loaders[0] || null);
+    onPick(select.value, loaders[0] || null, entry);
   };
   select.addEventListener("change", pick);
   snapshots.addEventListener("change", fill);
-  loader.addEventListener("change", () => onPick(select.value, loader.value));
+  loader.addEventListener("change", () => onPick(select.value, loader.value,
+    payload.versions.find((v) => v.minecraft === select.value)));
   fill();
 
   return el("div", { class: "stack" },
@@ -151,13 +152,28 @@ export function newServerPanel() {
       versionBox.replaceChildren(card(t("new.step_version"), problem(err.message)));
       return;
     }
+    const javaBox = el("div", {});
     versionBox.replaceChildren(card(t("new.step_version"),
-      versionPicker(payload, (minecraft, loader) => {
+      versionPicker(payload, (minecraft, loader, entry) => {
         chosen.minecraft = minecraft;
         chosen.loader = loader;
-      })));
+        javaBox.replaceChildren(...[javaTooOld(entry)].filter(Boolean));
+      }), javaBox));
     detailBox.replaceChildren(detailStep(type));
     versionBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  /* Java on this PC is older than the chosen version needs: said before
+     anything is created, with where to get a newer one. */
+  function javaTooOld(entry) {
+    const have = options.java && options.java.version_major;
+    const need = entry && entry.java_required;
+    if (!known(have) || !known(need) || have >= need) return null;
+    return el("div", { class: "banner warn mt-12" }, el("div", { class: "grow" },
+      t("new.java_old", { version: entry.minecraft, need, have }),
+      el("p", { class: "mt-0" },
+        el("a", { href: options.java_download, target: "_blank", rel: "noopener noreferrer" },
+          t("new.java_get")))));
   }
 
   function detailStep(type) {

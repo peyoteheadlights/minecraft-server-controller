@@ -19,6 +19,7 @@ SETTABLE_PREFIXES = (
     "notifications.events.",
     "notifications.discord_enabled",
     "notifications.email_enabled",
+    "notifications.push_enabled",
     "notifications.email.",
     "notifications.min_interval_seconds",
     "backups.keep_",

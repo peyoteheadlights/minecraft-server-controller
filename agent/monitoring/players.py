@@ -169,6 +169,9 @@ class PlayerTracker:
                 await self.player_joined(name)
         for name in current - set(usernames):
             await self.player_left(name)
+        # Joins and leaves above record themselves; the list reply is still
+        # what established the count.
+        self.mark_verified("/list reply from the server")
 
     async def clear_online(self) -> None:
         """Called when the server stops or crashes: nobody is online any more.

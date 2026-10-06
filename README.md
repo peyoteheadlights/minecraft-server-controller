@@ -20,6 +20,18 @@ dashboard you can open from your computer or phone over a private
   and names a likely cause with its confidence
 - Automatic restart after a crash, with crash-loop protection
 - Player tracking: who's online, sessions and total playtime
+- Player buttons: whitelist, operator, kick, ban and unban, shown as "Sent"
+  until the server's console confirms them, with the lists read from
+  Minecraft's own files
+- Game settings: the main `server.properties` settings as a form that keeps
+  every comment and setting it doesn't show, with a copy of the old file
+  kept, and the whole file as text in Technical mode
+- Duplicate a server, with a copy of its world or a fresh one, its own port
+  and color
+- Import a Modrinth modpack (`.mrpack`) as a new server or into one: see
+  everything in it first, every mod checked against the pack's SHA-512
+- "How friends join": the addresses to type, read from this PC, with copy
+  buttons
 - Backups of worlds, config and mods, verified before they're trusted, with
   safe restore, one-click undo and retention
 - Limit each server to some of the PC's CPU cores, applied to the running
@@ -35,8 +47,22 @@ dashboard you can open from your computer or phone over a private
   one button puts the old version back
 - Let Bedrock players join a Java server (Geyser and Floodgate), with the
   differences they will notice written out in plain words
+- In-game chat on its own page, read from the server's console, with a box to
+  say something to everyone as "Server"
+- Restore world: the backups that hold a world as a timeline, each saying what
+  going back would lose, with a fresh backup taken first
+- Sleep when empty: stop a server nobody is playing on after a set time, with
+  a warning in the game first. It never acts on a player count that is Unknown,
+  and never starts the server again by itself
+- A getting-started checklist on a new server, every item ticked from
+  something the app measured
+- Activity in plain sentences grouped by day, with the raw event type and data
+  in Technical mode
 - Scheduled tasks: backups, restarts, log cleanup, maintenance windows
-- Discord and email alerts
+- Discord, email and phone alerts (Web Push, encrypted per phone, no account
+  anywhere)
+- Install it on a phone's home screen and open it full screen, with a service
+  worker that caches the app's own files and never an API answer
 - Starts with Windows through a scheduled task, without anyone logging in
 - HTTPS, hashed passwords, session tokens, rate limiting, audit log,
   Tailscale-only access
@@ -181,6 +207,8 @@ agent/              the server agent
   mods/  backups/  monitoring/  notifications/  scheduler/  security/
   downloads.py      the one safe downloader
   crossplay.py      Geyser and Floodgate for Bedrock players
+  modpack.py        Modrinth modpack import
+  duplicate.py      copying a server
   web/              the dashboard (plain HTML, CSS and JavaScript)
   main.py           entry point
 installer/          secrets, certificates, firewall, Windows startup

@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import shutil
 import time
 from pathlib import Path
@@ -97,19 +98,39 @@ def _log_path(ctx: ServerContext) -> Path:
     return folder / f"{time.strftime('%Y%m%d-%H%M%S')}-install.log"
 
 
+def installer_command(java: str, installer: str, plan: Plan) -> list[str]:
+    """The installer's argument list. Each type's arguments come from its
+    capabilities; the only values filled in are the Minecraft and loader
+    versions, which make_plan already matched against the official list."""
+    from .versions import check_version
+
+    server_type = servertypes.get(plan.type_id)
+    values = {
+        "minecraft": check_version(plan.minecraft, "Minecraft version"),
+        "loader": check_version(plan.loader or "", f"{server_type.name} version"),
+    }
+    args = []
+    for arg in server_type.installer_args or ("--installServer",):
+        for key, value in values.items():
+            arg = arg.replace("{" + key + "}", value)
+        args.append(arg)
+    return [java, "-jar", installer, *args]
+
+
 async def run_installer(
     ctx: ServerContext,
-    installer: str,
+    plan: Plan,
     java: str,
     directory: Path,
     job: JobHandle | None = None,
 ) -> Path:
     """Run a downloaded installer once, as an argument list, in the server
     folder. Returns the path of its captured log."""
+    installer = plan.installer or ""
     path = directory / installer
-    if not is_inside(directory, path.resolve()) or not path.is_file():
+    if not installer or not is_inside(directory, path.resolve()) or not path.is_file():
         raise InstallError("The setup file is missing, so nothing was installed.")
-    command = [java, "-jar", installer, "--installServer"]
+    command = installer_command(java, installer, plan)
     log_file = _log_path(ctx)
     if job:
         job.step("Setting the server up (this can take a few minutes)")
@@ -146,7 +167,11 @@ def find_args_file(directory: Path, type_id: str) -> str | None:
     libraries = directory / "libraries"
     if not libraries.is_dir():
         return None
-    candidates = sorted(libraries.rglob("*_args.txt"))
+    # The installer writes both: win_args.txt separates paths with ";" and
+    # unix_args.txt with ":". The wrong one leaves Java unable to find the
+    # server's libraries, so only the one for this system is used.
+    wanted = "win_args.txt" if os.name == "nt" else "unix_args.txt"
+    candidates = sorted(libraries.rglob(wanted))
     preferred = [p for p in candidates if type_id in str(p).lower()] or candidates
     for path in preferred:
         try:
@@ -185,9 +210,7 @@ async def install_plan(
     jar = plan.jar
     args_file = ""
     if plan.installer:
-        install_log = await run_installer(
-            ctx, plan.installer, ctx.config.server.java, directory, job=job
-        )
+        install_log = await run_installer(ctx, plan, ctx.config.server.java, directory, job=job)
         (directory / plan.installer).unlink(missing_ok=True)
         if server_type.launch == "args_file":
             found = find_args_file(directory, server_type.id)
@@ -396,6 +419,11 @@ async def preflight(
         "content": content,
         "moved_aside": [c["filename"] for c in moved_aside],
         "unknown_support": [c["filename"] for c in content if c["declares_target"] is None],
+        # Add-ons that stay but say they don't support the target version:
+        # the ones most likely to stop the server starting.
+        "not_supporting": [
+            c["filename"] for c in content if c["fits_type"] and c["declares_target"] is False
+        ],
         "backup_first": True,
         "crossplay": ctx.config.server.crossplay,
         "crossplay_available": target.crossplay,
@@ -429,6 +457,10 @@ async def change_version(
     plan = await make_plan(target.id, minecraft, loader)
     directory = _server_dir(ctx)
     type_change = target.id != current.id
+    # What the console last reported, kept before the change clears it.
+    before = ctx.server.mc_version
+    previous_loader = ctx.server.loader_version
+    crossplay_was_on = bool(ctx.config.server.crossplay)
     title = (
         f"Changing {ctx.name} to {target.name} {minecraft}"
         if type_change
@@ -492,6 +524,14 @@ async def change_version(
         ctx.config.set("server.args_file", outcome["args_file"])
         if target.content_folder and target.content_folder != current.content_folder:
             ctx.config.set("mods.directory", target.content_folder)
+        # Geyser and Floodgate are built for one kind of server, so after a
+        # type change the ones in place belong to the old kind (they were
+        # moved aside with the other add-ons). Crossplay is switched off
+        # rather than shown as on when it can't work; turning it on again
+        # fetches the builds for the new kind.
+        crossplay_off = type_change and crossplay_was_on
+        if crossplay_off:
+            ctx.config.set("server.crossplay", False)
         ctx.config.save()
         ctx.core.db.set_server_software(ctx.server_id, target.id, outcome["loader_version"])
         ctx.core.db.register_server(
@@ -515,6 +555,7 @@ async def change_version(
                 "loader_version": outcome["loader_version"],
                 "previous": outcome["previous"],
                 "previous_type": current.id,
+                "previous_loader": previous_loader,
                 "content_moved_aside": outcome["content_moved_aside"],
                 "install_log": outcome["install_log"],
                 "verified": outcome["verified"],
@@ -538,7 +579,7 @@ async def change_version(
                 },
             )
         )
-        return outcome
+        return {**outcome, "crossplay_turned_off": crossplay_off}
 
     job, result = await ctx.core.jobs.run(
         "version_change", title, run, server_id=ctx.server_id, risky=True, user=user
@@ -547,7 +588,7 @@ async def change_version(
         "version_change",
         user=user,
         target=ctx.server_id,
-        detail=f"{current.id} {ctx.server.mc_version or 'unknown'} -> {target.id} {minecraft}",
+        detail=f"{current.id} {before or 'unknown'} -> {target.id} {minecraft}",
         server_id=ctx.server_id,
     )
     return {

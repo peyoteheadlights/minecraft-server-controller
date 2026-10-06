@@ -25,6 +25,7 @@ from __future__ import annotations
 import logging
 import shutil
 import time
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -189,8 +190,16 @@ async def create_server(
     color: str | None = None,
     eula_accepted: bool = False,
     user: str = "system",
+    after_install: Callable[[Any, Path, Any], Awaitable[dict[str, Any]]] | None = None,
+    title: str | None = None,
 ) -> dict[str, Any]:
-    """Create a new server. Returns the new server's summary and the job."""
+    """Create a new server. Returns the new server's summary and the job.
+
+    ``after_install`` (used by modpack import) runs inside the same job
+    once the software is in place, with the new ServerContext, its folder
+    and the job; what it returns is added to the result. If it fails, the
+    server is taken off the list and its folder removed like any other
+    failed creation."""
     from ..events import Event
 
     server_type = servertypes.get(type_id)
@@ -222,7 +231,7 @@ async def create_server(
         raise InstallError("That amount of memory isn't a sensible size for a server.")
 
     existed = folder.is_dir()
-    title = f"Creating {name} ({server_type.name} {minecraft})"
+    title = title or f"Creating {name} ({server_type.name} {minecraft})"
 
     async def run(job: JobHandle | None) -> dict[str, Any]:
         if job:
@@ -269,6 +278,7 @@ async def create_server(
                 "loader_version": result["loader_version"],
                 "since": time.time(),
             }
+            extra = await after_install(ctx, folder, job) if after_install else {}
         except Exception:
             # Leave nothing half-made: the server comes off the list and
             # the folder this app created goes with it.
@@ -298,6 +308,7 @@ async def create_server(
         )
         return {
             **result,
+            **extra,
             "server_id": server_id,
             "name": name,
             "directory": str(folder),

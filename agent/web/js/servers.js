@@ -166,11 +166,19 @@ export function updateJobs() {
   if (holder) holder.replaceChildren(jobsIndicator() || "");
 }
 
+const finishedJobs = new Set();
+
 export function handleJobEvent(event) {
   const job = event.data || {};
   if (!job.id) return;
-  if (job.state === "running") state.jobs[job.id] = job;
-  else delete state.jobs[job.id];
+  // A progress update can arrive just after the job's last event; once a
+  // job has finished, a late "running" update doesn't bring it back.
+  if (job.state === "running") {
+    if (!finishedJobs.has(job.id)) state.jobs[job.id] = job;
+  } else {
+    finishedJobs.add(job.id);
+    delete state.jobs[job.id];
+  }
   updateJobs();
 }
 

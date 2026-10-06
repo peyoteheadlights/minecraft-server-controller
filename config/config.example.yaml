@@ -48,6 +48,11 @@ server:
   crossplay: false
   bedrock_port: 0            # 0 = not set; Geyser's usual port is 19132 (UDP)
   cpu_cores: []              # e.g. [0, 1, 2, 3] = only cores 1-4; [] = every core
+  # Stop this server when nobody has been playing for a while. It never stops
+  # one while the player count is unknown, warns in the game a minute first,
+  # and does not start the server again by itself.
+  autosleep: false
+  autosleep_minutes: 30      # 1 to 1440 (24 hours)
 
 monitor:
   auto_restart: true
@@ -145,6 +150,9 @@ mods:
 notifications:
   discord_enabled: false
   email_enabled: false
+  # Phone alerts (Web Push). setup.ps1 makes the keys; they live in .env.
+  # Each phone also has to be turned on from Settings -> Alerts on that phone.
+  push_enabled: false
   min_interval_seconds: 300  # minimum gap between repeats of the same alert type
   events:
     server_started: true
@@ -170,6 +178,10 @@ notifications:
     certificate_expiring: true
     servers_changed: true    # a server was added or removed in Settings
     cpu_cores_failed: true   # a server's CPU core limit could not be applied
+    game_settings_changed: false  # someone saved a server's Game settings
+    player_managed: true     # a player was whitelisted, made operator, kicked or banned
+    modpack_imported: true   # a modpack was imported into a server
+    autosleep: true          # a server was stopped because nobody was playing
   email:
     host: ""                 # e.g. smtp.gmail.com
     port: 587

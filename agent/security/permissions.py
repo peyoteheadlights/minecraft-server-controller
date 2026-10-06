@@ -18,6 +18,8 @@ ACCOUNT = "account.self"  # sign out, rotate or read one's own session
 SERVER_VIEW = "server.view"  # status, console, players, performance, history
 SERVER_CONTROL = "server.control"  # start, stop, restart, save the world
 CONSOLE_SEND = "console.send"  # type commands into the Minecraft console
+PLAYERS_MANAGE = "players.manage"  # whitelist, operator, kick, ban and unban
+CHAT_SEND = "chat.send"  # say something to everyone in the game
 MODS_MANAGE = "mods.manage"  # install, remove, enable, update, roll back mods
 BACKUPS_CREATE = "backups.create"
 BACKUPS_DOWNLOAD = "backups.download"
@@ -37,6 +39,8 @@ ALL = frozenset(
         SERVER_VIEW,
         SERVER_CONTROL,
         CONSOLE_SEND,
+        PLAYERS_MANAGE,
+        CHAT_SEND,
         MODS_MANAGE,
         BACKUPS_CREATE,
         BACKUPS_DOWNLOAD,
@@ -69,7 +73,7 @@ def check(principal: Principal, permission: str) -> None:
     if permission not in ALL:  # a typo in a route would otherwise lock everyone out
         raise ValueError(f"{permission!r} isn't a permission this app has.")
     if permission not in permissions_for(principal):
-        raise AuthError("Your account is not allowed to do that", status=403)
+        raise AuthError("Your account isn't allowed to do that.", status=403)
 
 
 @cache

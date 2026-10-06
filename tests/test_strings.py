@@ -14,6 +14,7 @@ import re
 from pathlib import Path
 
 from agent import colors, servertypes
+from agent.checklist import ITEMS
 from agent.config import NotificationSettings
 from agent.minecraft.analyzer import CATEGORIES
 from agent.scheduler.scheduler import TASKS
@@ -60,6 +61,22 @@ def families() -> dict[str, set[str]]:
         "cause.": set(CATEGORIES) - {"Unknown"},
         "theme.": set(AuthManager.PREFERENCE_CHOICES["theme"]),
         "appset.": {"theme", "mode"},
+        # The getting-started checklist: each item's name, its button, and
+        # the two evidence lines it can show.
+        "start.": {
+            *(item.__name__.lstrip("_") for item in ITEMS),
+            *(f"{item.__name__.lstrip('_')}_action" for item in ITEMS),
+            "ready",
+            "not_ready",
+            "backup_done",
+            "backup_none",
+            "friend_done",
+            "friend_none",
+            "alerts_done",
+            "alerts_none",
+        },
+        # Every "?" button's explanation.
+        "help.": set(js_list("ui.js", "HELP_TOPICS")),
         "perf.range_": {str(h) for h in js_list("pages/performance.js", "RANGES")},
         "tps.state_": {"active", "detecting", "unavailable", "disabled", "idle"},
         "deps.status_": set(js_list("panels/dependencies.js", "STATUS")),

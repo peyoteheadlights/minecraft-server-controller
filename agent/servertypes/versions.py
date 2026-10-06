@@ -28,9 +28,6 @@ from . import ServerType, get
 
 log = logging.getLogger("msc.versions")
 
-# How long a version list is reused before it is fetched again.
-CACHE_SECONDS = 1800
-
 MOJANG_MANIFEST = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
 FABRIC_META = "https://meta.fabricmc.net/v2"
 QUILT_META = "https://meta.quiltmc.org/v3"
@@ -40,6 +37,19 @@ PAPER_API = "https://fill.papermc.io/v3/projects/paper"
 PURPUR_API = "https://api.purpurmc.org/v2/purpur"
 
 VERSION_RE = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._+\-]{0,63}$")
+# Words in a version name that mark it as not finished yet.
+UNSTABLE_RE = re.compile(r"(alpha|beta|pre|rc|snapshot)", re.IGNORECASE)
+# Forge only writes the argument file the app launches from (and run.bat)
+# from Minecraft 1.17 on; older Forge servers are launched another way.
+FORGE_OLDEST = (1, 17)
+
+
+def version_key(version: str) -> tuple:
+    """Sort key for version names like "1.21.1", "47.3.0" or "21.1.9-beta":
+    numbers compared as numbers, a finished version above its pre-releases."""
+    head, _, tail = str(version).partition("-")
+    numbers = tuple(int(part) if part.isdigit() else -1 for part in head.split("."))
+    return (numbers, 0 if tail else 1, tail)
 
 
 class VersionError(DownloadError):
@@ -58,9 +68,15 @@ class Version:
     released: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        from ..minecraft.java import required_java
+
         return {
             "minecraft": self.minecraft,
             "stable": self.stable,
+            # The oldest Java this Minecraft version runs on, so the New
+            # server panel can say so before anything is created. None for
+            # a version whose number can't be read (a snapshot name).
+            "java_required": required_java(self.minecraft),
             "loaders": self.loaders,
             "released": self.released,
         }
@@ -180,12 +196,20 @@ async def _meta_versions(base: str) -> tuple[list[dict], list[dict]]:
     return games, loaders
 
 
+def _stable_loader(entry: dict) -> bool:
+    """Fabric marks each loader stable or not; Quilt doesn't, so a name
+    with "beta" in it counts as unfinished."""
+    if "stable" in entry:
+        return bool(entry["stable"])
+    return not UNSTABLE_RE.search(str(entry.get("version") or ""))
+
+
 def _loader_names(loaders: list[dict], stable_only: bool = True) -> list[str]:
     names = [
         str(entry.get("version") or "")
         for entry in loaders
         if VERSION_RE.match(str(entry.get("version") or ""))
-        and (entry.get("stable", True) or not stable_only)
+        and (not stable_only or _stable_loader(entry))
     ]
     return names or [str(entry.get("version")) for entry in loaders if entry.get("version")]
 
@@ -218,13 +242,20 @@ async def meta_plan(server_type: ServerType, minecraft: str, loader: str | None)
     chosen = loader or (_loader_names(loaders) or offered)[0]
     if chosen not in offered:
         raise VersionError(f"{server_type.name} has no loader version {chosen}.")
-    installer = (
-        await downloads.fetch_json(f"{base}/versions/installer")
-        if server_type.id == "quilt"
-        else None
-    )
+    installer = await downloads.fetch_json(f"{base}/versions/installer")
     if server_type.id == "fabric":
-        url = f"{FABRIC_META}/versions/loader/{minecraft}/{chosen}/server/jar"
+        # The ready-made server launcher is built by Fabric's installer, so
+        # its address names the installer version as well.
+        installers = [
+            str(entry.get("version") or "")
+            for entry in (installer if isinstance(installer, list) else [])
+            if isinstance(entry, dict)
+            and VERSION_RE.match(str(entry.get("version") or ""))
+            and entry.get("stable", True)
+        ]
+        if not installers:
+            raise VersionError("Fabric's installer list couldn't be read.")
+        url = f"{FABRIC_META}/versions/loader/{minecraft}/{chosen}/{installers[0]}/server/jar"
         spec = FileSpec(url=downloads.check_url(url), name="fabric-server-launch.jar")
         return Plan(
             type_id=server_type.id,
@@ -274,7 +305,9 @@ def _maven_versions(xml: str) -> list[str]:
     ]
     if not found:
         raise VersionError("The version list held no versions.")
-    return list(reversed(found))  # Maven lists oldest first
+    # Newest first. Sorted by number rather than trusting the file's order,
+    # which differs between the two repositories.
+    return sorted(set(found), key=version_key, reverse=True)
 
 
 async def forge_versions(server_type: ServerType) -> list[Version]:
@@ -285,29 +318,55 @@ async def forge_versions(server_type: ServerType) -> list[Version]:
         by_game: dict[str, list[str]] = {}
         for entry in _maven_versions(xml):
             minecraft, _, build = entry.partition("-")
-            if not build:
+            if not build or version_key(minecraft)[0][:2] < FORGE_OLDEST:
                 continue
             by_game.setdefault(minecraft, []).append(entry)
         return [
-            Version(minecraft=mc, stable=True, loaders=builds) for mc, builds in by_game.items()
+            Version(
+                minecraft=mc,
+                stable=True,
+                loaders=sorted(
+                    builds, key=lambda b: version_key(b.partition("-")[2]), reverse=True
+                ),
+            )
+            for mc, builds in sorted(by_game.items(), key=lambda i: version_key(i[0]), reverse=True)
         ]
     xml = await downloads.fetch_text(f"{NEOFORGE_MAVEN}/maven-metadata.xml")
     by_game = {}
     for entry in _maven_versions(xml):
-        parts = entry.split(".")
-        if len(parts) < 3:
-            continue
-        patch = parts[1]
-        minecraft = f"1.{parts[0]}" if patch == "0" else f"1.{parts[0]}.{patch}"
-        by_game.setdefault(minecraft, []).append(entry)
+        game = _neoforge_minecraft(entry)
+        if game:
+            by_game.setdefault(game, []).append(entry)
     return [
         Version(
             minecraft=mc,
-            stable=not any("beta" in b for b in builds[:1]),
+            # A snapshot (no dots, like 25w14a) is never stable.
+            stable=not UNSTABLE_RE.search(builds[0]) and bool(re.fullmatch(r"\d+(\.\d+)+", mc)),
             loaders=builds,
         )
         for mc, builds in by_game.items()
     ]
+
+
+def _neoforge_minecraft(build: str) -> str | None:
+    """The Minecraft version a NeoForge build is for.
+
+    21.1.9            Minecraft 1.21.1   (<minor>.<patch>.<build>)
+    21.0.3-beta       Minecraft 1.21
+    26.1.0.5          Minecraft 26.1     (year-based Minecraft versions:
+    26.1.1.2          Minecraft 26.1.1    <year>.<drop>.<hotfix>.<build>)
+    0.25w14a.3-beta   snapshot 25w14a
+    """
+    parts = build.split("-")[0].split(".")
+    if len(parts) < 3:
+        return None
+    if parts[0] == "0":
+        return parts[1] if VERSION_RE.match(parts[1]) else None
+    if not all(part.isdigit() for part in parts):
+        return None
+    if int(parts[0]) >= 25 and len(parts) >= 4:
+        return ".".join(parts[:2]) if parts[2] == "0" else ".".join(parts[:3])
+    return f"1.{parts[0]}" if parts[1] == "0" else f"1.{parts[0]}.{parts[1]}"
 
 
 async def forge_plan(server_type: ServerType, minecraft: str, loader: str | None) -> Plan:
@@ -362,7 +421,8 @@ async def paper_versions() -> list[Version]:
         found = [str(v) for v in (data.get("version_groups") or [])]
     if not found:
         raise VersionError("PaperMC's version list couldn't be read.")
-    return [Version(minecraft=v, stable=True) for v in found if VERSION_RE.match(v)]
+    found = sorted({v for v in found if VERSION_RE.match(v)}, key=version_key, reverse=True)
+    return [Version(minecraft=v, stable=not UNSTABLE_RE.search(v)) for v in found]
 
 
 async def paper_plan(minecraft: str) -> Plan:
@@ -406,7 +466,8 @@ async def purpur_versions() -> list[Version]:
     found = [str(v) for v in (data.get("versions") or [])] if isinstance(data, dict) else []
     if not found:
         raise VersionError("Purpur's version list couldn't be read.")
-    return [Version(minecraft=v, stable=True) for v in reversed(found) if VERSION_RE.match(v)]
+    found = sorted({v for v in found if VERSION_RE.match(v)}, key=version_key, reverse=True)
+    return [Version(minecraft=v, stable=not UNSTABLE_RE.search(v)) for v in found]
 
 
 async def purpur_plan(minecraft: str) -> Plan:

@@ -48,6 +48,10 @@ export function crossplayCard(status, afterChange) {
 
   return card(t("cross.title"),
     el("p", { class: "hint mt-0" }, t("cross.what")),
+    status.missing_mod
+      ? el("div", { class: "banner warn" }, el("div", { class: "grow" },
+          t("cross.needs_mod", { mod: status.missing_mod })))
+      : null,
     status.enabled
       ? detailRows([
           [t("cross.address"), status.address],

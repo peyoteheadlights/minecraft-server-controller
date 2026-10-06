@@ -80,11 +80,49 @@ an estimate. A server runs one risky job at a time; a second gets 409.
 `GET /api/logs/download`, `POST /api/logs/clear`,
 `GET /api/events?limit=`.
 
+## Chat and the getting-started checklist
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/chat?lines=` | The chat the console printed, newest last, plus `running` and how many lines are kept |
+| POST | `/api/chat` | `{"message": "..."}` sent as **Server**. Becomes a `say` command and passes the same validation as a console command; letters, digits and basic punctuation only, 220 characters. Answers `{"result": "SENT", ...}`: the message appears in `/api/chat` once the console prints it |
+| GET | `/api/getting-started` | The four checklist items, each with `done`, the page it leads to, and the evidence it was ticked from |
+| POST | `/api/getting-started/dismiss` | Hide the card for this server |
+
+Chat is not stored in the database and not replayed on reconnect: it is as
+chatty as the console itself. Live messages arrive on the WebSocket as
+`chat` events, and only for the server the page is watching.
+
+## Restore world
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/world/timeline` | The points this world can be put back to, newest first, with `age_seconds`, `played_seconds` (`null` when no sessions were recorded), `checked`, plus `server_running`, `can_restore` and `blocked_by` |
+| POST | `/api/world/undo` | `{"backup_id": 7, "confirm": true}`. 409 while the server is running or a change holds it; always takes a safety backup first and answers with it |
+
+## Phone alerts
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/push` | `configured`, `enabled`, the VAPID **public** key, the phones signed up (no keys), and the command that makes the keys |
+| POST | `/api/push/subscribe` | `{"subscription": <the browser's PushSubscription JSON>, "label": "Pixel"}`. 409 when no keys are set up |
+| POST | `/api/push/unsubscribe` | `{"endpoint": "..."}` |
+| POST | `/api/push/test` | One test alert to every phone signed up |
+
+These are agent-wide, not per server. The private VAPID key is never served.
+
 ## Players and performance
 
 `GET /api/players`, `GET /api/players/sessions?username=`,
 `GET /api/performance?hours=`, `GET /api/health/server`,
 `GET /api/worlds`, `POST /api/worlds/save`.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/players` | Online and known players, plus `lists` (whitelist, ops, banned from Minecraft's own files; `players: null` with a `reason` when a file isn't there yet), `running`, and the last `actions` |
+| POST | `/api/players/actions` | `{"action": "whitelist_add" \| "whitelist_remove" \| "op" \| "deop" \| "kick" \| "ban" \| "pardon", "name", "reason"?, "confirm"?}`. Kick and ban need `confirm: true`. Answers `{"result": "SENT", "action": {...}}` |
+| GET | `/api/players/actions/{id}` | The action's `state`: `sent`, then `done`, `unchanged` or `failed` once the console answers, or `no_answer` after 20 seconds |
+| GET | `/api/join` | The "How friends join" card: `java.port` and where it came from, `java.local` (adapter addresses), `java.tailscale`, `bedrock` (with crossplay on), and `internet: {"known": false}` |
 
 `/api/performance` also takes `storage=false` to leave out the disk-use
 breakdown, which walks the whole server folder (the Overview's hover
@@ -113,6 +151,29 @@ summaries use this).
 `GET /api/mods/dependencies` (readable report), `POST /api/mods/dependencies/plan`
 (what would be downloaded, recursively; downloads nothing),
 `POST /api/mods/dependencies/install` (`{"mod_ids": [...]}` or all missing).
+
+## Game settings
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/game-settings` | The known `server.properties` keys with value, whether the file sets it, Minecraft's default, limits and any problem; the whole file as `text`; `running` and `restart_needed` |
+| PUT | `/api/game-settings` | `{"values": {"difficulty": "hard", ...}}`. Only the form's keys; everything else in the file is kept as it was. A bad value answers 400 with `problems` per key and writes nothing |
+| PUT | `/api/game-settings/raw` | `{"text": "..."}`, the whole file (Technical mode). Known keys are still checked |
+
+Both saves keep a safety backup of the old file and answer with `changed`,
+`undo` and `restart_needed`. A server's port and player limit in
+`config.yaml` follow the file.
+
+## Duplicate and modpacks
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/servers/{id}/duplicate` | A suggested name and folder for a copy |
+| POST | `/api/servers/{id}/duplicate` | `{"name", "directory", "world": "copy" \| "fresh"}`. Runs as a job; the copy gets the next free port and an unused color |
+| POST | `/api/modpacks/inspect` | Multipart upload of a `.mrpack` (`?server_id=` adds `into`, what importing into that server would do). Reads it and answers with a `token` and the `pack`: versions, every file with `download`, `client_only` or `refused` and why, `problems`, `can_import`. Changes nothing |
+| DELETE | `/api/modpacks/{token}` | Throw an uploaded pack away |
+| POST | `/api/modpacks/{token}/new-server` | Make a new server from the pack: `{"name", "directory", "eula_accepted": true}` |
+| POST | `/api/servers/{id}/modpack` | Import into this server: `{"token", "confirm": true}`. Stops it, backs it up, moves its mods aside, changes its version first if needed |
 
 ## Server types, versions and crossplay
 
@@ -155,7 +216,8 @@ counting down; `restart_at` in `/api/status` is the deadline (Unix time).
 `GET|POST /api/schedules`, `PUT|DELETE /api/schedules/{id}`,
 `POST /api/schedules/{id}/run`,
 `GET|PUT /api/settings`, `POST /api/maintenance`,
-`POST /api/notifications/test?channel=`, `GET /api/notifications/history`,
+`POST /api/notifications/test?channel=` (`discord`, `email` or `push`),
+`GET /api/notifications/history`,
 `GET /api/security`, `GET /api/security/tls`, `GET /api/security/audit`,
 `POST /api/security/revoke-sessions`.
 

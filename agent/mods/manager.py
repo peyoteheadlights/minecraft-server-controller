@@ -689,8 +689,15 @@ class ModManager:
     # ------------------------------------------------------------------
     # updates
     # ------------------------------------------------------------------
+    def _target_version(self) -> str | None:
+        """The Minecraft version add-on updates are for: the one the console
+        reported or, right after a version change, the one being set up (so
+        the updates offered fit the new version, not the old one)."""
+        pending = self.server.pending_version or {}
+        return pending.get("minecraft_version") or self.server.mc_version
+
     async def check_updates(self, minecraft_version: str | None = None) -> list[dict[str, Any]]:
-        mc_version = minecraft_version or self.server.mc_version
+        mc_version = minecraft_version or self._target_version()
         updates: list[dict[str, Any]] = []
         for mod in self.scan():
             if not mod.enabled:
@@ -736,7 +743,7 @@ class ModManager:
         if version_id:
             version = await self.modrinth.version(version_id)
         else:
-            version = await self.modrinth.latest_for(project, self.server.mc_version)
+            version = await self.modrinth.latest_for(project, self._target_version())
         if not version:
             raise ModError(f"Modrinth has no newer {self.server_type.name} version of {mod.name}.")
 

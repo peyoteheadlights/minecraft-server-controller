@@ -10,9 +10,9 @@ Each server has a tab across the top, like the dividers in a folder, with
 page under a tab takes that server's color: the header, the page itself and
 its cards are all tinted with it, and its buttons are filled with it. The
 server's own pages are listed down the left side of the page, under its
-name, in three groups: **Live** (Overview, Players, Console, Performance),
-**Manage** (Backups, Mods, Schedules, Server settings) and **History**
-(Events, Crashes).
+name, in three groups: **Live** (Overview, Players, Chat, Console, Performance),
+**Manage** (Backups, Restore world, Mods, Game settings, Schedules, Server
+settings) and **History** (Events, Crashes).
 
 Each server has a badge: its initials on its color. It is on the server's
 tab, with a dot on its corner for the server's state, before its name at the
@@ -51,8 +51,18 @@ next to **Security**:
   the exact terms (TPS, MSPT, RSS, `-Xmx`), shows extra columns and graphs,
   and opens the "Advanced" sections. Every label in the dashboard has both
   versions.
-- **Alerts**: thresholds, Discord and email, and which events send one.
+- **Alerts**: thresholds, Discord, email and **Phone**, and which events send
+  one. Phone alerts need two things on: the channel itself, and this phone,
+  which the browser asks about and which is answered once per phone. The card
+  lists the phones signed up and when each last had an alert, and **Send a
+  test** proves the whole path works.
 - **Maintenance mode** and the **Windows startup** check.
+
+Small **?** buttons sit next to the settings that are easy to misread
+(auto-sleep, phone alerts, Restore world, memory, how many backups to keep).
+Pressing one opens a sentence or two in place; where there is more to say it
+links to the matching page in `docs/`. They work from the keyboard like any
+other button.
 
 ## Overview
 
@@ -79,6 +89,32 @@ the last hour. Then three cards: **Last backup** (with **Back up now**),
 the most recent console lines. Anything the agent cannot measure says
 **Unknown**.
 
+**How friends join** gives the address and port to type into Minecraft,
+each with a **Copy** button: the PC's address on the home network (read from
+its network adapters; adapters of virtual machines show in Technical mode
+only) and its Tailscale address and name. With Bedrock players on, it adds
+the same addresses with the UDP port Bedrock players use. An address that can't be read is
+said to be missing rather than filled in. Whether the server can be reached
+from the internet is always shown as **not known**: the app doesn't test
+it and doesn't open router ports.
+
+**Getting started** appears on a new server until its four items are done:
+the server is set up, a backup has run and checked out, somebody has joined,
+and alerts are on. Each is ticked from something the app measured, never from
+pressing the item — pressing it only takes you to the page where it is done.
+**Hide** puts it away for that server, and once every item is done it does not
+come back.
+
+**What happened** is the recent activity in plain sentences, grouped by day
+("Today", "Yesterday"): "Alex joined.", "The server came online.", "A backup
+finished and was checked." The steps the app took on the way (requesting a
+start, detecting the tick command) are left out in Simple mode; Technical mode
+shows every event with its raw type and data. **See all** opens the Events
+page, which is the same feed without a limit.
+
+When a server was put to sleep because nobody was playing, the state says so,
+and that starting it again is up to you.
+
 **Suggestions** appear when there is a reason for one, such as no backup
 schedule or no backup in a week. Each says why and what it is based on.
 **Not now** hides it until the evidence changes; **Don't show again** hides it
@@ -99,6 +135,27 @@ errors are coloured, and your own commands are marked.
 The box at the bottom sends one Minecraft command. It is not a Windows shell.
 Commands such as `stop`, `op`, `ban` and `whitelist` ask for confirmation.
 
+## Chat
+
+The in-game chat, read from the server's own console output, so every
+message here was really printed by Minecraft: what players said, `/me`
+actions, and what the server said. Nothing is reconstructed from what this
+app sent — a message you send appears once the console prints it back.
+
+The box at the bottom sends a message to everyone in the game as **Server**.
+It becomes a `say` command and passes exactly the checks a console command
+passes, so the chat box can no more reach Windows than the console can.
+Letters, numbers and basic punctuation only, up to 220 characters; anything
+else is refused with the reason. The box is disabled while the server is
+off, and opens by itself when the server comes online.
+
+Chat is found in the console of every server type: Vanilla, Fabric and Quilt
+(`[12:00:00] [Server thread/INFO]: <Alex> hi`), Forge and NeoForge
+(`... [minecraft/MinecraftServer]: <Alex> hi`) and Paper and Purpur
+(`[12:00:00 INFO]: <Alex> hi`). Chat plugins that rewrite the chat format
+(rank prefixes such as `[Admin] Alex: hi`) are not recognised, and those
+lines stay on the Console page only.
+
 ## Players
 
 Who is online now with how long they have been playing (Technical adds their
@@ -108,6 +165,37 @@ total time played. IP addresses are deliberately not recorded.
 A player who came in from Bedrock carries a **Bedrock** badge. That comes
 from Floodgate's `.` prefix on the name the server printed, and the name is
 always shown exactly as printed. With crossplay off, nobody is badged.
+
+While the server is running, each player has buttons: **Add to whitelist**
+or **Remove from whitelist**, **Make operator** or **Remove operator**,
+**Kick** (online players) and **Ban** or **Unban**. **Add a player by name**
+does the same for someone who hasn't joined yet. Kick and ban ask first and
+take an optional reason. Each button sends Minecraft's own command and the
+line at the top says **Sent** until the server's console confirms it, then
+**Done** (or "Nothing changed", "Failed", or "No answer" if the console said
+nothing). The **Whitelist**, **Operators** and **Banned players** cards read
+Minecraft's own files, so they show what the server has, not what was sent.
+
+## Game settings
+
+The main settings in `server.properties`, as a form: game mode, difficulty,
+PvP, the server description (MOTD), player limit, whitelist on or off, world
+seed, view distance and port. A setting the file doesn't contain says so and
+names Minecraft's default. The seed is read-only once the world exists. The
+port is checked against the other servers and this PC.
+
+**Save** rewrites only the settings you changed: comments, the order of the
+file and every setting this page doesn't show are kept exactly. A copy of
+the old file is kept as a safety backup (undo it from Backups). A running
+server keeps the old settings until it restarts; the page says so and offers
+**Restart now**. "Waiting for a restart" is measured from the file's time
+and the moment the console said the server was ready, because Minecraft
+rewrites `server.properties` itself early in every start (and in doing so
+drops comments; this page never does). The console commands `whitelist on`
+and `whitelist off` also rewrite the file from what the running server
+loaded, so typed while changes are waiting they overwrite them: restart
+first. Technical mode adds the whole
+file as text to edit; the known settings are still checked when you save it.
 
 ## Performance
 
@@ -147,6 +235,18 @@ While a restore runs, the server cannot be started from anywhere (the button,
 a schedule, another device), and mod changes wait: a server runs one change
 like this at a time.
 
+## Restore world
+
+A timeline of the points this server's world can be put back to, newest
+first, each saying when it was and what going back would lose ("3 hours ago ·
+about 2 hours of play lost"). Where no play was recorded it says so rather
+than claiming nobody played.
+
+Going back always takes a fresh backup of the world as it is now first, so
+the undo can itself be undone from Backups. The server has to be off; while
+it is running the page says so with a button to Overview. A backup that was
+not checked is listed but not offered. See `docs/backups.md`.
+
 ## Mods, or Plugins
 
 The add-on manager. The page calls itself what this server's type calls them:
@@ -166,9 +266,13 @@ restart (off), and a weekly log cleanup (on).
 
 ## Events
 
-Everything the agent has recorded for this server, newest first: starts,
-stops, crashes, backups, mod changes, threshold breaches, scheduled tasks.
-Problems and warnings are marked. Technical mode adds the event type.
+Everything the agent has recorded for this server, newest first and grouped
+by day, written as plain sentences: starts, stops, crashes, backups, mod
+changes, threshold breaches, scheduled tasks. Problems and warnings are
+marked with a colored dot. Simple mode leaves out the app's own intermediate
+steps; Technical mode shows every event with its type and the data it
+carried. An event type with no sentence of its own falls back to the message
+the agent wrote, so nothing is ever hidden because it is new.
 
 ## Crashes
 
@@ -207,8 +311,29 @@ Each server's own settings, on its tab:
   type is built from this PC's real Tailscale address; if that can't be read
   the panel says so rather than showing one. The differences a Bedrock player
   will notice are listed before you turn anything on.
+- **Sleep when empty**: stop this server once nobody has played for a set
+  number of minutes (off by default, 30 minutes when you turn it on). A
+  minute before the stop, everyone in the game is warned in chat. It is a
+  planned stop, not a crash, so no crash alert goes out and no automatic
+  restart follows — **the server does not start again by itself**, which the
+  setting says plainly. While the player count is Unknown, nothing is
+  stopped: "nobody is online" would be a guess. When nobody has joined since
+  the server started, the app asks Minecraft with `list` (at most every five
+  minutes) instead of waiting for a join. Before the warning and again
+  before the stop it asks once more and acts only on Minecraft's own answer
+  of zero, because plugins can change or hide "joined the game" lines. If the
+  server never answers `list` (a plugin replaced the command), it is never
+  stopped, and the card says so. The card shows the measured count and how
+  long is left.
 - **Backups**: how many daily, weekly and monthly backups to keep, and the
   start and stop timeouts.
+- **Duplicate this server** makes a new server with the same software, mods,
+  config files and game settings. Choose a name, an empty or new folder, and
+  whether to **copy the world** or **start a fresh world** (which also clears
+  the seed, so Minecraft picks a new one). The copy gets the next free port
+  and an unused color, and isn't started. A running server is told to save
+  and pause saving while it is copied. Logs, crash reports and this app's
+  own files stay with the original.
 - **Remove from list** takes the server off the dashboard after you
   confirm; its folder, world, mods and backups stay where they are.
 
@@ -219,7 +344,8 @@ the API even if the request is crafted by hand.
 
 ## Adding a server
 
-The **+** tab has two ways in.
+The **+** tab has three ways in: **New server**, **From a modpack** and
+**Server I already have**.
 
 **New server** makes one from scratch:
 
@@ -249,9 +375,43 @@ sets it up and puts it on the list. It does **not** start it: you press Start,
 and only then does its console say which version it really is.
 
 **Server I already have** registers a folder that already holds a Minecraft
-server: its name, the full folder path, and a color (the next unused one is
-already picked). Nothing in the folder is changed and the server is not
-started; it opens on its own Overview.
+server: its name, the full folder path, which kind of server it is (Fabric
+unless you pick another; the console warns once it starts if it says
+otherwise), and a color (the next unused one is already picked). A Forge or
+NeoForge folder needs the start file its installer wrote
+(`libraries/.../win_args.txt`). Nothing in the folder is changed and the
+server is not started; it opens on its own Overview.
+
+**From a modpack** makes a server from a Modrinth modpack (`.mrpack`).
+Choosing the file only reads it: the panel shows the pack's Minecraft
+version, loader and loader version, and every file in it, with what will be
+skipped (files only the game itself uses) or refused and why. Then a name,
+an empty or new folder and Minecraft's rules, as for a new server. See
+[mods.md](mods.md#modpacks). The Mods page has the same panel to import a
+pack into the server that is open.
+
+The address Bedrock players type is on the Overview's **How friends join**
+card.
+
+## Install it on a phone
+
+The dashboard can be added to a phone's home screen and opened like an app,
+full screen with no browser bars.
+
+- **iPhone or iPad:** open the dashboard in Safari, then **Share → Add to
+  Home Screen**. This is also what Safari needs before phone alerts can be
+  turned on.
+- **Android:** Chrome offers **Install app** or **Add to Home screen** from
+  its menu.
+- **Windows or Mac:** Chrome and Edge show an install button in the address
+  bar.
+
+A small service worker makes that possible and delivers phone alerts. It
+keeps a copy of the app's own files (the page, its stylesheet, its scripts
+and its icons) so the dashboard opens instantly, and **never** keeps a copy
+of anything from `/api`: no world data, no player name and no sign-in token
+is written to the phone. It asks the network first every time, so what you
+see is never a stale copy of itself.
 
 ## Security
 

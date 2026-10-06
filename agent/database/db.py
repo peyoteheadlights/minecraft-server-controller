@@ -246,6 +246,24 @@ MIGRATIONS: list[tuple[int, str]] = [
         ALTER TABLE players ADD COLUMN edition TEXT;
         """,
     ),
+    (
+        7,
+        # Phone alerts: one row per browser that subscribed to Web Push.
+        # The endpoint is the push service's own address for that browser,
+        # and the two keys are the ones it handed over to be written to.
+        """
+        CREATE TABLE push_subscriptions (
+            endpoint TEXT PRIMARY KEY,
+            p256dh TEXT NOT NULL,
+            auth TEXT NOT NULL,
+            user TEXT,
+            label TEXT,
+            created_at REAL NOT NULL,
+            last_sent REAL,
+            last_result TEXT
+        );
+        """,
+    ),
 ]
 
 

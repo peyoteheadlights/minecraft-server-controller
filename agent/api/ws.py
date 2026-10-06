@@ -33,7 +33,7 @@ from ..security.permissions import WS_ACTIONS, check
 log = logging.getLogger("msc.ws")
 
 # Event types only the page showing that server needs.
-PAGE_ONLY = frozenset({"console", "metrics"})
+PAGE_ONLY = frozenset({"console", "metrics", "chat"})
 
 ws_router = APIRouter()
 

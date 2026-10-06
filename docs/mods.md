@@ -137,6 +137,38 @@ The page says this too, because it matters:
 - Maven-style ranges like `[1.0,2.0)` are not modelled; those are reported as
   "could not be checked" instead of being silently treated as passing.
 
+## Modpacks
+
+A Modrinth modpack (`.mrpack`) can become a new server (the **+** tab,
+**From a modpack**) or be imported into the open server (Mods page,
+**Import a modpack**).
+
+Choosing the file reads it and changes nothing. The panel shows the Minecraft
+version, the loader and its version, and every file, marked as downloaded,
+skipped or refused:
+
+- **Skipped**: files the pack marks as not for servers (`env.server` is
+  "unsupported"), and folders only the game uses (resource packs, shader
+  packs, `options.txt`) in its extra files. Files with program extensions
+  (`.exe`, `.bat`, …) in the extra files are skipped too. Optional server
+  files are included.
+- **Refused**: a mod with no SHA-512 in the pack, one that isn't on
+  Modrinth's own download site (`cdn.modrinth.com`), or one whose file name
+  or folder isn't safe to write. Any refused file blocks the import, and so
+  does an extra file whose path would land outside the server folder or is
+  a link.
+
+Importing downloads every mod through the safe downloader and checks it
+against the pack's SHA-512, then copies the pack's extra files (`overrides/`,
+then `server-overrides/`). The server type and version are set up with the
+same installer as **New server** and **Change the kind or version**.
+
+Into an existing server, the import stops the server and takes a verified
+backup first. If the server isn't already on the pack's type and versions
+(as its console last reported them), the version is changed first. The mods
+it had are moved to the mod trash in a `<date>-before-modpack` folder, never
+deleted. If anything fails, the server is put back from the backup.
+
 ## The audit trail
 
 Every mod action is recorded with the time, who did it, the action, the mod,

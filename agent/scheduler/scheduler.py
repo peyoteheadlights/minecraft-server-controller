@@ -84,10 +84,10 @@ def next_run(kind: str, expr: str, after: float | None = None) -> float:
             int(m.group("n")) * {"s": 1, "m": 60, "h": 3600, "d": 86400}[m.group("unit").lower()]
         )
         if seconds < 30:
-            raise ScheduleError("The shortest interval is 30 seconds")
+            raise ScheduleError("The shortest gap between runs is 30 seconds.")
         return (now + timedelta(seconds=seconds)).timestamp()
 
-    raise ScheduleError("Pick daily, weekly, or every so often.")
+    raise ScheduleError("Pick every day, every week, or every few hours.")
 
 
 class Scheduler:
@@ -131,7 +131,9 @@ class Scheduler:
         enabled: bool = True,
     ) -> dict[str, Any]:
         if task not in TASKS:
-            raise ScheduleError(f"Unknown task '{task}'. Choose one of: {', '.join(TASKS)}")
+            raise ScheduleError(
+                f"'{task}' isn't something this app can schedule. Pick one of: {', '.join(TASKS)}."
+            )
         upcoming = next_run(kind, expr)
         row_id = self.db.insert(
             "schedules",
@@ -154,7 +156,7 @@ class Scheduler:
             (schedule_id, self.server.server_id),
         )
         if not row:
-            raise ScheduleError("That schedule does not exist")
+            raise ScheduleError("That schedule isn't on the list any more.")
         row["payload"] = json.loads(row.get("payload") or "{}")
         row["enabled"] = bool(row["enabled"])
         return row
@@ -165,7 +167,7 @@ class Scheduler:
         expr = changes.get("expr", row["expr"])
         task = changes.get("task", row["task"])
         if task not in TASKS:
-            raise ScheduleError(f"Unknown task '{task}'")
+            raise ScheduleError(f"'{task}' isn't something this app can schedule.")
         upcoming = next_run(kind, expr)
         enabled = changes.get("enabled", row["enabled"])
         self.db.execute(

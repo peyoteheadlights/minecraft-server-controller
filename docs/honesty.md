@@ -20,6 +20,10 @@ number you cannot trust.
 | A downloaded file | The checksum the official source published, checked against the bytes on disk | A source that publishes no checksum (the Fabric launcher jar). The file is recorded `verified: false` with the reason, never presented as checked |
 | Bedrock player | Floodgate's `.` prefix on the name the server printed | Crossplay off, or no prefix: then the name stands on its own and no edition is claimed |
 | Bedrock address | This PC's real Tailscale address plus the Bedrock port | The address can't be read: the panel says so instead of showing one |
+| "How friends join" addresses | Home network: the private IPv4 addresses of this PC's network adapters that are up, read with psutil. Tailscale: what the Tailscale client reports | No adapter has one, or Tailscale can't be read: the card says so. No address is ever filled in on a guess |
+| Reachable from the internet | Nothing: the app doesn't test it and opens no router ports | Always. Shown as "not known" |
+| Game settings | `server.properties` as it is on disk | A key the file doesn't set is shown as **not set**, next to Minecraft's own default, never as if the file said it. A value Minecraft wouldn't accept is flagged, not replaced |
+| Whitelist, operators, bans | Minecraft's own `whitelist.json`, `ops.json` and `banned-players.json` | A file that isn't there yet (before the first start) or can't be read: the list says so instead of showing an empty one |
 | Java version | `java -version` output, parsed | If the executable is missing or the output is unparseable |
 | Java compatibility | Detected Java compared with the detected Minecraft version | If either is unknown - then no verdict is given at all |
 | Players online | Join/leave lines, `/list` replies, or the server not running | Before any of those. An empty list is not a verified zero |
@@ -82,6 +86,10 @@ A request is not an outcome:
 | Backup: `verified` | The archive was opened, integrity-tested and hash-checked. |
 | Mod installed | The file is in place. `loaded_by_minecraft: not verified`. |
 | `server_recovered` | The server restarted **and completed startup**, not merely relaunched. |
+| Player button: `Sent` | The command was written to the console. Nothing more. |
+| Player button: `Done` | The server's console printed Minecraft's own confirmation ("Added Alex to the whitelist"). "Nothing changed" and "failed" answers are shown as those; no answer within 20 seconds is shown as "No answer", never as done. |
+| Game settings saved | The file was written and read back. The running server still uses the old values until it restarts, and the page says so. |
+| Modpack imported | Every mod matched the pack's SHA-512 and every file is in place. Whether the mods load is only known once the server starts. |
 
 ## Health
 

@@ -82,5 +82,5 @@ async def crash_detail(
 ):
     row = ctx.crashes.get_crash(crash_id)
     if not row:
-        raise HTTPException(status_code=404, detail="That crash record does not exist")
+        raise HTTPException(status_code=404, detail="That crash isn't on the list any more.")
     return row

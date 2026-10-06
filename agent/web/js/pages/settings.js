@@ -9,7 +9,7 @@ import { loadServerTypes, versionCard } from "../panels/version.js";
 import { loadServers, serverRow } from "../servers.js";
 import { renderers, state } from "../state.js";
 import { t, technical } from "../strings.js";
-import { advanced, busy, card, confirmDialog, el, loadInto, toast } from "../ui.js";
+import { advanced, busy, card, confirmDialog, el, fmt, loadInto, section, toast, withHelp } from "../ui.js";
 
 const serverUrl = (path) => `/servers/${encodeURIComponent(state.serverId)}${path}`;
 
@@ -128,6 +128,38 @@ function crashCard(own) {
     })));
 }
 
+/* ------------------------------------------------------------ sleep when empty */
+
+function sleepCard(own) {
+  const settings = own.server;
+  const sleep = state.status && state.status.sleep;
+  const on = el("input", { type: "checkbox", checked: settings.autosleep ? "checked" : false });
+  const minutes = el("input", { type: "number", min: "1", max: "1440", step: "1",
+    value: String(settings.autosleep_minutes) });
+  // Only what was measured: the count, and what it is waiting for.
+  const live = !settings.autosleep ? t("serverset.sleep_off")
+    : !sleep ? t("value.unknown")
+    : sleep.list_answered === false ? t("serverset.sleep_no_answer")
+    : sleep.players_online === null ? t("serverset.sleep_unknown_players")
+    : sleep.players_online > 0 ? t("serverset.sleep_players", { count: sleep.players_online })
+    : sleep.stops_in !== null ? t("serverset.sleep_countdown", { duration: fmt.duration(sleep.stops_in) })
+    : t("serverset.sleep_waiting");
+  return section(t("serverset.sleep"), null,
+    withHelp(el("label", { class: "switch" }, on, t("serverset.sleep_label")), "autosleep", "configuration"),
+    el("div", { class: "grid cols-2 mt-10" },
+      field("sleep-minutes", t("serverset.sleep_minutes"), minutes, t("serverset.sleep_minutes_hint"))),
+    el("p", { class: "hint" }, live),
+    el("p", { class: "hint" }, t("serverset.sleep_restart_note")),
+    el("div", { class: "btn-row mt-12" }, saveButton(t("action.save"), () => {
+      const updates = {};
+      if (on.checked !== Boolean(settings.autosleep)) updates["server.autosleep"] = on.checked;
+      if (Number(minutes.value) !== Number(settings.autosleep_minutes)) {
+        updates["server.autosleep_minutes"] = Number(minutes.value);
+      }
+      return updates;
+    })));
+}
+
 /* ------------------------------------------------------------ memory */
 
 function xmxGb(args) {
@@ -144,6 +176,7 @@ function memoryCard(own) {
     value: current === null ? "" : String(current) });
   const raw = el("input", { class: "mono", value: args.join(" ") });
   return card(t("serverset.memory"),
+    withHelp(el("span", { class: "help-label" }, t("serverset.memory_label")), "memory", "configuration"),
     field("memory-limit", t("serverset.memory_limit"), gb,
       current === null ? t("serverset.memory_unset") : t("serverset.memory_hint")),
     advanced(t("serverset.launch_args"),
@@ -251,6 +284,7 @@ function backupsCard(own) {
   const inputs = ["daily", "weekly", "monthly"].map((kind) =>
     [kind, el("input", { type: "number", min: "0", step: "1", value: String(b[`keep_${kind}`]) })]);
   return card(t("serverset.backups"),
+    withHelp(el("span", { class: "help-label" }, t("serverset.keep_label")), "keep_backups", "backups"),
     el("div", { class: "grid cols-3" }, inputs.map(([kind, input]) =>
       field(`keep-${kind}`, t(`serverset.keep_${kind}`), input))),
     el("div", { class: "btn-row" }, saveButton(t("action.save"), () => {
@@ -281,6 +315,49 @@ function advancedCard(own) {
     technical() ? el("p", { class: "hint mono" }, t("serverset.folder", { folder: s.directory || "—" })) : null);
 }
 
+/* ------------------------------------------------------------ duplicate */
+
+/* A new server with the same software, add-ons and game settings. The
+   copy runs as a job; the new server's tab appears when it is checked. */
+async function duplicateCard() {
+  let suggestion;
+  try {
+    suggestion = await api(serverUrl("/duplicate"));
+  } catch (err) {
+    return card(t("dup.title"), el("p", { class: "hint mt-0" }, err.message));
+  }
+  const name = el("input", { id: "dup-name", maxlength: "60", value: suggestion.name, autocomplete: "off" });
+  const folder = el("input", { id: "dup-folder", maxlength: "400", class: "mono",
+    value: suggestion.directory, autocomplete: "off" });
+  const choice = (value, labelKey, hintKey, checked) => el("label", { class: "choice" },
+    el("input", { type: "radio", name: "dup-world", value, checked: checked ? "checked" : false }),
+    el("span", { class: "choice-text" }, el("strong", {}, t(labelKey)), el("span", { class: "hint" }, t(hintKey))));
+  const world = el("div", { class: "choices", role: "radiogroup", "aria-label": t("dup.world") },
+    choice("copy", "dup.world_copy", "dup.world_copy_hint", true),
+    choice("fresh", "dup.world_fresh", "dup.world_fresh_hint", false));
+  const button = el("button", { class: "btn primary", type: "button" }, t("dup.button"));
+  button.addEventListener("click", () => {
+    if (!name.value.trim() || !folder.value.trim()) { toast(t("add.need_name_and_folder"), "warn"); return; }
+    const picked = world.querySelector("input:checked");
+    busy(button, t("dup.starting"), async () => {
+      try {
+        await api(serverUrl("/duplicate"), { method: "POST",
+          body: { name: name.value.trim(), directory: folder.value.trim(), world: picked ? picked.value : "copy" } });
+        toast(t("dup.started", { name: name.value.trim() }), "success", 9000);
+      } catch (err) { toast(err.message, "error", 12000); }
+    });
+  });
+  return card(t("dup.title"),
+    el("p", { class: "hint mt-0" }, t("dup.intro")),
+    el("div", { class: "grid cols-2" },
+      field("dup-name", t("dup.name"), name),
+      field("dup-folder", t("dup.folder"), folder, t("dup.folder_hint"))),
+    el("div", { class: "field" }, el("span", { class: "field-label" }, t("dup.world")), world),
+    suggestion.running ? el("p", { class: "hint" }, t("dup.running")) : null,
+    suggestion.crossplay ? el("p", { class: "hint" }, t("dup.crossplay")) : null,
+    el("div", { class: "btn-row mt-12" }, button, el("span", { class: "hint" }, t("dup.after"))));
+}
+
 function removeCard() {
   const row = serverRow() || {};
   const last = state.servers.length < 2;
@@ -309,19 +386,22 @@ function removeCard() {
 renderers.settings = (page) => loadInto(page, async () => {
   await loadServers();
   await loadServerTypes();
-  const [own, version, crossplay] = await Promise.all([
+  const [own, version, crossplay, duplicate] = await Promise.all([
     api(serverUrl("/settings")),
     api(serverUrl("/version")),
     crossplayPanel(() => render()),
+    duplicateCard(),
   ]);
   return el("div", { class: "stack" },
     identityCard(own),
     versionCard(version, () => render()),
     crossplay,
     crashCard(own),
+    sleepCard(own),
     memoryCard(own),
     cpuCard(own.cpu, own.server.cpu_cores || []),
     backupsCard(own),
     advancedCard(own),
+    duplicate,
     removeCard());
 });

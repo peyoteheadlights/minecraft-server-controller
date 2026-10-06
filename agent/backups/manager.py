@@ -25,8 +25,16 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ..events import Event, EventBus
+from ..minecraft.properties import world_folders
 from ..safechange import SafeChange, run_safe_change
-from ..security.paths import PathSafetyError, is_inside, safe_existing, safe_filename
+from ..security.paths import (
+    PathSafetyError,
+    check_archive_member,
+    is_inside,
+    safe_existing,
+    safe_filename,
+    zip_member_is_symlink,
+)
 
 if TYPE_CHECKING:
     from ..jobs import JobHandle, JobTracker
@@ -71,7 +79,21 @@ class BackupManager:
 
     # ------------------------------------------------------------------
     def _sources(self, includes: list[str] | None = None) -> list[Path]:
-        includes = includes or list(self.config.backups.include)
+        if not includes:
+            # The configured list, plus what this server's type keeps
+            # elsewhere (Paper's plugins/ and their data, Forge's
+            # defaultconfigs/), so a backup never leaves a server's
+            # add-ons behind.
+            includes = list(self.config.backups.include)
+            for extra in self.config.server_type.backup_extra:
+                if extra not in includes:
+                    includes.append(extra)
+            # The world as server.properties names it. The list says
+            # "world", but a server whose level-name is "survival" keeps its
+            # world in survival/, and a backup without it holds no world.
+            for folder in sorted(world_folders(self.config.server_dir)):
+                if folder not in includes:
+                    includes.append(folder)
         base = self.config.server_dir
         found = []
         for name in includes:
@@ -191,7 +213,10 @@ class BackupManager:
         await self.bus.publish(Event(type="backup_started", message=f"Backup started: {base_name}"))
         saving_disabled = False
         try:
-            if self.server.running and self.server.state.value == "ONLINE":
+            # Only a backup holding folders (the world) needs Minecraft to
+            # flush and pause saving; a copy of one settings file doesn't.
+            touches_world = any(source.is_dir() for source in sources)
+            if touches_world and self.server.running and self.server.state.value == "ONLINE":
                 try:
                     await self.server.send_command("save-all flush", internal=True)
                     await asyncio.sleep(3)
@@ -412,10 +437,15 @@ class BackupManager:
         user: str = "system",
         start_after: bool = False,
         safety_backup: bool = True,
+        only: set[str] | None = None,
     ) -> dict[str, Any]:
         """Stop, verify, safety-backup, restore, check. The current world is
         never removed before the safety backup exists, and a restore whose
-        result does not check out is put back from that safety backup."""
+        result does not check out is put back from that safety backup.
+
+        ``only`` limits the restore to those top-level folders and files of
+        the archive (Restore world puts back the world and nothing else, so
+        mods and settings changed since stay as they are)."""
         row = self.get(backup_id)
         check = self.verify(backup_id)
         if not check["ok"]:
@@ -424,11 +454,11 @@ class BackupManager:
         base = self.config.server_dir
 
         async def change(job: JobHandle | None) -> dict[str, Any]:
-            replaced = await asyncio.to_thread(self._extract, path, base)
+            replaced = await asyncio.to_thread(self._extract, path, base, only)
             return {"restored": row["name"], "replaced": replaced}
 
         async def verify_result(result: dict[str, Any]) -> tuple[bool, str]:
-            return await asyncio.to_thread(self._verify_restored, path, base)
+            return await asyncio.to_thread(self._verify_restored, path, base, only)
 
         plan = SafeChange(
             title=f"Restoring {row['name']}",
@@ -498,18 +528,21 @@ class BackupManager:
         row = self.get(backup_id)
         return await asyncio.to_thread(self._extract, Path(row["path"]), self.config.server_dir)
 
-    def _extract(self, path: Path, base: Path) -> list[str]:
+    def _extract(self, path: Path, base: Path, only: set[str] | None = None) -> list[str]:
         """Move the archive's top-level folders aside, then extract it. If
-        anything fails, what was moved aside is put back."""
+        anything fails, what was moved aside is put back. With ``only``,
+        just those top-level entries are touched."""
         replaced: list[str] = []
         try:
             with zipfile.ZipFile(path) as zf:
                 members = zf.namelist()
                 # reject any member that would escape the server directory
-                for member in members:
-                    target = (base / member).resolve()
-                    if not is_inside(base, target):
-                        raise PathSafetyError(f"The archive contains an unsafe path: {member}")
+                for info in zf.infolist():
+                    check_archive_member(base, info.filename, zip_member_is_symlink(info))
+                if only is not None:
+                    members = [m for m in members if m.split("/")[0] in only]
+                    if not members:
+                        raise BackupError("This backup holds none of the folders to put back.")
                 tops = {m.split("/")[0] for m in members if m.split("/")[0]}
                 for top in tops:
                     live = base / top
@@ -517,7 +550,7 @@ class BackupManager:
                         retired = _unique(base / f"{top}.replaced-{time.strftime('%Y%m%d-%H%M%S')}")
                         shutil.move(str(live), str(retired))
                         replaced.append(str(retired))
-                zf.extractall(base)
+                zf.extractall(base, members=members)
         except Exception as exc:
             # put back whatever was moved aside
             for moved in replaced:
@@ -530,7 +563,9 @@ class BackupManager:
             ) from exc
         return replaced
 
-    def _verify_restored(self, archive: Path, base: Path) -> tuple[bool, str]:
+    def _verify_restored(
+        self, archive: Path, base: Path, only: set[str] | None = None
+    ) -> tuple[bool, str]:
         """Confirm the extracted files are actually on disk and the right size.
 
         A sample is checked rather than every file, because a 40 GB world would
@@ -540,6 +575,8 @@ class BackupManager:
         try:
             with zipfile.ZipFile(archive) as zf:
                 entries = [i for i in zf.infolist() if not i.is_dir()]
+            if only is not None:
+                entries = [i for i in entries if i.filename.split("/")[0] in only]
         except (zipfile.BadZipFile, OSError) as exc:
             return False, f"the archive could not be re-opened to check the result: {exc}"
         if not entries:

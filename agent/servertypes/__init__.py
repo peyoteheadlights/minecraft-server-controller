@@ -52,6 +52,10 @@ class ServerType:
     jar: str = "server.jar"
     # Runs an installer once after downloading ("forge", "neoforge", "quilt").
     installer: str | None = None
+    # The installer's own arguments after "java -jar <installer>". Only
+    # "{minecraft}" and "{loader}" are filled in, from versions the official
+    # source listed (see install.installer_command).
+    installer_args: tuple[str, ...] = ()
     # Where the version list comes from, for the Technical view.
     version_source: str = ""
     version_host: str = ""
@@ -68,6 +72,11 @@ class ServerType:
     software_paths: tuple[str, ...] = ()
     # "easy", "medium" or "advanced": how much there is to learn.
     ease: str = "medium"
+    # The key a Modrinth modpack (.mrpack) uses for this loader in its
+    # "dependencies", and how its version is written as this app's loader
+    # version. None: modpacks can't target this type.
+    mrpack_dependency: str | None = None
+    mrpack_loader_version: str = "{loader}"
     takes_memory_limit: bool = True
     reports_speed: bool = True
     ports: tuple[tuple[str, str], ...] = (("tcp", "game"),)
@@ -129,6 +138,7 @@ TYPES: dict[str, ServerType] = {
             version_source="Fabric meta API",
             version_host="meta.fabricmc.net",
             geyser_platform="fabric",
+            mrpack_dependency="fabric-loader",
             backup_extra=("mods", "config"),
             software_paths=(
                 "fabric-server-launch.jar",
@@ -154,8 +164,19 @@ TYPES: dict[str, ServerType] = {
             snapshots=True,
             jar="quilt-server-launch.jar",
             installer="quilt",
+            # Quilt's installer: install server <minecraft> <loader>, into
+            # the current folder, fetching Mojang's server jar as well.
+            installer_args=(
+                "install",
+                "server",
+                "{minecraft}",
+                "{loader}",
+                "--download-server",
+                "--install-dir=.",
+            ),
             version_source="Quilt meta API",
             version_host="meta.quiltmc.org",
+            mrpack_dependency="quilt-loader",
             backup_extra=("mods", "config"),
             software_paths=(
                 "quilt-server-launch.jar",
@@ -179,9 +200,14 @@ TYPES: dict[str, ServerType] = {
             launch="args_file",
             jar="",
             installer="forge",
+            installer_args=("--installServer",),
             version_source="Forge Maven",
             version_host="maven.minecraftforge.net",
             tps_commands=("forge tps", "tick query", "spark tps"),
+            # Forge's Maven names a build "<minecraft>-<build>"; a modpack
+            # gives only the build.
+            mrpack_dependency="forge",
+            mrpack_loader_version="{minecraft}-{loader}",
             backup_extra=("mods", "config", "defaultconfigs"),
             software_paths=(
                 "libraries",
@@ -205,10 +231,12 @@ TYPES: dict[str, ServerType] = {
             launch="args_file",
             jar="",
             installer="neoforge",
+            installer_args=("--installServer",),
             version_source="NeoForged Maven",
             version_host="maven.neoforged.net",
             tps_commands=("neoforge tps", "tick query", "spark tps"),
             geyser_platform="neoforge",
+            mrpack_dependency="neoforge",
             backup_extra=("mods", "config", "defaultconfigs"),
             software_paths=("libraries", "run.bat", "run.sh", "user_jvm_args.txt"),
             ease="advanced",
@@ -285,3 +313,28 @@ def detected_type(loader_name: str | None) -> str | None:
     the console disagrees with the configured type, never to change it."""
     names = {t.loader_name.lower(): t.id for t in TYPES.values() if t.loader_name}
     return names.get((loader_name or "").lower())
+
+
+def for_mrpack(dependencies: dict[str, Any]) -> tuple[ServerType, str | None]:
+    """The type and loader version a modpack's "dependencies" ask for. A
+    pack naming only Minecraft is Vanilla. Raises UnknownServerType for a
+    loader this app can't run."""
+    loaders = [key for key in dependencies if key != "minecraft"]
+    if not loaders:
+        return TYPES["vanilla"], None
+    for server_type in TYPES.values():
+        key = server_type.mrpack_dependency
+        if key and key in dependencies:
+            if len(loaders) > 1:
+                break
+            loader = server_type.mrpack_loader_version.format(
+                minecraft=str(dependencies.get("minecraft") or ""),
+                loader=str(dependencies[key]),
+            )
+            return server_type, loader
+    raise UnknownServerType(
+        "This modpack needs "
+        + ", ".join(sorted(loaders))
+        + ", which this app can't set up. It can set up packs for Fabric, Quilt, Forge "
+        "and NeoForge."
+    )

@@ -38,7 +38,7 @@ TOKEN_BYTES = 32
 def hash_password(password: str, salt: bytes | None = None, rounds: int = PBKDF2_ROUNDS) -> str:
     """Return a self-describing hash string: pbkdf2_sha256$rounds$salt$hash."""
     if len(password) < 10:
-        raise ValueError("The password must be at least 10 characters long")
+        raise ValueError("The password needs at least 10 characters.")
     salt = salt or secrets.token_bytes(16)
     derived = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, rounds)
     return "$".join(
@@ -214,7 +214,7 @@ class AuthManager:
                         data={"username": username, "source_ip": source_ip},
                     )
                 )
-            raise AuthError("The username or password is not correct")
+            raise AuthError("That username or password isn't right.")
 
         self._record_attempt(username, source_ip, True)
         token = secrets.token_urlsafe(TOKEN_BYTES)
@@ -245,7 +245,7 @@ class AuthManager:
         digest = token_hash(token)
         row = self.db.query_one("SELECT * FROM sessions WHERE token_hash = ?", (digest,))
         if not row:
-            raise AuthError("Your session is not valid. Sign in again.")
+            raise AuthError("You've been signed out. Sign in again.")
         if row["expires_at"] < time.time():
             self.db.execute("DELETE FROM sessions WHERE token_hash = ?", (digest,))
             raise AuthError("Your session has expired. Sign in again.")

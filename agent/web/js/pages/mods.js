@@ -1,6 +1,7 @@
 import { api } from "../api.js";
 import { render } from "../nav.js";
 import { dependenciesPanel } from "../panels/dependencies.js";
+import { modpackPanel } from "../panels/modpack.js";
 import { serverAction } from "./overview.js";
 import { renderers, stateInfo } from "../state.js";
 import { t, technical, tn } from "../strings.js";
@@ -106,6 +107,7 @@ renderers.mods = (page) => loadInto(page, async () => {
     ? emptyState(t("mods.none"), t("mods.none_hint"))
     : installedTable(data, offline)));
   holder.append(searchCard(data, offline));
+  holder.append(modpackPanel("into", () => render()));
   holder.append(advanced(t("mods.about_checks"),
     el("p", { class: "hint mt-0" }, `${data.claim || ""}. ${data.claim_note || ""}`),
     el("p", { class: "hint" }, t("mods.limits", { limits: data.limitations.join(" ") }))));

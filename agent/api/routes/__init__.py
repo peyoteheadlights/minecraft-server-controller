@@ -20,10 +20,16 @@ from ..deps import mark_alias
 from . import (
     auth,
     backups,
+    chat,
     console,
+    duplicate,
+    friends,
+    gamesettings,
     jobs,
+    modpacks,
     mods,
     players,
+    pushalerts,
     recommendations,
     schedules,
     security,
@@ -32,12 +38,24 @@ from . import (
     servertypes,
     settings,
     system,
+    world,
 )
 from .settings import SETTABLE_PREFIXES
 
 LEGACY_PER_SERVER = (server, console, players, mods, backups, schedules)
-PER_SERVER = (*LEGACY_PER_SERVER, server_settings, recommendations, servertypes)
-GLOBAL = (auth, settings, security, system, jobs)
+PER_SERVER = (
+    *LEGACY_PER_SERVER,
+    server_settings,
+    recommendations,
+    servertypes,
+    gamesettings,
+    duplicate,
+    modpacks,
+    friends,
+    chat,
+    world,
+)
+GLOBAL = (auth, settings, security, system, jobs, pushalerts)
 MODULES = (*GLOBAL, *PER_SERVER)
 SERVER_PREFIX = "/servers/{server_id}"
 
@@ -47,6 +65,8 @@ for module in GLOBAL:
 # Server types and versions are agent-wide (the comparison table, each
 # type's version list, creating a server) as well as per server.
 router.include_router(servertypes.global_router)
+# Reading a modpack and making a new server from it are agent-wide too.
+router.include_router(modpacks.global_router)
 for module in PER_SERVER:
     router.include_router(module.router, prefix=SERVER_PREFIX)
 for module in LEGACY_PER_SERVER:

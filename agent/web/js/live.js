@@ -1,6 +1,7 @@
 import { api } from "./api.js";
 import { signOut } from "./auth.js";
 import { navigate, render, renderRail } from "./nav.js";
+import { appendChatLine, updateChatControls } from "./pages/chat.js";
 import { appendConsoleLine, renderConsoleLines } from "./pages/console.js";
 import { loadLatestCrash, overviewConsoleAppend, overviewUpdate } from "./pages/overview.js";
 import { setFavicon } from "./colors.js";
@@ -27,6 +28,7 @@ export function connectSocket() {
       if (message.server_id !== state.serverId) return;  // switched while connecting
       state.status = message.status;
       state.console = message.console || [];
+      state.chat = [];
       updateStatusViews();
       if (state.page === "console") renderConsoleLines();
       else if (state.page === "dashboard") render();
@@ -143,6 +145,11 @@ export function handleEvent(event) {
     if (state.status && state.status.state === "STARTING") updateStatusViews();
     return;
   }
+  if (event.type === "chat") {
+    // Only this server's chat reaches this browser (the socket filters it).
+    appendChatLine(data);
+    return;
+  }
   if (event.type === "state") {
     if (state.status) {
       state.status.state = data.state;
@@ -159,6 +166,9 @@ export function handleEvent(event) {
     if (data.state === "STARTING") state.startingSince = event.ts;
     announce(t("live.state_announce", { state: t(stateInfo(data.state).label) }));
     updateStatusViews();
+    // Pages whose buttons depend on the server being on or off.
+    if (state.page === "chat") updateChatControls();
+    if (state.page === "world") render();
     renderRail();
     scheduleRefresh();
     return;
@@ -179,6 +189,12 @@ export function handleEvent(event) {
   }
   if (event.type === "player_joined" || event.type === "player_left") {
     scheduleRefresh();
+    if (state.page === "players") render();
+    return;
+  }
+  // A whitelist, operator or ban change the console confirmed (from this
+  // device or another): Minecraft's own lists have changed.
+  if (event.type === "player_action") {
     if (state.page === "players") render();
     return;
   }

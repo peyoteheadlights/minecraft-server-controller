@@ -18,11 +18,23 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
-# Vanilla/Fabric line: [12:34:56] [Server thread/INFO]: message
+# Vanilla:        [12:34:56] [Server thread/INFO]: message
+# Fabric/Quilt:   [12:34:56] [Server thread/INFO] (Minecraft) message
+# Forge/NeoForge: [12:34:56] [Server thread/INFO] [minecraft/MinecraftServer]: message
+# The Forge logger group always has a "/" in it and is followed by ":", so a
+# message that itself begins with brackets ("[Server] hi", "[Not Secure]
+# <Alex> hi") is never mistaken for it.
 LINE_RE = re.compile(
     r"^\[(?P<time>\d{2}:\d{2}:\d{2})\]\s*\[(?P<thread>[^/\]]+)/(?P<level>[A-Z]+)\]"
+    r"(?:\s*\[(?P<logger>[^\]/]+/[^\]]*)\](?=:))?"
     r"\s*(?:\((?P<mod>[^)]*)\)\s*)?:?\s?(?P<msg>.*)$"
 )
+# Paper, Purpur and Spigot print their console differently from their log
+# file: [12:34:56 INFO]: message
+BUKKIT_LINE_RE = re.compile(r"^\[(?P<time>\d{2}:\d{2}:\d{2}) (?P<level>[A-Z]+)\]:\s?(?P<msg>.*)$")
+# Colour codes a console may print even into a pipe. They are kept in the raw
+# line and left out of the message the parsers read.
+ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 
 DONE_RE = re.compile(r'Done \((?P<secs>[0-9.]+)s\)! For help, type "help"')
 MC_VERSION_RE = re.compile(r"Starting minecraft server version (?P<ver>[\w.\-]+)")
@@ -43,10 +55,23 @@ LOADER_PATTERNS = (
         r"(?P<name>Forge|NeoForge) Mod Loader version (?P<loader>[\w.\-+]+) "
         r"for Minecraft (?P<mc>[\w.\-]+)"
     ),
+    # Forge and NeoForge, early in the log:
+    # "Forge mod loading, version 47.3.0, for MC 1.20.1 with MCP 20230612.114412"
+    re.compile(
+        r"(?P<name>Forge|NeoForge) mod loading, version (?P<loader>[\w.\-+]+), "
+        r"for MC (?P<mc>[\w.\-]+)"
+    ),
     # Paper/Purpur: "This server is running Paper version 1.21.1-129-main@... (MC: 1.21.1)"
     re.compile(
         r"This server is running (?P<name>Paper|Purpur)[\w\s]*? version "
         r"(?P<loader>[^\s(]+).*?\(MC: (?P<mc>[\w.\-]+)\)"
+    ),
+    # Newer Paper leaves the "(MC: ...)" off: "This server is running Paper
+    # version 1.21.4-232-ver/1.21.4@12ff3e3 (2025-03-12...) (Implementing API
+    # version 1.21.4-R0.1-SNAPSHOT)". The Minecraft version then comes from
+    # Minecraft's own "Starting minecraft server version" line.
+    re.compile(
+        r"This server is running (?P<name>Paper|Purpur)[\w\s]*? version (?P<loader>[^\s(]+)"
     ),
 )
 LOADER_NAMES = {
@@ -61,9 +86,14 @@ LOADER_NAMES = {
 # A player name, with Floodgate's prefix for a Bedrock player ("." by
 # default) allowed in front of it. The name is always shown as printed.
 PLAYER = r"\.?[A-Za-z0-9_]{1,16}"
-JOIN_RE = re.compile(rf"(?P<name>{PLAYER})(?:\[[^\]]*\])? joined the game")
-LEAVE_RE = re.compile(rf"(?P<name>{PLAYER}) left the game")
-UUID_RE = re.compile(rf"UUID of player (?P<name>{PLAYER}) is (?P<uuid>[0-9a-fA-F-]{{32,36}})")
+# Joins, leaves and /list replies count only when the line *is* that
+# message. Searching anywhere in the line let a player fake one in chat
+# ("<Bob> Steve left the game"), which marked people as gone.
+JOIN_RE = re.compile(
+    rf"^(?P<name>{PLAYER})(?:\[[^\]]*\])?(?: \(formerly known as {PLAYER}\))? joined the game$"
+)
+LEAVE_RE = re.compile(rf"^(?P<name>{PLAYER}) left the game$")
+UUID_RE = re.compile(rf"^UUID of player (?P<name>{PLAYER}) is (?P<uuid>[0-9a-fA-F-]{{32,36}})")
 STOPPING_RE = re.compile(r"(Stopping the server|Stopping server|Saving worlds|Server closed)")
 PORT_RE = re.compile(r"Starting Minecraft server on (?P<host>[^:\s]*):(?P<port>\d+)")
 MODS_LOADED_RE = re.compile(r"Loading (?P<count>\d+) mods:")
@@ -76,7 +106,7 @@ CONTENT_COUNT_RES = (
 # Paper's "tps" answer: "TPS from last 1m, 5m, 15m: 20.0, 20.0, 20.0"
 EULA_RE = re.compile(r"You need to agree to the EULA in order to run the server", re.IGNORECASE)
 PLAYER_LIST_RE = re.compile(
-    r"There are (?P<online>\d+) of a max of (?P<max>\d+) players online:\s*(?P<names>.*)"
+    r"^There are (?P<online>\d+) of a max of (?P<max>\d+) players online:\s*(?P<names>.*)"
 )
 
 # TPS/MSPT answers differ per mod/server. We support the common shapes and
@@ -122,7 +152,8 @@ class ConsoleLine:
 
 def parse_line(raw: str, seq: int, source: str = "stdout") -> ConsoleLine:
     raw = raw.rstrip("\r\n")
-    m = LINE_RE.match(raw)
+    plain = ANSI_RE.sub("", raw) if "\x1b" in raw else raw
+    m = LINE_RE.match(plain) or BUKKIT_LINE_RE.match(plain)
     if m:
         level = m.group("level").upper()
         if level not in {"INFO", "WARN", "ERROR", "DEBUG", "FATAL", "TRACE"}:
@@ -132,7 +163,7 @@ def parse_line(raw: str, seq: int, source: str = "stdout") -> ConsoleLine:
             ts=time.time(),
             raw=raw,
             level=level,
-            thread=m.group("thread"),
+            thread=m.groupdict().get("thread") or "",
             message=m.group("msg") or "",
             source=source,
         )
@@ -142,7 +173,7 @@ def parse_line(raw: str, seq: int, source: str = "stdout") -> ConsoleLine:
         level = "ERROR"
     elif "WARN" in upper:
         level = "WARN"
-    return ConsoleLine(seq=seq, ts=time.time(), raw=raw, level=level, message=raw, source=source)
+    return ConsoleLine(seq=seq, ts=time.time(), raw=raw, level=level, message=plain, source=source)
 
 
 class ConsoleBuffer:
@@ -234,14 +265,15 @@ def extract_signals(line: ConsoleLine) -> ParsedSignals:
         sig.eula_required = True
     if m := PORT_RE.search(text):
         sig.port = int(m.group("port"))
-    if m := UUID_RE.search(text):
+    said = text.strip()
+    if m := UUID_RE.match(said):
         sig.player_uuid = (m.group("name"), m.group("uuid"))
-    if m := PLAYER_LIST_RE.search(text):
+    if m := PLAYER_LIST_RE.match(said):
         names = [n.strip() for n in m.group("names").split(",") if n.strip()]
         sig.player_list = (int(m.group("online")), int(m.group("max")), names)
-    elif m := JOIN_RE.search(text):
+    elif m := JOIN_RE.match(said):
         sig.player_joined = m.group("name")
-    elif m := LEAVE_RE.search(text):
+    elif m := LEAVE_RE.match(said):
         sig.player_left = m.group("name")
     if STOPPING_RE.search(text):
         sig.stopping = True

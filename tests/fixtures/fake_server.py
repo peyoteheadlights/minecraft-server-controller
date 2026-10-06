@@ -11,6 +11,7 @@ FAKE_MC_VERSION sets the Minecraft version it reports, which is how a
 version change is confirmed the way a real server confirms it.
 """
 
+import json
 import os
 import sys
 import time
@@ -60,6 +61,92 @@ def eula_accepted() -> bool:
             return "eula=true" in fh.read().lower()
     except OSError:
         return False
+
+
+# The player lists Minecraft keeps, as Minecraft writes them, so the
+# Players page's buttons are answered the way a real server answers them.
+LISTS = {"whitelist": "whitelist.json", "ops": "ops.json", "banned": "banned-players.json"}
+FAKE_UUID = "069a79f4-44e9-4726-a5be-fca90e38aaf5"
+
+
+def read_list(which: str) -> list[dict]:
+    try:
+        with open(LISTS[which], encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return []
+
+
+def write_list(which: str, entries: list[dict]) -> None:
+    with open(LISTS[which], "w", encoding="utf-8") as fh:
+        json.dump(entries, fh, indent=2)
+
+
+def player_command(cmd: str, players: list[str]) -> str | None:
+    """The line vanilla Minecraft prints for a player command, after
+    changing its list file the way Minecraft does. None: not one of them."""
+    parts = cmd.split(" ")
+    word = parts[0]
+    if word == "whitelist" and len(parts) >= 3 and parts[1] in ("add", "remove"):
+        name = parts[2]
+        entries = read_list("whitelist")
+        listed = any(e["name"].lower() == name.lower() for e in entries)
+        if parts[1] == "add":
+            if listed:
+                return "Player is already whitelisted"
+            write_list("whitelist", [*entries, {"uuid": FAKE_UUID, "name": name}])
+            return f"Added {name} to the whitelist"
+        if not listed:
+            return "Player is not whitelisted"
+        write_list("whitelist", [e for e in entries if e["name"].lower() != name.lower()])
+        return f"Removed {name} from the whitelist"
+    if word in ("op", "deop") and len(parts) == 2:
+        name = parts[1]
+        entries = read_list("ops")
+        listed = any(e["name"].lower() == name.lower() for e in entries)
+        if word == "op":
+            if listed:
+                return "Nothing changed. The player already is an operator"
+            entry = {"uuid": FAKE_UUID, "name": name, "level": 4, "bypassesPlayerLimit": False}
+            write_list("ops", [*entries, entry])
+            return f"Made {name} a server operator"
+        if not listed:
+            return "Nothing changed. The player is not an operator"
+        write_list("ops", [e for e in entries if e["name"].lower() != name.lower()])
+        return f"Made {name} no longer a server operator"
+    if word == "kick" and len(parts) >= 2:
+        name = parts[1]
+        if name not in players:
+            return "No player was found"
+        players.remove(name)
+        reason = " ".join(parts[2:]) or "Kicked by an operator"
+        return f"Kicked {name}: {reason}"
+    if word == "ban" and len(parts) >= 2:
+        name = parts[1]
+        entries = read_list("banned")
+        if any(e["name"].lower() == name.lower() for e in entries):
+            return "Nothing changed. The player is already banned"
+        reason = " ".join(parts[2:]) or "Banned by an operator."
+        entry = {
+            "uuid": FAKE_UUID,
+            "name": name,
+            "created": "2026-10-05 22:00:00 +0000",
+            "source": "Server",
+            "expires": "forever",
+            "reason": reason,
+        }
+        write_list("banned", [*entries, entry])
+        if name in players:
+            players.remove(name)
+        return f"Banned {name}: {reason}"
+    if word == "pardon" and len(parts) == 2:
+        name = parts[1]
+        entries = read_list("banned")
+        if not any(e["name"].lower() == name.lower() for e in entries):
+            return "Nothing changed. The player isn't banned"
+        write_list("banned", [e for e in entries if e["name"].lower() != name.lower()])
+        return f"Unbanned {name}"
+    return None
 
 
 def startup_lines() -> list[str]:
@@ -215,6 +302,14 @@ def main() -> int:
             if name in players:
                 players.remove(name)
             out(stamp("Server thread", "INFO", f"{name} left the game"))
+            continue
+        before = list(players)
+        answer = player_command(cmd, players)
+        if answer is not None:
+            out(stamp("Server thread", "INFO", answer))
+            for name in before:
+                if name not in players:  # kicked or banned while online
+                    out(stamp("Server thread", "INFO", f"{name} left the game"))
             continue
         out(stamp("Server thread", "INFO", f"[Console] {cmd}"))
     return 0

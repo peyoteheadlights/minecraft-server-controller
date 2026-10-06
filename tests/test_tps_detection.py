@@ -180,7 +180,7 @@ def test_tick_query_is_not_sent_to_servers_older_than_1_20_3():
 
 async def test_redetect_needs_an_online_server(setup):
     config, bus, db, server, monitor = setup
-    with pytest.raises(ValueError, match="must be online"):
+    with pytest.raises(ValueError, match="Start the server first"):
         await monitor.redetect()
 
 

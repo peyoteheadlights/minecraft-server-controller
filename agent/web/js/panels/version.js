@@ -8,6 +8,7 @@
    checked, and the files it replaces are kept so one button puts them back. */
 
 import { api } from "../api.js";
+import { navigate } from "../nav.js";
 import { state } from "../state.js";
 import { t, technical } from "../strings.js";
 import { busy, card, confirmDialog, detailRows, el, icon, known, problem, toast } from "../ui.js";
@@ -19,8 +20,16 @@ const serverUrl = (path) => `/servers/${encodeURIComponent(state.serverId)}${pat
 function contentWarning(report) {
   const aside = report.moved_aside || [];
   const unknown = report.unknown_support || [];
-  if (!aside.length && !unknown.length) return null;
+  const against = report.not_supporting || [];
+  if (!aside.length && !unknown.length && !against.length) return null;
   return el("div", { class: "stack" },
+    against.length
+      ? el("div", { class: "banner warn" }, el("div", { class: "grow" },
+          t("version.not_supporting", { count: against.length,
+            version: report.target.minecraft_version }),
+          el("p", { class: "hint mt-0 mono" }, against.slice(0, 8).join(", ")),
+          el("p", { class: "hint mt-0" }, t("version.not_supporting_note"))))
+      : null,
     aside.length
       ? el("div", { class: "banner warn" }, el("div", { class: "grow" },
           t("version.moved_aside", { count: aside.length }),
@@ -67,6 +76,31 @@ function preflightReport(report) {
       : null,
     contentWarning(report),
     el("p", { class: "hint" }, t("version.backup_first")));
+}
+
+/* After a version change: which add-ons Modrinth has builds of for the new
+   version. Only a list; nothing is downloaded until the person updates each
+   one on the Mods page, the same way as any other update. */
+function addonUpdates(version) {
+  const box = el("div", { class: "mt-12" });
+  const button = el("button", { class: "btn small", type: "button" },
+    t("version.updates_check", { version }));
+  button.addEventListener("click", () => busy(button, t("version.updates_checking"), async () => {
+    try {
+      const answer = await api("/mods/updates?refresh=true");
+      const found = answer.updates || [];
+      box.replaceChildren(
+        el("p", { class: "hint mt-0" }, found.length
+          ? t("version.updates_found", { count: found.length, version })
+          : t("version.updates_none", { version })),
+        found.length ? el("ul", { class: "plain-list" }, found.map((u) =>
+          el("li", {}, `${u.name}: ${u.installed_version || "?"} → ${u.latest_version}`))) : null,
+        found.length ? el("button", { class: "btn small", type: "button", onclick: () => navigate("mods") },
+          t("version.updates_open")) : null);
+    } catch (err) { box.replaceChildren(problem(err.message)); }
+  }));
+  box.append(button);
+  return box;
 }
 
 export function versionCard(current, afterChange) {
@@ -162,6 +196,7 @@ export function versionCard(current, afterChange) {
           version: `${report.target.type_name} ${report.target.minecraft_version}`,
         }), "success", 11000);
         if (result.verified === false) toast(t("new.unverified"), "warn", 12000);
+        if (result.crossplay_turned_off) toast(t("version.crossplay_off"), "warn", 14000);
         if (afterChange) await afterChange();
       } catch (err) {
         toast(err.message, "error", 14000);
@@ -234,7 +269,8 @@ export function versionCard(current, afterChange) {
     pending
       ? el("div", { class: "banner" }, el("div", { class: "grow" },
           t("version.pending", { version: pending.minecraft_version }),
-          el("p", { class: "hint mt-0" }, t("version.pending_note"))))
+          el("p", { class: "hint mt-0" }, t("version.pending_note")),
+          current.capabilities.modrinth ? addonUpdates(pending.minecraft_version) : null))
       : null,
     current.eula_required
       ? el("div", { class: "banner warn" }, el("div", { class: "grow" }, t("version.eula_needed")),

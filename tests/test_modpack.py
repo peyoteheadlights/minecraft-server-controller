@@ -20,6 +20,7 @@ import pytest
 from agent import downloads, modpack
 from agent.core import AgentCore
 from agent.modpack import ModpackError
+from agent.servertypes import create as create_module
 
 from .conftest import build_multi_config
 from .test_server_types import MC, fake_sources
@@ -107,7 +108,10 @@ def network(monkeypatch, requests_made):
 
 
 @pytest.fixture
-async def core(tmp_path, network):
+async def core(tmp_path, network, monkeypatch):
+    # Whatever Java the machine has is beside the point here (the CI runner
+    # has 17, Minecraft 1.21 needs 21): the Java check has its own test.
+    monkeypatch.setattr(create_module, "java_problem", lambda *args, **kwargs: None)
     agent = AgentCore(build_multi_config(tmp_path))
     try:
         yield agent

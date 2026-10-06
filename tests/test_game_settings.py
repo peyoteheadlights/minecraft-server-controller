@@ -37,7 +37,9 @@ ORIGINAL = (
 
 
 def write(folder, text=ORIGINAL):
-    (folder / "server.properties").write_text(text, encoding="utf-8")
+    # Bytes, not write_text: on Windows write_text turns every "\n" into
+    # "\r\n", and these tests are about the file's exact bytes.
+    (folder / "server.properties").write_bytes(text.encode("utf-8"))
 
 
 # ---------------------------------------------------------------- the format

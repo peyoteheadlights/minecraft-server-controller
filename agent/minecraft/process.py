@@ -139,6 +139,9 @@ class MinecraftServer:
         # a half-changed world, so every start is refused until it clears.
         self.held_by: str | None = None
         self.maintenance = False
+        # True when auto-sleep stopped this server because nobody was
+        # playing, so the dashboard can say why it is off. Cleared on start.
+        self.stopped_for_sleep = False
 
     # ------------------------------------------------------------------
     # info
@@ -406,6 +409,9 @@ class MinecraftServer:
             "restart_in": max(0.0, self.restart_at - time.time()) if self.restart_at else None,
             "auto_restart_cancelled": self.auto_restart_cancelled,
             "maintenance": self.maintenance,
+            "stopped_for_sleep": self.stopped_for_sleep,
+            "autosleep": self.config.server.autosleep,
+            "autosleep_minutes": self.config.server.autosleep_minutes,
             "recent_crashes": self.recent_crash_count(),
         }
 
@@ -473,6 +479,7 @@ class MinecraftServer:
             self.startup_seconds = None
             self.online_at = None
             self.startup_confirmed = False
+            self.stopped_for_sleep = False
             self.started_at = time.time()
             await self._set_state(ServerState.STARTING, "Starting Minecraft", command=cmd)
             self._emit_console(f"[agent] launching: {' '.join(cmd)}")

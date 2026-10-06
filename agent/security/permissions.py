@@ -19,6 +19,7 @@ SERVER_VIEW = "server.view"  # status, console, players, performance, history
 SERVER_CONTROL = "server.control"  # start, stop, restart, save the world
 CONSOLE_SEND = "console.send"  # type commands into the Minecraft console
 PLAYERS_MANAGE = "players.manage"  # whitelist, operator, kick, ban and unban
+CHAT_SEND = "chat.send"  # say something to everyone in the game
 MODS_MANAGE = "mods.manage"  # install, remove, enable, update, roll back mods
 BACKUPS_CREATE = "backups.create"
 BACKUPS_DOWNLOAD = "backups.download"
@@ -39,6 +40,7 @@ ALL = frozenset(
         SERVER_CONTROL,
         CONSOLE_SEND,
         PLAYERS_MANAGE,
+        CHAT_SEND,
         MODS_MANAGE,
         BACKUPS_CREATE,
         BACKUPS_DOWNLOAD,

@@ -150,6 +150,10 @@ class ServerSettings(Section):
     # port Geyser listens on (0: none picked yet). See agent/crossplay.py.
     crossplay: bool = False
     bedrock_port: int = 0
+    # Stop this server once nobody has been playing for a while (off by
+    # default). It is never started again on its own: see agent/autosleep.py.
+    autosleep: bool = False
+    autosleep_minutes: int = 30
 
 
 @dataclass(frozen=True)
@@ -264,6 +268,8 @@ class EmailSettings(Section):
 class NotificationSettings(Section):
     discord_enabled: bool = False
     email_enabled: bool = False
+    # Phone alerts (Web Push). Needs the keys in .env; see docs/notifications.md.
+    push_enabled: bool = False
     # Which events send an alert. An event type not listed here sends none.
     events: dict[str, bool] = field(
         default_factory=lambda: {
@@ -293,6 +299,7 @@ class NotificationSettings(Section):
             "game_settings_changed": False,
             "player_managed": True,
             "modpack_imported": True,
+            "autosleep": True,
         }
     )
     email: EmailSettings = field(default_factory=EmailSettings)
@@ -364,6 +371,9 @@ SECRET_ENV_KEYS = (
     "MCSC_DISCORD_WEBHOOK",
     "MCSC_SMTP_USERNAME",
     "MCSC_SMTP_PASSWORD",
+    "MCSC_VAPID_PUBLIC_KEY",
+    "MCSC_VAPID_PRIVATE_KEY",
+    "MCSC_PUSH_SUBJECT",
 )
 
 # A server id is used as a folder name, in URLs and in database rows, so it
@@ -946,6 +956,23 @@ class Config:
     @property
     def smtp_password(self) -> str:
         return os.environ.get("MCSC_SMTP_PASSWORD", "")
+
+    # -- phone alerts (Web Push) -------------------------------------------
+    @property
+    def vapid_public_key(self) -> str:
+        """The key the browser is given when it subscribes. Not a secret,
+        but it is kept with its private half so the pair stays together."""
+        return os.environ.get("MCSC_VAPID_PUBLIC_KEY", "")
+
+    @property
+    def vapid_private_key(self) -> str:
+        return os.environ.get("MCSC_VAPID_PRIVATE_KEY", "")
+
+    @property
+    def push_subject(self) -> str:
+        """Who the push service should contact about this sender. A mailto:
+        address, as RFC 8292 asks for."""
+        return os.environ.get("MCSC_PUSH_SUBJECT", "")
 
     # -- TLS paths ---------------------------------------------------------
     @property

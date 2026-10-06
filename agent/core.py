@@ -19,12 +19,14 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from . import __version__, colors
+from .autosleep import AutoSleep
 from .backups.manager import BackupManager
 from .config import ConfigError
 from .database.db import Database, ServerDb
 from .database.event_writer import EventWriter
 from .events import AGENT_SCOPE, Event, EventBus, ServerBus
 from .jobs import JobConflict, JobHandle, JobTracker
+from .minecraft.chat import ChatLog
 from .minecraft.crash import CrashReporter
 from .minecraft.playeractions import PlayerActions
 from .minecraft.process import MinecraftServer, ServerError
@@ -78,6 +80,10 @@ class ServerContext:
         )
 
         self.player_actions = PlayerActions(self.server, self.bus)
+        # In-game chat as the console printed it, and the watcher that stops
+        # a server nobody is playing on (off unless this server turns it on).
+        self.chat = ChatLog()
+        self.autosleep = AutoSleep(self)
 
         self.server.signal_hook = self._console_signals
         self.server.crash_hook = self.crashes.collect
@@ -89,6 +95,11 @@ class ServerContext:
     async def _console_signals(self, sig, line) -> None:
         await self.players.handle_signals(sig, line)
         await self.player_actions.handle(sig, line)
+        message = self.chat.add(line)
+        if message is not None:
+            # Not stored in the database: chat is as chatty as the console
+            # itself, and only the page watching this server receives it.
+            await self.bus.publish(Event(type="chat", message=message.text, data=message.to_dict()))
 
     @property
     def name(self) -> str:
@@ -144,6 +155,7 @@ class ServerContext:
         self._update_task = asyncio.create_task(
             self._update_check_loop(), name=f"mod-updates-{self.server_id}"
         )
+        self.autosleep.start()
 
     async def autostart(self) -> None:
         if not self.config.server.autostart_minecraft:
@@ -185,6 +197,7 @@ class ServerContext:
     async def stop(self) -> None:
         if self._update_task:
             self._update_task.cancel()
+        await self.autosleep.stop()
         await self.metrics.stop()
         await self.tps.stop()
         await self.scheduler.stop()
@@ -207,6 +220,7 @@ class ServerContext:
         running = self.core.jobs.risky_job(self.server_id)
         status["job"] = running.to_dict() if running else None
         status["agent"] = self.core.agent_status(self)
+        status["sleep"] = self.autosleep.status()
         return status
 
     def summary(self) -> dict[str, Any]:
@@ -307,7 +321,7 @@ class AgentCore:
 
     # ------------------------------------------------------------------
     async def _persist_event(self, event: Event) -> None:
-        if event.type in ("console", "metrics", "job"):
+        if event.type in ("console", "metrics", "job", "chat"):
             return  # far too chatty for the database; these live elsewhere
         self.events.add(
             event.server_id or AGENT_SCOPE,

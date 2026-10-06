@@ -24,6 +24,8 @@ SERVER_SETTABLE = (
     "server.autostart_minecraft",
     "server.jvm_args",
     "server.cpu_cores",
+    "server.autosleep",
+    "server.autosleep_minutes",
     "monitor.",
     "backups.keep_",
     "backups.include",
@@ -86,6 +88,15 @@ async def update_server_settings(
         if not any(key == p or key.startswith(p) for p in SERVER_SETTABLE):
             rejected[key] = "This setting cannot be changed from the dashboard"
             continue
+        if key == "server.autosleep_minutes":
+            try:
+                minutes = int(value)
+            except (TypeError, ValueError):
+                minutes = 0
+            if not 1 <= minutes <= 1440:
+                rejected[key] = "Pick between 1 minute and 24 hours."
+                continue
+            value = minutes
         if key == "server.cpu_cores":
             found = cpu.shape_problems(value) or cpu.problems(value)
             if found:

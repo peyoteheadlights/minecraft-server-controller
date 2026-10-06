@@ -178,3 +178,22 @@ class ModpackNewRequest(BaseModel):
 class ModpackIntoRequest(BaseModel):
     token: str = Field(min_length=32, max_length=32)
     confirm: bool = False
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(max_length=220)
+
+
+class WorldUndoRequest(BaseModel):
+    backup_id: int
+    confirm: bool = False
+
+
+class PushSubscribeRequest(BaseModel):
+    # Exactly what the browser's PushSubscription.toJSON() returns.
+    subscription: dict[str, Any]
+    label: str = Field(default="", max_length=80)
+
+
+class PushUnsubscribeRequest(BaseModel):
+    endpoint: str = Field(max_length=1000)

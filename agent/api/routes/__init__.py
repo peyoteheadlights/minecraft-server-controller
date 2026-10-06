@@ -20,6 +20,7 @@ from ..deps import mark_alias
 from . import (
     auth,
     backups,
+    chat,
     console,
     duplicate,
     friends,
@@ -28,6 +29,7 @@ from . import (
     modpacks,
     mods,
     players,
+    pushalerts,
     recommendations,
     schedules,
     security,
@@ -36,6 +38,7 @@ from . import (
     servertypes,
     settings,
     system,
+    world,
 )
 from .settings import SETTABLE_PREFIXES
 
@@ -49,8 +52,10 @@ PER_SERVER = (
     duplicate,
     modpacks,
     friends,
+    chat,
+    world,
 )
-GLOBAL = (auth, settings, security, system, jobs)
+GLOBAL = (auth, settings, security, system, jobs, pushalerts)
 MODULES = (*GLOBAL, *PER_SERVER)
 SERVER_PREFIX = "/servers/{server_id}"
 

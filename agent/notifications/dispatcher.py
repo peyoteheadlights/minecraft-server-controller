@@ -1,4 +1,4 @@
-"""Notifications: Discord webhooks and SMTP email.
+"""Notifications: Discord webhooks, SMTP email and phone alerts.
 
 Nothing in this module may take the agent down. Every send is wrapped, every
 failure is recorded in notifications_log and published as an event, and the
@@ -22,6 +22,7 @@ from typing import Any
 import httpx
 
 from ..events import Event, EventBus
+from . import push
 
 log = logging.getLogger("msc.notify")
 
@@ -96,6 +97,7 @@ EVENT_MAP: dict[str, tuple[str, str, int, str]] = {
         0xFAA61A,
         "{server}: CPU core limit not applied",
     ),
+    "autosleep_stopped": ("autosleep", "😴", 0x9AA0A6, "{server} stopped: nobody was playing"),
 }
 
 
@@ -381,6 +383,52 @@ class Notifier:
             await self._report_failure("Email", str(exc))
             return False
 
+    # ------------------------------------------------------------------
+    async def send_push(self, event: Event) -> bool:
+        """One short message to every phone signed up for alerts.
+
+        A phone the push service says is gone is forgotten; every other
+        failure is recorded and the phone stays on the list.
+        """
+        config = self.config
+        if not config.vapid_public_key or not config.vapid_private_key:
+            self._log("push", event.type, "skipped", "No phone-alert keys are set up")
+            return False
+        subscriptions = push.subscriptions(self.db)
+        if not subscriptions:
+            self._log("push", event.type, "skipped", "No phone has signed up for alerts")
+            return False
+        emoji, _colour, title = self.title(event)
+        message = {
+            "title": f"{emoji} {title}",
+            "body": (event.message or title)[:300],
+            "event": event.type,
+            "level": event.level,
+            "server_id": event.server_id,
+            "ts": event.ts,
+        }
+        sent = 0
+        for subscription in subscriptions:
+            result = await push.send(
+                subscription,
+                message,
+                config.vapid_public_key,
+                config.vapid_private_key,
+                config.push_subject,
+            )
+            push.record_result(self.db, subscription.endpoint, result)
+            if result.ok:
+                sent += 1
+                self._log("push", event.type, "sent", subscription.label)
+                continue
+            if result.gone:
+                push.forget(self.db, subscription.endpoint)
+                self._log("push", event.type, "dropped", result.detail)
+                continue
+            self._log("push", event.type, "failed", result.detail)
+            await self._report_failure("Phone alerts", result.detail)
+        return sent > 0
+
     async def _report_failure(self, channel: str, detail: str) -> None:
         try:
             await self.bus.publish(
@@ -435,6 +483,8 @@ class Notifier:
                 tasks.append(self.send_discord(event))
             if self.config.notifications.email_enabled:
                 tasks.append(self.send_email(event))
+            if self.config.notifications.push_enabled:
+                tasks.append(self.send_push(event))
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)
         except Exception:
@@ -470,6 +520,8 @@ class Notifier:
             ok = await self.send_discord(event)
         elif channel == "email":
             ok = await self.send_email(event)
+        elif channel == "push":
+            ok = await self.send_push(event)
         else:
-            raise ValueError("Pick either Discord or email.")
+            raise ValueError("Pick Discord, email or phone alerts.")
         return {"channel": channel, "sent": ok}

@@ -202,6 +202,10 @@ def create_app(config: Config, data_move: MoveResult | None = None) -> FastAPI:
             "style-src 'self'; "
             "img-src 'self' data:; "
             "connect-src 'self'; "
+            # Added for the phone app: the service worker and the web app
+            # manifest, both this app's own files. Nothing else was widened.
+            "worker-src 'self'; "
+            "manifest-src 'self'; "
             "base-uri 'none'; form-action 'none'; frame-ancestors 'none'; "
             "object-src 'none'"
         )
@@ -237,6 +241,23 @@ def create_app(config: Config, data_move: MoveResult | None = None) -> FastAPI:
         @app.get("/", include_in_schema=False)
         async def index():
             return FileResponse(WEB_DIR / "index.html")
+
+        # Both are served from the site root on purpose: a service worker
+        # only covers the folder it is served from, and the manifest's
+        # start_url has to be the dashboard itself.
+        @app.get("/sw.js", include_in_schema=False)
+        async def service_worker():
+            return FileResponse(
+                WEB_DIR / "sw.js",
+                media_type="text/javascript",
+                headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-cache"},
+            )
+
+        @app.get("/manifest.webmanifest", include_in_schema=False)
+        async def web_manifest():
+            return FileResponse(
+                WEB_DIR / "manifest.webmanifest", media_type="application/manifest+json"
+            )
 
         @app.get("/favicon.ico", include_in_schema=False)
         async def favicon():

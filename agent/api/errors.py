@@ -20,6 +20,7 @@ from ..crossplay import CrossplayError
 from ..downloads import DownloadError
 from ..duplicate import DuplicateError
 from ..jobs import JobConflict, JobNotFound
+from ..minecraft.chat import ChatError
 from ..minecraft.commands import CommandError
 from ..minecraft.playeractions import PlayerActionError
 from ..minecraft.process import ServerError
@@ -28,6 +29,7 @@ from ..modpack import ModpackError
 from ..mods.dependencies import DependencyError
 from ..mods.manager import ModError
 from ..mods.modrinth import ModrinthError
+from ..notifications.push import PushError
 from ..safechange import SafeChangeError
 from ..scheduler.scheduler import ScheduleError
 from ..security.auth import AuthError
@@ -35,6 +37,7 @@ from ..security.paths import PathSafetyError
 from ..servertypes import UnknownServerType
 from ..servertypes.install import InstallError
 from ..servertypes.versions import VersionError
+from ..worldundo import WorldUndoError
 from .deps import audit
 
 # The default status for each domain error.
@@ -61,6 +64,9 @@ ERROR_STATUS: dict[type[Exception], int] = {
     PropertiesError: 400,
     DuplicateError: 400,
     ModpackError: 400,
+    ChatError: 400,
+    WorldUndoError: 409,  # the server has to be off first
+    PushError: 400,
 }
 DOMAIN_ERRORS: tuple[type[Exception], ...] = tuple(ERROR_STATUS)
 

@@ -56,7 +56,9 @@ PAGES = [
     "crashes",
     "settings",
     "app-settings",
+    "helpers",
     "security",
+    "getting-started",
 ]
 
 

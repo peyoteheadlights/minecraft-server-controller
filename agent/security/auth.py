@@ -375,7 +375,9 @@ class AuthManager:
         return {**row, "servers": frozenset(servers) if servers is not None else None}
 
     def account(self, username: str) -> dict[str, Any] | None:
-        row = self.db.query_one("SELECT * FROM accounts WHERE username = ?", ((username or "")[:64],))
+        row = self.db.query_one(
+            "SELECT * FROM accounts WHERE username = ?", ((username or "")[:64],)
+        )
         return self._account_row(row) if row else None
 
     def accounts(self) -> list[dict[str, Any]]:
@@ -397,7 +399,9 @@ class AuthManager:
                 {
                     "username": account["username"],
                     "role": account["role"],
-                    "servers": sorted(account["servers"]) if account["servers"] is not None else None,
+                    "servers": sorted(account["servers"])
+                    if account["servers"] is not None
+                    else None,
                     "created_at": account["created_at"],
                     "created_by": account["created_by"],
                     "password_changed_at": account["password_changed_at"],

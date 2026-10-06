@@ -54,7 +54,9 @@ async def add_account(
             payload.username, payload.password, servers, by=principal.user
         )
     except AccountError as exc:
-        audit(core, request, "helper_add", target=payload.username, result="refused", detail=str(exc))
+        audit(
+            core, request, "helper_add", target=payload.username, result="refused", detail=str(exc)
+        )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     audit(core, request, "helper_add", target=account["username"])
     await core.bus.publish(

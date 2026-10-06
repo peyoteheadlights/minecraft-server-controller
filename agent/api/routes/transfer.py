@@ -25,7 +25,9 @@ TOKEN_RE = re.compile(transfer.TOKEN_RE_TEXT)
 
 
 @router.get("/export")
-async def export_sizes(principal: Principal = Depends(require(DATA_EXPORT)), core=Depends(get_core)):
+async def export_sizes(
+    principal: Principal = Depends(require(DATA_EXPORT)), core=Depends(get_core)
+):
     """How big each part would be, measured from disk, before choosing."""
     return await asyncio.to_thread(transfer.estimate, core)
 

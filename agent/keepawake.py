@@ -36,6 +36,8 @@ ES_SYSTEM_REQUIRED = 0x00000001
 GUID_SYSTEM_BUTTON_SUBGROUP = "4f971e89-eebd-4455-a8de-9e59040e7347"
 GUID_LIDSWITCH_ACTION = "5ca83367-6e45-459f-a27b-476b1d01c936"
 LID_ACTIONS = {0: "nothing", 1: "sleep", 2: "hibernate", 3: "shut down"}
+# What can still put the PC to sleep while it is kept awake (status()).
+STILL_SLEEPS = ("on_battery", "lid_sleeps")
 
 
 def _windows_call(flags: int) -> int:
@@ -97,7 +99,16 @@ def lid_actions() -> dict[str, str] | None:
                 ("battery", powrprof.PowerReadDCValueIndex),
             ):
                 value = wintypes.DWORD()
-                if reader(None, scheme, ctypes.byref(group), ctypes.byref(setting), ctypes.byref(value)) == 0:
+                if (
+                    reader(
+                        None,
+                        scheme,
+                        ctypes.byref(group),
+                        ctypes.byref(setting),
+                        ctypes.byref(value),
+                    )
+                    == 0
+                ):
                     found[name] = LID_ACTIONS.get(value.value, "unknown")
             return found or None
         finally:

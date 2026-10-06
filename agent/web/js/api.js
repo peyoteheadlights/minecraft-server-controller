@@ -9,7 +9,7 @@ import { t } from "./strings.js";
 const PER_SERVER = new Set([
   "status", "info", "server", "logs", "events", "crashes", "players", "performance",
   "worlds", "tps", "mods", "backups", "schedules", "recommendations",
-  "game-settings", "join", "duplicate", "modpack", "chat", "world", "getting-started",
+  "game-settings", "join", "duplicate", "modpack", "chat", "world", "getting-started", "memory",
 ]);
 
 export function serverPath(path, serverId = state.serverId) {
@@ -30,7 +30,11 @@ export async function api(path, options = {}) {
   try {
     response = await fetch(`/api${serverPath(path)}`, Object.assign({}, options, { headers }));
   } catch (err) {
-    throw new Error(t("error.unreachable"));
+    const error = new Error(t("error.unreachable"));
+    error.offline = true;
+    // Loaded on demand: offline.js imports this module.
+    import("./offline.js").then((offline) => offline.showOffline()).catch(() => {});
+    throw error;
   }
   const isJson = (response.headers.get("content-type") || "").includes("application/json");
   const payload = isJson ? await response.json() : await response.text();

@@ -1,5 +1,6 @@
 import { api } from "../api.js";
-import { CAUSES, renderers } from "../state.js";
+import { getHelp } from "./app-settings.js";
+import { CAUSES, can, renderers } from "../state.js";
 import { t, technical } from "../strings.js";
 import { advanced, card, confirmDialog, detailRows, el, emptyState, fmt, loadInto, table } from "../ui.js";
 
@@ -19,9 +20,17 @@ function confidenceTag(confidence) {
   return el("span", { class: `tag ${tone}` }, t(key));
 }
 
+/* "Get help": the zip of logs and checks to send to whoever is helping. */
+function helpRow() {
+  if (!can("help.bundle")) return null;
+  return el("div", { class: "btn-row mt-12" },
+    el("button", { class: "btn", type: "button", onclick: (e) => getHelp(e.currentTarget) }, t("gethelp.button")),
+    el("span", { class: "hint" }, t("gethelp.crash_hint")));
+}
+
 renderers.crashes = (page) => loadInto(page, async () => {
   const data = await api("/crashes");
-  if (!data.crashes.length) return card(t("crashes.title"), emptyState(t("crashes.none")));
+  if (!data.crashes.length) return card(t("crashes.title"), emptyState(t("crashes.none")), helpRow());
   const code = technical();
   return card(t("crashes.title"), table(
     [t("crashes.col_when"), ...(code ? [t("crashes.col_code")] : []), t("crashes.col_cause"),
@@ -32,7 +41,7 @@ renderers.crashes = (page) => loadInto(page, async () => {
       causeText(crash.category),
       confidenceTag(crash.confidence),
       el("button", { class: "btn small", type: "button", onclick: () => showCrash(crash.id) }, t("crashes.details")),
-    ])));
+    ])), helpRow());
 });
 
 export async function showCrash(id) {

@@ -46,7 +46,10 @@ def shortcuts() -> list[dict[str, Any]]:
     candidates: list[tuple[str, Path | None]] = [
         ("home", home),
         ("desktop", home / "Desktop"),
-        ("onedrive", Path(os.environ["OneDrive"]) if os.environ.get("OneDrive") else home / "OneDrive"),
+        (
+            "onedrive",
+            Path(os.environ["OneDrive"]) if os.environ.get("OneDrive") else home / "OneDrive",
+        ),
         ("google_drive", home / "Google Drive"),
         ("google_drive", Path("G:\\My Drive") if os.name == "nt" else None),
         ("dropbox", home / "Dropbox"),
@@ -69,7 +72,13 @@ def shortcuts() -> list[dict[str, Any]]:
 def listing(value: str | None) -> dict[str, Any]:
     """The folders inside one folder. With no folder: drives and shortcuts."""
     if not value:
-        return {"path": None, "parent": None, "folders": [], "drives": drives(), "shortcuts": shortcuts()}
+        return {
+            "path": None,
+            "parent": None,
+            "folders": [],
+            "drives": drives(),
+            "shortcuts": shortcuts(),
+        }
     raw = value.strip()
     if "\0" in raw:
         raise BrowseError("That isn't a folder path.")
@@ -84,7 +93,7 @@ def listing(value: str | None) -> dict[str, Any]:
         raise BrowseError(f"Windows doesn't let this app look inside {path}.") from exc
     except OSError as exc:
         raise BrowseError(f"{path} can't be read: {exc.strerror or exc}") from exc
-    folders = []
+    folders: list[dict[str, Any]] = []
     for entry in entries:
         if len(folders) >= MAX_ENTRIES:
             break

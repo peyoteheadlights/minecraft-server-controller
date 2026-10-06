@@ -56,7 +56,9 @@ async def download_help_bundle(
 ):
     path = helpbundle.path_for(core.config, token)
     if path is None:
-        raise HTTPException(status_code=404, detail="That file isn't there any more. Make it again.")
+        raise HTTPException(
+            status_code=404, detail="That file isn't there any more. Make it again."
+        )
     safe = "".join(c for c in filename if c.isalnum() or c in "._-") or "help.zip"
     if not safe.endswith(".zip"):
         safe += ".zip"

@@ -23,7 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from installer.setup_tool import write_env_value  # noqa: E402
+from installer.setup_tool import write_env_value
 
 ROOT = Path(__file__).resolve().parent.parent
 MIN_LENGTH = 10

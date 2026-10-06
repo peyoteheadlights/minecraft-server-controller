@@ -3,7 +3,7 @@ import { render } from "../nav.js";
 import { dependenciesPanel } from "../panels/dependencies.js";
 import { modpackPanel } from "../panels/modpack.js";
 import { serverAction } from "./overview.js";
-import { renderers, stateInfo } from "../state.js";
+import { renderers, stateInfo, state } from "../state.js";
 import { t, technical, tn } from "../strings.js";
 import { $, advanced, busy, card, confirmDialog, el, emptyState, fmt, loadInto, section, table, toast } from "../ui.js";
 
@@ -73,6 +73,12 @@ function searchCard(data, offline) {
   const button = el("button", { class: "btn primary", type: "button", onclick: (e) => run(e.currentTarget) },
     t("mods.search"));
   search.addEventListener("keydown", (e) => { if (e.key === "Enter") run(button); });
+  // A suggestion (such as "Install spark") opens this page with its search.
+  if (state.modSearch) {
+    search.value = state.modSearch;
+    state.modSearch = null;
+    setTimeout(() => run(button), 0);
+  }
   return card(t("mods.add"),
     el("div", { class: "btn-row" }, search, button),
     results,

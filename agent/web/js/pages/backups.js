@@ -1,8 +1,9 @@
 import { api, serverPath } from "../api.js";
 import { render } from "../nav.js";
-import { renderers, state } from "../state.js";
+import { pickFolder } from "../panels/folders.js";
+import { can, renderers, state } from "../state.js";
 import { t, technical } from "../strings.js";
-import { busy, card, confirmDialog, el, emptyState, fmt, loadInto, table, toast } from "../ui.js";
+import { busy, card, confirmDialog, el, emptyState, fmt, loadInto, table, toast, withHelp } from "../ui.js";
 
 const KINDS = { manual: ["ok", "backups.kind_manual"], scheduled: ["", "backups.kind_scheduled"],
   safety: ["warn", "backups.kind_safety"] };
@@ -33,12 +34,73 @@ function worldsCard(worlds) {
     ])));
 }
 
-function backupRow(b) {
+/* The second copy's state, as the agent found it just now. */
+function copyCell(b, offsite) {
+  const copy = b.copy || { state: "none" };
+  const words = {
+    ok: ["ok", t("offsite.copied")],
+    failed: ["danger", t("offsite.failed", { reason: copy.reason })],
+    unreachable: ["warn", t("offsite.unreachable", { reason: copy.reason })],
+    missing: ["warn", t("offsite.missing")],
+    none: ["", t("offsite.not_copied")],
+  }[copy.state] || ["", t("value.unknown")];
+  const again = offsite.directory && b.status === "ok" && copy.state !== "ok" && can("backups.create")
+    ? el("button", { class: "btn plain small", type: "button",
+        onclick: (e) => busy(e.currentTarget, t("offsite.copying"), async () => {
+          try {
+            const result = await api(`/backups/${b.id}/copy`, { method: "POST" });
+            const state_ = (result.copy || {}).state;
+            toast(state_ === "ok" ? t("offsite.copy_done") : t("offsite.copy_failed", {
+              reason: (result.copy || {}).reason || t("value.unknown") }), state_ === "ok" ? "success" : "error", 9000);
+            render();
+          } catch (err) { toast(err.message, "error", 9000); }
+        }) }, t("offsite.copy_now"))
+    : null;
+  return el("div", { class: "copy-cell" }, el("span", { class: `tag ${words[0]}`,
+    title: copy.path || "" }, words[1]), again);
+}
+
+function offsiteCard(offsite) {
+  const status = offsite.directory
+    ? (offsite.unavailable
+      ? el("div", { class: "banner warn" }, t("offsite.folder_unavailable", { folder: offsite.directory, reason: offsite.unavailable }))
+      : el("p", { class: "mt-0" }, t("offsite.folder_ok", { folder: offsite.directory })))
+    : el("p", { class: "hint mt-0" }, t("offsite.off"));
+  const choose = can("settings.edit") ? el("button", { class: "btn", type: "button",
+    onclick: async (e) => {
+      const button = e.currentTarget;
+      const path = await pickFolder({ title: t("offsite.pick_title"), start: offsite.directory || "" });
+      if (!path) return;
+      await busy(button, t("action.saving"), async () => {
+        try {
+          await api("/backups/offsite", { method: "PUT", body: { directory: path } });
+          toast(t("offsite.saved"), "success", 8000);
+          render();
+        } catch (err) { toast(err.message, "error", 12000); }
+      });
+    } }, offsite.directory ? t("offsite.change") : t("offsite.choose")) : null;
+  const off = offsite.directory && can("settings.edit") ? el("button", { class: "btn plain", type: "button",
+    onclick: (e) => busy(e.currentTarget, t("action.saving"), async () => {
+      try {
+        await api("/backups/offsite", { method: "PUT", body: { directory: "" } });
+        toast(t("offsite.turned_off"));
+        render();
+      } catch (err) { toast(err.message, "error"); }
+    }) }, t("offsite.turn_off")) : null;
+  return card(t("offsite.title"),
+    withHelp(el("span", { class: "help-label" }, t("offsite.lead")), "offsite", "backups"),
+    status,
+    technical() && offsite.subfolder ? el("p", { class: "hint mono" }, offsite.subfolder) : null,
+    el("div", { class: "btn-row mt-10" }, choose, off));
+}
+
+function backupRow(b, offsite) {
   return [
     technical() ? el("span", { class: "mono" }, b.name) : fmt.time(b.created_at),
     kindTag(b.kind),
     ...(technical() ? [fmt.time(b.created_at)] : []),
     fmt.bytes(b.size_bytes),
+    copyCell(b, offsite),
     el("div", { class: "btn-row" },
       el("button", {
         class: "btn small", type: "button",
@@ -50,10 +112,10 @@ function backupRow(b) {
           } catch (err) { toast(err.message, "error"); }
         }),
       }, t("backups.verify")),
-      el("a", { class: "btn small", href: `/api${serverPath(`/backups/${b.id}/download`)}`,
-                onclick: downloadWithToken }, t("backups.download")),
-      el("button", { class: "btn small", type: "button", onclick: () => restoreBackup(b) }, t("backups.restore")),
-      el("button", {
+      can("backups.download") ? el("a", { class: "btn small", href: `/api${serverPath(`/backups/${b.id}/download`)}`,
+                onclick: downloadWithToken }, t("backups.download")) : null,
+      can("backups.restore") ? el("button", { class: "btn small", type: "button", onclick: () => restoreBackup(b) }, t("backups.restore")) : null,
+      !can("backups.delete") ? null : el("button", {
         class: "btn small danger", type: "button",
         onclick: async () => {
           const ok = await confirmDialog({
@@ -71,23 +133,24 @@ function backupRow(b) {
   ];
 }
 
-function backupsCard(data) {
+function backupsCard(data, offsite) {
   const headers = technical()
-    ? [t("backups.col_name"), t("backups.col_type"), t("backups.col_created"), t("backups.col_size"), ""]
-    : [t("backups.col_created"), t("backups.col_type"), t("backups.col_size"), ""];
+    ? [t("backups.col_name"), t("backups.col_type"), t("backups.col_created"), t("backups.col_size"), t("offsite.col"), ""]
+    : [t("backups.col_created"), t("backups.col_type"), t("backups.col_size"), t("offsite.col"), ""];
   const r = data.retention;
   return card(t("backups.list"),
     data.backups.length
-      ? table(headers, data.backups.map(backupRow))
+      ? table(headers, data.backups.map((b) => backupRow(b, offsite)))
       : emptyState(t("backups.none"), t("backups.none_hint")),
     el("p", { class: "hint mt-10" },
       t("backups.keeping", { daily: r.daily, weekly: r.weekly, monthly: r.monthly })));
 }
 
 renderers.backups = (page) => loadInto(page, async () => {
-  const [data, worlds, jobs] = await Promise.all([
+  const [data, worlds, jobs, offsite] = await Promise.all([
     api("/backups"), api("/worlds"),
     api(`/jobs?server_id=${encodeURIComponent(state.serverId)}&limit=20`).catch(() => ({ jobs: [] })),
+    api("/backups/offsite").catch(() => ({ directory: "", unavailable: null })),
   ]);
   const holder = el("div", { class: "stack" });
 
@@ -115,7 +178,8 @@ renderers.backups = (page) => loadInto(page, async () => {
 
   const last = lastUndoable(jobs.jobs || []);
   if (last) holder.append(lastChangeCard(last));
-  holder.append(backupsCard(data));
+  holder.append(backupsCard(data, offsite));
+  holder.append(offsiteCard(offsite));
   holder.append(worldsCard(worlds.worlds));
   return holder;
 });

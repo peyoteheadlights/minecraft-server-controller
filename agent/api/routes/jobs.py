@@ -33,9 +33,7 @@ async def list_jobs(
     check_server(principal, server_id)
     jobs = core.jobs.recent(server_id, limit=max(1, min(limit, 200)), running_only=running)
     # A helper limited to some servers sees only their jobs.
-    return {
-        "jobs": [job.to_dict() for job in jobs if can_see_server(principal, job.server_id)]
-    }
+    return {"jobs": [job.to_dict() for job in jobs if can_see_server(principal, job.server_id)]}
 
 
 @router.get("/jobs/{job_id}")

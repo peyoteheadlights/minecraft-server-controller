@@ -47,7 +47,10 @@ PATTERNS = [
     (re.compile(r"pbkdf2_sha256\$[^\s\"',]+"), "[password hash removed]"),
     (re.compile(r"(?i)bearer\s+[A-Za-z0-9._~+/=-]+"), "Bearer [removed]"),
     (re.compile(r"https://(?:\w+\.)?discord(?:app)?\.com/api/webhooks/\S+"), "[webhook removed]"),
-    (re.compile(r"(?i)\b(token|password|secret|passphrase|api_key)(\s*[=:]\s*)\S+"), r"\1\2[removed]"),
+    (
+        re.compile(r"(?i)\b(token|password|secret|passphrase|api_key)(\s*[=:]\s*)\S+"),
+        r"\1\2[removed]",
+    ),
 ]
 
 
@@ -91,7 +94,9 @@ def _logs(config) -> list[Item]:
     for name in INSTALL_LOGS:
         path = install_dir / name
         if path.is_file() and not path.is_symlink():
-            items.append(Item(f"install/{name}", path, path.stat().st_size, "install and startup log"))
+            items.append(
+                Item(f"install/{name}", path, path.stat().st_size, "install and startup log")
+            )
     return items
 
 

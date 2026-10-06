@@ -68,5 +68,6 @@ export async function renderChecklist(node) {
       }, t("start.hide"))),
     el("div", { class: "group-box" },
       el("p", { class: "hint mt-0" }, t("start.lead")),
-      el("ul", { class: "check-list" }, data.items.map(item)))));
+      el("ul", { class: "check-list" }, data.items.map(item)),
+      el("a", { class: "btn plain small mt-10", href: "#getting-started" }, t("start.guide")))));
 }

@@ -5,7 +5,10 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 
+from ...backups import offsite
+from ...config import PROJECT_ROOT
 from ...security.auth import Principal
+from ...security.paths import PathSafetyError
 from ...security.permissions import (
     BACKUPS_CREATE,
     BACKUPS_DELETE,
@@ -15,9 +18,6 @@ from ...security.permissions import (
     SETTINGS_EDIT,
     require,
 )
-from ...backups import offsite
-from ...config import PROJECT_ROOT
-from ...security.paths import PathSafetyError
 from ..deps import audit, get_server
 from ..errors import audit_failure, respond_as
 from .models import BackupRequest, OffsiteRequest, RestoreRequest
@@ -156,7 +156,9 @@ async def set_offsite(
         ctx.config.save()
     except OSError as exc:
         ctx.config.set("backups.offsite_directory", previous)
-        raise HTTPException(status_code=500, detail=f"The setting couldn't be saved: {exc}") from exc
+        raise HTTPException(
+            status_code=500, detail=f"The setting couldn't be saved: {exc}"
+        ) from exc
     audit(ctx, request, "offsite_folder", detail=value or "off")
     return {"ok": True, "directory": value}
 
@@ -171,4 +173,5 @@ async def copy_backup(
     """Copy one backup off the PC now (again, if the last try failed)."""
     with audit_failure(ctx, request, "backup_copy", target=str(backup_id)):
         result = await ctx.backups.copy_again(backup_id, user=principal.user)
+    request.state.audited = True  # copy_again writes its own entry
     return {"ok": result.get("state") == "ok", "copy": result}

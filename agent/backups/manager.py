@@ -31,7 +31,6 @@ from typing import TYPE_CHECKING, Any
 from ..events import Event, EventBus
 from ..minecraft.properties import world_folders
 from ..safechange import SafeChange, run_safe_change
-from . import offsite
 from ..security.paths import (
     PathSafetyError,
     check_archive_member,
@@ -40,6 +39,7 @@ from ..security.paths import (
     safe_filename,
     zip_member_is_symlink,
 )
+from . import offsite
 
 if TYPE_CHECKING:
     from ..jobs import JobHandle, JobTracker

@@ -8,15 +8,24 @@
    What it caches: only the app's own shell (the page, its stylesheet, its
    scripts and its icons), and only ever as a fallback. Anything under /api
    or /ws is passed straight to the network and never stored, so no world
-   data, no player name and no sign-in token is written to the phone. */
+   data, no player name and no sign-in token is written to the phone.
+
+   When the PC can't be reached, opening the dashboard gets the cached page,
+   whose offline screen ("Can't reach your PC") then keeps trying by itself. */
 
 const SHELL = "mcsc-shell";
+// The page and everything the offline screen needs to draw itself. Other
+// static files are kept as they are fetched.
 const SHELL_FILES = [
   "/",
   "/assets/styles.css",
   "/assets/theme.js",
   "/assets/icon.svg",
   "/assets/js/main.js",
+  "/assets/js/offline.js",
+  "/assets/js/strings.js",
+  "/assets/js/state.js",
+  "/assets/js/ui.js",
 ];
 
 self.addEventListener("install", (event) => {
@@ -59,7 +68,11 @@ self.addEventListener("fetch", (event) => {
         }
         return response;
       })
-      .catch(() => caches.match(request).then((hit) => hit || Response.error())),
+      .catch(() => caches.match(request)
+        // An address of the dashboard itself (#page links, a reload) gets
+        // the page; it shows the offline screen and keeps trying.
+        .then((hit) => hit || (request.mode === "navigate" ? caches.match("/") : null))
+        .then((hit) => hit || Response.error())),
   );
 });
 

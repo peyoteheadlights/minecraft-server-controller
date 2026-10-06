@@ -160,38 +160,6 @@ function sleepCard(own) {
     })));
 }
 
-/* ------------------------------------------------------------ memory */
-
-function xmxGb(args) {
-  const found = args.map((a) => /^-Xmx(\d+)([mMgG])$/.exec(String(a))).filter(Boolean).pop();
-  if (!found) return null;
-  const n = Number(found[1]);
-  return found[2].toLowerCase() === "g" ? n : Math.round((n / 1024) * 10) / 10;
-}
-
-function memoryCard(own) {
-  const args = (own.server.jvm_args || []).map(String);
-  const current = xmxGb(args);
-  const gb = el("input", { type: "number", min: "1", max: "256", step: "0.5",
-    value: current === null ? "" : String(current) });
-  const raw = el("input", { class: "mono", value: args.join(" ") });
-  return card(t("serverset.memory"),
-    withHelp(el("span", { class: "help-label" }, t("serverset.memory_label")), "memory", "configuration"),
-    field("memory-limit", t("serverset.memory_limit"), gb,
-      current === null ? t("serverset.memory_unset") : t("serverset.memory_hint")),
-    advanced(t("serverset.launch_args"),
-      field("jvm-args", t("serverset.jvm_args"), raw, t("serverset.jvm_args_hint"))),
-    el("div", { class: "btn-row mt-12" }, saveButton(t("action.save"), () => {
-      let next = raw.value.trim() ? raw.value.trim().split(/\s+/) : [];
-      if (next.join(" ") === args.join(" ") && gb.value && Number(gb.value) !== current) {
-        const value = Number(gb.value);
-        const flag = Number.isInteger(value) ? `-Xmx${value}G` : `-Xmx${Math.round(value * 1024)}M`;
-        next = next.filter((a) => !/^-Xmx/i.test(a)).concat(flag);
-      }
-      return next.join(" ") === args.join(" ") ? {} : { "server.jvm_args": next };
-    })));
-}
-
 /* ------------------------------------------------------------ CPU cores */
 
 /* Which CPU cores this server may use. What it really uses is read back
@@ -398,7 +366,6 @@ renderers.settings = (page) => loadInto(page, async () => {
     crossplay,
     crashCard(own),
     sleepCard(own),
-    memoryCard(own),
     cpuCard(own.cpu, own.server.cpu_cores || []),
     backupsCard(own),
     advancedCard(own),

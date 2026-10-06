@@ -3,14 +3,18 @@
    says so, with the value Minecraft uses then. Saving checks every value
    on the agent first and keeps a copy of the old file (its undo is on the
    Backups page). Minecraft reads the file when it starts, so while the
-   server runs the page says the change waits for a restart. */
+   server runs the page says the change waits for a restart.
+
+   The memory slider sits here too: it sets only the -Xmx limit, bounded by
+   the PC's memory as measured, and leaves every other Java option alone. */
 
 import { api } from "../api.js";
 import { render } from "../nav.js";
 import { serverAction } from "./overview.js";
-import { renderers, state } from "../state.js";
+import { can, renderers, state } from "../state.js";
 import { t, technical } from "../strings.js";
-import { busy, card, el, loadInto, problem, toast } from "../ui.js";
+import { busy, card, el, fmt, loadInto, problem, toast, withHelp } from "../ui.js";
+import { saveServerSettings } from "./settings.js";
 
 const serverUrl = (path) => `/servers/${encodeURIComponent(state.serverId)}${path}`;
 
@@ -166,6 +170,82 @@ function rawCard(data) {
     el("div", { class: "btn-row mt-12" }, save));
 }
 
+/* ------------------------------------------------------------ memory */
+
+const gb = (mb) => `${(mb / 1024).toFixed(mb % 1024 ? 1 : 0)} GB`;
+
+/* What running everything at once adds up to, against the PC's memory. */
+function memoryWarning(data, chosen) {
+  if (!data.total_mb) return null;
+  const others = data.servers.filter((s) => !s.this && s.running);
+  const together = others.reduce((sum, s) => sum + (s.limit_mb || 0), 0) + chosen;
+  if (together <= data.total_mb) return null;
+  return el("div", { class: "banner warn", role: "status" }, others.length
+    ? t("memory.over_together", { names: others.map((s) => s.name).join(", "), total: gb(together),
+        pc: gb(data.total_mb) })
+    : t("memory.over_alone", { total: gb(together), pc: gb(data.total_mb) }));
+}
+
+function memoryCard(data) {
+  const label = withHelp(el("span", { class: "help-label" }, t("memory.label")), "memory", "configuration");
+  const measured = data.total_mb
+    ? el("p", { class: "hint mt-0" }, t("memory.pc_has", { total: gb(data.total_mb) }))
+    : el("p", { class: "hint mt-0" }, t("memory.pc_unknown"));
+  if (!data.takes_memory_limit) {
+    return card(t("memory.title"), label, el("p", { class: "hint" }, t("memory.not_used")));
+  }
+  const current = data.limit_mb;
+  const warning = el("div");
+  let slider = null, value = null;
+  if (data.total_mb) {
+    const start = Math.min(data.total_mb, Math.max(data.min_mb, current || 2048));
+    value = el("output", { class: "memory-value", for: "memory-slider" }, gb(start));
+    slider = el("input", {
+      type: "range", id: "memory-slider", min: String(data.min_mb), max: String(data.total_mb),
+      step: String(data.step_mb), value: String(start), "aria-describedby": "memory-now",
+      disabled: can("settings.edit") ? false : "disabled",
+    });
+    const update = () => {
+      value.textContent = gb(Number(slider.value));
+      warning.replaceChildren(memoryWarning(data, Number(slider.value)) || "");
+    };
+    slider.addEventListener("input", update);
+    update();
+  }
+  const save = slider && can("settings.edit") ? el("button", { class: "btn primary", type: "button",
+    onclick: (e) => busy(e.currentTarget, t("action.saving"), async () => {
+      const mb = Number(slider.value);
+      if (mb === current) { toast(t("settings.nothing_changed")); return; }
+      try {
+        const result = await api(serverUrl("/memory"), { method: "PUT", body: { memory_mb: mb } });
+        toast(result.running ? t("memory.saved_running") : t("memory.saved"), "success", 7000);
+        render();
+      } catch (err) { toast(err.message, "error", 9000); }
+    }) }, t("memory.save")) : null;
+  const raw = el("input", { class: "mono", id: "jvm-args", value: data.jvm_args.join(" ") });
+  return card(t("memory.title"),
+    label,
+    measured,
+    slider ? el("div", { class: "memory-slider" }, slider, value) : null,
+    el("p", { class: "hint", id: "memory-now" }, current
+      ? t("memory.now", { limit: gb(current) }) : t("memory.unset")),
+    warning,
+    save ? el("div", { class: "btn-row mt-12" }, save) : null,
+    technical() ? el("div", { class: "field mt-12" },
+      el("label", { for: "jvm-args" }, t("memory.raw_args")), raw,
+      el("div", { class: "hint" }, t("memory.raw_hint")),
+      can("settings.edit") ? el("div", { class: "btn-row mt-10" }, el("button", { class: "btn", type: "button",
+        onclick: (e) => busy(e.currentTarget, t("action.saving"), async () => {
+          const next = raw.value.trim() ? raw.value.trim().split(/\s+/) : [];
+          if (next.join(" ") === data.jvm_args.join(" ")) { toast(t("settings.nothing_changed")); return; }
+          try {
+            const { ok } = await saveServerSettings({ "server.jvm_args": next });
+            if (ok) toast(t("settings.saved"), "success");
+            render();
+          } catch (err) { toast(err.message, "error"); }
+        }) }, t("memory.save_raw"))) : null) : null);
+}
+
 renderers["game-settings"] = (page) => loadInto(page, async () => {
   let data;
   try {
@@ -173,8 +253,10 @@ renderers["game-settings"] = (page) => loadInto(page, async () => {
   } catch (err) {
     return problem(err.message);
   }
+  const memory = await api(serverUrl("/memory")).catch((err) => ({ error: err.message }));
   return el("div", { class: "stack" },
     restartBanner(data),
     formCard(data),
+    memory.error ? problem(memory.error) : memoryCard(memory),
     technical() ? rawCard(data) : null);
 });

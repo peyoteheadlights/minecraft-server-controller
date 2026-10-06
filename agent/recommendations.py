@@ -393,7 +393,9 @@ def gather(ctx) -> Facts:
     ]
     server_type = ctx.config.server_type
     spark = any(
-        "spark" in str(m.get(k) or "").lower() for m in installed for k in ("mod_id", "name", "filename")
+        "spark" in str(m.get(k) or "").lower()
+        for m in installed
+        for k in ("mod_id", "name", "filename")
     )
     total = memory.total_ram_mb()
     running_mb, rows = memory.together_mb(ctx, include_self=ctx.server.running)

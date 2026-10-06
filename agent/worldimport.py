@@ -128,9 +128,9 @@ def inspect_zip(path: Path) -> tuple[WorldInfo, str]:
             if len(infos) > MAX_MEMBERS:
                 raise WorldImportError("That zip has far too many files in it to be a world.")
             check_base = path.parent / "zip-check"
-            for info in infos:
+            for member in infos:
                 try:
-                    check_archive_member(check_base, info.filename, zip_member_is_symlink(info))
+                    check_archive_member(check_base, member.filename, zip_member_is_symlink(member))
                 except PathSafetyError as exc:
                     raise WorldImportError(f"That zip isn't safe to open: {exc}") from exc
             root = _zip_root([i.filename for i in infos])
@@ -217,7 +217,7 @@ def saved_worlds() -> list[dict[str, Any]]:
     folder = saves_folder()
     if folder is None:
         return []
-    found = []
+    found: list[dict[str, Any]] = []
     for entry in folder.iterdir():
         try:
             if entry.is_symlink() or not (entry / "level.dat").is_file():
@@ -231,7 +231,7 @@ def saved_worlds() -> list[dict[str, Any]]:
             )
         except OSError:
             continue
-    return sorted(found, key=lambda w: w["modified"], reverse=True)[:100]
+    return sorted(found, key=lambda w: float(w["modified"]), reverse=True)[:100]
 
 
 # ----------------------------------------------------------------------
@@ -459,7 +459,12 @@ async def import_world(ctx: ServerContext, token: str, user: str = "system") -> 
         return result
 
     created, result = await ctx.core.jobs.run(
-        "world_import", f"{title} into {ctx.name}", run, server_id=ctx.server_id, risky=True, user=user
+        "world_import",
+        f"{title} into {ctx.name}",
+        run,
+        server_id=ctx.server_id,
+        risky=True,
+        user=user,
     )
     forget(ctx.core, token)
     ctx.db.audit("world_import", user=user, target=info.name or info.folder_name)

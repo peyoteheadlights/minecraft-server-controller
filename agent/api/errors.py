@@ -32,13 +32,13 @@ from ..mods.manager import ModError
 from ..mods.modrinth import ModrinthError
 from ..notifications.push import PushError
 from ..safechange import SafeChangeError
-from ..transfer import TransferError
 from ..scheduler.scheduler import ScheduleError
 from ..security.auth import AuthError
 from ..security.paths import PathSafetyError
 from ..servertypes import UnknownServerType
 from ..servertypes.install import InstallError
 from ..servertypes.versions import VersionError
+from ..transfer import TransferError
 from ..worldimport import WorldImportError
 from ..worldundo import WorldUndoError
 from .deps import audit

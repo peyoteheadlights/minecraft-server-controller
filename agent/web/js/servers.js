@@ -5,7 +5,7 @@
 
 import { api } from "./api.js";
 import { badgeColors, derive } from "./colors.js";
-import { renderers, stateInfo, state } from "./state.js";
+import { can, renderers, stateInfo, state } from "./state.js";
 import { t, tn } from "./strings.js";
 import { $, el, emptyState, fmt, icon, known, loadInto } from "./ui.js";
 
@@ -121,9 +121,9 @@ export function renderTabs() {
     plainTab("tab-all", t("page.servers"), state.scope === "all", "servers",
       () => hooks.navigate("servers"), "all-tab"),
     ...state.servers.map((s) => serverTab(s, state.scope === "server" && s.id === state.serverId)),
-    plainTab("tab-add", t("page.add_server"), state.scope === "add", "plus",
-      () => hooks.navigate("add-server"), "add-tab"),
-  ];
+    can("servers.manage") ? plainTab("tab-add", t("page.add_server"), state.scope === "add", "plus",
+      () => hooks.navigate("add-server"), "add-tab") : null,
+  ].filter(Boolean);
   holder.replaceChildren(...tabs);
   // With nothing selected (the gear's pages), the first tab takes focus.
   if (!tabs.some((tab) => tab.getAttribute("aria-selected") === "true")) tabs[0].tabIndex = 0;

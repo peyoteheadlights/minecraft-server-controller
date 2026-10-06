@@ -75,11 +75,11 @@ router.include_router(modpacks.global_router)
 # A helper limited to some servers is refused the others' routes here, once,
 # rather than in each route.
 for module in PER_SERVER:
-    router.include_router(module.router, prefix=SERVER_PREFIX, dependencies=[Depends(server_access)])
-for module in LEGACY_PER_SERVER:
     router.include_router(
-        module.router, dependencies=[Depends(mark_alias), Depends(server_access)]
+        module.router, prefix=SERVER_PREFIX, dependencies=[Depends(server_access)]
     )
+for module in LEGACY_PER_SERVER:
+    router.include_router(module.router, dependencies=[Depends(mark_alias), Depends(server_access)])
 
 
 def api_routes() -> list[tuple[str, APIRoute, str]]:

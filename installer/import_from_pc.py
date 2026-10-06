@@ -28,7 +28,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from installer.setup_tool import write_env_value  # noqa: E402
+from installer.setup_tool import write_env_value
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -58,7 +58,9 @@ def main(argv: list[str] | None = None, ask=getpass.getpass, say=print) -> int:
         say(f"  {place['name']}: {place['from']}  ->  {place['to']}")
     say(f"  worlds: {'yes' if includes.get('worlds') else 'no'}")
     say(f"  backups: {'yes' if includes.get('backups') else 'no'}")
-    say(f"  passwords and keys: {'yes, locked with a passphrase' if includes.get('secrets') else 'no'}")
+    say(
+        f"  passwords and keys: {'yes, locked with a passphrase' if includes.get('secrets') else 'no'}"
+    )
     if not args.yes and input("Import it? [y/N] ").strip().lower() not in ("y", "yes"):
         say("Nothing was changed.")
         return 1

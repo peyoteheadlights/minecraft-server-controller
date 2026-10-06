@@ -148,7 +148,9 @@ def _backups(config, db, server_id: str) -> list[tuple[dict[str, Any], Path]]:
 def _config_yaml(config) -> str:
     data = copy.deepcopy(config._data)
     servers = data.pop("servers")
-    return yaml.safe_dump({"servers": servers, **data}, sort_keys=False, allow_unicode=True, width=10**6)
+    return yaml.safe_dump(
+        {"servers": servers, **data}, sort_keys=False, allow_unicode=True, width=10**6
+    )
 
 
 def _properties_without_secrets(path: Path) -> tuple[bytes, dict[str, str]]:
@@ -175,12 +177,20 @@ def estimate(core) -> dict[str, Any]:
         files = sum(f.stat().st_size for f, _ in _server_files(base, worlds=False) if f.exists())
         backups = sum(p.stat().st_size for _, p in _backups(core.config, core.db, ctx.server_id))
         servers.append(
-            {"id": ctx.server_id, "name": ctx.name, "files": files, "worlds": world, "backups": backups}
+            {
+                "id": ctx.server_id,
+                "name": ctx.name,
+                "files": files,
+                "worlds": world,
+                "backups": backups,
+            }
         )
     return {"servers": servers}
 
 
-def export(core, target: Path, options: Options, progress: Callable[[int], None] | None = None) -> dict[str, Any]:
+def export(
+    core, target: Path, options: Options, progress: Callable[[int], None] | None = None
+) -> dict[str, Any]:
     """Write the export file. Returns the manifest."""
     if options.secrets and len(options.passphrase) < MIN_PASSPHRASE:
         raise TransferError(f"The passphrase needs at least {MIN_PASSPHRASE} characters.")
@@ -189,13 +199,22 @@ def export(core, target: Path, options: Options, progress: Callable[[int], None]
         "format": FORMAT,
         "app_version": __version__,
         "made_at": time.time(),
-        "includes": {"worlds": options.worlds, "backups": options.backups, "secrets": options.secrets},
+        "includes": {
+            "worlds": options.worlds,
+            "backups": options.backups,
+            "secrets": options.secrets,
+        },
         "servers": [],
     }
-    hidden: dict[str, Any] = {"env": {}, "account_hashes": {}, "push_subscriptions": [], "properties": {}}
+    hidden: dict[str, Any] = {
+        "env": {},
+        "account_hashes": {},
+        "push_subscriptions": [],
+        "properties": {},
+    }
     data: dict[str, Any] = {}
     for table in DATA_TABLES:
-        data[table] = db.query(f"SELECT * FROM {table}")  # noqa: S608 - fixed names
+        data[table] = db.query(f"SELECT * FROM {table}")
     data["accounts"] = db.query(f"SELECT {', '.join(ACCOUNT_COLUMNS)} FROM accounts")
     with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as zf:
         zf.writestr("config.yaml", _config_yaml(config))
@@ -226,7 +245,9 @@ def export(core, target: Path, options: Options, progress: Callable[[int], None]
                     progress(1)
             if options.backups:
                 for row, path in _backups(config, db, server_id):
-                    zf.write(path, f"backups/{server_id}/{path.name}", compress_type=zipfile.ZIP_STORED)
+                    zf.write(
+                        path, f"backups/{server_id}/{path.name}", compress_type=zipfile.ZIP_STORED
+                    )
                     kept = {k: v for k, v in row.items() if not k.startswith("copy_") and k != "id"}
                     entry["backups"].append(kept)
                     if progress:
@@ -303,7 +324,14 @@ def plan_import(manifest: dict[str, Any], servers_root: Path) -> list[dict[str, 
         target = Path(servers_root) / _folder_name(entry)
         if target.exists() and any(target.iterdir()):
             raise TransferError(f"{target} already has files in it. Choose another folder.")
-        out.append({"id": entry["id"], "name": entry.get("name"), "from": entry["directory"], "to": str(target)})
+        out.append(
+            {
+                "id": entry["id"],
+                "name": entry.get("name"),
+                "from": entry["directory"],
+                "to": str(target),
+            }
+        )
     return out
 
 
@@ -347,7 +375,7 @@ def _insert(db, table: str, row: dict[str, Any], drop: tuple[str, ...] = ("id",)
         return
     names = ", ".join(keep)
     marks = ", ".join("?" for _ in keep)
-    db.execute(f"INSERT OR IGNORE INTO {table} ({names}) VALUES ({marks})", tuple(keep.values()))  # noqa: S608
+    db.execute(f"INSERT OR IGNORE INTO {table} ({names}) VALUES ({marks})", tuple(keep.values()))
 
 
 def import_all(
@@ -378,7 +406,9 @@ def import_all(
         if config_path.is_file():
             stamp = time.strftime("%Y%m%d-%H%M%S")
             config_path.replace(config_path.with_name(f"{config_path.name}.before-import-{stamp}"))
-        config_path.write_text(_new_config(zf.read("config.yaml").decode("utf-8"), moved), encoding="utf-8")
+        config_path.write_text(
+            _new_config(zf.read("config.yaml").decode("utf-8"), moved), encoding="utf-8"
+        )
         config = Config.load(config_path, env_path)
         db = Database(config.database_path)
         data = json.loads(zf.read("data.json"))
@@ -386,7 +416,12 @@ def import_all(
             for row in data.get(table, []):
                 if table == "servers" and row.get("id") in moved:
                     row = {**row, "directory": moved[row["id"]]}
-                _insert(db, table, row, drop=() if table in ("servers", "settings", "players") else ("id",))
+                _insert(
+                    db,
+                    table,
+                    row,
+                    drop=() if table in ("servers", "settings", "players") else ("id",),
+                )
         backups = 0
         for entry in manifest["servers"]:
             if entry["id"] not in moved:
@@ -429,4 +464,10 @@ def import_all(
                 for key, value in hidden.get("env", {}).items():
                     write_env(Path(env_path), key, value)
         db.audit("import_from_pc", user="installer", detail=f"{len(places)} servers")
-    return {"servers": places, "files": files, "backups": backups, "helpers": helpers, "secrets": bool(hidden)}
+    return {
+        "servers": places,
+        "files": files,
+        "backups": backups,
+        "helpers": helpers,
+        "secrets": bool(hidden),
+    }

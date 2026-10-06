@@ -45,7 +45,9 @@ async def get_settings(
     config = core.config.as_dict(redact_secrets=True)
     if principal.servers is not None:
         # A helper limited to some servers isn't shown the others.
-        config["servers"] = [s for s in config.get("servers", []) if s.get("id") in principal.servers]
+        config["servers"] = [
+            s for s in config.get("servers", []) if s.get("id") in principal.servers
+        ]
     return {
         "config": config,
         "editable": list(SETTABLE_PREFIXES),

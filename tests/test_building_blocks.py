@@ -4,7 +4,6 @@ manager, permissions and per-server alerts."""
 import asyncio
 
 import pytest
-from fastapi.routing import APIRoute
 
 from agent.core import AgentCore
 from agent.database.db import Database

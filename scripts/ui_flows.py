@@ -54,9 +54,14 @@ def main():
             # and neither is the one 400 below.
             # The one 400 is the bad game setting saved on purpose below.
             allowed_400 = [1]
+            # While the offline screen is tested, every API request is cut on
+            # purpose, and Chrome logs each one.
+            cutting = [False]
 
             def console_error(m):
                 if m.type != "error" or "status of 401" in m.text:
+                    return
+                if cutting[0] and "ERR_FAILED" in m.text:
                     return
                 if "status of 400" in m.text and allowed_400[0] > 0:
                     allowed_400[0] -= 1
@@ -691,12 +696,81 @@ def main():
             page.screenshot(path=str(shots / "08-phone.png"))
             page.set_viewport_size({"width": 1440, "height": 900})
 
+            print("\n=== Helpers, Getting started, offline ===")
+            page.evaluate("location.hash = 'helpers'")
+            page.fill("#helper-name", "sam")
+            page.fill("#helper-password", "helper password 1")
+            page.locator("button", has_text="Add helper").click()
+            check(
+                "The owner adds a helper",
+                lambda: expect(page.locator("table")).to_contain_text("sam", timeout=8000),
+            )
+            page.screenshot(path=str(shots / "11-helpers.png"))
+            page.evaluate("location.hash = 'getting-started'")
+            check(
+                "Getting started lists the steps with buttons",
+                lambda: expect(page.locator(".guide-step")).to_have_count(7),
+            )
+            cutting[0] = True
+            page.route("**/api/**", lambda route: route.abort())
+            page.evaluate("location.hash = 'backups'")
+            check(
+                "When the PC can't be reached, the offline screen shows",
+                lambda: expect(page.locator("#offline")).to_be_visible(timeout=8000),
+            )
+            check(
+                "It says it will try again by itself",
+                lambda: expect(page.locator("#offline-next")).to_contain_text("Trying", timeout=8000),
+            )
+            page.screenshot(path=str(shots / "12-offline.png"))
+            page.unroute("**/api/**")
+            page.locator("#offline button", has_text="Try now").click()
+            check(
+                "Once the PC answers, it goes away by itself",
+                lambda: expect(page.locator("#offline")).to_be_hidden(timeout=15000),
+            )
+            page.wait_for_timeout(1000)
+            cutting[0] = False
+
             print("\n=== Sign out ===")
             page.locator(".signout").click()
             check(
                 "Signing out returns to the sign-in screen",
                 lambda: expect(page.locator("#login-form")).to_be_visible(),
             )
+
+            print("\n=== A helper's view ===")
+            page.fill("#username", "sam")
+            page.fill("#password", "helper password 1")
+            page.click("#login-form button[type=submit]")
+            page.wait_for_timeout(1500)
+            check(
+                "A helper has no add-server tab",
+                lambda: expect(page.locator("#tab-add")).to_have_count(0),
+            )
+            page.evaluate("location.hash = 'backups'")
+            check(
+                "A helper can back up but sees no Delete or Restore",
+                lambda: (
+                    expect(page.locator("button", has_text="Back up now")).to_be_visible(),
+                    expect(page.locator("button.danger", has_text="Delete")).to_have_count(0),
+                )[-1],
+            )
+            page.locator("#gear").click()
+            check(
+                "A helper's settings have no Helpers or Security page",
+                lambda: (
+                    expect(page.locator(".nav-item", has_text="Helpers")).to_have_count(0),
+                    expect(page.locator(".nav-item", has_text="Security")).to_have_count(0),
+                    expect(page.locator(".section h2", has_text="Your account")).to_be_visible(),
+                )[-1],
+            )
+            page.evaluate("location.hash = 'helpers'")
+            check(
+                "Typing the Helpers address sends a helper to the Overview",
+                lambda: expect(page.locator("#page-title")).to_have_text("Overview"),
+            )
+            page.screenshot(path=str(shots / "13-helper.png"))
             browser.close()
     finally:
         proc.terminate()

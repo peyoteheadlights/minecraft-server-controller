@@ -1,6 +1,8 @@
 import { api } from "../api.js";
 import { refreshStatus } from "../live.js";
 import { navigate } from "../nav.js";
+import { feedList } from "../feed.js";
+import { renderChecklist } from "../panels/checklist.js";
 import { friendsCard } from "../panels/friends.js";
 import { showCrash } from "./crashes.js";
 import { CAUSES, renderers, stateInfo, state } from "../state.js";
@@ -60,6 +62,7 @@ export function heroDetail(s) {
       return parts;
     }
     case "OFFLINE":
+      if (s.stopped_for_sleep) return [t("hero.slept"), versions ? ` ${t("hero.last_run", { versions })}` : ""];
       return [s.last_exit_reason === "force_killed" ? t("hero.force_stopped")
         : s.last_exit_reason ? t("hero.stopped") : t("hero.not_running"),
         versions ? ` ${t("hero.last_run", { versions })}` : ""];
@@ -378,12 +381,16 @@ function renderRecommendations(view) {
 
 async function fillCards() {
   const n = overview.nodes;
-  const [backups, schedules, recs, join] = await Promise.all([
+  const [backups, schedules, recs, join, events] = await Promise.all([
     api("/backups").catch(() => null), api("/schedules").catch(() => null),
     api("/recommendations").catch((err) => ({ error: err.message })),
     api("/join").catch((err) => ({ error: err.message })),
+    api("/events?limit=40").catch(() => null),
   ]);
   if (n !== overview.nodes) return;
+  n.feed.replaceChildren((events && (events.events || []).length)
+    ? feedList(events.events, 8)
+    : emptyState(t("overview.activity_none")));
   n.join.replaceChildren(join.error ? el("p", { class: "hint" }, join.error) : friendsCard(join));
   n.backup.replaceChildren(backups ? lastBackupCard(backups.backups || []) : emptyState(t("value.unknown")));
   n.next.replaceChildren(schedules ? nextTaskCard(schedules.schedules || []) : emptyState(t("value.unknown")));
@@ -412,11 +419,14 @@ renderers.dashboard = (page) => {
     players: el("div"),
     details: el("div"),
     join: el("div", {}, el("div", { class: "empty" }, t("status.loading"))),
+    start: el("div"),
+    feed: el("div", {}, el("div", { class: "empty" }, t("status.loading"))),
     console: el("div", { class: "console-body", role: "log", "aria-label": t("overview.recent_console") }),
   };
   overview.nodes = nodes;
 
   page.append(
+    nodes.start,
     nodes.notices,
     el("div", { class: "hero", role: "region", "aria-labelledby": "server-state-title" },
       el("div", { class: "hero-main" },
@@ -430,6 +440,11 @@ renderers.dashboard = (page) => {
       section(t("overview.players_online"), null, nodes.players)),
     el("div", { class: "gap-section" }, section(t("join.title"), null, nodes.join)),
     el("div", { class: "gap-section" }, section(t("overview.recommendations"), null, nodes.recs)),
+    el("section", { class: "section gap-section" },
+      el("div", { class: "section-head" }, el("h2", {}, t("overview.activity")), el("div", { class: "grow" }),
+        el("button", { class: "btn plain small", type: "button", onclick: () => navigate("events") },
+          t("overview.open_events"))),
+      el("div", { class: "group-box" }, nodes.feed)),
     el("div", { class: "gap-section" }, section(t("overview.details"), null, nodes.details)),
     technical() ? el("section", { class: "section gap-section" },
       el("div", { class: "section-head" }, el("h2", {}, t("overview.recent_console")), el("div", { class: "grow" }),
@@ -442,6 +457,7 @@ renderers.dashboard = (page) => {
   else nodes.console.append(emptyState(t("console.empty"), t("console.empty_hint")));
 
   overviewUpdate();
+  renderChecklist(nodes.start);
   requestAnimationFrame(() => { nodes.console.scrollTop = nodes.console.scrollHeight; });
   if (s.state === "CRASHED" || s.state === "RESTART_PENDING") loadLatestCrash();
   fillCards();

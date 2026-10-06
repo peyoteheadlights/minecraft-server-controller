@@ -57,6 +57,25 @@ happen, then on confirmation:
 Your old world is still on disk afterwards, under its `.replaced-` name. Delete
 it yourself once you are happy.
 
+## Restore world
+
+**Restore world** is the same restore, arranged as a timeline instead of a
+list of files: every backup that holds a world, newest first, each with what
+going back to it would lose in plain words ("3 hours ago · about 2 hours of
+play lost"). The play figure comes from the sessions the player tracker
+recorded. Where nothing was recorded, it says so rather than claiming nobody
+played.
+
+Two things are different from the Backups page:
+
+- **The server must already be off.** This page does not stop Minecraft for
+  you: stopping a server people are playing on is not part of choosing a
+  point in time. Stop it from Overview first.
+- **A backup that was not checked is not offered**, and the page says why.
+
+Everything else is the ordinary restore above, safety backup and all, so
+going back can itself be undone from the Backups page.
+
 ## Retention
 
 ```yaml

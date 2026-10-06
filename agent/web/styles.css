@@ -1159,3 +1159,93 @@ td .btn-row { flex-wrap: nowrap; justify-content: flex-end; }
 .join-address { font-family: var(--mono); font-size: 14px; padding: 3px 8px; border-radius: var(--radius-sm);
   background: var(--surface-sunken); color: var(--text-primary); font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere; }
+
+/* ---------------------------------------------------------- Phase 5 */
+/* Getting started: four things worth doing once, each ticked from real state */
+.getting-started .group-box { background: var(--accent-band); }
+.check-list { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-2); }
+.check-item { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3);
+  background: var(--surface); border-radius: var(--radius); box-shadow: 0 0 0 0.5px var(--border); }
+.check-item .check-main { flex: 1; min-width: 0; }
+.check-item .hint { margin: 2px 0 0; }
+.check-mark { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--border-strong); color: var(--success); flex: none; }
+.check-item.is-done .check-mark { box-shadow: inset 0 0 0 1.5px var(--success); }
+.check-mark .icon { width: 15px; height: 15px; }
+.check-item.is-done strong { color: var(--text-secondary); }
+
+/* Help buttons: a "?" next to a setting, with its explanation under it */
+.help-row { margin-bottom: var(--space-2); }
+.help-head { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.help-head .switch, .help-head .check-row { margin: 0; }
+.help-label { font-weight: 600; font-size: 13.5px; }
+.help-button { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; flex: none;
+  border: 0; border-radius: 50%; background: var(--surface-selected); color: var(--text-secondary);
+  cursor: pointer; }
+.help-button:hover { color: var(--text-primary); }
+.help-button:focus-visible { outline: none; box-shadow: var(--focus); }
+.help-button .icon { width: 14px; height: 14px; }
+.help-text { margin-top: var(--space-2); padding: var(--space-2) var(--space-3); max-width: 46rem;
+  background: var(--surface-sunken); border-radius: var(--radius); color: var(--text-secondary);
+  font-size: 13px; }
+.help-text p { margin: 0; }
+.help-text .btn { margin-top: 4px; }
+
+/* Chat: what players said, and what you say back as Server */
+.chat { display: flex; flex-direction: column; background: var(--surface);
+  border-radius: var(--radius-lg); box-shadow: 0 0 0 0.5px var(--border); overflow: hidden;
+  height: calc(100vh - 300px); min-height: 320px; }
+.chat-body { flex: 1; overflow-y: auto; padding: var(--space-2) 0; }
+.chat-line { display: grid; grid-template-columns: 58px minmax(0, auto) minmax(0, 1fr); gap: var(--space-2);
+  padding: 3px var(--space-4); align-items: baseline; }
+.chat-line .time { color: var(--text-tertiary); font-size: 12px; font-variant-numeric: tabular-nums; }
+.chat-who { font-weight: 600; color: var(--text-primary); overflow-wrap: anywhere; }
+.chat-who.chat-server { color: var(--accent-ink); }
+.chat-text { color: var(--text-primary); overflow-wrap: anywhere; white-space: pre-wrap; }
+.chat-line.kind-server .chat-text { color: var(--accent-ink); }
+.chat-line.kind-action .chat-text { font-style: italic; color: var(--text-secondary); }
+.chat-foot { display: flex; gap: var(--space-2); align-items: center; padding: var(--space-2);
+  border-top: 1px solid var(--border); background: var(--surface); }
+.chat-foot .chat-as { color: var(--text-tertiary); font-size: 12.5px; padding-left: 4px; }
+.chat-foot .input { flex: 1; }
+.chat .empty { margin: auto; }
+
+/* Restore world: the points in time this world can go back to */
+.timeline { list-style: none; margin: var(--space-3) 0 0; padding: 0 0 0 var(--space-3);
+  display: grid; gap: var(--space-2); border-left: 2px solid var(--border); }
+.timeline-point { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
+  padding: var(--space-2) var(--space-3); background: var(--surface); border-radius: var(--radius);
+  box-shadow: 0 0 0 0.5px var(--border); position: relative; }
+.timeline-dot { position: absolute; left: calc(var(--space-3) * -1 - 5px); width: 8px; height: 8px;
+  border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--sheet); }
+.timeline-main { flex: 1; min-width: 12rem; }
+.timeline-main .hint { margin: 2px 0 0; }
+.timeline-actions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+
+/* Activity feed: events as sentences, grouped by day */
+.feed-day + .feed-day { margin-top: var(--space-4); }
+.feed-day-label { font-size: 12.5px; font-weight: 600; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 var(--space-2); }
+.feed-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.feed-item { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: var(--space-3);
+  align-items: baseline; padding: 4px 0; border-bottom: 1px solid
+  color-mix(in srgb, var(--border) 45%, transparent); }
+.feed-item:last-child { border-bottom: 0; }
+.feed-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--neutral); align-self: center; }
+.feed-dot.tone-success { background: var(--success); }
+.feed-dot.tone-warning { background: var(--warning); }
+.feed-dot.tone-danger { background: var(--danger); }
+.feed-text { color: var(--text-primary); overflow-wrap: anywhere; }
+.feed-raw { color: var(--text-tertiary); font-size: 11.5px; margin-top: 2px; overflow-wrap: anywhere; }
+.feed-time { color: var(--text-tertiary); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* Phone alerts */
+.phone-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.phone-list li { display: flex; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap;
+  font-size: 13px; }
+
+@media (max-width: 760px) {
+  .chat { height: calc(100vh - 260px); }
+  .chat-line { grid-template-columns: 48px minmax(0, auto) minmax(0, 1fr); padding: 3px var(--space-3); }
+  .timeline-point { align-items: flex-start; }
+}

@@ -10,9 +10,9 @@ Each server has a tab across the top, like the dividers in a folder, with
 page under a tab takes that server's color: the header, the page itself and
 its cards are all tinted with it, and its buttons are filled with it. The
 server's own pages are listed down the left side of the page, under its
-name, in three groups: **Live** (Overview, Players, Console, Performance),
-**Manage** (Backups, Mods, Schedules, Server settings) and **History**
-(Events, Crashes).
+name, in three groups: **Live** (Overview, Players, Chat, Console, Performance),
+**Manage** (Backups, Restore world, Mods, Game settings, Schedules, Server
+settings) and **History** (Events, Crashes).
 
 Each server has a badge: its initials on its color. It is on the server's
 tab, with a dot on its corner for the server's state, before its name at the
@@ -51,8 +51,18 @@ next to **Security**:
   the exact terms (TPS, MSPT, RSS, `-Xmx`), shows extra columns and graphs,
   and opens the "Advanced" sections. Every label in the dashboard has both
   versions.
-- **Alerts**: thresholds, Discord and email, and which events send one.
+- **Alerts**: thresholds, Discord, email and **Phone**, and which events send
+  one. Phone alerts need two things on: the channel itself, and this phone,
+  which the browser asks about and which is answered once per phone. The card
+  lists the phones signed up and when each last had an alert, and **Send a
+  test** proves the whole path works.
 - **Maintenance mode** and the **Windows startup** check.
+
+Small **?** buttons sit next to the settings that are easy to misread
+(auto-sleep, phone alerts, Restore world, memory, how many backups to keep).
+Pressing one opens a sentence or two in place; where there is more to say it
+links to the matching page in `docs/`. They work from the keyboard like any
+other button.
 
 ## Overview
 
@@ -88,6 +98,23 @@ said to be missing rather than filled in. Whether the server can be reached
 from the internet is always shown as **not known**: the app doesn't test
 it and doesn't open router ports.
 
+**Getting started** appears on a new server until its four items are done:
+the server is set up, a backup has run and checked out, somebody has joined,
+and alerts are on. Each is ticked from something the app measured, never from
+pressing the item — pressing it only takes you to the page where it is done.
+**Hide** puts it away for that server, and once every item is done it does not
+come back.
+
+**What happened** is the recent activity in plain sentences, grouped by day
+("Today", "Yesterday"): "Alex joined.", "The server came online.", "A backup
+finished and was checked." The steps the app took on the way (requesting a
+start, detecting the tick command) are left out in Simple mode; Technical mode
+shows every event with its raw type and data. **See all** opens the Events
+page, which is the same feed without a limit.
+
+When a server was put to sleep because nobody was playing, the state says so,
+and that starting it again is up to you.
+
 **Suggestions** appear when there is a reason for one, such as no backup
 schedule or no backup in a week. Each says why and what it is based on.
 **Not now** hides it until the evidence changes; **Don't show again** hides it
@@ -107,6 +134,20 @@ errors are coloured, and your own commands are marked.
 
 The box at the bottom sends one Minecraft command. It is not a Windows shell.
 Commands such as `stop`, `op`, `ban` and `whitelist` ask for confirmation.
+
+## Chat
+
+The in-game chat, read from the server's own console output, so every
+message here was really printed by Minecraft: what players said, `/me`
+actions, and what the server said. Nothing is reconstructed from what this
+app sent — a message you send appears once the console prints it back.
+
+The box at the bottom sends a message to everyone in the game as **Server**.
+It becomes a `say` command and passes exactly the checks a console command
+passes, so the chat box can no more reach Windows than the console can.
+Letters, numbers and basic punctuation only, up to 220 characters; anything
+else is refused with the reason. The box is disabled while the server is
+off.
 
 ## Players
 
@@ -187,6 +228,18 @@ While a restore runs, the server cannot be started from anywhere (the button,
 a schedule, another device), and mod changes wait: a server runs one change
 like this at a time.
 
+## Restore world
+
+A timeline of the points this server's world can be put back to, newest
+first, each saying when it was and what going back would lose ("3 hours ago ·
+about 2 hours of play lost"). Where no play was recorded it says so rather
+than claiming nobody played.
+
+Going back always takes a fresh backup of the world as it is now first, so
+the undo can itself be undone from Backups. The server has to be off; while
+it is running the page says so with a button to Overview. A backup that was
+not checked is listed but not offered. See `docs/backups.md`.
+
 ## Mods, or Plugins
 
 The add-on manager. The page calls itself what this server's type calls them:
@@ -206,9 +259,13 @@ restart (off), and a weekly log cleanup (on).
 
 ## Events
 
-Everything the agent has recorded for this server, newest first: starts,
-stops, crashes, backups, mod changes, threshold breaches, scheduled tasks.
-Problems and warnings are marked. Technical mode adds the event type.
+Everything the agent has recorded for this server, newest first and grouped
+by day, written as plain sentences: starts, stops, crashes, backups, mod
+changes, threshold breaches, scheduled tasks. Problems and warnings are
+marked with a colored dot. Simple mode leaves out the app's own intermediate
+steps; Technical mode shows every event with its type and the data it
+carried. An event type with no sentence of its own falls back to the message
+the agent wrote, so nothing is ever hidden because it is new.
 
 ## Crashes
 
@@ -247,6 +304,14 @@ Each server's own settings, on its tab:
   type is built from this PC's real Tailscale address; if that can't be read
   the panel says so rather than showing one. The differences a Bedrock player
   will notice are listed before you turn anything on.
+- **Sleep when empty**: stop this server once nobody has played for a set
+  number of minutes (off by default, 30 minutes when you turn it on). A
+  minute before the stop, everyone in the game is warned in chat. It is a
+  planned stop, not a crash, so no crash alert goes out and no automatic
+  restart follows — **the server does not start again by itself**, which the
+  setting says plainly. While the player count is Unknown, nothing is
+  stopped: "nobody is online" would be a guess. The card shows the measured
+  count and how long is left.
 - **Backups**: how many daily, weekly and monthly backups to keep, and the
   start and stop timeouts.
 - **Duplicate this server** makes a new server with the same software, mods,
@@ -314,6 +379,26 @@ pack into the server that is open.
 
 The address Bedrock players type is on the Overview's **How friends join**
 card.
+
+## Install it on a phone
+
+The dashboard can be added to a phone's home screen and opened like an app,
+full screen with no browser bars.
+
+- **iPhone or iPad:** open the dashboard in Safari, then **Share → Add to
+  Home Screen**. This is also what Safari needs before phone alerts can be
+  turned on.
+- **Android:** Chrome offers **Install app** or **Add to Home screen** from
+  its menu.
+- **Windows or Mac:** Chrome and Edge show an install button in the address
+  bar.
+
+A small service worker makes that possible and delivers phone alerts. It
+keeps a copy of the app's own files (the page, its stylesheet, its scripts
+and its icons) so the dashboard opens instantly, and **never** keeps a copy
+of anything from `/api`: no world data, no player name and no sign-in token
+is written to the phone. It asks the network first every time, so what you
+see is never a stale copy of itself.
 
 ## Security
 

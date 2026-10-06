@@ -9,7 +9,7 @@ import { t } from "./strings.js";
 const PER_SERVER = new Set([
   "status", "info", "server", "logs", "events", "crashes", "players", "performance",
   "worlds", "tps", "mods", "backups", "schedules", "recommendations",
-  "game-settings", "join", "duplicate", "modpack",
+  "game-settings", "join", "duplicate", "modpack", "chat", "world", "getting-started",
 ]);
 
 export function serverPath(path, serverId = state.serverId) {

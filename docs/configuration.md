@@ -63,6 +63,8 @@ folder; the refusal names the other server.
 | `stop_timeout` | `90` | Seconds to wait after `stop` before terminating the process |
 | `start_timeout` | `300` | Seconds to wait for `Done (…)!` before giving up |
 | `autostart_minecraft` | `false` | Start Minecraft when the agent starts |
+| `autosleep` | `false` | Stop this server when nobody has been playing for a while. Off until you turn it on, per server. It never stops a server while the player count is Unknown, because "nobody is online" would then be a guess. The server does not start again by itself. |
+| `autosleep_minutes` | `30` | How long the server has to be empty first, between 1 and 1440 (24 hours). A warning goes out in the game a minute before the stop. |
 | `cpu_cores` | `[]` | Which CPU cores this server may use, counted from 0 as Task Manager's "Set affinity" does (`[0, 1, 2, 3]` is cores 1 to 4). Empty means every core. Java is also told how many cores it has (`-XX:ActiveProcessorCount`, unless `jvm_args` already sets it). A core this PC does not have stops the start with a message. Settings → CPU cores sets it, and a change applies at once to a running server. |
 
 ## monitor

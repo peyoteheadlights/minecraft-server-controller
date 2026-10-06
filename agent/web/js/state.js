@@ -35,6 +35,9 @@ export const state = {
   refreshTimer: null,
   // Performance graphs: hours of history shown.
   range: Number(remembered("mcsc_range")) || 6,
+  // In-game chat for the selected server, newest last.
+  chat: [],
+  chatLimit: 300,
 };
 
 /* Every page: [key, strings key of its name, where it lives, icon].
@@ -47,7 +50,9 @@ export const PAGES = [
   ["add-server", "page.add_server", "add", "plus"],
   ["dashboard", "page.overview", "server", "overview"],
   ["players", "page.players", "server", "players"],
+  ["chat", "page.chat", "server", "chat"],
   ["backups", "page.backups", "server", "backups"],
+  ["world", "page.world", "server", "undo"],
   ["mods", "page.mods", "server", "mods"],
   ["game-settings", "page.game_settings", "server", "game"],
   ["schedules", "page.schedules", "server", "schedules"],

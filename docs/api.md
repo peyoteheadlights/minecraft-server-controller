@@ -80,6 +80,37 @@ an estimate. A server runs one risky job at a time; a second gets 409.
 `GET /api/logs/download`, `POST /api/logs/clear`,
 `GET /api/events?limit=`.
 
+## Chat and the getting-started checklist
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/chat?lines=` | The chat the console printed, newest last, plus `running` and how many lines are kept |
+| POST | `/api/chat` | `{"message": "..."}` sent as **Server**. Becomes a `say` command and passes the same validation as a console command; letters, digits and basic punctuation only, 220 characters. Answers `{"result": "SENT", ...}`: the message appears in `/api/chat` once the console prints it |
+| GET | `/api/getting-started` | The four checklist items, each with `done`, the page it leads to, and the evidence it was ticked from |
+| POST | `/api/getting-started/dismiss` | Hide the card for this server |
+
+Chat is not stored in the database and not replayed on reconnect: it is as
+chatty as the console itself. Live messages arrive on the WebSocket as
+`chat` events, and only for the server the page is watching.
+
+## Restore world
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/world/timeline` | The points this world can be put back to, newest first, with `age_seconds`, `played_seconds` (`null` when no sessions were recorded), `checked`, plus `server_running`, `can_restore` and `blocked_by` |
+| POST | `/api/world/undo` | `{"backup_id": 7, "confirm": true}`. 409 while the server is running or a change holds it; always takes a safety backup first and answers with it |
+
+## Phone alerts
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/push` | `configured`, `enabled`, the VAPID **public** key, the phones signed up (no keys), and the command that makes the keys |
+| POST | `/api/push/subscribe` | `{"subscription": <the browser's PushSubscription JSON>, "label": "Pixel"}`. 409 when no keys are set up |
+| POST | `/api/push/unsubscribe` | `{"endpoint": "..."}` |
+| POST | `/api/push/test` | One test alert to every phone signed up |
+
+These are agent-wide, not per server. The private VAPID key is never served.
+
 ## Players and performance
 
 `GET /api/players`, `GET /api/players/sessions?username=`,
@@ -185,7 +216,8 @@ counting down; `restart_at` in `/api/status` is the deadline (Unix time).
 `GET|POST /api/schedules`, `PUT|DELETE /api/schedules/{id}`,
 `POST /api/schedules/{id}/run`,
 `GET|PUT /api/settings`, `POST /api/maintenance`,
-`POST /api/notifications/test?channel=`, `GET /api/notifications/history`,
+`POST /api/notifications/test?channel=` (`discord`, `email` or `push`),
+`GET /api/notifications/history`,
 `GET /api/security`, `GET /api/security/tls`, `GET /api/security/audit`,
 `POST /api/security/revoke-sessions`.
 

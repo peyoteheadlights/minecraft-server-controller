@@ -50,6 +50,13 @@ export const ICONS = {
   clear: [["path", { d: "M5 7h14M10 7V5h4v2M7 7l.8 12h8.4L17 7" }]],
   follow: [["path", { d: "M12 5v13M7 13l5 5 5-5" }]],
   pause: [["path", { d: "M9 6v12M15 6v12" }]],
+  chat: [["path", { d: "M4 5.5h16a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 20 16.5H9.5L5 20v-3.5H4A1.5 1.5 0 0 1 2.5 15V7A1.5 1.5 0 0 1 4 5.5z" }],
+         ["path", { d: "M7 10.5h.01M11.5 10.5h.01M16 10.5h.01" }]],
+  undo: [["path", { d: "M4 10.5h9.5a5 5 0 1 1 0 10H8" }], ["path", { d: "M7.5 6 4 10.5 7.5 15" }]],
+  help: [["circle", { cx: 12, cy: 12, r: 8.5 }], ["path", { d: "M9.6 9.3a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.4" }],
+         ["path", { d: "M12 16.8h.01" }]],
+  bell: [["path", { d: "M12 3.5a5.5 5.5 0 0 1 5.5 5.5v3l1.5 3H5l1.5-3V9A5.5 5.5 0 0 1 12 3.5z" }],
+         ["path", { d: "M9.8 18a2.2 2.2 0 0 0 4.4 0" }]],
   signout: [["path", { d: "M14 4.5h4A1.5 1.5 0 0 1 19.5 6v12a1.5 1.5 0 0 1-1.5 1.5h-4" }], ["path", { d: "M10 8l-4 4 4 4M6 12h9" }]],
 };
 
@@ -321,4 +328,42 @@ export function detailRows(pairs) {
       el("span", { class: `row-value${mono ? " mono" : ""}${known(value) ? "" : " unknown"}`,
         title: typeof value === "string" ? value : "" },
         known(value) ? value : t("value.unknown")))));
+}
+
+/* A small "?" next to a setting that needs explaining: one or two plain
+   sentences, and a "Learn more" link into the project's docs where there
+   is one. The words live in the strings table like every other label
+   ("help.<topic>" and the optional "help.<topic>_more_label"); DOCS is
+   where "Learn more" points. Keyboard-operable: it is a button, and its
+   panel is tied to it with aria-controls and aria-expanded. */
+const DOCS = "https://github.com/peyoteheadlights/minecraft-server-controller/blob/main/docs/";
+
+/* Every topic a "?" can explain. Each one has a "help.<topic>" entry in the
+   strings table, which tests/test_strings.py checks against this list. */
+export const HELP_TOPICS = ["autosleep", "phone_alerts", "world_undo", "keep_backups", "memory"];
+
+export function help(topic, doc = null) {
+  if (!HELP_TOPICS.includes(topic)) console.error(`Unknown help topic: ${topic}`);
+  const id = `help-${topic.replace(/[^a-z0-9]/g, "-")}-${Math.random().toString(36).slice(2, 7)}`;
+  const panel = el("div", { class: "help-text", id, hidden: true },
+    el("p", {}, t(`help.${topic}`)),
+    doc ? el("a", { class: "btn plain small", href: DOCS + doc, target: "_blank", rel: "noopener noreferrer" },
+      t("help.learn_more")) : null);
+  const button = el("button", {
+    class: "help-button", type: "button", "aria-expanded": "false", "aria-controls": id,
+    title: t("help.what_is_this"), "aria-label": t("help.what_is_this"),
+    onclick: () => {
+      const open = button.getAttribute("aria-expanded") === "true";
+      button.setAttribute("aria-expanded", open ? "false" : "true");
+      panel.hidden = open;
+    },
+  }, icon("help"));
+  return { button, panel };
+}
+
+/* A heading (or label) with its help button, and the explanation under it. */
+export function withHelp(label, topic, doc = null) {
+  const { button, panel } = help(topic, doc);
+  return el("div", { class: "help-row" },
+    el("div", { class: "help-head" }, label, button), panel);
 }

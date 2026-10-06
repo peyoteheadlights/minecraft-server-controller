@@ -1,6 +1,7 @@
 import { api } from "./api.js";
 import { signOut } from "./auth.js";
 import { navigate, render, renderRail } from "./nav.js";
+import { appendChatLine } from "./pages/chat.js";
 import { appendConsoleLine, renderConsoleLines } from "./pages/console.js";
 import { loadLatestCrash, overviewConsoleAppend, overviewUpdate } from "./pages/overview.js";
 import { setFavicon } from "./colors.js";
@@ -27,6 +28,7 @@ export function connectSocket() {
       if (message.server_id !== state.serverId) return;  // switched while connecting
       state.status = message.status;
       state.console = message.console || [];
+      state.chat = [];
       updateStatusViews();
       if (state.page === "console") renderConsoleLines();
       else if (state.page === "dashboard") render();
@@ -141,6 +143,11 @@ export function handleEvent(event) {
     if (state.page === "console") appendConsoleLine(data);
     if (state.page === "dashboard") overviewConsoleAppend(data);
     if (state.status && state.status.state === "STARTING") updateStatusViews();
+    return;
+  }
+  if (event.type === "chat") {
+    // Only this server's chat reaches this browser (the socket filters it).
+    appendChatLine(data);
     return;
   }
   if (event.type === "state") {

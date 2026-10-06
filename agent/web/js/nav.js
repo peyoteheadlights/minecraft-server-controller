@@ -52,8 +52,8 @@ function renderHead() {
 /* The server's pages in three small groups, so the list reads at a glance:
    what is happening now, looking after the server, and what happened. */
 const NAV_GROUPS = [
-  ["nav.group_live", ["dashboard", "players", "console", "performance"]],
-  ["nav.group_manage", ["backups", "mods", "game-settings", "schedules", "settings"]],
+  ["nav.group_live", ["dashboard", "players", "chat", "console", "performance"]],
+  ["nav.group_manage", ["backups", "world", "mods", "game-settings", "schedules", "settings"]],
   ["nav.group_history", ["events", "crashes"]],
 ];
 

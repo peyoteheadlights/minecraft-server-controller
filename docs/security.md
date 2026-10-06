@@ -47,6 +47,17 @@ built from a fixed template and then passes the same validation as anything
 typed in the console (`agent/minecraft/commands.py`). Kick and ban need
 `confirm: true`. See `agent/minecraft/playeractions.py`.
 
+The chat box is the same story. A message sent from the Chat page becomes a
+`say` command and passes exactly the same validation
+(`agent/minecraft/chat.py` calls `agent/minecraft/commands.py`), with a
+narrower character set still: letters, digits and basic punctuation, up to
+220 characters, no newline or carriage return, so one message can never
+become two commands. Chat shown in the dashboard is read from the server's
+own console output; nothing is reconstructed from what this app sent.
+
+Auto-sleep adds no new way to run anything either: it stops a server through
+the same code path as a scheduled stop.
+
 ### The one program the agent runs that isn't Minecraft
 
 Forge, NeoForge and Quilt publish an installer rather than a server jar: it
@@ -217,6 +228,47 @@ exception of the loader installer described under Command injection.
   string, so tokens don't end up in logs or browser history. It checks the
   `Origin` header and is read-only — actions go through the audited REST
   API.
+- The CSP gained exactly two directives for installing the dashboard on a
+  phone: `worker-src 'self'` and `manifest-src 'self'`. Nothing was
+  loosened; inline scripts and styles are still refused.
+
+## The service worker
+
+`agent/web/sw.js` is served from the site root so it covers the whole
+dashboard. It exists to open the app full screen from a phone's home screen
+and to deliver phone alerts.
+
+- It caches **only** this origin's own static files (the page, the
+  stylesheet, the scripts, the icons and the manifest). Anything under
+  `/api` or `/ws` returns before the caching branch, so no world data, no
+  player name and no sign-in token is ever written to the phone's storage.
+- It asks the network first and falls back to the cache, so the dashboard is
+  never a stale copy of itself.
+- It calls no `eval`, no `Function` and no `importScripts`, so nothing it is
+  sent can become code.
+- A phone alert is rendered from the JSON in the push message alone; the
+  worker fetches nothing while showing one.
+- `tests/test_install_on_phone.py` checks each of these points.
+
+## Phone alerts
+
+The VAPID key pair lives in `.env` with the other secrets, made by
+`python -m installer.make_push_keys`, which refuses to overwrite an existing
+pair. The public half is handed to each phone's browser, which is what it is
+for; the private half never leaves the PC, and `/api/push` serves only the
+public one.
+
+Each message is encrypted for one subscription (RFC 8291) before it is
+posted, so the browser vendor's push service carries text it cannot read,
+and every request is signed with the VAPID key (RFC 8292) so a push service
+can tell this app's messages apart from anyone else's. Both are implemented
+in `agent/notifications/push.py` with `cryptography` — no extra dependency,
+no third-party service account.
+
+A subscription is stored only with the endpoint and the two keys the browser
+supplied, and is deleted the first time its push service answers 404 or 410.
+At most 20 phones can be signed up. The list shown in the dashboard never
+includes the keys.
 
 ## Auditing
 

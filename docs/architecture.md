@@ -198,14 +198,18 @@ agent/
   duplicate.py         copying a server into a new one, as a job
   modpack.py           reading and importing Modrinth .mrpack files
   joininfo.py          the addresses friends type, read from this machine
+  autosleep.py         stopping a server nobody is playing on, per server
+  worldundo.py         the "Restore world" timeline, over the existing backups
+  checklist.py         the getting-started items, each from measured state
   api/                 deps.py, errors.py (domain error -> HTTP status), ws.py,
                        routes/ (one router per area: server, console, players,
                        mods, backups, schedules, server_settings, gamesettings,
-                       duplicate, modpacks, friends (per server);
-                       auth, settings, security, system, jobs (agent-wide))
+                       duplicate, modpacks, friends, chat, world (per server);
+                       auth, settings, security, system, jobs, pushalerts
+                       (agent-wide))
   backups/manager.py
   database/db.py       schema + migrations
-  minecraft/           state, process, console, commands, analyzer, crash,
+  minecraft/           state, process, console, commands, chat, analyzer, crash,
                        properties (server.properties reader/writer that keeps
                        comments and unknown keys), playeractions (the player
                        buttons and the console answers that confirm them)
@@ -215,11 +219,17 @@ agent/
   servertypes/         what each kind of server is, its versions, installs,
                        version and type changes, and making a new one
   monitoring/          metrics, players
-  notifications/dispatcher.py
+  notifications/       dispatcher.py, push.py (Web Push: RFC 8291 encryption
+                       and RFC 8292 signing, written on `cryptography`)
   scheduler/scheduler.py
   security/            auth, paths, permissions, certs, tls
-  web/                 index.html, styles.css, theme.js, js/ (ES modules: main.js, pages/, panels/)
-installer/             setup_tool, autostart, make_certs, make_secrets, firewall.ps1
+  web/                 index.html, styles.css, theme.js, sw.js (service worker),
+                       manifest.webmanifest, icons/, js/ (ES modules: main.js,
+                       pages/, panels/)
+installer/             setup_tool, autostart, make_certs, make_secrets,
+                       make_push_keys, firewall.ps1
+scripts/               ui_check.py, ui_flows.py, make_icons.py (the home-screen
+                       icons, drawn from the same mark as icon.svg)
 tests/                 the suite, plus a fake Minecraft server
 ```
 
@@ -255,7 +265,10 @@ directly, so there is still nothing to compile. `index.html` loads one module,
   `tests/test_strings.py` checks both versions exist with the same
   placeholders, every key used exists, and every entry is used.
 - `pages/*.js` each register a renderer for one page; `panels/*.js` are the
-  TPS and dependency panels those pages embed.
+  TPS, dependency and getting-started panels those pages embed.
+- `feed.js` turns an event into one plain sentence, grouped by day, for both
+  the Overview card and the Events page; `pwa.js` registers the service
+  worker and handles signing a phone up for alerts.
 
 The CSP allows no inline styles, so styling goes in `styles.css`. For a value
 computed at runtime (a bar width, an indent), pass `el()` a style object; it is

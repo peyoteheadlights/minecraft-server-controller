@@ -5,6 +5,7 @@
 import "./pages/add-server.js";
 import "./pages/app-settings.js";
 import "./pages/backups.js";
+import "./pages/chat.js";
 import "./pages/console.js";
 import "./pages/crashes.js";
 import "./pages/events.js";
@@ -16,12 +17,14 @@ import "./pages/players.js";
 import "./pages/schedules.js";
 import "./pages/security.js";
 import "./pages/settings.js";
+import "./pages/world.js";
 import "./servers.js";
 import { api } from "./api.js";
 import { signOut } from "./auth.js";
 import { connectSocket, renderStatus } from "./live.js";
 import { render, renderRail } from "./nav.js";
 import { adopt } from "./prefs.js";
+import { registerServiceWorker } from "./pwa.js";
 import { loadServers } from "./servers.js";
 import { pageEntry, state } from "./state.js";
 import { t } from "./strings.js";
@@ -79,6 +82,9 @@ async function startApp(me) {
   renderStatus();
   render();
   connectSocket();
+  // Lets the dashboard be added to a phone's home screen, and is what
+  // phone alerts are delivered through.
+  registerServiceWorker();
 }
 
 if (state.token) {

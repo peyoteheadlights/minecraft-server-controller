@@ -47,8 +47,22 @@ dashboard you can open from your computer or phone over a private
   one button puts the old version back
 - Let Bedrock players join a Java server (Geyser and Floodgate), with the
   differences they will notice written out in plain words
+- In-game chat on its own page, read from the server's console, with a box to
+  say something to everyone as "Server"
+- Restore world: the backups that hold a world as a timeline, each saying what
+  going back would lose, with a fresh backup taken first
+- Sleep when empty: stop a server nobody is playing on after a set time, with
+  a warning in the game first. It never acts on a player count that is Unknown,
+  and never starts the server again by itself
+- A getting-started checklist on a new server, every item ticked from
+  something the app measured
+- Activity in plain sentences grouped by day, with the raw event type and data
+  in Technical mode
 - Scheduled tasks: backups, restarts, log cleanup, maintenance windows
-- Discord and email alerts
+- Discord, email and phone alerts (Web Push, encrypted per phone, no account
+  anywhere)
+- Install it on a phone's home screen and open it full screen, with a service
+  worker that caches the app's own files and never an API answer
 - Starts with Windows through a scheduled task, without anyone logging in
 - HTTPS, hashed passwords, session tokens, rate limiting, audit log,
   Tailscale-only access

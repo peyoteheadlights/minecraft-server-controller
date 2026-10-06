@@ -9,7 +9,7 @@ import { loadServerTypes, versionCard } from "../panels/version.js";
 import { loadServers, serverRow } from "../servers.js";
 import { renderers, state } from "../state.js";
 import { t, technical } from "../strings.js";
-import { advanced, busy, card, confirmDialog, el, loadInto, toast } from "../ui.js";
+import { advanced, busy, card, confirmDialog, el, fmt, loadInto, section, toast, withHelp } from "../ui.js";
 
 const serverUrl = (path) => `/servers/${encodeURIComponent(state.serverId)}${path}`;
 
@@ -128,6 +128,37 @@ function crashCard(own) {
     })));
 }
 
+/* ------------------------------------------------------------ sleep when empty */
+
+function sleepCard(own) {
+  const settings = own.server;
+  const sleep = state.status && state.status.sleep;
+  const on = el("input", { type: "checkbox", checked: settings.autosleep ? "checked" : false });
+  const minutes = el("input", { type: "number", min: "1", max: "1440", step: "1",
+    value: String(settings.autosleep_minutes) });
+  // Only what was measured: the count, and what it is waiting for.
+  const live = !settings.autosleep ? t("serverset.sleep_off")
+    : !sleep ? t("value.unknown")
+    : sleep.players_online === null ? t("serverset.sleep_unknown_players")
+    : sleep.players_online > 0 ? t("serverset.sleep_players", { count: sleep.players_online })
+    : sleep.stops_in !== null ? t("serverset.sleep_countdown", { duration: fmt.duration(sleep.stops_in) })
+    : t("serverset.sleep_waiting");
+  return section(t("serverset.sleep"), null,
+    withHelp(el("label", { class: "switch" }, on, t("serverset.sleep_label")), "autosleep", "configuration"),
+    el("div", { class: "grid cols-2 mt-10" },
+      field("sleep-minutes", t("serverset.sleep_minutes"), minutes, t("serverset.sleep_minutes_hint"))),
+    el("p", { class: "hint" }, live),
+    el("p", { class: "hint" }, t("serverset.sleep_restart_note")),
+    el("div", { class: "btn-row mt-12" }, saveButton(t("action.save"), () => {
+      const updates = {};
+      if (on.checked !== Boolean(settings.autosleep)) updates["server.autosleep"] = on.checked;
+      if (Number(minutes.value) !== Number(settings.autosleep_minutes)) {
+        updates["server.autosleep_minutes"] = Number(minutes.value);
+      }
+      return updates;
+    })));
+}
+
 /* ------------------------------------------------------------ memory */
 
 function xmxGb(args) {
@@ -144,6 +175,7 @@ function memoryCard(own) {
     value: current === null ? "" : String(current) });
   const raw = el("input", { class: "mono", value: args.join(" ") });
   return card(t("serverset.memory"),
+    withHelp(el("span", { class: "help-label" }, t("serverset.memory_label")), "memory", "configuration"),
     field("memory-limit", t("serverset.memory_limit"), gb,
       current === null ? t("serverset.memory_unset") : t("serverset.memory_hint")),
     advanced(t("serverset.launch_args"),
@@ -251,6 +283,7 @@ function backupsCard(own) {
   const inputs = ["daily", "weekly", "monthly"].map((kind) =>
     [kind, el("input", { type: "number", min: "0", step: "1", value: String(b[`keep_${kind}`]) })]);
   return card(t("serverset.backups"),
+    withHelp(el("span", { class: "help-label" }, t("serverset.keep_label")), "keep_backups", "backups"),
     el("div", { class: "grid cols-3" }, inputs.map(([kind, input]) =>
       field(`keep-${kind}`, t(`serverset.keep_${kind}`), input))),
     el("div", { class: "btn-row" }, saveButton(t("action.save"), () => {
@@ -363,6 +396,7 @@ renderers.settings = (page) => loadInto(page, async () => {
     versionCard(version, () => render()),
     crossplay,
     crashCard(own),
+    sleepCard(own),
     memoryCard(own),
     cpuCard(own.cpu, own.server.cpu_cores || []),
     backupsCard(own),

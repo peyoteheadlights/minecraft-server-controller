@@ -5,9 +5,10 @@
 import { api } from "../api.js";
 import { refreshStatus } from "../live.js";
 import { choose, currentTheme, THEMES } from "../prefs.js";
+import { currentSubscription, deviceLabel, disablePush, enablePush, pushSupported } from "../pwa.js";
 import { renderers, state } from "../state.js";
 import { t, technical } from "../strings.js";
-import { advanced, busy, card, el, loadInto, table, toast } from "../ui.js";
+import { advanced, busy, card, el, fmt, loadInto, table, toast, withHelp } from "../ui.js";
 
 function choiceGroup(name, options, current, onChange, extraClass = "") {
   return el("div", { class: `choices ${extraClass}`, role: "radiogroup", "aria-label": t(`appset.${name}`) },
@@ -39,7 +40,7 @@ function detailCard() {
     ], technical() ? "technical" : "simple", (value) => choose("mode", value)));
 }
 
-function alertsCard(data) {
+function alertsCard(data, push) {
   const config = data.config;
   const pending = {};
   const number = (key, label, value) => {
@@ -52,8 +53,10 @@ function alertsCard(data) {
     input.addEventListener("change", () => { pending[key] = input.checked; });
     return el("label", { class: "check-row pad-y" }, input, label);
   };
+  // The key is the settings key the agent accepts ("notifications.x"); the
+  // value shown comes from that section.
   const channel = (key, label, configured, missingHint, testChannel) => el("div", { class: "channel" },
-    check(key, label, config.notifications[key]),
+    check(key, label, config.notifications[key.split(".").pop()]),
     configured ? null : el("p", { class: "hint" }, missingHint),
     el("button", {
       class: "btn small", type: "button",
@@ -70,10 +73,11 @@ function alertsCard(data) {
 
   return card(t("appset.alerts"),
     el("div", { class: "grid cols-2" },
-      channel("discord_enabled", t("appset.discord"), data.secrets.discord_webhook_configured,
+      channel("notifications.discord_enabled", t("appset.discord"), data.secrets.discord_webhook_configured,
         t("appset.discord_missing"), "discord"),
-      channel("email_enabled", t("appset.email"), data.secrets.smtp_configured,
-        t("appset.email_missing"), "email")),
+      channel("notifications.email_enabled", t("appset.email"), data.secrets.smtp_configured,
+        t("appset.email_missing"), "email"),
+      phoneCard(push, pending)),
     advanced(t("appset.alert_details"),
       el("div", { class: "grid cols-3" },
         number("thresholds.cpu_percent", t("appset.cpu_alert"), config.thresholds.cpu_percent),
@@ -100,6 +104,69 @@ function alertsCard(data) {
         }),
       }, t("appset.save_alerts"))),
     el("p", { class: "hint" }, t("appset.secrets_note")));
+}
+
+/* ------------------------------------------------------------ phone alerts */
+
+/* The same alerts as Discord and email, on a phone's lock screen. Two
+   separate things have to be on: the channel here, and this phone itself,
+   which is the browser's own choice and has to be made on each phone. */
+function phoneCard(push, pendingFor) {
+  const list = el("div", { class: "mt-10" });
+  const refresh = (phones) => list.replaceChildren(phones.length
+    ? el("ul", { class: "phone-list" }, phones.map((p) => el("li", {},
+        el("span", {}, p.label || p.service),
+        el("span", { class: "hint" }, p.last_sent ? t("push.last_sent", { when: fmt.ago(p.last_sent) })
+          : t("push.not_sent_yet")))))
+    : el("p", { class: "hint" }, t("push.no_phones")));
+  refresh(push.phones || []);
+
+  const thisPhone = el("div", { class: "btn-row mt-10" });
+  const drawThisPhone = (subscribed) => thisPhone.replaceChildren(
+    subscribed
+      ? el("button", { class: "btn", type: "button",
+          onclick: (e) => busy(e.currentTarget, t("push.turning_off"), async () => {
+            try {
+              const result = await disablePush();
+              refresh((result && result.phones) || []);
+              drawThisPhone(false);
+              toast(t("push.off_here"), "success");
+            } catch (err) { toast(err.message, "error", 9000); }
+          }) }, t("push.turn_off_here"))
+      : el("button", { class: "btn primary", type: "button",
+          disabled: push.configured ? false : true,
+          onclick: (e) => busy(e.currentTarget, t("push.turning_on"), async () => {
+            try {
+              const result = await enablePush(push.public_key, deviceLabel());
+              refresh(result.phones || []);
+              drawThisPhone(true);
+              toast(t("push.on_here"), "success");
+            } catch (err) { toast(err.message, "error", 9000); }
+          }) }, t("push.turn_on_here")),
+    el("button", { class: "btn small", type: "button",
+      onclick: (e) => busy(e.currentTarget, t("appset.sending"), async () => {
+        try {
+          const result = await api("/push/test", { method: "POST" });
+          toast(result.sent ? t("appset.test_sent") : t("push.test_failed"),
+            result.sent ? "success" : "error", 9000);
+        } catch (err) { toast(err.message, "error", 9000); }
+      }) }, t("appset.send_test")));
+  drawThisPhone(false);
+  if (pushSupported()) {
+    currentSubscription().then((sub) => drawThisPhone(Boolean(sub))).catch(() => {});
+  }
+
+  return el("div", { class: "channel" },
+    withHelp(el("label", { class: "check-row pad-y" },
+      el("input", {
+        type: "checkbox", checked: push.enabled ? "checked" : false,
+        onchange: (e) => { pendingFor["notifications.push_enabled"] = e.target.checked; },
+      }), t("appset.phone")), "phone_alerts", "notifications"),
+    push.configured ? null : el("p", { class: "hint" }, t("push.not_set_up", { command: push.setup_command })),
+    pushSupported() ? null : el("p", { class: "hint" }, t("push.unsupported")),
+    el("p", { class: "hint" }, t("push.iphone")),
+    thisPhone,
+    list);
 }
 
 function maintenanceCard() {
@@ -171,11 +238,15 @@ function startupReport(r) {
 }
 
 renderers["app-settings"] = (page) => loadInto(page, async () => {
-  const data = await api("/settings");
+  const [data, push] = await Promise.all([
+    api("/settings"),
+    api("/push").catch(() => ({ configured: false, enabled: false, phones: [], public_key: "",
+      setup_command: "python -m installer.make_push_keys" })),
+  ]);
   return el("div", { class: "stack" },
     appearanceCard(),
     detailCard(),
-    alertsCard(data),
+    alertsCard(data, push),
     maintenanceCard(),
     startupCard());
 });

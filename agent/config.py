@@ -238,6 +238,10 @@ class BackupSettings(Section):
     keep_monthly: int = 3
     compression: str = "deflate"
     stop_server_for_backup: bool = False
+    # A second copy of each backup off the PC: another drive or a synced
+    # cloud folder (OneDrive, Google Drive, Dropbox). Empty: no second copy.
+    # See agent/backups/offsite.py.
+    offsite_directory: str = ""
 
 
 @dataclass(frozen=True)
@@ -300,6 +304,10 @@ class NotificationSettings(Section):
             "player_managed": True,
             "modpack_imported": True,
             "autosleep": True,
+            "backup_copy_failed": True,
+            "world_imported": True,
+            "helper_added": True,
+            "helper_removed": True,
         }
     )
     email: EmailSettings = field(default_factory=EmailSettings)
@@ -327,6 +335,12 @@ class PathSettings(Section):
 
 
 @dataclass(frozen=True)
+class PowerSettings(Section):
+    # Ask Windows not to sleep while any server is running (agent/keepawake.py).
+    keep_awake: bool = True
+
+
+@dataclass(frozen=True)
 class MaintenanceSettings(Section):
     enabled: bool = False
     block_auto_restart: bool = True
@@ -347,6 +361,7 @@ SECTIONS: dict[str, type[Section]] = {
     "logging": LoggingSettings,
     "paths": PathSettings,
     "maintenance": MaintenanceSettings,
+    "power": PowerSettings,
 }
 
 # Agent-wide sections. "server" is not one of them: each entry of the
@@ -507,6 +522,9 @@ class Config:
         # using the old folder for this run (see agent/datafolder.py).
         self._data_dir_override: Path | None = None
         self._layout: dict[str, Any] | None = None
+        # The .env file the secrets were read from, so a password reset made
+        # on the PC while the agent runs is picked up (agent/security/auth.py).
+        self.env_path: Path | None = None
 
     # -- loading ----------------------------------------------------------
     @classmethod
@@ -535,6 +553,7 @@ class Config:
         # save() writes back to where we were told to look rather than to a
         # guessed default location.
         cfg = cls(merged, cfg_path)
+        cfg.env_path = env_path
         cfg._apply_env_overrides()
         cfg.validate()
         return cfg
@@ -647,6 +666,10 @@ class Config:
     @property
     def maintenance(self) -> MaintenanceSettings:
         return self.section("maintenance")
+
+    @property
+    def power(self) -> PowerSettings:
+        return self.section("power")
 
     # -- servers -------------------------------------------------------------
     def _build_server(self, index: int, entry: dict[str, Any]) -> dict[str, Any]:

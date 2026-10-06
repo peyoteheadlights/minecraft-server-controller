@@ -197,3 +197,54 @@ class PushSubscribeRequest(BaseModel):
 
 class PushUnsubscribeRequest(BaseModel):
     endpoint: str = Field(max_length=1000)
+
+
+class AccountCreateRequest(BaseModel):
+    username: str = Field(min_length=2, max_length=32)
+    password: str = Field(min_length=1, max_length=256)
+    # The server ids this helper may use; None means every server.
+    servers: list[str] | None = None
+
+
+class AccountUpdateRequest(BaseModel):
+    # Set to change which servers the helper may use: True for every server,
+    # otherwise the list in "servers".
+    all_servers: bool | None = None
+    servers: list[str] | None = None
+    # A new password, which signs the helper out everywhere.
+    password: str | None = Field(default=None, max_length=256)
+
+
+class PasswordChangeRequest(BaseModel):
+    current: str = Field(max_length=256)
+    new: str = Field(max_length=256)
+
+
+class WorldFolderRequest(BaseModel):
+    path: str = Field(min_length=1, max_length=400)
+
+
+class WorldImportRequest(BaseModel):
+    token: str = Field(min_length=32, max_length=32)
+    confirm: bool = False
+
+
+class OffsiteRequest(BaseModel):
+    # The folder for the second copies; empty turns them off.
+    directory: str = Field(default="", max_length=400)
+
+
+class MemoryRequest(BaseModel):
+    memory_mb: int = Field(ge=512, le=1024 * 1024)
+
+
+class ExportRequest(BaseModel):
+    worlds: bool = False
+    backups: bool = False
+    # Passwords and keys only go in encrypted, with this passphrase.
+    secrets: bool = False
+    passphrase: str | None = Field(default=None, max_length=256)
+
+
+class HelpBundleRequest(BaseModel):
+    confirm: bool = False

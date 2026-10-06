@@ -28,7 +28,7 @@ import time
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from ..security.auth import AuthError
-from ..security.permissions import WS_ACTIONS, check
+from ..security.permissions import WS_ACTIONS, can_see_server, check
 
 log = logging.getLogger("msc.ws")
 
@@ -70,7 +70,8 @@ async def websocket_endpoint(ws: WebSocket) -> None:
         message = json.loads(raw)
         if message.get("type") != "auth" or not message.get("token"):
             raise AuthError("Sign in before sending anything else.")
-        principal = core.auth.authenticate(message["token"], source_ip=client_ip)
+        token = str(message["token"])
+        principal = core.auth.authenticate(token, source_ip=client_ip)
     except (TimeoutError, json.JSONDecodeError, KeyError, TypeError):
         await _send(ws, {"type": "error", "message": "Authentication failed"})
         await ws.close(code=1008)
@@ -82,9 +83,19 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     except WebSocketDisconnect:
         return
 
+    visible = [ctx for ctx in core.servers.values() if can_see_server(principal, ctx.server_id)]
+    if not visible:
+        await _send(ws, {"type": "error", "message": "Your account can't use any server."})
+        await ws.close(code=1008)
+        return
+
     def server_for(message: dict):
-        """The server a message is about; the first one if it names none."""
-        return core.servers.get(str(message.get("server_id") or "")) or core.default
+        """The server a message is about; the first one this account may see
+        if it names none (or names one it may not see)."""
+        ctx = core.servers.get(str(message.get("server_id") or ""))
+        if ctx is not None and can_see_server(principal, ctx.server_id):
+            return ctx
+        return visible[0]
 
     selected = server_for(message)
     # The server this page shows. Console lines and metrics samples of the
@@ -93,6 +104,8 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     watching = {"server_id": selected.server_id}
 
     def accept(event) -> bool:
+        if event.server_id is not None and not can_see_server(principal, event.server_id):
+            return False  # a helper limited to other servers hears nothing of this one
         if event.type in PAGE_ONLY and event.server_id is not None:
             return event.server_id == watching["server_id"]
         return True
@@ -107,7 +120,7 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                 "type": "ready",
                 "user": principal.user,
                 "server_id": selected.server_id,
-                "servers": [ctx.summary() for ctx in core.servers.values()],
+                "servers": [ctx.summary() for ctx in visible],
                 "status": selected.status(),
                 "console": [line.to_dict() for line in selected.server.console.tail(200)],
                 "ts": time.time(),
@@ -125,6 +138,14 @@ async def websocket_endpoint(ws: WebSocket) -> None:
         async def heartbeat() -> None:
             while True:
                 await asyncio.sleep(HEARTBEAT)
+                # A session signed out since (a password reset on the PC,
+                # "sign out everywhere", a removed helper) ends here too.
+                try:
+                    core.auth.authenticate(token, source_ip=client_ip)
+                except AuthError as exc:
+                    await _send(ws, {"type": "error", "message": exc.message})
+                    await ws.close(code=1008)
+                    return
                 await _send(ws, {"type": "ping", "ts": time.time()})
 
         async def receive() -> None:
@@ -152,7 +173,7 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                 ctx = server_for(message)
                 # Asking for a named server's console or status means the page
                 # now shows that server.
-                if message.get("server_id") in core.servers:
+                if ctx.server_id == message.get("server_id"):
                     watching["server_id"] = ctx.server_id
                 if kind == "tail":
                     count = min(int(message.get("lines", 100) or 100), 500)

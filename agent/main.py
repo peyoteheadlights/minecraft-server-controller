@@ -216,6 +216,34 @@ def create_app(config: Config, data_move: MoveResult | None = None) -> FastAPI:
             response.headers["Strict-Transport-Security"] = hsts_value
         return response
 
+    @app.middleware("http")
+    async def audit_every_action(request: Request, call_next):
+        """Every change made through the API is in the audit log with who
+        made it. Routes that write their own, more specific entry mark the
+        request (deps.audit); any other signed-in POST, PUT or DELETE gets a
+        plain entry here, including the ones refused for lack of permission."""
+        response = await call_next(request)
+        if request.method in ("POST", "PUT", "DELETE") and request.url.path.startswith("/api/"):
+            state = request.scope.get("state") or {}
+            principal = state.get("principal")
+            if principal is not None and not state.get("audited"):
+                core = getattr(request.app.state, "core", None)
+                route = request.scope.get("route")
+                status = response.status_code
+                result = "ok" if status < 400 else "denied" if status in (401, 403) else "failed"
+                if core is not None:
+                    with contextlib.suppress(Exception):
+                        core.db.audit(
+                            f"{request.method} {getattr(route, 'path', request.url.path)}",
+                            user=principal.user,
+                            target=request.url.path[:200],
+                            result=result,
+                            detail=f"HTTP {status}",
+                            source_ip=state.get("client_ip"),
+                            server_id=(request.scope.get("path_params") or {}).get("server_id"),
+                        )
+        return response
+
     @app.exception_handler(Exception)
     async def unhandled(request: Request, exc: Exception):  # pragma: no cover
         # The stack trace goes to the log file, never to the browser.

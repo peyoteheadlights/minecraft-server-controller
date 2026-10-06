@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import Depends, HTTPException, Request, Response
 
 from ..security.auth import Principal
+from ..security.permissions import check_server
 
 
 def get_core(request: Request):
@@ -62,9 +63,22 @@ async def require_auth(request: Request, core=Depends(get_core)) -> Principal:
     ip = client_ip(request)
     core.auth.api_rate.check(f"api:{ip}")
     principal = core.auth.authenticate(bearer_token(request), source_ip=ip)
+    # The same limit again per account, so one helper on many devices (or
+    # many addresses) can't use more than an account's share.
+    core.auth.api_rate.check(f"user:{principal.user}")
     request.state.principal = principal
     request.state.client_ip = ip
     return principal
+
+
+async def server_access(
+    request: Request, principal: Principal = Depends(require_auth), core=Depends(get_core)
+) -> None:
+    """Added to every per-server route: a helper limited to some servers gets
+    a 403 for the others. The unprefixed aliases act on the first server, so
+    that is the server checked for them."""
+    server_id = request.path_params.get("server_id") or core.config.default_server_id
+    check_server(principal, server_id)
 
 
 def audit(
@@ -78,6 +92,8 @@ def audit(
     """Record an action in the audit log. ``owner`` is the AgentCore for
     agent-wide actions, or a ServerContext, whose entries name the server."""
     principal = getattr(request.state, "principal", None)
+    # The request has its own entry now; the catch-all in main.py adds none.
+    request.state.audited = True
     owner.db.audit(
         action,
         user=principal.user if principal else None,

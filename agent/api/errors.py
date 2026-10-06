@@ -20,6 +20,7 @@ from ..crossplay import CrossplayError
 from ..downloads import DownloadError
 from ..duplicate import DuplicateError
 from ..jobs import JobConflict, JobNotFound
+from ..memory import MemoryLimitError
 from ..minecraft.chat import ChatError
 from ..minecraft.commands import CommandError
 from ..minecraft.playeractions import PlayerActionError
@@ -31,12 +32,14 @@ from ..mods.manager import ModError
 from ..mods.modrinth import ModrinthError
 from ..notifications.push import PushError
 from ..safechange import SafeChangeError
+from ..transfer import TransferError
 from ..scheduler.scheduler import ScheduleError
 from ..security.auth import AuthError
 from ..security.paths import PathSafetyError
 from ..servertypes import UnknownServerType
 from ..servertypes.install import InstallError
 from ..servertypes.versions import VersionError
+from ..worldimport import WorldImportError
 from ..worldundo import WorldUndoError
 from .deps import audit
 
@@ -67,6 +70,9 @@ ERROR_STATUS: dict[type[Exception], int] = {
     ChatError: 400,
     WorldUndoError: 409,  # the server has to be off first
     PushError: 400,
+    WorldImportError: 400,
+    MemoryLimitError: 400,
+    TransferError: 400,
 }
 DOMAIN_ERRORS: tuple[type[Exception], ...] = tuple(ERROR_STATUS)
 

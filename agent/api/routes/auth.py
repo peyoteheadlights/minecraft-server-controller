@@ -5,12 +5,12 @@ from __future__ import annotations
 
 import time
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
-from ...security.auth import Principal
+from ...security.auth import AccountError, Principal
 from ...security.permissions import ACCOUNT, permissions_for, require
-from ..deps import client_ip, get_core
-from .models import LoginRequest, PreferencesRequest
+from ..deps import audit, client_ip, get_core
+from .models import LoginRequest, PasswordChangeRequest, PreferencesRequest
 
 router = APIRouter()
 
@@ -52,6 +52,22 @@ async def me(principal: Principal = Depends(require(ACCOUNT)), core=Depends(get_
         "permissions": sorted(permissions_for(principal)),
         "preferences": core.auth.preferences(principal.user),
     }
+
+
+@router.post("/account/password")
+async def change_password(
+    payload: PasswordChangeRequest,
+    request: Request,
+    principal: Principal = Depends(require(ACCOUNT)),
+    core=Depends(get_core),
+):
+    """A helper changes their own password. The owner's is reset on the PC."""
+    try:
+        core.auth.change_own_password(principal, payload.current, payload.new)
+    except AccountError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    audit(core, request, "password_change")
+    return {"ok": True}
 
 
 @router.get("/account/preferences")

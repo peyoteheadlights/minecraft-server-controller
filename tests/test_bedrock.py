@@ -495,6 +495,8 @@ def mojang(monkeypatch):
     def handler(request: httpx.Request) -> httpx.Response:
         seen.append(str(request.url))
         if request.url.host == "net-secondary.web.minecraft-services.net":
+            if state.get("down"):
+                return httpx.Response(503)
             url = (
                 "https://www.minecraft.net/bedrockdedicatedserver/bin-"
                 f"{'win' if bedrock.DOWNLOAD_TYPE.endswith('Windows') else 'linux'}/"
@@ -612,6 +614,13 @@ async def test_only_the_newest_or_a_kept_version_is_offered(tmp_path, mojang):
         assert {v.minecraft: v.kept for v in listed} == {"1.21.100.6": False, LATEST: True}
         kept_plan = await bedrock.plan(LATEST)
         assert kept_plan.downloads == [] and kept_plan.archive
+        # Mojang unreachable: the kept ones are still offered, with a plain
+        # sentence for the page (the error itself goes to the log).
+        state["down"] = True
+        listed, problem = await bedrock.versions()
+        assert [v.minecraft for v in listed] == [LATEST]
+        assert problem and problem.startswith("Mojang's version list couldn't be read")
+        assert "503" not in problem
     finally:
         await core.jobs.stop()
         core.db.close()

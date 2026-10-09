@@ -194,7 +194,13 @@ async def versions() -> tuple[list[Version], str | None]:
     except DownloadError as exc:
         if not kept:
             raise
-        problem = str(exc)
+        # The reason goes to the log; the dashboard gets a fixed sentence,
+        # so nothing from inside the error reaches a web page.
+        log.warning("Mojang's version list couldn't be read: %s", exc)
+        problem = (
+            "Mojang's version list couldn't be read just now, so only the versions "
+            "kept on this PC are offered. The app's log has the reason."
+        )
     names = set(kept) | ({newest} if newest else set())
     found = [
         Version(

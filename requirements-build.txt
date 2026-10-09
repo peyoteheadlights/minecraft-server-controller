@@ -1,4 +1,0 @@
-# What GitHub Actions needs to build the Windows installer (scripts/build_installer.py).
--r requirements.txt
-pyinstaller>=6.10      # packs Python and the app into MinecraftServerController.exe and setup.exe
-PySide6-Essentials>=6.8,<6.9  # the setup window (installer/app), a native Windows app

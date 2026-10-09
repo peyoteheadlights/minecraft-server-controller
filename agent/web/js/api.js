@@ -45,8 +45,14 @@ export async function api(path, options = {}) {
     throw new Error(t("error.session_ended"));
   }
   if (!response.ok) {
-    const error = new Error((payload && typeof payload.detail === "string" && payload.detail)
-      || t("error.request_failed", { status: response.status }));
+    let message = (payload && typeof payload.detail === "string" && payload.detail)
+      || t("error.request_failed", { status: response.status });
+    // The agent's own failures carry the number its log lines end with, so
+    // a "Get help" file can be matched to what the person saw.
+    const requestId = response.headers.get("X-Request-ID");
+    if (requestId && response.status >= 500) message = t("error.number", { message, id: requestId });
+    const error = new Error(message);
+    error.requestId = requestId;
     // A form's per-field reasons, when the agent gave them.
     error.problems = (payload && typeof payload.problems === "object" && payload.problems) || null;
     throw error;

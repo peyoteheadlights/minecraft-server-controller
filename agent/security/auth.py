@@ -38,15 +38,20 @@ from typing import Any
 
 log = logging.getLogger("msc.auth")
 
-PBKDF2_ROUNDS = 240_000
+# OWASP's Password Storage Cheat Sheet figure for PBKDF2-HMAC-SHA256. A hash
+# records its own round count, so older hashes keep working and are re-made
+# with this count the next time that person signs in (needs_rehash).
+OWASP_PBKDF2_SHA256_ROUNDS = 600_000
+PBKDF2_ROUNDS = OWASP_PBKDF2_SHA256_ROUNDS
 TOKEN_BYTES = 32
 
 
 # ----------------------------------------------------------------------
 # password hashing
 # ----------------------------------------------------------------------
-def hash_password(password: str, salt: bytes | None = None, rounds: int = PBKDF2_ROUNDS) -> str:
+def hash_password(password: str, salt: bytes | None = None, rounds: int | None = None) -> str:
     """Return a self-describing hash string: pbkdf2_sha256$rounds$salt$hash."""
+    rounds = rounds or PBKDF2_ROUNDS
     if len(password) < 10:
         raise ValueError("The password needs at least 10 characters.")
     salt = salt or secrets.token_bytes(16)
@@ -71,6 +76,15 @@ def verify_password(password: str, encoded: str) -> bool:
         )
         return hmac.compare_digest(derived, base64.b64decode(hash_b64))
     except (ValueError, TypeError, AttributeError):
+        return False
+
+
+def needs_rehash(encoded: str) -> bool:
+    """True for a valid hash made with fewer rounds than PBKDF2_ROUNDS."""
+    try:
+        algorithm, rounds, _salt, _hash = encoded.split("$")
+        return algorithm == "pbkdf2_sha256" and int(rounds) < PBKDF2_ROUNDS
+    except (ValueError, AttributeError):
         return False
 
 
@@ -308,6 +322,7 @@ class AuthManager:
             raise AuthError("That username or password isn't right.")
 
         self._record_attempt(username, source_ip, True)
+        self._upgrade_hash(username, password, account)
         token = secrets.token_urlsafe(TOKEN_BYTES)
         expires = time.time() + self._lifetime(remember)
         self.db.insert(
@@ -332,6 +347,38 @@ class AuthManager:
             "role": account["role"] if account else "owner",
             "remember": bool(remember),
         }
+
+    def _upgrade_hash(self, username: str, password: str, account: dict[str, Any] | None) -> None:
+        """Re-hash a password that was stored with fewer rounds than today's,
+        now that the right password is in hand. A failure only logs: the old
+        hash keeps working."""
+        stored = account["password_hash"] if account else self.config.admin_password_hash
+        if not needs_rehash(stored):
+            return
+        try:
+            new_hash = hash_password(password)
+        except ValueError:  # a password from before the length rule
+            return
+        if account is not None:
+            self.db.execute(
+                "UPDATE accounts SET password_hash = ? WHERE username = ?",
+                (new_hash, account["username"]),
+            )
+            log.info("re-hashed %s's password with %d rounds", username, PBKDF2_ROUNDS)
+            return
+        env_path = getattr(self.config, "env_path", None)
+        if not env_path or not env_path.is_file():
+            return
+        try:
+            from installer.setup_tool import write_env_value
+
+            write_env_value(env_path, "MCSC_ADMIN_PASSWORD_HASH", new_hash)
+        except Exception as exc:  # LockDownError, OSError: keep the old hash
+            log.warning("couldn't save the owner's re-hashed password: %s", exc)
+            return
+        os.environ["MCSC_ADMIN_PASSWORD_HASH"] = new_hash
+        self._env_seen = self._env_stamp()
+        log.info("re-hashed the owner's password with %d rounds", PBKDF2_ROUNDS)
 
     def _lifetime(self, remember: bool) -> float:
         security = self.config.security

@@ -136,6 +136,7 @@ export const STRINGS = /* strings-table */ {
 
   "error.unreachable": ["Can't reach the PC. Check it's on and online.", "The agent did not answer. Check the PC is on and Tailscale is connected."],
   "error.session_ended": ["You were signed out. Please sign in again.", "Your session ended. Please sign in again."],
+  "error.number": ["{message} Error number: {id}", "{message} (request {id})"],
   "error.request_failed": ["Something went wrong (code {status}).", "Request failed (HTTP {status})."],
 
   "value.unknown": ["Unknown", "Unknown"],

@@ -211,10 +211,15 @@ def step_venv(ctx: Context) -> Step:
 
 
 def step_dependencies(ctx: Context) -> Step:
+    import tomllib
     from importlib import metadata
 
     missing, old = [], []
-    for raw in (ctx.root / "requirements.txt").read_text(encoding="utf-8").splitlines():
+    pyproject = ctx.root / "pyproject.toml"
+    if not pyproject.is_file():
+        return ctx.add(Step("Dependencies", "SKIP", "pyproject.toml isn't in this folder"))
+    project = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    for raw in project["project"]["dependencies"]:
         line = raw.split("#", 1)[0].strip()
         if not line:
             continue
@@ -249,7 +254,8 @@ def step_dependencies(ctx: Context) -> Step:
                 "Dependencies",
                 "FAIL",
                 detail,
-                "Run setup.ps1, or: .venv\\Scripts\\python -m pip install -r requirements.txt",
+                "Run setup.ps1, or: .venv\\Scripts\\python -m pip install --require-hashes "
+                "-r requirements.lock",
             )
         )
     return ctx.add(Step("Dependencies", "OK", "all requirements installed"))

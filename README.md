@@ -108,6 +108,10 @@ the PC itself, never over the network.
   passwords, keys or worlds, and shows its file list before saving.
 - [docs/troubleshooting.md](docs/troubleshooting.md) covers the common
   problems.
+- If the dashboard shows an **Error number**, mention it: the same number
+  is in the Get help file, next to what went wrong.
+- Found a security problem? Please report it privately, as
+  [SECURITY.md](SECURITY.md) explains.
 
 ## For developers
 

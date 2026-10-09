@@ -9,8 +9,40 @@ description = "Run and watch a Minecraft server on a Windows PC from a private w
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.11"
-# Runtime and test requirements stay in requirements*.txt (setup.ps1 reads
-# them); requirements*.lock pins the exact tested versions.
+# What the app needs. requirements*.lock pins the exact tested versions with
+# hashes (made from this file with `uv pip compile`, see docs/testing.md);
+# setup.ps1, CI and the installer install only from those locks.
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "psutil>=5.9",
+    "httpx>=0.26",
+    "PyYAML>=6.0",
+    "cryptography>=42.0",       # TLS certificates, update signatures, Web Push
+    "python-multipart>=0.0.9",
+    "websockets>=12.0",
+    "segno>=1.6",               # QR codes for the phone pairing code (pure Python)
+]
+
+[project.optional-dependencies]
+# Everything needed to run the tests, the browser checks and the CI scans.
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
+    "playwright>=1.40",         # then run: python -m playwright install chromium
+    "ruff>=0.16",
+    "mypy>=2.4",
+    "types-PyYAML",
+    "types-psutil",
+    "pip-audit>=2.7",
+    "PySide6-Essentials>=6.8,<6.9",  # the setup window; its tests draw it off-screen
+]
+# What GitHub Actions needs to build the Windows installer.
+build = [
+    "pyinstaller>=6.10",
+    "PySide6-Essentials>=6.8,<6.9",
+]
 
 [tool.setuptools.dynamic]
 version = { attr = "agent.__version__" }

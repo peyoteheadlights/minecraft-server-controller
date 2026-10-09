@@ -1,9 +1,0 @@
-fastapi>=0.110
-uvicorn[standard]>=0.27
-psutil>=5.9
-httpx>=0.26
-PyYAML>=6.0
-cryptography>=42.0        # TLS certificate generation and inspection
-python-multipart>=0.0.9
-websockets>=12.0
-segno>=1.6                # QR codes for the phone pairing code (pure Python)

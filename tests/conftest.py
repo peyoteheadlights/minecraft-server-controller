@@ -166,6 +166,15 @@ def client(config, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def quick_password_hashing(monkeypatch):
+    """Tests hash with 1,000 rounds (the real count takes about half a
+    second per sign-in); test_password_rehash covers the real figure."""
+    from agent.security import auth
+
+    monkeypatch.setattr(auth, "PBKDF2_ROUNDS", 1000)
+
+
+@pytest.fixture(autouse=True)
 def isolated_startup_log(tmp_path_factory, monkeypatch):
     """Never let a test write into the project's real logs/startup.log."""
     from agent import startup_diag

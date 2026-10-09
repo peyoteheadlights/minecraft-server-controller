@@ -8,6 +8,26 @@ Changes a client (the dashboard, or the phone app) must know about are listed
 under **API**, with the API version they arrived in. The API version is shown
 at `/api/version` and only goes up for those changes.
 
+## 1.3.0
+
+- Passwords are stored more strongly (600,000 rounds instead of 240,000).
+  Nothing to do: each password is upgraded the next time that person signs
+  in.
+- When the app hits an unexpected error, the dashboard shows an error
+  number. The same number is on the matching lines of the app's logs (and
+  so in a Get help file).
+- A short SECURITY.md says how to report a security problem
+  privately.
+- For developers: dependencies are declared in `pyproject.toml` (the
+  hash-pinned lock files are made from it and stay as strict); CI checks
+  the locked versions for known security problems (`pip-audit`), runs
+  GitHub's CodeQL scan, and prints test coverage.
+
+### API (version 1)
+
+- Every answer has an `X-Request-ID` header, and error answers repeat it as
+  `request_id`. Additive; nothing a client relies on changed.
+
 ## 1.2.0
 
 - A real Windows installer: one setup file that opens its own window, in

@@ -11,8 +11,12 @@
 
 ## Authentication
 
-- Passwords are stored as PBKDF2-HMAC-SHA256, 240,000 rounds, per-install
-  salt. The password itself never touches disk, logs, or the database.
+- Passwords are stored as PBKDF2-HMAC-SHA256 with 600,000 rounds (OWASP's
+  Password Storage Cheat Sheet figure) and a per-install salt. The password
+  itself never touches disk, logs, or the database. Each stored hash records
+  its own round count, so a password saved with the older 240,000 rounds
+  still works and is re-hashed with 600,000 the next time that person signs
+  in (the owner's in `.env`, a helper's in the database).
 - Signing in returns a random 256-bit session token; only its SHA-256 is
   stored, so a stolen database yields no usable tokens.
 - Sessions expire after 12 hours by default, and can be rotated or revoked.

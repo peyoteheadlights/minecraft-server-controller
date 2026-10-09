@@ -34,7 +34,7 @@ settings, database and backups**. Your Minecraft servers are never touched.
    `schtasks /End /TN "Minecraft Server Control"`
 2. Back up `config/config.yaml` and `.env`
 3. Replace the project files with the new version
-4. `pip install -r requirements.txt`
+4. `pip install --require-hashes -r requirements.lock`
 5. Put `config.yaml` and `.env` back
 6. `python -m agent.main --check`
 7. Start the agent

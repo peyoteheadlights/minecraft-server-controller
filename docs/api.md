@@ -350,6 +350,13 @@ Standard HTTP codes with a readable `detail` string: 400 invalid input,
 429 rate limited or locked out (with `Retry-After`), 502 Modrinth unreachable,
 500 unexpected.
 
+Every answer has an `X-Request-ID` header, and every error answer repeats it
+as `request_id` in its body. The agent's log lines written while handling
+that request end with `[request <id>]`, so an error someone saw can be found
+in a "Get help" file. A client may send its own `X-Request-ID` (8 to 64
+letters, digits or dashes); anything else is replaced with a new ID. The
+dashboard shows the ID as "Error number" on 500 answers.
+
 ## Example
 
 ```bash

@@ -22,7 +22,7 @@ def root(tmp_path, monkeypatch):
     r = tmp_path / "project"
     (r / "config").mkdir(parents=True)
     shutil.copy(PROJECT / "config" / "config.example.yaml", r / "config" / "config.example.yaml")
-    shutil.copy(PROJECT / "requirements.txt", r / "requirements.txt")
+    shutil.copy(PROJECT / "pyproject.toml", r / "pyproject.toml")
     (r / "installer").mkdir()
     server = tmp_path / "Minecraft Server"
     server.mkdir()
@@ -205,7 +205,9 @@ def test_mismatched_password_entries_are_retried(root, monkeypatch):
 
 def test_a_missing_dependency_is_named(root, monkeypatch):
     r, _ = root
-    (r / "requirements.txt").write_text("fastapi>=0.1\ndefinitely-not-installed-pkg>=1.0\n")
+    (r / "pyproject.toml").write_text(
+        '[project]\ndependencies = ["fastapi>=0.1", "definitely-not-installed-pkg>=1.0"]\n'
+    )
     ctx, out = ctx_for(r, mode="check")
     step = setup_tool.step_dependencies(ctx)
     assert step.status == "FAIL"

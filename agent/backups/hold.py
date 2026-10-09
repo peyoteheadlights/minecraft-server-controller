@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import shutil
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -36,7 +37,10 @@ CHECK_BASE = Path("/archive-check")
 log = logging.getLogger("msc.backups.hold")
 
 READY_RE = re.compile(r"Data saved\. Files are now ready to be copied\.")
-ENTRY_RE = re.compile(r"^(?P<path>[^:,]+):(?P<length>\d+)$")
+# One "path:length" entry, followed by ", " or the end. A world's name can
+# hold a comma ("Mark, Sam and Jo"), so the list isn't simply split on
+# commas: a path ends only where ":<digits>" is followed by ", " or the end.
+ENTRY_RE = re.compile(r"(?P<path>[^:]+?):(?P<length>\d+)(?:,\s*|\s*$)")
 WAIT_SECONDS = 60.0
 POLL_SECONDS = 1.0
 CHUNK = 1024 * 1024
@@ -50,13 +54,15 @@ def parse_files(text: str) -> list[tuple[str, int]]:
     """The "path:length, path:length" list ``save query`` prints. Every
     path must stay inside worlds/; anything else refuses the whole list."""
     found = []
-    for part in text.split(","):
-        part = part.strip()
-        if not part:
-            continue
-        match = ENTRY_RE.match(part)
+    text = text.strip()
+    position = 0
+    while position < len(text):
+        match = ENTRY_RE.match(text, position)
         if not match:
-            raise HoldError(f"The server's file list couldn't be read ('{part[:80]}').")
+            raise HoldError(
+                f"The server's file list couldn't be read ('{text[position : position + 80]}')."
+            )
+        position = match.end()
         path = match.group("path").strip().replace("\\", "/")
         try:
             check_archive_member(CHECK_BASE, path)
@@ -103,6 +109,32 @@ def copy_truncated(source: Path, target: Path, length: int) -> None:
         raise HoldError(f"{source.name} is shorter than the server said it would be.")
 
 
+def copy_unlisted(worlds: Path, staging: Path, listed: list[str]) -> list[str]:
+    """The world's own small files that ``save query`` may leave out of its
+    list: the files directly in each listed world's folder, such as
+    world_behavior_packs.json, world_resource_packs.json and levelname.txt.
+    They aren't part of the LevelDB database (that is db/, which is only
+    copied as listed), so copying them whole is safe. Without them a
+    restored world would lose which add-ons it has on."""
+    done = set(listed)
+    copied = []
+    for world in sorted({rel.split("/", 1)[0] for rel in listed if "/" in rel}):
+        folder = worlds / world
+        if folder.is_symlink() or not folder.is_dir():
+            continue
+        for entry in sorted(folder.iterdir()):
+            relative = f"{world}/{entry.name}"
+            if relative in done or entry.is_symlink() or not entry.is_file():
+                continue
+            target = staging / relative
+            if not is_inside(staging, target.resolve()):
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(entry, target)
+            copied.append(relative)
+    return copied
+
+
 async def copy_world(
     server: MinecraftServer,
     worlds: Path,
@@ -135,6 +167,7 @@ async def copy_world(
                 raise HoldError("The server listed a file outside its worlds folder.")
             await asyncio.to_thread(copy_truncated, source, target, length)
             copied.append(relative)
+        copied += await asyncio.to_thread(copy_unlisted, worlds, staging, copied)
         return copied
     finally:
         try:

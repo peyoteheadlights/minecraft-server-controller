@@ -65,8 +65,20 @@ ZIP_RE = re.compile(r"/bedrock-server-(?P<version>\d+(?:\.\d+){1,3})\.zip$")
 VERSION_RE = re.compile(r"^\d+(?:\.\d+){1,3}$")
 KEPT_FOLDER = "bedrock-versions"
 INDEX = "index.json"
-# What an update never replaces: the worlds and the server's own settings.
-KEEP = frozenset({"worlds", "server.properties", "allowlist.json", "permissions.json"})
+# What an update never replaces: the worlds, the server's own settings, and
+# the development pack folders, which Mojang ships empty for people to put
+# their own packs in.
+KEEP = frozenset(
+    {
+        "worlds",
+        "server.properties",
+        "allowlist.json",
+        "permissions.json",
+        "development_behavior_packs",
+        "development_resource_packs",
+        "development_skin_packs",
+    }
+)
 PACK_FOLDERS = ("behavior_packs", "resource_packs")
 TERMS_KEY = "bedrock_terms"
 SHIPPED_KEY = "bedrock_shipped"

@@ -121,8 +121,17 @@ def write_env_value(path: Path, key: str, value: str) -> None:
             break
     else:
         lines.append(f"{key}={value}")
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    _restrict(path)
+    # Written beside it, locked down, then swapped in, so a crash or a full
+    # disk mid-write never leaves a cut-off .env (it holds the password
+    # hash), and the file is never readable by others, even for a moment.
+    temp = path.with_name(f".{path.name}.part")
+    temp.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    try:
+        _restrict(temp)
+    except LockDownError as exc:
+        temp.unlink(missing_ok=True)
+        raise LockDownError(path, exc.problem) from None
+    os.replace(temp, path)
 
 
 class LockDownError(RuntimeError):

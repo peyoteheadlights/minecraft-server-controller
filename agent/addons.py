@@ -265,11 +265,16 @@ def _packs_in(data: bytes, depth: int = 0) -> list[Found]:
                 continue
             if prefix.count("/") > 2:
                 continue
-            roots.append(prefix)
             info = zf.getinfo(name)
             if info.file_size > MAX_MANIFEST_BYTES:
                 raise AddonError("A pack's manifest.json is far too big to be one.")
-            found.append(Found(read_manifest(zf.read(info)), data, prefix))
+            manifest = read_manifest(zf.read(info))
+            # A .mctemplate's own manifest (the world template) is at its
+            # top, and its packs are in folders below it, so it can't hide
+            # them the way a pack's subfolders are hidden.
+            if manifest["kind"] != "world_template":
+                roots.append(prefix)
+            found.append(Found(manifest, data, prefix))
         if depth == 0:
             for info in infos:
                 if info.filename.lower().endswith(".mcpack") and not info.is_dir():

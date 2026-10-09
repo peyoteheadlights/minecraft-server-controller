@@ -41,6 +41,15 @@ def port_problem(ctx: ServerContext, port: int) -> str | None:
             f"The server '{ctx.core.servers[owner].name}' already uses port {port}. "
             "Pick another one."
         )
+    if ctx.config.server_type.edition == "bedrock":
+        # A Bedrock server also listens on server-portv6, which this page
+        # doesn't change; the two can't be the same port.
+        from .ports import bedrock_v6_port
+
+        if int(port) == bedrock_v6_port(ctx.config.server_dir).port:
+            return (
+                f"This server already uses port {port} for IPv6 (server-portv6). Pick another one."
+            )
     current = ctx.core.ports.port_of(ctx).port
     if int(port) != current and not is_free(int(port), protocol):
         return f"Another program on this PC is using port {port}. Pick another one."

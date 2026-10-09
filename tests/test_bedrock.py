@@ -936,3 +936,78 @@ async def test_an_update_and_its_roll_back_keep_the_servers_own_files(tmp_path, 
     finally:
         await core.jobs.stop()
         core.db.close()
+
+
+# ====================================================================
+# Phase 8 review fixes
+# ====================================================================
+def test_a_world_name_with_a_comma_is_read_from_the_file_list():
+    found = hold.parse_files("Mark, Sam/db/000005.ldb:1234, Mark, Sam/level.dat:2386")
+    assert found == [("Mark, Sam/db/000005.ldb", 1234), ("Mark, Sam/level.dat", 2386)]
+    with pytest.raises(hold.HoldError):
+        hold.parse_files("Bedrock level/level.dat:12 and more")
+
+
+def test_world_files_the_list_leaves_out_are_copied_whole(tmp_path):
+    """save query may list only the database and level.dat. The files beside
+    them (which add-ons the world has on) still go into the copy."""
+    worlds = tmp_path / "worlds"
+    world = worlds / "Bedrock level"
+    (world / "db").mkdir(parents=True)
+    (world / "db" / "000005.ldb").write_bytes(b"db")
+    (world / "db" / "LOG").write_bytes(b"log")
+    (world / "level.dat").write_bytes(b"level")
+    (world / "world_behavior_packs.json").write_text('[{"pack_id": "x"}]')
+    (worlds / "Other world").mkdir()
+    (worlds / "Other world" / "level.dat").write_bytes(b"other")
+    staging = tmp_path / "staging"
+    listed = ["Bedrock level/db/000005.ldb", "Bedrock level/level.dat"]
+    extra = hold.copy_unlisted(worlds, staging, listed)
+    assert extra == ["Bedrock level/world_behavior_packs.json"]
+    assert (staging / "Bedrock level" / "world_behavior_packs.json").read_text() == (
+        '[{"pack_id": "x"}]'
+    )
+    # The database is only ever copied as listed, and other worlds not at all.
+    assert not (staging / "Bedrock level" / "db" / "LOG").exists()
+    assert not (staging / "Other world").exists()
+
+
+def test_the_packs_inside_a_world_template_are_found():
+    template = pack_zip(
+        {
+            "manifest.json": json.dumps(manifest("world_template")),
+            "level.dat": b"level",
+            "behavior_packs/bp/manifest.json": json.dumps(manifest("data", name="BP")),
+            "resource_packs/rp/manifest.json": json.dumps(manifest("resources", name="RP")),
+        }
+    )
+    found = addons.read_upload("Castle.mctemplate", template)
+    assert sorted((f.manifest["kind"], f.prefix) for f in found) == [
+        ("behavior", "behavior_packs/bp/"),
+        ("resource", "resource_packs/rp/"),
+    ]
+
+
+def test_an_update_keeps_the_development_pack_folders(tmp_path):
+    folder = tmp_path / "srv"
+    archive = tmp_path / "bds.zip"
+    with zipfile.ZipFile(io.BytesIO(bedrock_zip())) as zf:
+        files = {name: zf.read(name) for name in zf.namelist()}
+    files["development_behavior_packs/"] = b""
+    archive.write_bytes(pack_zip(files))
+    infos = bedrock.members(archive)
+    bedrock.unpack(archive, folder, infos)
+    mine = folder / "development_behavior_packs" / "Mine"
+    mine.mkdir(parents=True)
+    assert "development_behavior_packs" not in bedrock.shipped(infos)["top"]
+    bedrock.move_aside(folder, tmp_path / "previous", bedrock.shipped(infos))
+    bedrock.unpack(archive, folder, infos)
+    assert mine.is_dir()
+
+
+def test_the_game_port_cant_be_the_servers_own_ipv6_port(bedrock_client):
+    answer = bedrock_client.put(
+        "/api/servers/bedrock/game-settings", json={"values": {"server-port": 19133}}
+    )
+    assert answer.status_code == 400
+    assert "IPv6" in json.dumps(answer.json())

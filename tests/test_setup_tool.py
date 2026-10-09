@@ -355,3 +355,19 @@ def test_check_reports_a_secrets_file_others_can_read(root, monkeypatch):
     text = "\n".join(out)
     assert "[FAIL] Secrets file privacy - Other accounts on this PC can open it: Users" in text
     assert "Run the setup again as an administrator to lock it." in text
+
+
+def test_env_is_never_left_cut_off_or_unlocked(tmp_path, monkeypatch):
+    """.env is written beside itself, locked down, then swapped in: a failed
+    lock-down leaves the old file exactly as it was."""
+    env = tmp_path / ".env"
+    env.write_text("MCSC_ADMIN_PASSWORD_HASH=old\n", encoding="utf-8")
+    monkeypatch.setattr("agent.security.certs._restrict_file", lambda path: "icacls exit 5")
+    with pytest.raises(setup_tool.LockDownError, match=r"\.env couldn't be made private"):
+        write_env_value(env, "MCSC_ADMIN_PASSWORD_HASH", "new")
+    assert env.read_text(encoding="utf-8") == "MCSC_ADMIN_PASSWORD_HASH=old\n"
+    assert sorted(p.name for p in tmp_path.iterdir()) == [".env"]
+    monkeypatch.setattr("agent.security.certs._restrict_file", lambda path: None)
+    write_env_value(env, "MCSC_ADMIN_PASSWORD_HASH", "new")
+    assert read_env(env)["MCSC_ADMIN_PASSWORD_HASH"] == "new"
+    assert sorted(p.name for p in tmp_path.iterdir()) == [".env"]

@@ -20,6 +20,7 @@ from fastapi.routing import APIRoute
 from ..deps import mark_alias, server_access
 from . import (
     accounts,
+    addons,
     auth,
     backups,
     chat,
@@ -60,6 +61,7 @@ PER_SERVER = (
     friends,
     chat,
     world,
+    addons,
 )
 GLOBAL = (
     auth,

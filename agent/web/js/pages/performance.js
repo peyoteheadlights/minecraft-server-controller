@@ -5,6 +5,7 @@ import { tpsPanel } from "../panels/tps.js";
 import { renderers, state } from "../state.js";
 import { t, technical } from "../strings.js";
 import { advanced, card, el, fmt, known, loadInto, metric, table } from "../ui.js";
+import { serverRow } from "../servers.js";
 
 const RANGES = [1, 6, 24, 168];
 
@@ -68,7 +69,9 @@ function charts(data) {
     lineChart({
       ...base, key: "tps", title: t("perf.chart_speed"), unit: t("perf.speed_unit"),
       format: (v, axis) => (axis ? String(v) : `${v.toFixed(1)} / 20`), min: 0, max: 20, ticks: [0, 5, 10, 15, 20],
-      empty: t("perf.speed_empty"),
+      // Bedrock servers report no speed: said instead of an empty chart.
+      empty: ((serverRow() || {}).capabilities || {}).speed === false
+        ? t("perf.speed_not_bedrock") : t("perf.speed_empty"),
     }),
     lineChart({
       ...base, key: "players", title: t("perf.chart_players"), unit: t("perf.players_unit"),

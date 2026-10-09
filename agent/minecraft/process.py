@@ -6,7 +6,8 @@ Responsibilities:
   shell, fixed working directory. Most types run
   ``java -Xmx6G -jar <jar> nogui``; Forge and NeoForge run
   ``java -Xmx6G @libraries/.../win_args.txt nogui`` from the argument file
-  their installer wrote (``server.args_file``)
+  their installer wrote (``server.args_file``); Bedrock runs its own
+  ``bedrock_server.exe`` from the server folder, with no arguments
 * stream its console into a bounded buffer
 * write validated Minecraft commands to its stdin
 * tell the difference between a graceful stop, a clean self-shutdown, a
@@ -37,6 +38,10 @@ if TYPE_CHECKING:
     from .java import JavaInfo
 
 log = logging.getLogger("msc.process")
+
+
+# The only programs a Bedrock server is launched as (house rule 2).
+EXE_NAMES = frozenset({"bedrock_server.exe", "bedrock_server"})
 
 
 class ServerError(RuntimeError):
@@ -231,7 +236,7 @@ class MinecraftServer:
     def java_compatibility(self) -> dict[str, Any] | None:
         from .java import check_compatibility
 
-        if not self.java_info:
+        if not self.java_info or not self.config.server_type.needs_java:
             return None
         return check_compatibility(self.java_info, self.mc_version)
 
@@ -253,6 +258,11 @@ class MinecraftServer:
         raw = self.config.server.raw_command
         if raw:
             return [str(x) for x in raw]
+        if self.config.server_type.launch == "exe":
+            # Bedrock: the program the app unpacked, by its full path inside
+            # the server folder (checked in preflight). No Java, no memory
+            # flags and no arguments: it reads server.properties itself.
+            return [str(self.config.server_dir / self.config.server.jar)]
         java = self.config.server.java
         jvm = [str(a) for a in self.config.server.jvm_args]
         jvm += cpu.jvm_args(self.config.server.cpu_cores, jvm)
@@ -288,6 +298,21 @@ class MinecraftServer:
                 )
             return None
         jar = directory / self.config.server.jar
+        if server_type.launch == "exe":
+            name = self.config.server.jar.strip()
+            if name not in EXE_NAMES or not is_inside(directory, jar.resolve()):
+                # Only Mojang's own program, by its own name, from the
+                # server's own folder (docs/security.md).
+                return (
+                    "The server's program isn't Bedrock's own (bedrock_server.exe) inside "
+                    "the server's folder, so it wasn't started."
+                )
+            if not jar.is_file():
+                return (
+                    f"The {server_type.name} server program isn't there: {jar}. Install it "
+                    "again from Server settings."
+                )
+            return None
         if not jar.is_file():
             return f"The server file isn't there: {jar}"
         return None
@@ -315,7 +340,9 @@ class MinecraftServer:
             if problem:
                 result.problems.append(problem)
             java = self.config.server.java
-            if not (Path(java).is_file() or shutil.which(java)):
+            if not self.config.server_type.needs_java:
+                pass
+            elif not (Path(java).is_file() or shutil.which(java)):
                 result.problems.append(f"Java isn't installed on this PC (looked for {java}).")
             else:
                 # Detect the runtime and compare it against the Minecraft
@@ -589,7 +616,11 @@ class MinecraftServer:
                 log.exception("signal handling failed")
 
     async def _handle_signals(self, line: ConsoleLine) -> None:
-        sig = extract_signals(line)
+        sig = extract_signals(line, self.config.server_type.dialect)
+        if sig.started and self.started_at:
+            # Bedrock says "Server started." without a time; it is measured
+            # from the launch.
+            sig.done_seconds = round(time.time() - self.started_at, 1)
         if sig.mc_version:
             self.mc_version = sig.mc_version
         if sig.loader_version:
@@ -743,7 +774,13 @@ class MinecraftServer:
         await self._on_exit(code)
 
     def _saw_clean_shutdown(self) -> bool:
-        markers = ("Stopping the server", "Stopping server", "Saving worlds", "Server closed")
+        markers = (
+            "Stopping the server",
+            "Stopping server",
+            "Saving worlds",
+            "Server closed",
+            "Quit correctly",  # Bedrock
+        )
         return any(any(mk in ln.raw for mk in markers) for ln in self.console.tail(60))
 
     def _classify_exit(self, code: int) -> ExitReason:

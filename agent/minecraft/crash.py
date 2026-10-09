@@ -19,7 +19,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .analyzer import analyze
+from .analyzer import analyze, unknown_cause
 from .state import ExitReason
 
 log = logging.getLogger("msc.crash")
@@ -112,7 +112,14 @@ class CrashReporter:
             except OSError:
                 pass
 
-        analysis = analyze(analysis_lines, exit_code=exit_code, known_mod_ids=self._known_mod_ids())
+        if self.config.server_type.dialect == "bedrock":
+            # The patterns below are Java's. Bedrock's console says too
+            # little to name a cause, so none is claimed.
+            analysis = unknown_cause(analysis_lines, exit_code)
+        else:
+            analysis = analyze(
+                analysis_lines, exit_code=exit_code, known_mod_ids=self._known_mod_ids()
+            )
 
         snapshot: dict[str, Any] = {}
         if self.metrics:

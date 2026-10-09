@@ -17,6 +17,8 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .. import requestid
+from ..addons import AddonError
+from ..backups.hold import HoldError
 from ..backups.manager import BackupError
 from ..config import ConfigError
 from ..core import UnknownServer
@@ -40,6 +42,7 @@ from ..scheduler.scheduler import ScheduleError
 from ..security.auth import AuthError
 from ..security.paths import PathSafetyError
 from ..servertypes import UnknownServerType
+from ..servertypes.bedrock import BedrockError
 from ..servertypes.install import InstallError
 from ..servertypes.versions import VersionError
 from ..transfer import TransferError
@@ -77,6 +80,9 @@ ERROR_STATUS: dict[type[Exception], int] = {
     WorldImportError: 400,
     MemoryLimitError: 400,
     TransferError: 400,
+    AddonError: 400,
+    BedrockError: 400,
+    HoldError: 409,  # the running server didn't get its files ready to copy
 }
 DOMAIN_ERRORS: tuple[type[Exception], ...] = tuple(ERROR_STATUS)
 

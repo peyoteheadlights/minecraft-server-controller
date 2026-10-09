@@ -80,8 +80,11 @@ async def upload_world(
 ):
     """Upload a world zip and say what it is. Nothing changes until the
     import is confirmed."""
-    if not (file.filename or "").lower().endswith(".zip"):
-        raise HTTPException(status_code=400, detail="Choose a world saved as a .zip file.")
+    if not (file.filename or "").lower().endswith(worldimport.UPLOAD_SUFFIXES):
+        raise HTTPException(
+            status_code=400,
+            detail="Choose a world saved as a .zip file (or a .mcworld for a Bedrock server).",
+        )
     token, path = worldimport.new_upload(ctx.core)
     size = 0
     try:
@@ -98,7 +101,7 @@ async def upload_world(
         path.unlink(missing_ok=True)
         raise
     audit(ctx, request, "world_upload", target=info.name or info.folder_name)
-    return {"token": token, "world": info.to_dict()}
+    return {"token": token, "world": info.to_dict(), **worldimport.fit(ctx, info)}
 
 
 @router.post("/world/import/folder")
@@ -110,7 +113,7 @@ async def pick_world_folder(
     """Read a world folder on the PC and say what it is."""
     info, path = await asyncio.to_thread(worldimport.inspect_folder, payload.path)
     token = worldimport.remember_folder(ctx.core, path)
-    return {"token": token, "world": info.to_dict()}
+    return {"token": token, "world": info.to_dict(), **worldimport.fit(ctx, info)}
 
 
 @router.get("/world/saves")

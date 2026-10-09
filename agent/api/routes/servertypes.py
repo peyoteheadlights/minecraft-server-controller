@@ -20,11 +20,14 @@ from ...security.permissions import (
     SETTINGS_EDIT,
     require,
 )
+from ...servertypes import bedrock as bedrock_module
 from ...servertypes import create as create_module
 from ...servertypes import install as install_module
 from ...servertypes import versions as versions_module
 from ..deps import audit, get_core, get_server
+from ..responses import BedrockTerms, BedrockVersions
 from .models import (
+    BedrockTermsRequest,
     CreateServerRequest,
     CrossplayRequest,
     VersionChangeRequest,
@@ -51,9 +54,7 @@ async def list_types(principal: Principal = Depends(require(SERVER_VIEW))):
 @global_router.get("/server-types/{type_id}/versions")
 async def type_versions(type_id: str, principal: Principal = Depends(require(SERVER_VIEW))):
     """The Minecraft versions this type offers, from its official source."""
-    server_type = servertypes.get(type_id)
-    found = await versions_module.list_versions(server_type.id)
-    return versions_module.versions_payload(server_type.id, found)
+    return await versions_module.report(servertypes.get(type_id).id)
 
 
 @global_router.get("/new-server/options")
@@ -85,6 +86,49 @@ async def create_server(
         eula_accepted=payload.eula_accepted,
         user=principal.user,
     )
+
+
+# ---------------------------------------------------------------- Bedrock
+def _terms(core) -> dict:
+    record = bedrock_module.terms(core.db) or {}
+    return {
+        "accepted": bool(record),
+        "user": record.get("user"),
+        "at": record.get("at"),
+        "eula_url": bedrock_module.EULA_URL,
+        "privacy_url": bedrock_module.PRIVACY_URL,
+    }
+
+
+@global_router.get("/bedrock/terms", response_model=BedrockTerms)
+async def bedrock_terms(
+    principal: Principal = Depends(require(SERVER_VIEW)), core=Depends(get_core)
+):
+    """Whether Mojang's EULA and Privacy Policy were accepted. The Bedrock
+    server is never downloaded before they are."""
+    return _terms(core)
+
+
+@global_router.post("/bedrock/terms", response_model=BedrockTerms)
+async def accept_bedrock_terms(
+    payload: BedrockTermsRequest,
+    request: Request,
+    principal: Principal = Depends(require(SERVERS_MANAGE)),
+    core=Depends(get_core),
+):
+    """Record that the person ticked the box accepting Mojang's EULA and
+    Privacy Policy. Only ever sent from their own tick."""
+    if not payload.accepted:
+        raise HTTPException(status_code=400, detail="Tick the box to accept them.")
+    bedrock_module.accept_terms(core.db, principal.user)
+    return _terms(core)
+
+
+@global_router.get("/bedrock/versions", response_model=BedrockVersions)
+async def bedrock_kept_versions(principal: Principal = Depends(require(SERVER_VIEW))):
+    """The Bedrock versions this app downloaded and kept."""
+    kept = await asyncio.to_thread(bedrock_module.kept_versions)
+    return {"kept": kept, "folder": str(bedrock_module.kept_root())}
 
 
 # ---------------------------------------------------- one server's version

@@ -32,6 +32,9 @@ export function tpsPanel(node) {
   }
 
   function render(s) {
+    // Bedrock servers have no command that reports their speed: said once,
+    // with nothing to configure.
+    if (s.mode === "unsupported") return el("p", { class: "hint mt-0" }, s.message);
     const online = s.server_state === "ONLINE";
     const mode = s.mode === "manual" ? t("tps.manual") : s.mode === "disabled" ? t("tps.off")
       : (s.detection === "remembered" ? t("tps.auto_remembered") : t("tps.auto"));

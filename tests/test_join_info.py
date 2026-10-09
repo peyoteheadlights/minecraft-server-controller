@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from agent import joininfo, tailscale
+from agent import joininfo, servertypes, tailscale
 
 
 def addr(address, family=socket.AF_INET):
@@ -113,7 +113,11 @@ def test_bedrock_players_get_the_home_address_too(adapters, monkeypatch):
         port_of=lambda ctx: SimpleNamespace(port=25565, source="server.properties"),
         bedrock_port_of=lambda ctx: SimpleNamespace(port=19132),
     )
-    ctx = SimpleNamespace(core=SimpleNamespace(ports=ports), server=SimpleNamespace(running=False))
+    ctx = SimpleNamespace(
+        core=SimpleNamespace(ports=ports),
+        server=SimpleNamespace(running=False),
+        config=SimpleNamespace(server_type=servertypes.get("paper")),
+    )
     bedrock = joininfo.join_info(ctx)["bedrock"]
     assert bedrock["port"] == 19132 and bedrock["protocol"] == "udp"
     assert [a["address"] for a in bedrock["local"]] == ["192.168.1.20"]

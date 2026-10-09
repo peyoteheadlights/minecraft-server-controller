@@ -239,7 +239,25 @@ FIELDS: tuple[Field, ...] = (
     Field("motd", "text", "A Minecraft Server"),
     Field("server-port", "port", "25565", minimum=1024, maximum=65535),
 )
+# Bedrock Dedicated Server's own keys and defaults (its server.properties
+# names several things differently: allow-list, server-name, allow-cheats).
+BEDROCK_FIELDS: tuple[Field, ...] = (
+    Field("difficulty", "choice", "easy", choices=DIFFICULTIES),
+    Field("gamemode", "choice", "survival", choices=("survival", "creative", "adventure")),
+    Field("max-players", "int", "10", minimum=1, maximum=1000),
+    Field("level-seed", "seed", "", max_length=100),
+    Field("allow-list", "bool", "false"),
+    Field("allow-cheats", "bool", "false"),
+    Field("view-distance", "int", "32", minimum=5, maximum=96),
+    Field("server-name", "text", "Dedicated Server"),
+    Field("server-port", "port", "19132", minimum=1024, maximum=65535),
+)
+FIELD_SETS = {"java": FIELDS, "bedrock": BEDROCK_FIELDS}
 FIELDS_BY_KEY = {f.key: f for f in FIELDS}
+
+
+def fields_for(dialect: str = "java") -> dict[str, Field]:
+    return {f.key: f for f in FIELD_SETS.get(dialect, FIELDS)}
 
 
 def read_value(spec: Field, raw: str | None) -> tuple[Any, str | None]:
@@ -304,28 +322,34 @@ def check_value(spec: Field, value: Any) -> str:
     return text
 
 
-def world_folder(directory: Path, values: dict[str, str]) -> Path:
+def world_folder(directory: Path, values: dict[str, str], server_type: Any = None) -> Path:
     """The folder the world lives in, from level-name (Minecraft's own
-    default is "world")."""
-    name = (values.get("level-name") or "world").strip() or "world"
-    return directory / name
+    default is "world"; Bedrock keeps "Bedrock level" inside worlds/)."""
+    default = getattr(server_type, "default_level_name", "world") or "world"
+    root = getattr(server_type, "world_root", "") or ""
+    name = (values.get("level-name") or default).strip() or default
+    return (directory / root / name) if root else directory / name
 
 
-def world_folders(directory: Path) -> set[str]:
-    """The folders that make up the world: level-name and, for Paper,
-    Purpur and Spigot's split dimensions, its _nether and _the_end."""
+def world_folders(directory: Path, server_type: Any = None) -> set[str]:
+    """The folders (in the server folder) that make up the world: level-name
+    and, for Paper, Purpur and Spigot's split dimensions, its _nether and
+    _the_end. For Bedrock, its worlds/ folder."""
+    root = getattr(server_type, "world_root", "") or ""
+    if root:
+        return {root}
     path = directory / FILENAME
     values = PropertiesFile.read(path).values() if path.is_file() else {}
     name = world_folder(directory, values).name
     return {name, f"{name}_nether", f"{name}_the_end"}
 
 
-def world_exists(directory: Path, values: dict[str, str]) -> bool:
+def world_exists(directory: Path, values: dict[str, str], server_type: Any = None) -> bool:
     """A world exists once Minecraft has written its level.dat."""
-    return (world_folder(directory, values) / "level.dat").is_file()
+    return (world_folder(directory, values, server_type) / "level.dat").is_file()
 
 
-def check_raw_text(text: str) -> PropertiesFile:
+def check_raw_text(text: str, dialect: str = "java") -> PropertiesFile:
     """Check the whole file as typed in Technical mode. Every line must be
     a comment, blank, or key=value, and every known key must hold a value
     its field accepts. Returns the parsed file."""
@@ -341,7 +365,7 @@ def check_raw_text(text: str) -> PropertiesFile:
         if not KEY_RE.match(entry.key):
             problems.append(f"Line {number}: '{entry.key}' doesn't look like a setting name.")
             continue
-        spec = FIELDS_BY_KEY.get(entry.key)
+        spec = fields_for(dialect).get(entry.key)
         if spec is None:
             continue
         typed, problem = read_value(spec, entry.value)
@@ -360,16 +384,16 @@ def check_raw_text(text: str) -> PropertiesFile:
 PortCheck = Callable[[int], str | None]
 
 
-def form_view(directory: Path) -> dict[str, Any]:
+def form_view(directory: Path, server_type: Any = None) -> dict[str, Any]:
     """What the Game settings page shows: each known key's value as the
     file has it, whether the file exists, and the whole text."""
     path = directory / FILENAME
     exists = path.is_file()
     parsed = PropertiesFile.read(path) if exists else PropertiesFile()
     values = parsed.values()
-    has_world = world_exists(directory, values)
+    has_world = world_exists(directory, values, server_type)
     fields = []
-    for spec in FIELDS:
+    for spec in fields_for(getattr(server_type, "dialect", "java")).values():
         raw = values.get(spec.key)
         typed, problem = read_value(spec, raw)
         read_only = None
@@ -396,7 +420,7 @@ def form_view(directory: Path) -> dict[str, Any]:
         "exists": exists,
         "modified_at": path.stat().st_mtime if exists else None,
         "world_exists": has_world,
-        "world_folder": world_folder(directory, values).name,
+        "world_folder": world_folder(directory, values, server_type).name,
         "fields": fields,
         "text": parsed.text(),
     }
@@ -406,6 +430,7 @@ def apply_form(
     directory: Path,
     updates: dict[str, Any],
     port_problem: PortCheck | None = None,
+    server_type: Any = None,
 ) -> tuple[PropertiesFile, dict[str, str]]:
     """Check every update and return the edited file (not yet written) and
     the keys that change. Raises PropertiesError naming each bad value."""
@@ -414,8 +439,9 @@ def apply_form(
     values = parsed.values()
     problems: dict[str, str] = {}
     texts: dict[str, str] = {}
+    known = fields_for(getattr(server_type, "dialect", "java"))
     for key, value in updates.items():
-        spec = FIELDS_BY_KEY.get(key)
+        spec = known.get(key)
         if spec is None:
             problems[key] = "This setting can't be changed here."
             continue
@@ -425,7 +451,7 @@ def apply_form(
             problems[key] = str(exc)
             continue
         if key == "level-seed" and text != (values.get(key) or "").strip():
-            if world_exists(directory, values):
+            if world_exists(directory, values, server_type):
                 problems[key] = (
                     "The world already exists, so its seed can't change. A new seed only "
                     "applies to a new world."

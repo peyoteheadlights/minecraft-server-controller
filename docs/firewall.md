@@ -67,3 +67,11 @@ than intended — delete it and re-run the script.
 Port 25565 is separate. If players connect over the internet, that port is
 forwarded and public — normal, and unrelated to the agent. The agent never
 touches it, and the dashboard rule above does not affect it.
+
+A Bedrock server (and Geyser on a Java server) uses **UDP** instead: 19132
+by default, and 19133 for IPv6 on a Bedrock server. Windows usually asks
+whether to allow `bedrock_server.exe` the first time it starts; allow it on
+private networks for friends on your home Wi-Fi or Tailscale. The agent
+doesn't create Minecraft rules and never opens router ports. Xbox,
+PlayStation and Switch can't run Tailscale, so they can only join over your
+home network or a forwarded port.

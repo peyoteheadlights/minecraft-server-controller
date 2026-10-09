@@ -18,6 +18,12 @@ is written until the step before it has passed:
 
 The server is not started: its version stays Unknown until its own console
 reports it, and "ready" means the console said it started.
+
+A Bedrock server differs in three places: there is no Java to check (step
+2), the box the person ticks accepts Mojang's EULA and Privacy Policy and is
+recorded before anything is downloaded (step 4; Bedrock has no eula.txt),
+and server.properties is Mojang's own file from the download, with this
+app's ports, name and world name set in it afterwards (step 3 after 5).
 """
 
 from __future__ import annotations
@@ -108,6 +114,23 @@ def write_properties(
     return path
 
 
+def set_bedrock_properties(directory: Path, port: int, port_v6: int, name: str) -> Path:
+    """Set the ports, the name players see and the world name in Mojang's own
+    server.properties from the download, keeping its comments and every
+    other value as Mojang wrote them."""
+    from ..minecraft.properties import PropertiesFile
+
+    path = directory / "server.properties"
+    parsed = PropertiesFile.read(path) if path.is_file() else PropertiesFile()
+    parsed.set("server-name", name.replace("\n", " ").replace(";", " ")[:59])
+    parsed.set("server-port", str(int(port)))
+    parsed.set("server-portv6", str(int(port_v6)))
+    if not parsed.get("level-name"):
+        parsed.set("level-name", "Bedrock level")
+    parsed.write(path)
+    return path
+
+
 def write_eula(directory: Path, accepted: bool) -> Path:
     """Write eula.txt. ``eula=true`` is written only when the person has
     accepted Minecraft's rules themselves."""
@@ -170,7 +193,10 @@ def java_problem(minecraft: str, java_executable: str = "java") -> dict[str, Any
 async def options(core: AgentCore) -> dict[str, Any]:
     """What the New server panel needs: the types, the default memory, the
     next free port and color, and Minecraft's rules link."""
+    from . import bedrock
+
     memory_mb, memory_reason = default_memory_mb()
+    bedrock_ports = core.ports.suggest_bedrock_server()
     return {
         "types": servertypes.catalog(),
         "recommended": servertypes.RECOMMENDED,
@@ -180,6 +206,13 @@ async def options(core: AgentCore) -> dict[str, Any]:
         "color": colors.next_unused(ctx.color for ctx in core.servers.values()),
         "palette": colors.palette(),
         "eula_url": EULA_URL,
+        "bedrock": {
+            "port": bedrock_ports[0] if bedrock_ports else None,
+            "port_v6": bedrock_ports[1] if bedrock_ports else None,
+            "eula_url": bedrock.EULA_URL,
+            "privacy_url": bedrock.PRIVACY_URL,
+            "terms": bedrock.terms(core.db),
+        },
         "java_download": TEMURIN_URL,
         "java": core.default.server.java_info.to_dict() if core.default.server.java_info else None,
     }
@@ -213,7 +246,13 @@ async def create_server(
     name = (name or "").strip()
     if not name:
         raise InstallError("Give the new server a name.")
+    is_bedrock = server_type.dialect == "bedrock"
     if not eula_accepted:
+        if is_bedrock:
+            raise InstallError(
+                "Mojang's EULA and Privacy Policy have to be accepted before the Bedrock "
+                "server can be downloaded. Tick the box to accept them."
+            )
         raise InstallError(
             "Minecraft's rules (the EULA) have to be accepted before a server can be "
             "created. Tick the box to accept them."
@@ -226,16 +265,32 @@ async def create_server(
     entry = next((v for v in versions if v.minecraft == minecraft), None)
     if entry is None:
         raise InstallError(f"{server_type.name} doesn't offer Minecraft {minecraft}.")
-    problem = java_problem(minecraft, core.config.server.java)
-    if problem:
-        raise InstallError(problem["problem"])
+    if server_type.needs_java:
+        problem = java_problem(minecraft, core.config.server.java)
+        if problem:
+            raise InstallError(problem["problem"])
 
     plan = await make_plan(server_type.id, minecraft, loader)
     server_id = new_server_id(name, core.config.server_ids)
-    port = core.ports.suggest() or 25565
-    memory = int(memory_mb or default_memory_mb()[0])
-    if not MIN_MEMORY_MB // 2 <= memory <= 1024 * 64:
-        raise InstallError("That amount of memory isn't a sensible size for a server.")
+    port_v6: int | None = None
+    if is_bedrock:
+        pair = core.ports.suggest_bedrock_server()
+        if pair is None:
+            raise InstallError(
+                "No free pair of UDP ports was found for the Bedrock server near 19132."
+            )
+        port, port_v6 = pair
+        memory = 0  # Bedrock has no memory setting
+    else:
+        port = core.ports.suggest() or 25565
+        memory = int(memory_mb or default_memory_mb()[0])
+        if not MIN_MEMORY_MB // 2 <= memory <= 1024 * 64:
+            raise InstallError("That amount of memory isn't a sensible size for a server.")
+    if is_bedrock:
+        # Recorded before anything is downloaded: the person ticked the box.
+        from . import bedrock
+
+        bedrock.accept_terms(core.db, user)
 
     existed = folder.is_dir()
     title = title or f"Creating {name} ({server_type.name} {minecraft})"
@@ -248,8 +303,9 @@ async def create_server(
         try:
             if server_type.content_folder:
                 (folder / server_type.content_folder).mkdir(exist_ok=True)
-            write_properties(folder, port, name)
-            write_eula(folder, eula_accepted)
+            if not is_bedrock:
+                write_properties(folder, port, name)
+                write_eula(folder, eula_accepted)
             entry_config = {
                 "id": server_id,
                 "name": name,
@@ -258,7 +314,7 @@ async def create_server(
                 "jar": plan.jar or server_type.jar,
                 "args_file": "",
                 "java": core.config.server.java,
-                "jvm_args": [f"-Xmx{memory}M"],
+                "jvm_args": [] if is_bedrock else [f"-Xmx{memory}M"],
                 "port": port,
             }
             # A ServerContext is needed to install (the install log and the
@@ -271,6 +327,15 @@ async def create_server(
             raise
         try:
             result = await install_plan(ctx, plan, folder, job=job)
+            if is_bedrock:
+                written = set_bedrock_properties(folder, port, port_v6 or port + 1, name)
+                # The player limit the app shows is Mojang's own default from
+                # the file, not this app's Java default.
+                from ..minecraft.properties import PropertiesFile
+
+                limit = (PropertiesFile.read(written).get("max-players") or "").strip()
+                if limit.isdigit():
+                    ctx.config.set("server.max_players", int(limit))
             ctx.config.set("server.jar", result["jar"])
             ctx.config.set("server.args_file", result["args_file"])
             if server_type.content_folder:
@@ -320,7 +385,7 @@ async def create_server(
             "name": name,
             "directory": str(folder),
             "port": port,
-            "memory_mb": memory,
+            "memory_mb": memory or None,
             "eula_accepted": True,
         }
 

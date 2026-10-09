@@ -66,6 +66,12 @@ class Version:
     # type picks one separately. Empty: the provider picks.
     loaders: list[str] = field(default_factory=list)
     released: str | None = None
+    # False for Bedrock: no Java involved.
+    java: bool = True
+    # Bedrock: a copy this app downloaded earlier is kept, and which one is
+    # the newest the official source offers now.
+    kept: bool = False
+    latest: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         from ..minecraft.java import required_java
@@ -75,10 +81,13 @@ class Version:
             "stable": self.stable,
             # The oldest Java this Minecraft version runs on, so the New
             # server panel can say so before anything is created. None for
-            # a version whose number can't be read (a snapshot name).
-            "java_required": required_java(self.minecraft),
+            # a version whose number can't be read (a snapshot name), and
+            # for Bedrock, which doesn't use Java.
+            "java_required": required_java(self.minecraft) if self.java else None,
             "loaders": self.loaders,
             "released": self.released,
+            "kept": self.kept,
+            "latest": self.latest,
         }
 
 
@@ -106,6 +115,8 @@ class Plan:
     installer: str | None = None
     source: str = ""
     verified: bool = True
+    # Bedrock: the zip the server is unpacked from (kept in the data folder).
+    archive: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -500,6 +511,10 @@ async def purpur_plan(minecraft: str) -> Plan:
 async def list_versions(type_id: str) -> list[Version]:
     """Every Minecraft version this type offers, newest first."""
     server_type = get(type_id)
+    if server_type.id == "bedrock":
+        from . import bedrock
+
+        return (await bedrock.versions())[0]
     if server_type.id == "vanilla":
         return await vanilla_versions()
     if server_type.id in ("fabric", "quilt"):
@@ -517,6 +532,10 @@ async def make_plan(type_id: str, minecraft: str, loader: str | None = None) -> 
     minecraft = check_version(minecraft, "Minecraft version")
     if loader:
         loader = check_version(loader, f"{server_type.name} version")
+    if server_type.id == "bedrock":
+        from . import bedrock
+
+        return await bedrock.plan(minecraft)
     if server_type.id == "vanilla":
         return await vanilla_plan(minecraft)
     if server_type.id in ("fabric", "quilt"):
@@ -532,10 +551,26 @@ def latest_stable(versions: list[Version]) -> Version | None:
     return next((v for v in versions if v.stable), versions[0] if versions else None)
 
 
+async def report(type_id: str) -> dict[str, Any]:
+    """The version list as the version pickers show it. For Bedrock it says
+    when Mojang's list couldn't be read but kept copies are offered."""
+    server_type = get(type_id)
+    if server_type.id == "bedrock":
+        from . import bedrock
+
+        found, problem = await bedrock.versions()
+        return {**versions_payload(server_type.id, found), "source_problem": problem}
+    found = await list_versions(server_type.id)
+    return {**versions_payload(server_type.id, found), "source_problem": None}
+
+
 def versions_payload(type_id: str, versions: list[Version]) -> dict[str, Any]:
     server_type = get(type_id)
     newest = latest_stable(versions)
     return {
+        # Only the newest is offered by the source; older ones only where
+        # this app kept a copy it downloaded.
+        "latest_only": server_type.latest_only,
         "type": server_type.id,
         "type_name": server_type.name,
         "source": server_type.version_source,

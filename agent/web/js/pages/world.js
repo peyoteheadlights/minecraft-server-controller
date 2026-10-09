@@ -14,6 +14,7 @@
 import { api, serverPath } from "../api.js";
 import { navigate } from "../nav.js";
 import { pickFolder } from "../panels/folders.js";
+import { serverRow } from "../servers.js";
 import { can, renderers, state } from "../state.js";
 import { t, technical } from "../strings.js";
 import { busy, confirmDialog, el, emptyState, fmt, known, loadInto, problem, section, toast, withHelp } from "../ui.js";
@@ -91,13 +92,26 @@ function worldFacts(world) {
     el("dd", {}, world.last_played ? fmt.time(world.last_played) : t("value.unknown")));
 }
 
-/* Shows what was read and asks before replacing anything. */
-async function confirmImport(token, world, reload) {
+const isBedrock = () => (serverRow() || {}).edition === "bedrock";
+
+/* Shows what was read and asks before replacing anything. A Bedrock world
+   saved by a newer game version than the server runs is flagged: an older
+   server can't load it. */
+async function confirmImport(token, world, reload, fit = {}) {
+  const warnings = [];
+  if (fit.edition_matches === false) {
+    warnings.push(t(world.edition === "bedrock" ? "import.is_bedrock" : "import.is_java"));
+  }
+  if (fit.newer_than_server === true) {
+    warnings.push(t("import.newer", { world: world.version, server: fit.server_version }));
+  }
   const ok = await confirmDialog({
     title: t("import.confirm_title", { name: world.name || world.folder_name }),
     body: el("div", {},
       worldFacts(world),
       world.read_problem ? el("p", { class: "banner warn" }, t("import.read_problem", { problem: world.read_problem })) : null,
+      ...warnings.map((text) => el("p", { class: "banner warn" }, text)),
+      fit.level_name ? el("p", {}, t("import.bedrock_level", { name: fit.level_name })) : null,
       el("p", {}, t("import.confirm_body"))),
     confirmLabel: t("import.confirm_action"), danger: true,
   });
@@ -120,7 +134,7 @@ async function uploadZip(file, button, reload) {
     form.append("file", file);
     try {
       const result = await api("/world/import/upload", { method: "POST", body: form });
-      await confirmImport(result.token, result.world, reload);
+      await confirmImport(result.token, result.world, reload, result);
     } catch (err) { toast(err.message, "error", 12000); }
   });
 }
@@ -129,17 +143,21 @@ async function useFolder(path, button, reload) {
   await busy(button, t("import.reading"), async () => {
     try {
       const result = await api("/world/import/folder", { method: "POST", body: { path } });
-      await confirmImport(result.token, result.world, reload);
+      await confirmImport(result.token, result.world, reload, result);
     } catch (err) { toast(err.message, "error", 12000); }
   });
 }
 
 function importCard(running, reload) {
-  const input = el("input", { type: "file", accept: ".zip,application/zip", class: "sr-only", id: "world-zip" });
+  const bedrock = isBedrock();
+  const input = el("input", {
+    type: "file", class: "sr-only", id: "world-zip",
+    accept: bedrock ? ".mcworld,.mctemplate,.zip" : ".zip,application/zip",
+  });
   const zipButton = el("button", { class: "btn", type: "button", disabled: running ? "disabled" : false,
-    onclick: () => input.click() }, t("import.choose_zip"));
+    onclick: () => input.click() }, t(bedrock ? "import.choose_mcworld" : "import.choose_zip"));
   input.addEventListener("change", () => uploadZip(input.files[0], zipButton, reload));
-  const drop = el("div", { class: "drop-zone" }, t("import.drop"));
+  const drop = el("div", { class: "drop-zone" }, t(bedrock ? "import.drop_mcworld" : "import.drop"));
   drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
   drop.addEventListener("dragleave", () => drop.classList.remove("over"));
   drop.addEventListener("drop", (e) => {
@@ -149,7 +167,8 @@ function importCard(running, reload) {
     uploadZip(e.dataTransfer.files[0], zipButton, reload);
   });
   const saves = el("div", { class: "mt-10" });
-  api("/world/saves").then((found) => {
+  // Single-player's saves folder holds Java worlds; Bedrock keeps its own.
+  if (!bedrock) api("/world/saves").then((found) => {
     if (!found.worlds.length) return;
     saves.replaceChildren(el("h3", { class: "subheading" }, t("import.from_saves")),
       el("ul", { class: "saves-list" }, found.worlds.slice(0, 8).map((w) => el("li", {},
@@ -165,7 +184,7 @@ function importCard(running, reload) {
       if (path) useFolder(path, button, reload);
     } }, t("import.choose_folder"));
   return section(t("import.title"), null,
-    el("p", { class: "hint mt-0" }, t("import.lead")),
+    el("p", { class: "hint mt-0" }, t(bedrock ? "import.lead_bedrock" : "import.lead")),
     running ? el("div", { class: "banner warn" }, t("import.stop_first")) : null,
     drop, input,
     el("div", { class: "btn-row mt-10" }, zipButton, folderButton),
@@ -174,7 +193,7 @@ function importCard(running, reload) {
 
 function downloadCard() {
   return section(t("download.title"), null,
-    el("p", { class: "hint mt-0" }, t("download.lead")),
+    el("p", { class: "hint mt-0" }, t(isBedrock() ? "download.lead_bedrock" : "download.lead")),
     el("div", { class: "btn-row" }, el("button", { class: "btn", type: "button",
       onclick: (e) => busy(e.currentTarget, t("download.packing"), async () => {
         try {

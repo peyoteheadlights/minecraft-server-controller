@@ -30,7 +30,7 @@ LIMIT = 40
 
 def world_parts(ctx: ServerContext) -> set[str]:
     """This server's world folders, from its level-name."""
-    return world_folders(ctx.config.server_dir)
+    return world_folders(ctx.config.server_dir, ctx.config.server_type)
 
 
 def _world_in(backup: dict[str, Any], parts: set[str]) -> set[str]:

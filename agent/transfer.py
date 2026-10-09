@@ -113,9 +113,9 @@ class Options:
     passphrase: str = ""
 
 
-def _server_files(directory: Path, worlds: bool) -> list[tuple[Path, str]]:
+def _server_files(directory: Path, worlds: bool, server_type: Any = None) -> list[tuple[Path, str]]:
     """Every file of a server folder to copy, with its path inside it."""
-    skip_worlds = set() if worlds else world_folders(directory)
+    skip_worlds = set() if worlds else world_folders(directory, server_type)
     out: list[tuple[Path, str]] = []
     for root, dirs, names in os.walk(directory, followlinks=False):
         here = Path(root)
@@ -173,8 +173,9 @@ def estimate(core) -> dict[str, Any]:
     servers = []
     for ctx in core.servers.values():
         base = ctx.config.server_dir
-        world = sum(directory_size(base / name) for name in world_folders(base))
-        files = sum(f.stat().st_size for f, _ in _server_files(base, worlds=False) if f.exists())
+        kind = ctx.config.server_type
+        world = sum(directory_size(base / name) for name in world_folders(base, kind))
+        files = sum(f.stat().st_size for f, _ in _server_files(base, False, kind) if f.exists())
         backups = sum(p.stat().st_size for _, p in _backups(core.config, core.db, ctx.server_id))
         servers.append(
             {
@@ -229,7 +230,7 @@ def export(
                 "folder_name": base.name,
                 "backups": [],
             }
-            for full, relative in _server_files(base, options.worlds):
+            for full, relative in _server_files(base, options.worlds, view.server_type):
                 name = f"servers/{server_id}/{relative}"
                 try:
                     if relative == FILENAME:
@@ -271,7 +272,7 @@ def export(
 def count_items(core, options: Options) -> int:
     total = 0
     for ctx in core.servers.values():
-        total += len(_server_files(ctx.config.server_dir, options.worlds))
+        total += len(_server_files(ctx.config.server_dir, options.worlds, ctx.config.server_type))
         if options.backups:
             total += len(_backups(core.config, core.db, ctx.server_id))
     return total

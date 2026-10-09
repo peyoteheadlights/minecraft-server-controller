@@ -401,3 +401,32 @@ def test_the_dashboard_can_only_ask_windows_to_run_the_update_task():
     assert updates.UPDATER_TASK == "Minecraft Server Controller updater"
     others = inspect.getsource(updates).replace(source, "")
     assert "subprocess.run" not in others and "Popen" not in others
+
+
+# ====================================================================
+# Phase 8: a Bedrock server is Mojang's own program, run with no shell
+# ====================================================================
+def test_a_bedrock_server_is_launched_as_one_fixed_path(tmp_path):
+    """bedrock_server.exe is the download-and-run exception in
+    docs/security.md: its full path inside the server folder, no arguments,
+    no shell, and only by Mojang's own file name."""
+    from agent.events import EventBus
+    from agent.minecraft.process import EXE_NAMES
+
+    from .conftest import build_bedrock_config
+
+    view = build_bedrock_config(tmp_path).for_server("bedrock")
+    view.set("server.raw_command", [])
+    server = MinecraftServer(view, EventBus())
+    assert server.build_command() == [str(view.server_dir / "bedrock_server.exe")]
+    assert EXE_NAMES == {"bedrock_server.exe", "bedrock_server"}
+    for name in ("powershell.exe", "..\\bedrock_server.exe", "C:/Windows/notepad.exe"):
+        view.set("server.jar", name)
+        assert server.launch_problem(), name
+
+
+def test_the_bedrock_exception_is_documented():
+    text = (Path(__file__).resolve().parent.parent / "docs" / "security.md").read_text(
+        encoding="utf-8"
+    )
+    assert "bedrock_server.exe" in text and "EXE_NAMES" in text

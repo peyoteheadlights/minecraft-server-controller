@@ -88,6 +88,8 @@ class TpsMonitor:
 
     # ------------------------------------------------------------------ state
     def mode(self) -> str:
+        if not self.config.server_type.reports_speed:
+            return "unsupported"
         value = str(self.config.monitor.tps_command or "").strip()
         if value.lower() in ("", "off", "none", "disabled"):
             return "disabled"
@@ -99,14 +101,18 @@ class TpsMonitor:
         return self.config.monitor.tps_command.strip() if self.mode() == "manual" else None
 
     def reset_status(self) -> None:
+        unsupported = self.mode() == "unsupported"
         self.status_data: dict[str, Any] = {
             "mode": self.mode(),
-            "state": "idle",
+            "state": "unavailable" if unsupported else "idle",
             "command": None,
             "detection": None,
             "tried": [],
             "detected_at": None,
-            "message": "Waiting for the server to finish starting.",
+            "message": f"Not available for {self.config.server_type.name} servers: they have "
+            "no command that reports the server's speed."
+            if unsupported
+            else "Waiting for the server to finish starting.",
         }
         self._publish_status()
 
@@ -134,6 +140,8 @@ class TpsMonitor:
             await self.halt()
 
     def begin(self) -> None:
+        if self.mode() == "unsupported":
+            return
         if self._task and not self._task.done():
             self._task.cancel()
         self._task = asyncio.create_task(self._run(), name="tps-monitor")

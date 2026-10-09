@@ -14,6 +14,7 @@ import { serverAction } from "./overview.js";
 import { can, renderers, state } from "../state.js";
 import { t, technical } from "../strings.js";
 import { busy, card, el, fmt, loadInto, problem, toast, withHelp } from "../ui.js";
+import { serverRow } from "../servers.js";
 import { saveServerSettings } from "./settings.js";
 
 const serverUrl = (path) => `/servers/${encodeURIComponent(state.serverId)}${path}`;
@@ -29,6 +30,10 @@ const LABELS = {
   "view-distance": ["game.view_distance", "game.view_distance_hint"],
   "motd": ["game.motd", "game.motd_hint"],
   "server-port": ["game.port", "game.port_hint"],
+  // Bedrock's own keys.
+  "allow-list": ["game.whitelist", "game.allowlist_hint"],
+  "allow-cheats": ["game.cheats", "game.cheats_hint"],
+  "server-name": ["game.server_name", "game.server_name_hint"],
 };
 const CHOICE_WORDS = {
   peaceful: "game.peaceful", easy: "game.easy", normal: "game.normal", hard: "game.hard",
@@ -38,8 +43,8 @@ const CHOICE_WORDS = {
 // The order the form shows them in: how the game plays, who can join, then
 // the technical bits.
 const ORDER = [
-  ["game.group_play", ["gamemode", "difficulty", "pvp"]],
-  ["game.group_who", ["motd", "max-players", "white-list"]],
+  ["game.group_play", ["gamemode", "difficulty", "pvp", "allow-cheats"]],
+  ["game.group_who", ["motd", "server-name", "max-players", "white-list", "allow-list"]],
   ["game.group_world", ["level-seed", "view-distance", "server-port"]],
 ];
 
@@ -192,7 +197,9 @@ function memoryCard(data) {
     ? el("p", { class: "hint mt-0" }, t("memory.pc_has", { total: gb(data.total_mb) }))
     : el("p", { class: "hint mt-0" }, t("memory.pc_unknown"));
   if (!data.takes_memory_limit) {
-    return card(t("memory.title"), label, el("p", { class: "hint" }, t("memory.not_used")));
+    const bedrock = (serverRow() || {}).edition === "bedrock";
+    return card(t("memory.title"), label,
+      el("p", { class: "hint" }, t(bedrock ? "memory.not_bedrock" : "memory.not_used")));
   }
   const current = data.limit_mb;
   const warning = el("div");

@@ -16,6 +16,11 @@ claim it worked.
 The lists of who is on the whitelist, who is an operator and who is banned
 come from the files Minecraft itself keeps (whitelist.json, ops.json,
 banned-players.json), never from what this app sent.
+
+Bedrock Dedicated Server has its own commands and files (the server type's
+``dialect``): ``allowlist add "Name"``, ``op``, ``deop`` and ``kick``, with
+allowlist.json and permissions.json, players identified by their xuid, and
+no ban list at all. A gamertag can hold spaces, so names are quoted.
 """
 
 from __future__ import annotations
@@ -120,6 +125,43 @@ ACTIONS: dict[str, Action] = {
     ),
 }
 
+# Bedrock Dedicated Server's commands and answers. Its "whitelist" is the
+# allowlist, op and deop only reach a player who is online, and there is
+# no ban.
+BEDROCK_ACTIONS: dict[str, Action] = {
+    "whitelist_add": Action(
+        'allowlist add "{name}"',
+        done=(r"Player added to allowlist",),
+        unchanged=(r"Player already in allowlist",),
+    ),
+    "whitelist_remove": Action(
+        'allowlist remove "{name}"',
+        done=(r"Player removed from allowlist",),
+        unchanged=(r"Player not in allowlist",),
+    ),
+    "op": Action(
+        'op "{name}"',
+        done=(r"Opped: {name}",),
+        failed=(r"No targets matched selector",),
+    ),
+    "deop": Action(
+        'deop "{name}"',
+        done=(r"De-opped: {name}",),
+        failed=(r"No targets matched selector",),
+    ),
+    "kick": Action(
+        'kick "{name}"',
+        done=(r"Kicked {name}\b",),
+        failed=(r"No targets matched selector",),
+        confirm=True,
+        takes_reason=True,
+    ),
+}
+ACTION_SETS = {"java": ACTIONS, "bedrock": BEDROCK_ACTIONS}
+# An Xbox gamertag: letters, digits and single spaces, up to 16 characters
+# plus the number Xbox adds to newer ones.
+BEDROCK_NAME_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9]| (?! )){0,19}(?<! )$")
+
 # What each action is called in events and alerts.
 DONE_MESSAGES = {
     "whitelist_add": "{name} was added to the whitelist",
@@ -132,8 +174,14 @@ DONE_MESSAGES = {
 }
 
 
-def check_name(name: str) -> str:
+def check_name(name: str, dialect: str = "java") -> str:
     name = (name or "").strip()
+    if dialect == "bedrock":
+        if not BEDROCK_NAME_RE.match(name):
+            raise PlayerActionError(
+                "That isn't a gamertag. Gamertags are letters, numbers and single spaces."
+            )
+        return name
     if not NAME_RE.match(name):
         raise PlayerActionError(
             "That isn't a Minecraft name. Names are up to 16 letters, numbers or _."
@@ -141,11 +189,16 @@ def check_name(name: str) -> str:
     return name
 
 
-def build_command(kind: str, name: str, reason: str = "") -> str:
-    action = ACTIONS.get(kind)
+def build_command(kind: str, name: str, reason: str = "", dialect: str = "java") -> str:
+    action = ACTION_SETS[dialect].get(kind)
     if action is None:
-        raise PlayerActionError("That isn't something the Players page can do.")
-    name = check_name(name)
+        raise PlayerActionError(
+            "Bedrock servers have no ban list, so players can't be banned. Take them off "
+            "the allowlist instead."
+            if dialect == "bedrock" and kind in ("ban", "pardon")
+            else "That isn't something the Players page can do."
+        )
+    name = check_name(name, dialect)
     command = action.command.format(name=name)
     reason = (reason or "").strip()
     if reason:
@@ -186,13 +239,16 @@ class PlayerActions:
         self.bus = bus
         self._actions: dict[str, PendingAction] = {}
 
+    @property
+    def dialect(self) -> str:
+        return self.server.config.server_type.dialect
+
     async def send(self, kind: str, name: str, reason: str = "", confirm: bool = False):
-        action = ACTIONS.get(kind)
-        if action is None:
-            raise PlayerActionError("That isn't something the Players page can do.")
+        dialect = self.dialect
+        command = build_command(kind, name, reason, dialect)
+        action = ACTION_SETS[dialect][kind]
         if action.confirm and not confirm:
             raise PlayerActionError("This needs to be confirmed first.")
-        command = build_command(kind, name, reason)
         # The same validation every console command passes. The buttons are
         # the person's explicit choice, so the "are you sure" part is the
         # dashboard's dialog (for kick and ban) rather than a second prompt.
@@ -201,7 +257,7 @@ class PlayerActions:
             raise PlayerActionError(
                 "The server has to be running for this. Start it, then try again."
             )
-        name = check_name(name)
+        name = check_name(name, dialect)
         escaped = re.escape(name)
         pending = PendingAction(
             id=uuid.uuid4().hex[:12],
@@ -331,5 +387,56 @@ def read_list(directory: Path, which: str) -> dict[str, Any]:
     return {"players": players, "file": path.name, "reason": None}
 
 
-def lists(directory: Path) -> dict[str, Any]:
+def _read_json_list(path: Path) -> tuple[list | None, str | None]:
+    if not path.is_file():
+        return None, f"{path.name} isn't there yet. The server writes it the first time it starts."
+    try:
+        if path.stat().st_size > MAX_LIST_BYTES:
+            raise ValueError("the file is far bigger than a player list")
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, list):
+            raise ValueError("it doesn't hold a list")
+    except (OSError, ValueError) as exc:
+        return None, f"{path.name} couldn't be read ({exc})."
+    return data, None
+
+
+def bedrock_lists(directory: Path, names_by_xuid: dict[str, str]) -> dict[str, Any]:
+    """Bedrock's allowlist.json and permissions.json. permissions.json
+    names players only by xuid; the name shown is the one this app saw that
+    xuid join with, or none (shown as the xuid) when it never saw it."""
+    allow, allow_reason = _read_json_list(directory / "allowlist.json")
+    perms, perms_reason = _read_json_list(directory / "permissions.json")
+    whitelist = None
+    if allow is not None:
+        whitelist = [
+            {"name": item["name"], "uuid": item.get("xuid") or None}
+            for item in allow
+            if isinstance(item, dict) and isinstance(item.get("name"), str)
+        ]
+    ops = None
+    if perms is not None:
+        ops = []
+        for item in perms:
+            if not isinstance(item, dict) or item.get("permission") != "operator":
+                continue
+            xuid = str(item.get("xuid") or "")
+            ops.append({"name": names_by_xuid.get(xuid), "uuid": xuid or None, "level": None})
+    return {
+        "whitelist": {"players": whitelist, "file": "allowlist.json", "reason": allow_reason},
+        "ops": {"players": ops, "file": "permissions.json", "reason": perms_reason},
+        "banned": {
+            "players": None,
+            "file": None,
+            "reason": "Bedrock servers have no ban list.",
+            "not_applicable": True,
+        },
+    }
+
+
+def lists(
+    directory: Path, dialect: str = "java", names_by_xuid: dict[str, str] | None = None
+) -> dict[str, Any]:
+    if dialect == "bedrock":
+        return bedrock_lists(directory, names_by_xuid or {})
     return {which: read_list(directory, which) for which in LIST_FILES}

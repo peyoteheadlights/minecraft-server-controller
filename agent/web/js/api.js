@@ -10,6 +10,7 @@ const PER_SERVER = new Set([
   "status", "info", "server", "logs", "events", "crashes", "players", "performance",
   "worlds", "tps", "mods", "backups", "schedules", "recommendations",
   "game-settings", "join", "duplicate", "modpack", "chat", "world", "getting-started", "memory",
+  "addons",
 ]);
 
 export function serverPath(path, serverId = state.serverId) {

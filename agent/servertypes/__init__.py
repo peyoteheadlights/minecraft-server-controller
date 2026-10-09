@@ -1,6 +1,7 @@
 """Server types and what each one supports (its capabilities).
 
-Every Java server type the app can run is defined here, once: whether it
+Every server type the app can run is defined here, once: the seven Java
+types and Mojang's Bedrock Dedicated Server. For each: whether it
 takes mods, plugins or neither, which mod metadata it reads, which Modrinth
 loaders fit it, where its versions come from, how it is launched, which TPS
 commands it answers, and whether Bedrock players can join it through
@@ -46,7 +47,8 @@ class ServerType:
     picks_loader: bool = False
     # Whether the official source lists snapshots and pre-releases.
     snapshots: bool = False
-    # "jar" (java -jar file) or "args_file" (java @libraries/.../win_args.txt).
+    # "jar" (java -jar file), "args_file" (java @libraries/.../win_args.txt)
+    # or "exe" (the server's own program, run directly: Bedrock).
     launch: str = "jar"
     # The jar the app downloads or the installer leaves, named by the app.
     jar: str = "server.jar"
@@ -79,6 +81,39 @@ class ServerType:
     mrpack_loader_version: str = "{loader}"
     takes_memory_limit: bool = True
     reports_speed: bool = True
+    # Whether the server runs on Java (so Java is checked before a start).
+    needs_java: bool = True
+    # The console's line format and the server's own files (player lists,
+    # server.properties keys): "java" or "bedrock". Each module that reads
+    # them keeps one set of patterns per dialect.
+    dialect: str = "java"
+    # Bedrock add-ons (.mcpack, .mcaddon), installed into behavior_packs and
+    # resource_packs and switched on per world (agent/addons.py).
+    addons: bool = False
+    # Whether the console prints players' chat (Bedrock's doesn't), so the
+    # Chat page can say reading it isn't available instead of looking empty.
+    reads_chat: bool = True
+    # Whether the server has a ban list (Bedrock has none).
+    bans: bool = True
+    # How a running server's world is copied for a backup: "save_off"
+    # (save-all, save-off, copy, save-on) or "save_hold" (Bedrock's save
+    # hold, save query, copy each file to its listed length, save resume).
+    backup_method: str = "save_off"
+    # The folder worlds live in, inside the server folder ("" for the
+    # server folder itself), and the world name when level-name isn't set.
+    world_root: str = ""
+    default_level_name: str = "world"
+    # Where a running server is checked as listening: "tcp" (a connect) or
+    # "raknet" (Bedrock's unconnected ping over UDP).
+    ping: str = "tcp"
+    # The port a new server of this type starts looking from.
+    default_port: int = 25565
+    # True when the official source offers only the newest version, so
+    # older ones exist only where this app kept a copy it downloaded.
+    latest_only: bool = False
+    # Terms the person ticks themselves before the first download, as
+    # (name, link) pairs. Empty: Minecraft's EULA in eula.txt, as Java does.
+    download_terms: tuple[tuple[str, str], ...] = ()
     # Bukkit's layout: the Nether and the End in their own folders beside
     # the world (world_nether/DIM-1, world_the_end/DIM1), where single-player
     # and every other type keep them inside it (world/DIM-1, world/DIM1).
@@ -99,6 +134,16 @@ class ServerType:
     def crossplay(self) -> bool:
         return self.geyser_platform is not None
 
+    @property
+    def game_protocol(self) -> str:
+        """ "tcp" or "udp": what the server's game port is."""
+        return self.ports[0][0]
+
+    def can_change_to(self, other: ServerType) -> bool:
+        """A version or type change keeps the world, so it stays within one
+        edition: Java and Bedrock worlds are different formats."""
+        return other.edition == self.edition
+
     def accepts_any(self, loaders: list[str] | tuple[str, ...]) -> bool:
         return any(loader in self.accepts for loader in loaders)
 
@@ -108,6 +153,7 @@ class ServerType:
             has_content=self.has_content,
             modrinth=self.modrinth,
             crossplay=self.crossplay,
+            game_protocol=self.game_protocol,
         )
         data.pop("extra", None)
         return data
@@ -286,8 +332,42 @@ TYPES: dict[str, ServerType] = {
             split_dimensions=True,
             ease="medium",
         ),
+        ServerType(
+            id="bedrock",
+            name="Bedrock",
+            edition="bedrock",
+            launch="exe",
+            # The program the download unpacks; it is run directly from the
+            # server's folder (see docs/security.md).
+            jar="bedrock_server.exe",
+            version_source="Mojang's download links service",
+            version_host="net-secondary.web.minecraft-services.net",
+            tps_commands=(),
+            backup_extra=("worlds", "allowlist.json", "permissions.json"),
+            ease="easy",
+            takes_memory_limit=False,
+            reports_speed=False,
+            needs_java=False,
+            dialect="bedrock",
+            addons=True,
+            reads_chat=False,
+            bans=False,
+            backup_method="save_hold",
+            world_root="worlds",
+            default_level_name="Bedrock level",
+            ping="raknet",
+            default_port=19132,
+            latest_only=True,
+            download_terms=(
+                ("eula", "https://www.minecraft.net/eula"),
+                ("privacy", "https://go.microsoft.com/fwlink/?LinkId=521839"),
+            ),
+            # 19132 for IPv4 and 19133 for IPv6, both UDP.
+            ports=(("udp", "game"), ("udp", "game_v6")),
+        ),
     )
 }
+JAVA_TYPES = tuple(t for t in TYPES.values() if t.edition == "java")
 
 # The comparison table's "Recommended for most people" row: the type this
 # app supports best (mods, Modrinth, crossplay, and every tool here).
@@ -311,7 +391,8 @@ def check(type_id: Any) -> str:
 
 
 def catalog() -> list[dict[str, Any]]:
-    """Every type with its capabilities, for the dashboard's table."""
+    """Every type with its capabilities, for the dashboard's table. Each says
+    its edition; the table shows one edition at a time."""
     return [{**t.to_dict(), "recommended": t.id == RECOMMENDED} for t in TYPES.values()]
 
 

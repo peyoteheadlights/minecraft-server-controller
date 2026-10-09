@@ -95,6 +95,7 @@ function serverTab(s, selected) {
   },
     serverBadge(s, { size: "sm", tone: crashed ? "danger" : info.tone, busy: info.busy }),
     el("span", { class: "tab-name" }, s.name),
+    s.edition === "bedrock" ? el("span", { class: "tab-edition" }, t("tabs.bedrock")) : null,
     el("span", { class: "sr-only" }, `, ${crashed ? t("tabs.crashed") : t(info.label)}`),
     crashed ? el("span", { class: "tab-badge", "aria-hidden": "true" }, "!") : null);
   const tokens = s.color ? derive(s.color) : null;

@@ -247,6 +247,19 @@ class ServerContext:
             "type": status["server_type"],
             "type_name": status["server_type_name"],
             "content": self.config.server_type.content,
+            # Java or Bedrock, and what this type can and can't do, so the
+            # pages show "not applicable" instead of a control that does
+            # nothing (agent/servertypes).
+            "edition": self.config.server_type.edition,
+            "capabilities": {
+                "memory_limit": self.config.server_type.takes_memory_limit,
+                "speed": self.config.server_type.reports_speed,
+                "crossplay": self.config.server_type.crossplay,
+                "reads_chat": self.config.server_type.reads_chat,
+                "bans": self.config.server_type.bans,
+                "addons": self.config.server_type.addons,
+                "mods": bool(self.config.server_type.content_folder),
+            },
             "crossplay": bool(self.config.server.crossplay),
             "game_port": self.core.ports.port_of(self).to_dict(),
             "directory": status["directory"],
@@ -267,6 +280,10 @@ class AgentCore:
         self.jobs = JobTracker(self.db, self.bus)
         self.jobs.mark_interrupted()
         self.ports = PortManager(self)
+        # Downloaded Bedrock server zips are kept here, one per version.
+        from .servertypes import bedrock
+
+        bedrock.configure(config.data_dir)
         self.servers: dict[str, ServerContext] = {}
         self.notifier = Notifier(config, self.bus, self.db, servers=self.servers)
         for server_id in config.server_ids:

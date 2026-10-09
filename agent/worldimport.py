@@ -15,6 +15,12 @@ Minecraft expects (one folder with level.dat, DIM-1 and DIM1 inside), so it
 can be dropped into the saves folder and played offline. Paper and Purpur
 keep the Nether and the End in folders of their own; both directions
 convert between the two layouts (ServerType.split_dimensions).
+
+Bedrock: a ``.mcworld`` (or a ``.mctemplate``) is a zip with level.dat and
+db/ at its top. It goes into worlds/<its name> and level-name is set to it.
+A Java world can't go into a Bedrock server, nor the other way round. The
+page warns when the world was last saved by a newer game version than the
+server runs, because an older server can't load it.
 """
 
 from __future__ import annotations
@@ -55,6 +61,8 @@ DOWNLOAD_FOLDER = "world-downloads"
 KEEP_SECONDS = 24 * 3600
 TOKEN_RE = re.compile(r"^[0-9a-f]{32}$")
 MAX_ZIP_BYTES = 20 * 1024**3
+# A .mcworld is a zip; a .mctemplate is one too, with a world inside.
+UPLOAD_SUFFIXES = (".zip", ".mcworld", ".mctemplate")
 MAX_UNPACKED_BYTES = 40 * 1024**3
 MAX_MEMBERS = 500_000
 # Files the game holds open or that belong to one PC, never copied.
@@ -78,6 +86,7 @@ class WorldInfo:
     size_bytes: int
     files: int
     read_problem: str | None = None  # level.dat present but unreadable
+    edition: str = "java"  # "bedrock" for a .mcworld
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -88,9 +97,46 @@ class WorldInfo:
 # ----------------------------------------------------------------------
 def _level(data: bytes) -> tuple[dict[str, Any], str | None]:
     try:
+        if nbt.is_bedrock_level(data):
+            return nbt.bedrock_level_info(data), None
         return nbt.level_info(data), None
     except nbt.NbtError as exc:
         return {"name": None, "version": None, "last_played": None}, str(exc)
+
+
+def _edition(level: bytes, names: list[str], prefix: str) -> str:
+    """Bedrock worlds keep a LevelDB database in db/; Java worlds don't."""
+    if nbt.is_bedrock_level(level) or any(n.startswith(f"{prefix}db/") for n in names):
+        return "bedrock"
+    return "java"
+
+
+def fit(ctx: ServerContext, info: WorldInfo) -> dict[str, Any]:
+    """Whether this world can go into this server, shown before importing:
+    the right edition, and not saved by a newer game version than the
+    server's (as its console reported it; None when either isn't known)."""
+    server_type = ctx.config.server_type
+    server_version = ctx.server.status().get("minecraft_version")
+    return {
+        "edition_matches": info.edition == server_type.edition,
+        "server_edition": server_type.edition,
+        "server_version": server_version,
+        "newer_than_server": newer_than(info.version, server_version),
+        "level_name": bedrock_world_name(info) if server_type.edition == "bedrock" else None,
+    }
+
+
+def newer_than(world_version: str | None, server_version: str | None) -> bool | None:
+    """True when the world was last saved by a newer game version than the
+    server runs. None when either version isn't known."""
+    from .servertypes.versions import version_key
+
+    if not world_version or not server_version:
+        return None
+    try:
+        return version_key(world_version) > version_key(server_version)
+    except Exception:
+        return None
 
 
 def _zip_root(names: list[str]) -> str:
@@ -142,7 +188,9 @@ def inspect_zip(path: Path) -> tuple[WorldInfo, str]:
             level = zf.getinfo(f"{prefix}level.dat")
             if level.file_size > nbt.MAX_UNCOMPRESSED:
                 raise WorldImportError("That world's level.dat is far too big to be real.")
-            info, problem = _level(zf.read(level))
+            data = zf.read(level)
+            info, problem = _level(data)
+            edition = _edition(data, [i.filename for i in infos], prefix)
     except zipfile.BadZipFile as exc:
         raise WorldImportError(f"That file isn't a zip that can be opened: {exc}") from exc
     folder = root.split("/")[-1] if root else path.stem
@@ -156,6 +204,7 @@ def inspect_zip(path: Path) -> tuple[WorldInfo, str]:
             size_bytes=size,
             files=len(members),
             read_problem=problem,
+            edition=edition,
         ),
         root,
     )
@@ -183,7 +232,9 @@ def inspect_folder(value: str) -> tuple[WorldInfo, Path]:
         )
     if level.stat().st_size > nbt.MAX_COMPRESSED:
         raise WorldImportError("That world's level.dat is far too big to be real.")
-    info, problem = _level(level.read_bytes())
+    data = level.read_bytes()
+    info, problem = _level(data)
+    edition = "bedrock" if nbt.is_bedrock_level(data) or (path / "db").is_dir() else "java"
     files = sum(len(names) for _, _, names in os.walk(path))
     return (
         WorldInfo(
@@ -195,6 +246,7 @@ def inspect_folder(value: str) -> tuple[WorldInfo, Path]:
             size_bytes=directory_size(path),
             files=files,
             read_problem=problem,
+            edition=edition,
         ),
         path.resolve(),
     )
@@ -307,6 +359,24 @@ def _world_names(ctx: ServerContext) -> tuple[str, list[str]]:
     return name, [name, f"{name}_nether", f"{name}_the_end"]
 
 
+BEDROCK_NAME_RE = re.compile(r"[^A-Za-z0-9 _\-()']+")
+
+
+def bedrock_world_name(info: WorldInfo) -> str:
+    """The folder (and level-name) an imported Bedrock world gets: its own
+    name, kept to characters that are safe in a folder name."""
+    raw = (info.name or info.folder_name or "").strip()
+    name = BEDROCK_NAME_RE.sub("", raw).strip(" .")[:60]
+    return name or "Imported world"
+
+
+def set_level_name(directory: Path, name: str) -> None:
+    path = directory / FILENAME
+    parsed = PropertiesFile.read(path) if path.is_file() else PropertiesFile()
+    parsed.set("level-name", name)
+    parsed.write(path)
+
+
 def _target_for(relative: str, world: str, split: bool) -> str | None:
     """Where a file of a single-player world goes in this server's folder.
     None: not copied."""
@@ -338,11 +408,11 @@ def _move_aside(base: Path, folders: list[str]) -> list[str]:
 def _put_back(base: Path, moved: list[str]) -> None:
     for retired in moved:
         path = Path(retired)
-        name = path.name.split(".replaced-")[0]
-        if (base / name).exists():
-            shutil.rmtree(base / name, ignore_errors=True)
+        live = path.parent / path.name.split(".replaced-")[0]
+        if live.exists():
+            shutil.rmtree(live, ignore_errors=True)
         if path.exists():
-            shutil.move(str(path), str(base / name))
+            shutil.move(str(path), str(live))
 
 
 def _extract(
@@ -413,9 +483,25 @@ async def import_world(ctx: ServerContext, token: str, user: str = "system") -> 
         info, source = await asyncio.to_thread(inspect_folder, str(source))
         root = ""
     base = ctx.config.server_dir
-    world, folders = _world_names(ctx)
+    server_type = ctx.config.server_type
+    if info.edition != server_type.edition:
+        raise WorldImportError(
+            "That is a Bedrock world, and this is a Java server. Bedrock worlds only load on "
+            "a Bedrock server."
+            if info.edition == "bedrock"
+            else "That is a Java world, and this is a Bedrock server. Java worlds only load on "
+            "a Java server."
+        )
+    level_name = None
+    if server_type.edition == "bedrock":
+        # Into worlds/<its name>, and level-name points at it.
+        level_name = bedrock_world_name(info)
+        world = f"{server_type.world_root}/{level_name}"
+        folders = [world]
+    else:
+        world, folders = _world_names(ctx)
     existing = [name for name in folders if (base / name).exists()]
-    split = ctx.config.server_type.split_dimensions
+    split = server_type.split_dimensions
     moved: list[str] = []
     title = f"Importing the world {info.name or info.folder_name}"
 
@@ -428,7 +514,9 @@ async def import_world(ctx: ServerContext, token: str, user: str = "system") -> 
         except BaseException:
             await asyncio.to_thread(_put_back, base, moved)
             raise
-        return {"files": written, "moved_aside": moved}
+        if level_name:
+            await asyncio.to_thread(set_level_name, base, level_name)
+        return {"files": written, "moved_aside": moved, "level_name": level_name}
 
     async def check(result: dict[str, Any]) -> tuple[bool, str]:
         level = base / world / "level.dat"
@@ -442,10 +530,17 @@ async def import_world(ctx: ServerContext, token: str, user: str = "system") -> 
         title=title,
         change=change,
         check=check,
-        take_backup=bool(existing),
+        take_backup=bool(existing) or bool(level_name),
         backup_name="pre-import",
         backup_note=f"Automatic safety copy before importing {info.name or info.folder_name}",
-        backup_includes=existing or None,
+        # Bedrock: the whole worlds/ folder and server.properties, whose
+        # level-name changes (backup lists hold top-level names only).
+        backup_includes=(
+            [n for n in (server_type.world_root, FILENAME) if (base / n).exists()]
+            if level_name
+            else existing
+        )
+        or None,
         # A failed import puts the moved-aside world back itself.
         undo_on_change_error=False,
     )
@@ -525,6 +620,8 @@ async def prepare_download(ctx: ServerContext, user: str = "system") -> dict[str
     server runs, Minecraft is asked to save and to pause saving, as for a
     backup, so the zip holds a consistent world."""
     base = ctx.config.server_dir
+    if ctx.config.server_type.edition == "bedrock":
+        return await _prepare_mcworld(ctx, user)
     world, _ = _world_names(ctx)
     if not (base / world / "level.dat").is_file():
         raise WorldImportError("This server has no world yet. Start it once to make one.")
@@ -569,6 +666,74 @@ async def prepare_download(ctx: ServerContext, user: str = "system") -> dict[str
     )
     safe = re.sub(r"[^A-Za-z0-9 ._-]+", "", ctx.name).strip() or "world"
     return {**result, "filename": f"{safe} world.zip"}
+
+
+def _folder_members(folder: Path) -> list[tuple[Path, str]]:
+    """Every file under ``folder``, named relative to it (a .mcworld has
+    level.dat and db/ at its top)."""
+    out: list[tuple[Path, str]] = []
+    for root, dirs, names in os.walk(folder, followlinks=False):
+        dirs[:] = [d for d in dirs if not os.path.islink(os.path.join(root, d))]
+        for name in names:
+            full = Path(root) / name
+            if name not in SKIP_FILES and not full.is_symlink():
+                out.append((full, full.relative_to(folder).as_posix()))
+    return out
+
+
+async def _prepare_mcworld(ctx: ServerContext, user: str) -> dict[str, Any]:
+    """A Bedrock server's world as a .mcworld, which Bedrock opens with a
+    double-click. While it runs, the files are copied under save hold, as
+    for a backup (agent/backups/hold.py)."""
+    import tempfile
+
+    from .backups import hold
+
+    base = ctx.config.server_dir
+    server_type = ctx.config.server_type
+    props = base / FILENAME
+    values = PropertiesFile.read(props).values() if props.is_file() else {}
+    world = world_folder(base, values, server_type)
+    if not (world / "level.dat").is_file():
+        raise WorldImportError("This server has no world yet. Start it once to make one.")
+    folder = _folder(ctx.core, DOWNLOAD_FOLDER)
+    _clean(folder)
+    token = secrets.token_hex(16)
+    target = folder / f"{token}.zip"
+
+    async def run(job: JobHandle) -> dict[str, Any]:
+        staging = None
+        try:
+            source = world
+            server = ctx.server
+            if server.running and server.state.value == "ONLINE":
+                job.step("Asking the server to hold its world still")
+                staging = Path(tempfile.mkdtemp(prefix="mcsc-hold-", dir=folder))
+                try:
+                    await hold.copy_world(server, base / server_type.world_root, staging)
+                except hold.HoldError as exc:
+                    raise WorldImportError(str(exc)) from exc
+                source = staging / world.name
+            members = await asyncio.to_thread(_folder_members, source)
+            files = await asyncio.to_thread(_zip_world, target, members, job)
+        except BaseException:
+            target.unlink(missing_ok=True)
+            raise
+        finally:
+            if staging is not None:
+                shutil.rmtree(staging, ignore_errors=True)
+        return {"token": token, "files": files, "size_bytes": target.stat().st_size}
+
+    _, result = await ctx.core.jobs.run(
+        "world_download",
+        f"Packing {ctx.name}'s world",
+        run,
+        server_id=ctx.server_id,
+        risky=True,
+        user=user,
+    )
+    safe = re.sub(r"[^A-Za-z0-9 ._-]+", "", world.name).strip() or "world"
+    return {**result, "filename": f"{safe}.mcworld"}
 
 
 def download_path(core: Any, token: str) -> Path:

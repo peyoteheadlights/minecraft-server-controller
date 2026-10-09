@@ -251,7 +251,9 @@ Agent-wide:
 | GET | `/api/server-types` | Every type with its capabilities. The dashboard's comparison table is generated from this |
 | GET | `/api/server-types/{type}/versions` | The Minecraft versions that type offers, from its own official source, with the loader or build versions for each |
 | GET | `/api/new-server/options` | What the New server panel needs: types, default memory and why, a free port, a free color, the EULA link |
-| POST | `/api/new-server` | Create one. Refused without `eula_accepted: true`. Downloads, installs and registers; starts nothing |
+| POST | `/api/new-server` | Create one. Refused without `eula_accepted: true` (for Bedrock this accepts Mojang's EULA and Privacy Policy, recorded before anything is downloaded). Downloads, installs and registers; starts nothing |
+| GET\|POST | `/api/bedrock/terms` | Whether Mojang's EULA and Privacy Policy were accepted, by whom and when; `POST {"accepted": true}` records the person's own tick |
+| GET | `/api/bedrock/versions` | The Bedrock server zips this app downloaded and kept (Mojang only offers the newest) |
 
 Per server:
 
@@ -263,6 +265,22 @@ Per server:
 | POST | `/api/servers/{id}/version/roll-back` | Put the previous software back |
 | POST | `/api/servers/{id}/eula` | Record that the person accepted Minecraft's rules. The only thing that writes `eula=true` |
 | GET\|PUT | `/api/servers/{id}/crossplay` | Whether Bedrock players can join, the port, and the differences; `PUT {"enabled": true}` installs Geyser and Floodgate |
+
+Bedrock add-ons (only on Bedrock servers; others answer 400):
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/servers/{id}/addons` | The packs someone added, read from their manifest.json, and whether this world has each on |
+| POST | `/api/servers/{id}/addons/upload` | Upload a `.mcpack`, `.mcaddon` or `.mctemplate`; each pack is checked, installed and turned on |
+| PUT | `/api/servers/{id}/addons/{uuid}` | `{"enabled": true\|false}` in this world |
+| DELETE | `/api/servers/{id}/addons/{uuid}` | Turn it off and move it to the data folder |
+
+The server list rows carry `edition` (`java` or `bedrock`) and
+`capabilities` (`memory_limit`, `speed`, `crossplay`, `reads_chat`, `bans`,
+`addons`, `mods`); `false` means not applicable, and the dashboard shows
+that instead of the control. The world import routes also take a `.mcworld`
+for a Bedrock server, and their answers add `edition_matches` and
+`newer_than_server`.
 
 A version change does **not** set the version. The chosen one is kept as
 `pending_version` and becomes `minecraft_version` only when that server's own

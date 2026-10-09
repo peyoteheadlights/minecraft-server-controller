@@ -18,6 +18,30 @@ at `/api/version` and only goes up for those changes.
   so in a Get help file).
 - A short SECURITY.md says how to report a security problem
   privately.
+- **Bedrock servers.** Pick Bedrock in the "+" tab to run Mojang's Bedrock
+  Dedicated Server for friends on phones, tablets and consoles. It gets its
+  own tab (marked "Bedrock"), and:
+  - the download comes from Mojang. Mojang offers only the newest version
+    and publishes no checksum, so it is marked unverified, its SHA-256 goes
+    in the install log, and every version downloaded is kept so you can go
+    back to it. Nothing is downloaded until you tick that you accept
+    Mojang's EULA and Privacy Policy;
+  - updates replace only the program: worlds, settings, the allowlist,
+    permissions and your packs stay, and the change can be undone;
+  - an Add-ons page for .mcpack, .mcaddon and .mctemplate files, each
+    checked before it's installed and turned on per world;
+  - .mcworld import (with a warning when the world is newer than the
+    server) and download;
+  - backups while it runs use Bedrock's own save hold, and always let it
+    save again afterwards;
+  - players are tracked by their Xbox ID; allowlist, operator and kick work.
+    There is no ban list on Bedrock, and its console doesn't show chat, so
+    the pages say so;
+  - memory, game speed and crossplay say "not available for Bedrock
+    servers", and a Bedrock server can't be turned into a Java one (or the
+    other way round): create a new server instead;
+  - ports are UDP (19132, and 19133 for IPv6), never clashing with Geyser on
+    another server, and "is it reachable" uses Bedrock's own ping.
 - For developers: dependencies are declared in `pyproject.toml` (the
   hash-pinned lock files are made from it and stay as strict); CI checks
   the locked versions for known security problems (`pip-audit`), runs
@@ -27,6 +51,9 @@ at `/api/version` and only goes up for those changes.
 
 - Every answer has an `X-Request-ID` header, and error answers repeat it as
   `request_id`. Additive; nothing a client relies on changed.
+- Bedrock: `GET|POST /api/bedrock/terms`, `GET /api/bedrock/versions`, the
+  per-server `/addons` routes, and `edition` and `capabilities` on each
+  server row. Additive.
 
 ## 1.2.0
 

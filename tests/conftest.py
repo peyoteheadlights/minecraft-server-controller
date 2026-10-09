@@ -10,6 +10,7 @@ sys.path.insert(0, str(ROOT))
 from agent.config import DEFAULTS, Config, _deep_merge  # noqa: E402
 
 FAKE_SERVER = Path(__file__).resolve().parent / "fixtures" / "fake_server.py"
+FAKE_BEDROCK = Path(__file__).resolve().parent / "fixtures" / "fake_bedrock_server.py"
 PASSWORD = "correct horse battery"
 
 
@@ -55,6 +56,76 @@ def fake_server_entry(server_id: str, name: str, folder: Path, port: int = 25565
         "stop_timeout": 10,
         "start_timeout": 20,
     }
+
+
+def make_bedrock_folder(folder: Path, port: int = 19132, level: str = "Bedrock level") -> Path:
+    """A throwaway Bedrock Dedicated Server folder laid out like Mojang's
+    download after a first start: the program, server.properties, the
+    player files and a world with a LevelDB folder."""
+    from agent.minecraft import nbt
+
+    world = folder / "worlds" / level
+    (world / "db").mkdir(parents=True, exist_ok=True)
+    (world / "db" / "000005.ldb").write_bytes(b"L" * 4096)
+    (world / "db" / "CURRENT").write_text("MANIFEST-000004\n", encoding="utf-8")
+    (world / "level.dat").write_bytes(nbt.bedrock_level_for_tests(level, [1, 21, 95, 1, 0]))
+    (world / "levelname.txt").write_text(level, encoding="utf-8")
+    (folder / "bedrock_server.exe").write_bytes(b"MZ not a real program")
+    (folder / "behavior_packs" / "vanilla").mkdir(parents=True, exist_ok=True)
+    (folder / "resource_packs" / "vanilla").mkdir(parents=True, exist_ok=True)
+    (folder / "server.properties").write_text(
+        "# Mojang's comments stay\n"
+        "server-name=Dedicated Server\n"
+        "gamemode=survival\n"
+        f"server-port={port}\n"
+        f"server-portv6={port + 1}\n"
+        f"level-name={level}\n"
+        "max-players=10\n"
+        "allow-list=false\n",
+        encoding="utf-8",
+    )
+    (folder / "allowlist.json").write_text("[]", encoding="utf-8")
+    (folder / "permissions.json").write_text("[]", encoding="utf-8")
+    return folder
+
+
+def bedrock_entry(server_id: str, name: str, folder: Path, port: int = 19132) -> dict:
+    return {
+        "id": server_id,
+        "name": name,
+        "directory": str(folder),
+        "type": "bedrock",
+        "jar": "bedrock_server.exe",
+        "jvm_args": [],
+        "raw_command": [sys.executable, str(FAKE_BEDROCK)],
+        "port": port,
+        "stop_timeout": 10,
+        "start_timeout": 20,
+    }
+
+
+def build_bedrock_config(tmp_path: Path, java: bool = False, **overrides) -> Config:
+    """One fake Bedrock server (and, with ``java``, a fake Java one too)."""
+    entries = [bedrock_entry("bedrock", "Bedrock", make_bedrock_folder(tmp_path / "bedrock"))]
+    if java:
+        folder = make_server_folder(tmp_path / "servers" / "Java", 25565)
+        entries.append(fake_server_entry("java", "Java", folder, 25565))
+    data = {
+        "servers": entries,
+        "paths": {"data_dir": str(tmp_path / "mcsc-data")},
+        "monitor": {"auto_restart": False, "restart_delay": 0.2, "sample_interval": 1},
+        "notifications": {"discord_enabled": False, "email_enabled": False},
+    }
+    merged = _deep_merge({k: v for k, v in DEFAULTS.items() if k != "server"}, data)
+    for key, value in overrides.items():
+        node = merged
+        parts = key.split(".")
+        for part in parts[:-1]:
+            node = node.setdefault(part, {})
+        node[parts[-1]] = value
+    cfg = Config(merged, tmp_path / "config.yaml")
+    cfg.ensure_dirs()
+    return cfg
 
 
 def build_multi_config(tmp_path: Path, servers=None, **overrides) -> Config:
@@ -207,6 +278,8 @@ def clean_fake_env():
         "FAKE_MC_VERSION",
         "FAKE_LOADER_VERSION",
         "FAKE_CHECK_EULA",
+        "FAKE_BEDROCK_VERSION",
+        "FAKE_SAVE_QUERY",
     ]
     saved = {k: os.environ.pop(k, None) for k in keys}
     yield

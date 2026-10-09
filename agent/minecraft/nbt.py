@@ -2,7 +2,9 @@
 world's level.dat: its name, the Minecraft version that last saved it, and
 when it was last played.
 
-level.dat is a gzip-compressed NBT compound. Only the values a person is
+Java's level.dat is a gzip-compressed, big-endian NBT compound. Bedrock's
+is an 8-byte header (storage version and length, little-endian) followed by
+an uncompressed little-endian NBT compound; ``bedrock_level_info`` reads it. Only the values a person is
 shown are kept; everything else is read past. The input comes from files
 people upload, so sizes are capped, the nesting depth is limited, and any
 malformed input raises NbtError rather than being guessed at.
@@ -28,9 +30,10 @@ class NbtError(ValueError):
 
 
 class _Reader:
-    def __init__(self, data: bytes):
+    def __init__(self, data: bytes, order: str = ">"):
         self.data = data
         self.pos = 0
+        self.order = order  # ">" for Java, "<" for Bedrock
 
     def take(self, n: int) -> bytes:
         if n < 0 or self.pos + n > len(self.data):
@@ -40,6 +43,7 @@ class _Reader:
         return chunk
 
     def unpack(self, fmt: str) -> Any:
+        fmt = self.order + fmt.lstrip("<>")
         size = struct.calcsize(fmt)
         return struct.unpack(fmt, self.take(size))[0]
 
@@ -73,6 +77,9 @@ class _Reader:
             if count < 0:
                 raise NbtError("level.dat has a list with a negative length")
             if inner == COMPOUND or inner == LIST:
+                return [self.payload(inner, depth + 1) for _ in range(count)]
+            if inner in (BYTE, SHORT, INT, LONG) and count <= 16:
+                # Short number lists are kept: Bedrock's version is one.
                 return [self.payload(inner, depth + 1) for _ in range(count)]
             for _ in range(count):
                 self.payload(inner, depth + 1)
@@ -137,6 +144,56 @@ def level_info(data: bytes) -> dict[str, Any]:
     }
 
 
+BEDROCK_HEADER = 8
+
+
+def read_bedrock(data: bytes) -> dict[str, Any]:
+    """The root compound of a Bedrock level.dat."""
+    if len(data) > MAX_COMPRESSED:
+        raise NbtError("level.dat is far too big to be one")
+    if len(data) < BEDROCK_HEADER + 3:
+        raise NbtError("level.dat ends too early")
+    length = struct.unpack("<i", data[4:8])[0]
+    body = data[BEDROCK_HEADER:]
+    if length <= 0 or length > len(body):
+        raise NbtError("level.dat's header doesn't match its size")
+    reader = _Reader(body[:length], "<")
+    if reader.unpack("b") != COMPOUND:
+        raise NbtError("level.dat doesn't start the way a Bedrock level.dat does")
+    reader.string()
+    return reader.payload(COMPOUND, 0)
+
+
+def is_bedrock_level(data: bytes) -> bool:
+    """True when this looks like Bedrock's level.dat (not gzip, and the
+    header's length matches the rest)."""
+    if len(data) < BEDROCK_HEADER + 3 or data[:2] == b"\x1f\x8b":
+        return False
+    length = struct.unpack("<i", data[4:8])[0]
+    return length == len(data) - BEDROCK_HEADER and data[BEDROCK_HEADER] == COMPOUND
+
+
+def bedrock_level_info(data: bytes) -> dict[str, Any]:
+    """{"name", "version", "last_played"} from a Bedrock level.dat. The
+    version is lastOpenedWithVersion (the game version that last saved it)."""
+    root = read_bedrock(data)
+    name = root.get("LevelName")
+    opened = root.get("lastOpenedWithVersion")
+    version = None
+    if isinstance(opened, list) and opened and all(isinstance(n, int) for n in opened):
+        parts = list(opened)
+        while len(parts) > 3 and parts[-1] == 0:
+            parts.pop()
+        version = ".".join(str(n) for n in parts)
+    last = root.get("LastPlayed")
+    return {
+        "name": str(name)[:100] if isinstance(name, str) and name.strip() else None,
+        "version": version,
+        # Bedrock's LastPlayed is seconds since 1970.
+        "last_played": float(last) if isinstance(last, int) and last > 0 else None,
+    }
+
+
 def write_for_tests(level: dict[str, Any]) -> bytes:
     """A gzip-compressed level.dat holding ``level`` as its Data compound.
     Only strings, ints (as TAG_Long when large), and nested dicts. Used by
@@ -162,3 +219,19 @@ def write_for_tests(level: dict[str, Any]) -> bytes:
 
     root = named("", {"Data": level})
     return gzip.compress(root)
+
+
+def bedrock_level_for_tests(name: str, version: list[int], last_played: int = 0) -> bytes:
+    """A Bedrock level.dat with a name, lastOpenedWithVersion and
+    LastPlayed, laid out the way Bedrock writes it. Used by the tests."""
+
+    def text(value: str) -> bytes:
+        raw = value.encode("utf-8")
+        return struct.pack("<H", len(raw)) + raw
+
+    body = bytes([STRING]) + text("LevelName") + text(name)
+    body += bytes([LIST]) + text("lastOpenedWithVersion") + bytes([INT])
+    body += struct.pack("<i", len(version)) + b"".join(struct.pack("<i", n) for n in version)
+    body += bytes([LONG]) + text("LastPlayed") + struct.pack("<q", last_played)
+    root = bytes([COMPOUND]) + text("") + body + bytes([END])
+    return struct.pack("<i", 10) + struct.pack("<i", len(root)) + root

@@ -16,6 +16,15 @@ assumption that every server is Fabric:
 | Forge | mods | `mods/` | `META-INF/mods.toml` |
 | NeoForge | mods | `mods/` | `META-INF/neoforge.mods.toml` |
 | Paper, Purpur | plugins | `plugins/` | `plugin.yml` or `paper-plugin.yml` |
+| Bedrock | packs (an **Add-ons** page of its own) | `behavior_packs/`, `resource_packs/` | `manifest.json` with a valid UUID and version |
+
+A Bedrock server's Add-ons page takes `.mcpack`, `.mcaddon` and `.mctemplate`
+files (Bedrock add-ons aren't on Modrinth, so there is no search). Each
+pack's `manifest.json` is checked, every path in the file is checked to
+stay inside the pack's folder, and the pack is turned on in the server's
+world (`world_behavior_packs.json` / `world_resource_packs.json`). Mojang's
+own packs aren't listed. Removing a pack turns it off and moves it into the
+data folder's `removed-addons/`. See `agent/addons.py`.
 
 The page names itself after the server it is showing — "Mods" or "Plugins" —
 and a file that belongs to a different loader is flagged by what its own

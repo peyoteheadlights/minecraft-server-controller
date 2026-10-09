@@ -148,6 +148,7 @@ export function versionCard(current, afterChange) {
       return;
     }
     snapshots.closest("label").hidden = !payload.snapshots;
+    keptNote.hidden = !payload.latest_only;
     versionRows();
   }
 
@@ -220,7 +221,14 @@ export function versionCard(current, afterChange) {
     });
   }
 
-  typeSelect.replaceChildren(...(state.serverTypes || []).map((type) => el("option", {
+  // Java and Bedrock can't be changed into each other: only this edition's
+  // kinds are offered, and the card says to create a new server instead.
+  const edition = current.capabilities.edition || "java";
+  const sameEdition = (state.serverTypes || []).filter((type) => (type.edition || "java") === edition);
+  const editionNote = el("p", { class: "hint" },
+    t(edition === "bedrock" ? "version.only_bedrock" : "version.only_java"));
+  const keptNote = el("p", { class: "hint", hidden: true }, t("new.bedrock_versions"));
+  typeSelect.replaceChildren(...sameEdition.map((type) => el("option", {
     value: type.id, selected: type.id === current.type ? "selected" : false,
   }, type.name)));
   typeSelect.addEventListener("change", loadVersions);
@@ -236,6 +244,8 @@ export function versionCard(current, afterChange) {
           el("label", { for: "version-type" }, t("version.change_kind")), typeSelect),
         el("div", { class: "field" },
           el("label", { for: "version-pick" }, t("version.change_to")), versionSelect)),
+      editionNote,
+      keptNote,
       el("div", { class: "field", hidden: true },
         el("label", { for: "version-loader" }, t("version.loader_pick")), loaderSelect),
       el("label", { class: "switch", hidden: true }, snapshots, el("span", {}, t("new.show_snapshots"))),

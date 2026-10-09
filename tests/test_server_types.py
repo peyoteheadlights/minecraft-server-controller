@@ -285,7 +285,10 @@ def test_every_type_declares_what_it_supports():
         "neoforge",
         "paper",
         "purpur",
+        "bedrock",
     }
+    assert catalog["bedrock"]["edition"] == "bedrock"
+    assert catalog["bedrock"]["game_protocol"] == "udp"
     assert catalog["vanilla"]["content"] is None, "vanilla takes no mods or plugins"
     assert catalog["paper"]["content"] == "plugins"
     assert catalog["fabric"]["content"] == "mods"

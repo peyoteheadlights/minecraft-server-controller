@@ -39,6 +39,17 @@ SIZES = [(1920, 1080), (1440, 900), (1280, 720), (1024, 700), (390, 844)]
 THEMES = ["light", "dark", "graphite", "contrast"]
 MODES = ["simple", "technical"]
 LEAKED = r"/\bundefined\b|\bnull\b|\bNaN\b|\[object /"
+# The server pages, opened again on the Bedrock server.
+BEDROCK_PAGES = [
+    "dashboard",
+    "players",
+    "chat",
+    "performance",
+    "world",
+    "mods",
+    "game-settings",
+    "settings",
+]
 PAGES = [
     "servers",
     "add-server",
@@ -152,6 +163,12 @@ def start_agent(tmp: Path):
     (creative / "world" / "level.dat").write_bytes(b"x" * 2048)
     (creative / "server.properties").write_text("server-port=25566\n")
     fake = [sys.executable, str(ROOT / "tests/fixtures/fake_server.py")]
+    # A Bedrock server too (Phase 8), so its pages say "not applicable"
+    # where Java-only controls would be.
+    sys.path.insert(0, str(ROOT / "tests"))
+    from conftest import FAKE_BEDROCK, make_bedrock_folder
+
+    bedrock = make_bedrock_folder(tmp / "Bedrock", port=19140)
     config = {
         "servers": [
             {
@@ -167,6 +184,16 @@ def start_agent(tmp: Path):
                 "directory": str(creative),
                 "raw_command": fake,
                 "port": 25566,
+            },
+            {
+                "id": "phones",
+                "name": "Phones",
+                "directory": str(bedrock),
+                "type": "bedrock",
+                "jar": "bedrock_server.exe",
+                "jvm_args": [],
+                "raw_command": [sys.executable, str(FAKE_BEDROCK)],
+                "port": 19140,
             },
         ],
         "paths": {"data_dir": str(tmp / "data")},
@@ -293,8 +320,11 @@ def main():
                     look = theme or scheme
                     for width, height in sizes:
                         page.set_viewport_size({"width": width, "height": height})
-                        for name in PAGES:
-                            page.evaluate(f"location.hash = '{name}'")
+                        visits = [(name, name) for name in PAGES] + [
+                            (f"bedrock-{name}", f"phones/{name}") for name in BEDROCK_PAGES
+                        ]
+                        for name, target in visits:
+                            page.evaluate(f"location.hash = '{target}'")
                             page.wait_for_timeout(700)
                             where = f"{look} {mode} {width}x{height} {name}"
                             overflow = page.evaluate(

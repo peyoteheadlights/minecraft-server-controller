@@ -203,8 +203,34 @@ a signature from another key, a signed file naming another version or file,
 and a setup file that fails its checksum (each before anything runs).
 
 These two (the loader installer and the update) are the only programs the
-dashboard can cause to run, and both are listed in
-`tests/test_command_isolation.py`'s allow-list.
+dashboard can cause to run besides the Minecraft server itself, and both are
+listed in `tests/test_command_isolation.py`'s allow-list.
+
+### Bedrock servers: `bedrock_server.exe`
+
+A Bedrock server is a Windows program, not a jar, so for this server type
+the "Minecraft itself" that `agent/minecraft/process.py` launches is Mojang's
+`bedrock_server.exe` from the download (Phase 8's download-and-run
+exception). The rules:
+
+- it is downloaded only from Mojang (the address Mojang's download links
+  service names, on `www.minecraft.net/bedrockdedicatedserver/`), through the
+  downloader's host and path allow-list, and only after the person has
+  ticked that they accept Mojang's EULA and Privacy Policy. Mojang publishes
+  no checksum, so it is recorded as **unverified**; its SHA-256 goes into the
+  install log and is compared with any earlier download of the same version;
+- the zip is checked before anything is written: every entry passes the
+  zip-slip check, links are refused, its unpacked size is capped, and it must
+  hold the program;
+- the launch command is a list with exactly one item, the program's full
+  path: `[<server folder>/bedrock_server.exe]`. No shell, no arguments (it
+  reads `server.properties` itself). The file name must be one of the two
+  names Mojang uses (`bedrock_server.exe`, or `bedrock_server` on Linux) and
+  resolve inside the server's own folder, or the server isn't started
+  (`EXE_NAMES` and `launch_problem`). `server.jar` can't be changed from the
+  dashboard (it isn't in `SETTABLE_PREFIXES`);
+- `tests/test_command_isolation.py` checks the command's shape and that a
+  name other than Mojang's, or a path outside the folder, is refused.
 
 #### The signing key
 
@@ -308,6 +334,11 @@ tells you if other accounts can read it.
 
 ## Minecraft's rules (the EULA)
 
+For a Bedrock server there is no `eula.txt`; instead the Bedrock server is
+not downloaded until the person ticks that they accept Mojang's EULA and
+Privacy Policy (`POST /api/bedrock/terms` or the New server panel's box).
+Who ticked it and when is recorded and in the audit log.
+
 `eula.txt` is written with `eula=false` unless the person has ticked the box
 themselves. `POST /api/servers/{id}/eula` is the only thing that writes
 `eula=true`, and only from their own tick: the agent never accepts Mojang's
@@ -342,7 +373,9 @@ Everything the agent downloads — server software, loader installers, mods
 and plugins, Geyser and Floodgate — goes through `agent/downloads.py`, which:
 
 - allows HTTPS only, to an allow-list of hosts (Mojang, FabricMC, QuiltMC,
-  Forge, NeoForged, PaperMC, PurpurMC, Modrinth, GeyserMC). The host is
+  Forge, NeoForged, PaperMC, PurpurMC, Modrinth, GeyserMC). On hosts that
+  serve other people's files or other pages (GitHub; Mojang's Bedrock
+  hosts), only the listed paths are allowed (`GITHUB_PATHS`, `BEDROCK_PATHS`). The host is
   re-checked on every redirect hop, and redirects are followed by hand
   rather than by the HTTP client, so a redirect can't leave the list;
 - caps the size of a list (20 MB) and of a file (300 MB), and stops reading
@@ -364,9 +397,16 @@ SHA-512 (`allow_unverified=False`), and a mismatch stops the import: a new
 server is removed again, and an existing one is put back from the backup
 taken first.
 
-Nothing downloaded is executed by the agent, with the two documented
-exceptions under Command injection: the loader installer, and an update of
-this app, which runs only after its signature and checksum check out.
+Nothing downloaded is executed by the agent, with the documented exceptions
+under Command injection: the loader installer, Mojang's Bedrock server
+program, and an update of this app, which runs only after its signature and
+checksum check out.
+
+Bedrock add-ons (`.mcpack`, `.mcaddon`, `.mctemplate`) are only unpacked,
+never run: each zip entry passes the zip-slip check, links are refused,
+sizes are capped, and each pack's `manifest.json` must name a valid UUID
+and version before it is written into `behavior_packs/` or `resource_packs/`
+(`agent/addons.py`).
 
 The installer downloads one more thing, on the PC with you present: Java
 (Eclipse Temurin) from Adoptium's API over HTTPS, checked against the

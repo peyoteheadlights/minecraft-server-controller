@@ -143,6 +143,15 @@ class CreateServerRequest(BaseModel):
     eula_accepted: bool = False
 
 
+class AddonToggleRequest(BaseModel):
+    enabled: bool
+
+
+class BedrockTermsRequest(BaseModel):
+    # True only when the person ticked the box themselves.
+    accepted: bool
+
+
 class CrossplayRequest(BaseModel):
     enabled: bool
     # The UDP port Bedrock players use. Empty: the port manager picks a free one.
@@ -159,7 +168,7 @@ class GameSettingsRawRequest(BaseModel):
 
 class PlayerActionRequest(BaseModel):
     action: Literal["whitelist_add", "whitelist_remove", "op", "deop", "kick", "ban", "pardon"]
-    name: str = Field(min_length=1, max_length=17)
+    name: str = Field(min_length=1, max_length=32)
     reason: str | None = Field(default=None, max_length=100)
     confirm: bool = False
 

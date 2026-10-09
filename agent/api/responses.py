@@ -59,6 +59,10 @@ class ServerRow(Open):
     type: str | None = None
     type_name: str | None = None
     default: bool | None = None
+    edition: str | None = Field(None, description="java or bedrock")
+    capabilities: dict[str, bool] | None = Field(
+        None, description="What this server's type can do; false means not applicable"
+    )
 
 
 class ServerList(Open):
@@ -241,3 +245,53 @@ class DeviceList(Open):
 
 class Ok(Open):
     ok: bool
+
+
+# ------------------------------------------------------------ Bedrock
+class BedrockTerms(Open):
+    """Whether Mojang's EULA and Privacy Policy were accepted (needed before
+    the Bedrock server is downloaded), by whom and when."""
+
+    accepted: bool
+    user: str | None = None
+    at: float | None = None
+    eula_url: str
+    privacy_url: str
+
+
+class KeptBedrockVersion(Open):
+    version: str
+    sha256: str | None = None
+    size: int | None = None
+    downloaded_at: float | None = None
+
+
+class BedrockVersions(Open):
+    """The Bedrock versions this app kept. Mojang only offers the newest, so
+    older ones can be installed only from these."""
+
+    kept: list[KeptBedrockVersion]
+    folder: str
+
+
+class Addon(Open):
+    uuid: str
+    version: str
+    name: str
+    description: str | None = None
+    kind: str = Field(description="behavior or resource")
+    folder: str
+    enabled: bool
+
+
+class AddonList(Open):
+    addons: list[Addon]
+    world: str | None = Field(None, description="The world the packs are enabled in")
+    running: bool
+    restart_needed: bool | None = None
+
+
+class AddonResult(Open):
+    ok: bool
+    installed: list[Addon] = []
+    restart_needed: bool | None = None

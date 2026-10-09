@@ -23,9 +23,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from agent import appinfo
 from installer.setup_tool import write_env_value
 
-ROOT = Path(__file__).resolve().parent.parent
 MIN_LENGTH = 10
 
 
@@ -79,8 +79,8 @@ def reset(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--config", type=Path, default=ROOT / "config" / "config.yaml")
-    parser.add_argument("--env", type=Path, default=ROOT / ".env")
+    parser.add_argument("--config", type=Path, default=appinfo.default_config_path())
+    parser.add_argument("--env", type=Path, default=appinfo.default_env_path())
     args = parser.parse_args(argv)
     if not sys.stdin.isatty():
         print("Run this in a PowerShell window on the PC, so the password can be typed.")

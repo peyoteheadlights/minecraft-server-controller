@@ -3,7 +3,7 @@ function remembered(key) {
 }
 
 export const state = {
-  token: sessionStorage.getItem("mcsc_token") || "",
+  token: sessionStorage.getItem("mcsc_token") || remembered("mcsc_token"),
   // The server every page acts on, remembered per browser.
   serverId: remembered("mcsc_server"),
   servers: [],
@@ -12,6 +12,8 @@ export const state = {
   // Servers other than the selected one that crashed since they were last
   // looked at: shown on their tab.
   crashedElsewhere: new Set(),
+  // A newer release the agent found ("" when none or not checked).
+  newVersion: "",
   // Running jobs (backups, restores) by id, from "job" events.
   jobs: {},
   user: "",

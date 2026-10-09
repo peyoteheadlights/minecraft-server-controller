@@ -69,5 +69,5 @@ no_implicit_optional = true
 
 [[tool.mypy.overrides]]
 # winreg and ctypes.windll only exist on Windows; mypy checks on Linux in CI.
-module = ["installer.autostart"]
+module = ["installer.autostart", "installer.system", "installer.detect", "installer.bootstrap"]
 disable_error_code = ["attr-defined"]

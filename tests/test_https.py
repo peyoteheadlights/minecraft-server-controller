@@ -320,7 +320,13 @@ def test_wss_streams_events_after_authentication(live_tls):
         assert ready["type"] == "ready"
         assert "status" in ready
         ws.send(json.dumps({"type": "tail", "lines": 5}))
-        assert json.loads(ws.recv(timeout=10))["type"] == "console_tail"
+        # live events (the server starting, say) may arrive before the answer
+        reply = json.loads(ws.recv(timeout=10))
+        for _ in range(20):
+            if reply["type"] != "event":
+                break
+            reply = json.loads(ws.recv(timeout=10))
+        assert reply["type"] == "console_tail"
 
 
 def test_wss_rejects_an_unauthenticated_socket(live_tls):

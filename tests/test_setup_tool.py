@@ -322,3 +322,34 @@ def test_a_contact_that_is_not_an_email_is_not_saved(root, monkeypatch):
     monkeypatch.setenv("MCSC_SETUP_PUSH_CONTACT", "not an email")
     configure(root, monkeypatch)
     assert read_env(r / ".env")["MCSC_PUSH_SUBJECT"] == ""
+
+
+# ---------------------------------------------------------------- .env lock-down
+def test_a_failed_lock_down_is_a_failed_step_with_what_to_do(root, monkeypatch):
+    """icacls failing used to be swallowed; now setup says so and fails."""
+    monkeypatch.setattr(
+        "agent.security.certs._restrict_file", lambda path: "icacls exit 5: Access is denied."
+    )
+    code, out = configure(root, monkeypatch)
+    text = "\n".join(out)
+    assert code == setup_tool.EXIT_FAILED
+    assert "[FAIL] Dashboard password" in text and "Access is denied" in text
+    assert "What to do: Run the setup again as an administrator" in text
+    assert PASSWORD not in text
+
+
+def test_check_reports_a_secrets_file_others_can_read(root, monkeypatch):
+    r, _ = root
+    assert configure(root, monkeypatch)[0] == setup_tool.EXIT_OK
+    ctx, out = ctx_for(r, mode="check")
+    setup_tool.run(ctx)
+    assert any(line.startswith("[OK] Secrets file privacy") for line in out) or os.name == "nt"
+    monkeypatch.setattr(
+        "agent.security.certs.folder_access",
+        lambda path: ("shared", "Other accounts on this PC can open it: Users"),
+    )
+    ctx, out = ctx_for(r, mode="check")
+    setup_tool.run(ctx)
+    text = "\n".join(out)
+    assert "[FAIL] Secrets file privacy - Other accounts on this PC can open it: Users" in text
+    assert "Run the setup again as an administrator to lock it." in text

@@ -8,7 +8,11 @@ as the SVG: a rounded square with the cube outline on it. The maskable one
 keeps the cube inside the safe circle phones crop to, and fills the whole
 square so no corner shows through.
 
-Run this again if the icon's design changes, and commit the PNGs it writes.
+It also writes ``app.ico`` for the Windows programs and installer: the
+ICO format can hold PNG pictures as they are, so it is the same drawings at
+16 to 256 pixels.
+
+Run this again if the icon's design changes, and commit the files it writes.
 No image library is needed: the shapes are distances to lines, and the PNG
 is written with zlib and struct, both from the standard library.
 """
@@ -122,7 +126,7 @@ def render(size: int, maskable: bool) -> bytes:
     return bytes(rows)
 
 
-def write_png(path: Path, size: int, raw: bytes) -> None:
+def png_bytes(size: int, raw: bytes) -> bytes:
     def chunk(tag: bytes, data: bytes) -> bytes:
         return (
             struct.pack("!I", len(data))
@@ -138,7 +142,24 @@ def write_png(path: Path, size: int, raw: bytes) -> None:
         + chunk(b"IDAT", zlib.compress(raw, 9))
         + chunk(b"IEND", b"")
     )
-    path.write_bytes(png)
+    return png
+
+
+def write_png(path: Path, size: int, raw: bytes) -> None:
+    path.write_bytes(png_bytes(size, raw))
+
+
+def write_ico(path: Path, sizes: tuple[int, ...] = (16, 24, 32, 48, 64, 128, 256)) -> None:
+    """An .ico holding one PNG per size (Windows Vista and later read these)."""
+    images = [png_bytes(size, render(size, False)) for size in sizes]
+    header = struct.pack("<3H", 0, 1, len(images))
+    offset = 6 + 16 * len(images)
+    entries = b""
+    for size, data in zip(sizes, images, strict=True):
+        side = 0 if size >= 256 else size  # 0 means 256 in the ICO format
+        entries += struct.pack("<4B2H2I", side, side, 0, 0, 1, 32, len(data), offset)
+        offset += len(data)
+    path.write_bytes(header + entries + b"".join(images))
 
 
 def main() -> int:
@@ -152,6 +173,9 @@ def main() -> int:
         path = OUT / name
         write_png(path, size, render(size, maskable))
         print(f"wrote {path.relative_to(ROOT)} ({path.stat().st_size} bytes)")
+    ico = OUT / "app.ico"
+    write_ico(ico)
+    print(f"wrote {ico.relative_to(ROOT)} ({ico.stat().st_size} bytes)")
     return 0
 
 

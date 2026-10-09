@@ -8,18 +8,25 @@ import { applyServerColor } from "./colors.js";
 import { setLink, updateStatusViews, updateTitle } from "./live.js";
 import { overview } from "./pages/overview.js";
 import { hooks as prefHooks } from "./prefs.js";
-import { hooks, renderTabs, serverBadge, serverRow, jobsIndicator } from "./servers.js";
+import { hooks, renderTabs, selectServer, serverBadge, serverRow, jobsIndicator } from "./servers.js";
 import { PAGES, can, contentPage, pageAllowed, pageEntry, renderers, stateInfo, state } from "./state.js";
 import { t } from "./strings.js";
 import { $, el, icon } from "./ui.js";
+
+function gearLabel() {
+  return state.newVersion
+    ? `${t("page.app_settings")}: ${t("update.available", { version: state.newVersion })}`
+    : t("page.app_settings");
+}
 
 function renderTools() {
   $("#desk-tools").replaceChildren(
     el("div", { id: "jobs" }, jobsIndicator()),
     el("div", { class: "connection", id: "connection", role: "status" }),
     el("button", {
-      class: `tool-button${state.scope === "app" ? " active" : ""}`, type: "button", id: "gear",
-      title: t("page.app_settings"), "aria-label": t("page.app_settings"),
+      class: `tool-button${state.scope === "app" ? " active" : ""}${state.newVersion ? " news" : ""}`,
+      type: "button", id: "gear",
+      title: gearLabel(), "aria-label": gearLabel(),
       "aria-current": state.scope === "app" ? "page" : null,
       onclick: () => navigate("app-settings"),
     }, icon("gear")),
@@ -66,7 +73,7 @@ function pageLabel(key, label) {
 
 function navLink([key, label, , iconName]) {
   return el("a", {
-    class: "nav-item", href: `#${key}`,
+    class: "nav-item", href: pageHash(key),
     "aria-current": state.page === key ? "page" : null,
     onclick: (event) => { event.preventDefault(); navigate(key); },
   }, icon(iconName), el("span", { class: "nav-label" }, pageLabel(key, label)));
@@ -110,10 +117,36 @@ export function renderRail() {
   updateStatusViews();
 }
 
-export function navigate(page) {
+/* The address names the server as well as the page, like
+   #survival/console, so a link, a phone alert, a reload or the back button
+   lands on that server's page. App-wide pages are just #app-settings. An
+   old #console link still works: it opens that page of the current server. */
+export function parseHash(hash = location.hash) {
+  let text = hash.replace(/^#/, "");
+  // A mistyped link (a stray %) opens the page it can, not an error.
+  try { text = decodeURIComponent(text); } catch (e) { /* used as typed */ }
+  const slash = text.indexOf("/");
+  if (slash < 0) return { server: null, page: text };
+  return { server: text.slice(0, slash), page: text.slice(slash + 1) };
+}
+
+export function pageHash(page = state.page) {
+  const entry = pageEntry(page);
+  if (entry && entry[2] === "server" && state.serverId) {
+    return `#${encodeURIComponent(state.serverId)}/${page}`;
+  }
+  return `#${page}`;
+}
+
+export function navigate(page, { push = true } = {}) {
   state.page = pageAllowed(pageEntry(page)) ? page : "dashboard";
   if (state.page === "add-server" && !can("servers.manage")) state.page = "dashboard";
-  if (location.hash !== `#${state.page}`) history.replaceState(null, "", `#${state.page}`);
+  const hash = pageHash();
+  if (location.hash !== hash) {
+    // A new page or server is a step the back button can undo.
+    if (push && location.hash) history.pushState(null, "", hash);
+    else history.replaceState(null, "", hash);
+  }
   renderRail();
   render();
   $("#main").focus({ preventScroll: true });
@@ -121,13 +154,20 @@ export function navigate(page) {
 }
 
 hooks.navigate = navigate;
-hooks.afterSwitch = () => { renderRail(); render(); };
+hooks.afterSwitch = () => navigate(state.page);
 // After the theme or Simple/Technical changes: the same page, redrawn.
 prefHooks.changed = () => { renderRail(); render(); };
 
+/* Back, forward, or a link typed in: follow the address without adding
+   another step. */
 window.addEventListener("hashchange", () => {
-  const page = location.hash.replace("#", "");
-  if (pageEntry(page) && page !== state.page) navigate(page);
+  const { server, page } = parseHash();
+  if (!pageEntry(page)) return;
+  if (server && server !== state.serverId && state.servers.some((s) => s.id === server)) {
+    selectServer(server, page, { push: false });
+  } else if (page !== state.page) {
+    navigate(page, { push: false });
+  }
 });
 
 export function clearTimers() {

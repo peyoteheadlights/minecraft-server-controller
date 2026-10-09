@@ -55,7 +55,7 @@ from xml.sax.saxutils import escape
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from agent import startup_diag  # noqa: E402
+from agent import appinfo, startup_diag  # noqa: E402
 from agent.winproc import NO_WINDOW  # noqa: E402
 
 # MCSC_TASK_NAME lets CI register a uniquely named task, isolated from a real one.
@@ -64,7 +64,9 @@ LEGACY_SERVICE = "MinecraftServerControl"
 TASK_NS = "http://schemas.microsoft.com/windows/2004/02/mit/task"
 KEEPALIVE_MINUTES = 5
 BOOT_DELAY = "PT30S"
-MODES = ("boot", "logon")
+# "manual": registered so the app can be started (from the Start menu, or by
+# an update) without Administrator rights, but with nothing that starts it.
+MODES = ("boot", "logon", "manual")
 
 IS_WINDOWS = os.name == "nt"
 
@@ -89,6 +91,11 @@ def interpreter_paths(executable: str | None = None) -> dict[str, str]:
 
 
 def expected_launch(executable: str | None = None) -> dict[str, str]:
+    """What the task should run. A copy installed by the Windows installer
+    runs its own built program (agent/appinfo.py); a project folder runs
+    the interpreter with ``-m agent.main``."""
+    if executable is None:
+        return appinfo.agent_launch()
     paths = interpreter_paths(executable)
     return {
         "command": paths["chosen"],
@@ -166,6 +173,10 @@ def build_task_xml(
             "Starts the Minecraft Server Control agent when Windows boots, "
             "without anyone needing to log in."
         )
+    elif mode == "manual":
+        startup_trigger = ""
+        logon_type = "InteractiveToken"
+        description = "Lets the Minecraft Server Control agent be started on request."
     else:
         startup_trigger = (
             "    <LogonTrigger>\n"
@@ -188,6 +199,12 @@ def build_task_xml(
         "    </TimeTrigger>\n"
     )
 
+    if mode == "manual":
+        keepalive = ""
+    triggers = f"  <Triggers>\n{startup_trigger}{keepalive}  </Triggers>\n"
+    if not startup_trigger and not keepalive:
+        triggers = "  <Triggers />\n"
+
     return (
         '<?xml version="1.0" encoding="UTF-16"?>\n'
         f'<Task version="1.2" xmlns="{TASK_NS}">\n'
@@ -197,10 +214,7 @@ def build_task_xml(
         f"mode={mode}.</Description>\n"
         f"    <URI>\\{escape(TASK_NAME)}</URI>\n"
         "  </RegistrationInfo>\n"
-        "  <Triggers>\n"
-        f"{startup_trigger}"
-        f"{keepalive}"
-        "  </Triggers>\n"
+        f"{triggers}"
         "  <Principals>\n"
         '    <Principal id="Author">\n'
         f"      <UserId>{u}</UserId>\n"
@@ -324,10 +338,10 @@ def compare_to_expected(registered: dict[str, Any], expected: dict[str, str]) ->
             f"The task runs {registered.get('command')!r}, but this installation's "
             f"interpreter is {expected['command']!r}"
         )
-    if (registered.get("arguments") or "").split()[:2] != ["-m", "agent.main"]:
+    if (registered.get("arguments") or "").split() != expected["arguments"].split():
         problems.append(
             f"The task arguments are {registered.get('arguments')!r}, "
-            "expected '-m agent.main --launched-by task'"
+            f"expected {expected['arguments']!r}"
         )
     if norm(registered.get("working_directory")) != norm(expected["working_directory"]):
         problems.append(
@@ -586,8 +600,14 @@ def pin_java_path(config_path: Path) -> str | None:
 
 
 def enable(
-    mode: str = "boot", pin_java: bool = True, executable: str | None = None
+    mode: str = "boot",
+    pin_java: bool = True,
+    executable: str | None = None,
+    launch: dict[str, str] | None = None,
 ) -> dict[str, Any]:
+    """Register the startup task. ``launch`` names the program to run when
+    it isn't this process's own (the installer registers the copy it just
+    put in Program Files)."""
     _require_windows()
     if mode not in MODES:
         raise AutostartError(f"mode must be one of {MODES}")
@@ -597,7 +617,7 @@ def enable(
             "Administrator PowerShell. Right-click PowerShell -> Run as administrator, "
             "or use --logon to start when you log in instead (no administrator needed)."
         )
-    problems = interpreter_problems(executable)
+    problems = interpreter_problems(executable) if launch is None else []
     if problems:
         raise AutostartError("\n".join(problems))
 
@@ -618,11 +638,11 @@ def enable(
         )
 
     if pin_java:
-        pinned = pin_java_path(PROJECT_ROOT / "config" / "config.yaml")
+        pinned = pin_java_path(appinfo.default_config_path())
         if pinned:
             report["actions"].append(f"Set server.java to the absolute path {pinned}")
 
-    launch = expected_launch(executable)
+    launch = launch or expected_launch(executable)
     user = current_user()
     xml = build_task_xml(
         mode, user, launch["command"], launch["arguments"], launch["working_directory"]

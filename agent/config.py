@@ -26,6 +26,8 @@ from typing import Any
 
 import yaml
 
+from . import appinfo
+
 # --------------------------------------------------------------------------
 # Typed sections. Each field's default here is the only default anywhere:
 # code reads ``config.monitor.restart_delay``, never
@@ -214,6 +216,9 @@ class TlsSettings(Section):
 @dataclass(frozen=True)
 class SecuritySettings(Section):
     session_hours: float = 12
+    # "Keep me signed in on this device": how long such a sign-in lasts
+    # without being used. Each use starts the count again.
+    remember_days: float = 90
     max_failed_logins: int = 5
     lockout_minutes: float = 15
     rate_limit_requests: int = 120
@@ -298,6 +303,7 @@ class NotificationSettings(Section):
             "auth_failure": True,
             "maintenance_mode": True,
             "certificate_expiring": True,
+            "app_updates": True,
             "servers_changed": True,
             "cpu_cores_failed": True,
             "game_settings_changed": False,
@@ -341,6 +347,14 @@ class PowerSettings(Section):
 
 
 @dataclass(frozen=True)
+class UpdateSettings(Section):
+    # Look at this app's GitHub releases once a day and say when a newer
+    # version is out (agent/updates.py). Nothing is installed without the
+    # owner starting it.
+    check: bool = True
+
+
+@dataclass(frozen=True)
 class MaintenanceSettings(Section):
     enabled: bool = False
     block_auto_restart: bool = True
@@ -362,6 +376,7 @@ SECTIONS: dict[str, type[Section]] = {
     "paths": PathSettings,
     "maintenance": MaintenanceSettings,
     "power": PowerSettings,
+    "updates": UpdateSettings,
 }
 
 # Agent-wide sections. "server" is not one of them: each entry of the
@@ -531,11 +546,12 @@ class Config:
     def load(
         cls, path: str | os.PathLike | None = None, env_file: str | os.PathLike | None = None
     ) -> Config:
-        root = Path(__file__).resolve().parent.parent
-        env_path = Path(env_file) if env_file else root / ".env"
+        # A project folder keeps them in the project; an installed copy in
+        # the data folder (agent/appinfo.py).
+        env_path = Path(env_file) if env_file else appinfo.default_env_path()
         load_dotenv(env_path)
 
-        cfg_path = Path(path) if path else root / "config" / "config.yaml"
+        cfg_path = Path(path) if path else appinfo.default_config_path()
         file_data: dict[str, Any] = {}
         if cfg_path.is_file():
             loaded = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
@@ -671,6 +687,10 @@ class Config:
     def power(self) -> PowerSettings:
         return self.section("power")
 
+    @property
+    def updates(self) -> UpdateSettings:
+        return self.section("updates")
+
     # -- servers -------------------------------------------------------------
     def _build_server(self, index: int, entry: dict[str, Any]) -> dict[str, Any]:
         prefix = f"servers[{index}]" if not self._single_block else "server"
@@ -799,11 +819,7 @@ class Config:
         return data
 
     def save(self, path: str | os.PathLike | None = None) -> Path:
-        target = (
-            Path(path)
-            if path
-            else (self.source or Path(__file__).resolve().parent.parent / "config" / "config.yaml")
-        )
+        target = Path(path) if path else (self.source or appinfo.default_config_path())
         target.parent.mkdir(parents=True, exist_ok=True)
         if target.is_file():
             # Saving writes the whole file again, which drops its comments.

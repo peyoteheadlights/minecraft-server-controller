@@ -291,6 +291,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width
 .login-panel h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: var(--space-5); }
 .login-panel .field { text-align: left; }
 .login-panel .btn { width: 100%; height: 36px; margin-top: var(--space-2); }
+.login-remember { margin: var(--space-1) 0 var(--space-3); font-size: 13.5px; color: var(--text-secondary); text-align: left; }
 
 /* ------------------------------------------------------------------ the desk: tabs across the top */
 .app { display: none; min-height: 100vh; }
@@ -384,6 +385,12 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width
 }
 .tool-button:hover, .tool-button.active { background: var(--surface-selected); color: var(--text-primary); }
 .tool-button .icon { width: 17px; height: 17px; }
+/* A new version: a dot on the gear. */
+.tool-button.news { position: relative; }
+.tool-button.news::after {
+  content: ""; position: absolute; top: 5px; right: 5px; width: 7px; height: 7px;
+  border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--surface);
+}
 .connection { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 12px; }
 .jobs { display: flex; align-items: center; gap: 6px; max-width: 18rem; color: var(--text-secondary); font-size: 12px; }
 .jobs-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1081,6 +1088,7 @@ td .btn-row { flex-wrap: nowrap; justify-content: flex-end; }
 .mb-10 { margin-bottom: 10px; }
 .mb-14 { margin-bottom: 14px; }
 .ml-6 { margin-left: 6px; }
+.break { word-break: break-all; }
 .check-row { display: flex; gap: 8px; align-items: center; }
 .check-row.pad-y { padding: 5px 0; }
 .search-field { flex: 1; min-width: 200px; padding: 8px 11px; background: var(--surface-sunken);
@@ -1315,3 +1323,19 @@ td .btn-row { flex-wrap: nowrap; justify-content: flex-end; }
   .guide-step { flex-wrap: wrap; }
 }
 .guide-step > .grow { flex: 1; min-width: 0; }
+
+/* ------------------------------------------------------------------ the app's own version, and the phone code */
+.update-lead { font-size: 15px; font-weight: 600; }
+.whats-new { margin-top: var(--space-2); font-size: 13.5px; }
+.whats-new summary { cursor: pointer; color: var(--accent-ink); }
+.whats-new ul { margin: var(--space-2) 0 0; padding-left: 20px; display: grid; gap: 4px; }
+.pair { display: flex; gap: var(--space-5); align-items: flex-start; flex-wrap: wrap; }
+.pair-text { flex: 1 1 260px; min-width: 0; }
+.pair-text p { margin: 0 0 var(--space-2); }
+.pair-facts { display: grid; grid-template-columns: auto 1fr; gap: 4px var(--space-3); margin: var(--space-3) 0 0; font-size: 12.5px; }
+.pair-facts dt { color: var(--text-secondary); }
+.pair-facts dd { margin: 0; }
+/* Always black on white: a phone camera reads it in dark mode too. */
+.qr-code { width: 168px; height: 168px; flex: none; border-radius: var(--radius); box-shadow: 0 0 0 0.5px var(--border-strong); }
+.qr-back { fill: #FFFFFF; }
+.qr-dark { fill: #000000; }

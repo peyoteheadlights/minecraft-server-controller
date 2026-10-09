@@ -32,7 +32,7 @@ export function serverName(id) {
   return found ? found.name : id;
 }
 
-export async function selectServer(id, page = null) {
+export async function selectServer(id, page = null, options = {}) {
   const switching = id && id !== state.serverId;
   if (switching) {
     const from = state.servers.findIndex((s) => s.id === state.serverId);
@@ -49,7 +49,7 @@ export async function selectServer(id, page = null) {
       state.socket.send(JSON.stringify({ type: "tail", server_id: id }));
     }
   }
-  if (page && hooks.navigate) hooks.navigate(page);
+  if (page && hooks.navigate) hooks.navigate(page, options);
   else if (switching && hooks.afterSwitch) hooks.afterSwitch();
 }
 

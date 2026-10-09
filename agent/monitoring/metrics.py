@@ -239,7 +239,7 @@ class MetricsMonitor:
 
     def certificate_status(self) -> dict[str, Any]:
         """TLS certificate facts, read from the files on disk."""
-        from ..security.tls import inspect_certificate
+        from ..security.tls import fingerprint, inspect_certificate
 
         if not self.config.tls_enabled:
             return {"enabled": False, "detail": "TLS is disabled in configuration"}
@@ -248,6 +248,9 @@ class MetricsMonitor:
         data["enabled"] = True
         data["hostname"] = self.config.dashboard_hostname or None
         data["covers_hostname"] = info.covers(self.config.dashboard_hostname)
+        # What a phone app pins (and the pairing code carries).
+        cert = self.config.tls_certificate
+        data["fingerprint"] = fingerprint(cert) if cert and cert.is_file() else None
         return data
 
     def health(self, player_count: int | None = None) -> dict[str, Any]:

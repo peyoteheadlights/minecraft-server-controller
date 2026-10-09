@@ -8,6 +8,7 @@ from ...config import ConfigError
 from ...security.auth import Principal
 from ...security.permissions import SETTINGS_EDIT, SETTINGS_VIEW, require
 from ..deps import audit, get_core
+from ..responses import AlertHistory
 from .models import MaintenanceRequest, SettingsRequest
 
 router = APIRouter()
@@ -35,6 +36,7 @@ SETTABLE_PREFIXES = (
     "server.jvm_args",
     "security.session_hours",
     "power.keep_awake",
+    "updates.check",
 )
 
 
@@ -118,7 +120,7 @@ async def test_notification(
     return result
 
 
-@router.get("/notifications/history")
+@router.get("/notifications/history", response_model=AlertHistory)
 async def notification_history(
     limit: int = 50, principal: Principal = Depends(require(SETTINGS_VIEW)), core=Depends(get_core)
 ):

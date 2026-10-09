@@ -11,6 +11,10 @@ class LoginRequest(BaseModel):
     username: str = Field(max_length=64)
     password: str = Field(max_length=256)
     label: str = Field(default="", max_length=80)
+    # "Keep me signed in on this device", and what to call the device on
+    # the Security page (the phone app sends its name; else label is used).
+    remember: bool = False
+    device: str = Field(default="", max_length=80)
 
 
 class CommandRequest(BaseModel):

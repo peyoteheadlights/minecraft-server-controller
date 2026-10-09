@@ -21,7 +21,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import memory
+from . import appinfo, memory
 from .minecraft.java import memory_limit_mb
 
 DAY = 86400.0
@@ -58,6 +58,8 @@ class Facts:
     memory: dict[str, Any] | None = None
     power: dict[str, Any] | None = None  # agent/keepawake.py status()
     offsite_folder: str = ""  # backups.offsite_directory, "" when off
+    # Installed with the setup, whose Start menu entry installs Java.
+    installed: bool = False
 
 
 @dataclass
@@ -198,10 +200,17 @@ def mod_updates(f: Facts) -> Recommendation | None:
 def java_too_old(f: Facts) -> Recommendation | None:
     if not f.java or f.java.get("verdict") != "incompatible":
         return None
+    reason = "This Minecraft version won't start on the Java installed now."
+    if f.installed:
+        # The setup installs Java and points this server at it, on the PC.
+        reason += (
+            f' On the PC, open "{appinfo.SETUP_SHORTCUT}" from the Start menu, then '
+            '"Java for your servers", and tick this server.'
+        )
     return Recommendation(
         id="java_too_old",
         title=f"Install Java {f.java['required']}",
-        reason="This Minecraft version won't start on the Java installed now.",
+        reason=reason,
         evidence=f"Minecraft {f.java['minecraft_version']} needs Java {f.java['required']}; "
         f"this PC has Java {f.java['java_major']}.",
         action={"label": "Get Java", "url": "https://adoptium.net/temurin/releases/"},
@@ -429,6 +438,7 @@ def gather(ctx) -> Facts:
         ),
         power=keepawake.status() if keepawake else None,
         offsite_folder=ctx.config.backups.offsite_directory.strip(),
+        installed=appinfo.installed(),
     )
 
 

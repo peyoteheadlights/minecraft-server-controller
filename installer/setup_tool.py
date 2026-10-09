@@ -69,6 +69,12 @@ class Context:
     ask_secret: Callable[[str], str] = getpass.getpass
     say: Callable[[str], None] = print
     steps: list[Step] = field(default_factory=list)
+    # The Windows installer keeps settings in the data folder rather than
+    # the project folder, and hands over the password it asked for itself.
+    config_file: Path | None = None
+    env_file: Path | None = None
+    password: str | None = None
+    push_contact: str | None = None
 
     @property
     def writing(self) -> bool:
@@ -76,11 +82,11 @@ class Context:
 
     @property
     def config_path(self) -> Path:
-        return self.root / "config" / "config.yaml"
+        return self.config_file or self.root / "config" / "config.yaml"
 
     @property
     def env_path(self) -> Path:
-        return self.root / ".env"
+        return self.env_file or self.root / ".env"
 
     def add(self, step: Step) -> Step:
         self.steps.append(step)
@@ -119,13 +125,31 @@ def write_env_value(path: Path, key: str, value: str) -> None:
     _restrict(path)
 
 
-def _restrict(path: Path) -> None:
-    try:
-        from agent.security.certs import _restrict_file
+class LockDownError(RuntimeError):
+    """A secrets file couldn't be made private. Never ignored: the file
+    holds the password hash and the phone-alert key."""
 
-        _restrict_file(path)
-    except Exception:
-        pass
+    def __init__(self, path: Path, problem: str):
+        self.path = path
+        self.problem = problem
+        self.message = (
+            f"{path.name} couldn't be made private to this PC's administrators, "
+            "so other accounts on this PC might read it."
+        )
+        self.fix = (
+            "Run the setup again as an administrator. If it fails again, check that no "
+            "antivirus or backup program is holding the file, and open the setup log."
+        )
+        super().__init__(f"{self.message} ({problem})")
+
+
+def _restrict(path: Path) -> None:
+    from agent.security.certs import _restrict_file
+
+    problem = _restrict_file(path)
+    if problem:
+        startup_diag.append_event("setup.log", "lock_down_failed", path=str(path), problem=problem)
+        raise LockDownError(path, problem)
 
 
 def _load_config(ctx: Context):
@@ -384,7 +408,8 @@ def step_secrets(ctx: Context) -> Step:
 
     password = None
     if not ctx.interactive:
-        password = os.environ.get("MCSC_SETUP_PASSWORD") or None  # for automated installs only
+        # The installer's own screen, or MCSC_SETUP_PASSWORD for automated installs.
+        password = ctx.password or os.environ.get("MCSC_SETUP_PASSWORD") or None
         if not password:
             return ctx.add(
                 Step(
@@ -448,6 +473,8 @@ def _push_contact(ctx: Context) -> str:
             "contact you at."
         )
         answer = ctx.ask("      Email (optional, press Enter to skip): ")
+    elif ctx.push_contact is not None:
+        answer = ctx.push_contact
     else:
         answer = os.environ.get("MCSC_SETUP_PUSH_CONTACT", "")
     contact = answer.strip().removeprefix("mailto:").strip()
@@ -455,6 +482,28 @@ def _push_contact(ctx: Context) -> str:
         ctx.say("      That doesn't look like an email address, so none was saved.")
         return ""
     return contact
+
+
+def step_env_privacy(ctx: Context) -> Step:
+    """Who can open .env, read from its real permissions (never changed here)."""
+    from agent.security.certs import folder_access
+
+    name = "Secrets file privacy"
+    if not ctx.env_path.is_file():
+        return ctx.add(Step(name, "SKIP", "there is no .env file yet"))
+    status, detail = folder_access(ctx.env_path)
+    if status == "private":
+        return ctx.add(Step(name, "OK", detail))
+    if status == "shared":
+        return ctx.add(
+            Step(
+                name,
+                "FAIL",
+                detail,
+                "Run the setup again as an administrator to lock it.",
+            )
+        )
+    return ctx.add(Step(name, "WARN", detail))
 
 
 def step_push_keys(ctx: Context) -> Step:
@@ -700,8 +749,12 @@ def run(ctx: Context) -> int:
         if "Dependencies" not in names:
             step_dependencies(ctx)
         config_ok = step_config(ctx).status == "OK"
-        step_secrets(ctx)
-        step_push_keys(ctx)
+        for make, name in ((step_secrets, "Dashboard password"), (step_push_keys, "Phone alerts")):
+            try:
+                make(ctx)
+            except LockDownError as exc:
+                ctx.add(Step(name, "FAIL", str(exc), exc.fix))
+        step_env_privacy(ctx)
         if config_ok:
             step_certificate(ctx)
         else:

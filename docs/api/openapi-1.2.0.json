@@ -1,0 +1,8990 @@
+{
+ "components": {
+  "schemas": {
+   "AccountCreateRequest": {
+    "properties": {
+     "password": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Password",
+      "type": "string"
+     },
+     "servers": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Servers"
+     },
+     "username": {
+      "maxLength": 32,
+      "minLength": 2,
+      "title": "Username",
+      "type": "string"
+     }
+    },
+    "required": [
+     "username",
+     "password"
+    ],
+    "title": "AccountCreateRequest",
+    "type": "object"
+   },
+   "AccountUpdateRequest": {
+    "properties": {
+     "all_servers": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "All Servers"
+     },
+     "password": {
+      "anyOf": [
+       {
+        "maxLength": 256,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Password"
+     },
+     "servers": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Servers"
+     }
+    },
+    "title": "AccountUpdateRequest",
+    "type": "object"
+   },
+   "AlertHistory": {
+    "additionalProperties": true,
+    "properties": {
+     "history": {
+      "items": {
+       "$ref": "#/components/schemas/AlertRow"
+      },
+      "title": "History",
+      "type": "array"
+     }
+    },
+    "required": [
+     "history"
+    ],
+    "title": "AlertHistory",
+    "type": "object"
+   },
+   "AlertRow": {
+    "additionalProperties": true,
+    "properties": {
+     "channel": {
+      "title": "Channel",
+      "type": "string"
+     },
+     "detail": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Detail"
+     },
+     "event": {
+      "title": "Event",
+      "type": "string"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     },
+     "ts": {
+      "title": "Ts",
+      "type": "number"
+     }
+    },
+    "required": [
+     "id",
+     "ts",
+     "channel",
+     "event",
+     "status"
+    ],
+    "title": "AlertRow",
+    "type": "object"
+   },
+   "Backup": {
+    "additionalProperties": true,
+    "properties": {
+     "created_at": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Created At"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "kind": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Kind"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "size_bytes": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Size Bytes"
+     },
+     "status": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Status"
+     }
+    },
+    "required": [
+     "id",
+     "name"
+    ],
+    "title": "Backup",
+    "type": "object"
+   },
+   "BackupList": {
+    "additionalProperties": true,
+    "properties": {
+     "backups": {
+      "items": {
+       "$ref": "#/components/schemas/Backup"
+      },
+      "title": "Backups",
+      "type": "array"
+     },
+     "directory": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Directory"
+     }
+    },
+    "required": [
+     "backups"
+    ],
+    "title": "BackupList",
+    "type": "object"
+   },
+   "BackupRequest": {
+    "properties": {
+     "includes": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Includes"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "maxLength": 40,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Name"
+     },
+     "note": {
+      "anyOf": [
+       {
+        "maxLength": 300,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Note"
+     }
+    },
+    "title": "BackupRequest",
+    "type": "object"
+   },
+   "Body_inspect_modpack_api_modpacks_inspect_post": {
+    "properties": {
+     "file": {
+      "contentMediaType": "application/octet-stream",
+      "title": "File",
+      "type": "string"
+     }
+    },
+    "required": [
+     "file"
+    ],
+    "title": "Body_inspect_modpack_api_modpacks_inspect_post",
+    "type": "object"
+   },
+   "Body_upload_mod_api_mods_upload_post": {
+    "properties": {
+     "file": {
+      "contentMediaType": "application/octet-stream",
+      "title": "File",
+      "type": "string"
+     }
+    },
+    "required": [
+     "file"
+    ],
+    "title": "Body_upload_mod_api_mods_upload_post",
+    "type": "object"
+   },
+   "Body_upload_mod_api_servers__server_id__mods_upload_post": {
+    "properties": {
+     "file": {
+      "contentMediaType": "application/octet-stream",
+      "title": "File",
+      "type": "string"
+     }
+    },
+    "required": [
+     "file"
+    ],
+    "title": "Body_upload_mod_api_servers__server_id__mods_upload_post",
+    "type": "object"
+   },
+   "Body_upload_world_api_servers__server_id__world_import_upload_post": {
+    "properties": {
+     "file": {
+      "contentMediaType": "application/octet-stream",
+      "title": "File",
+      "type": "string"
+     }
+    },
+    "required": [
+     "file"
+    ],
+    "title": "Body_upload_world_api_servers__server_id__world_import_upload_post",
+    "type": "object"
+   },
+   "ChatRequest": {
+    "properties": {
+     "message": {
+      "maxLength": 220,
+      "title": "Message",
+      "type": "string"
+     }
+    },
+    "required": [
+     "message"
+    ],
+    "title": "ChatRequest",
+    "type": "object"
+   },
+   "CommandRequest": {
+    "properties": {
+     "command": {
+      "maxLength": 512,
+      "title": "Command",
+      "type": "string"
+     },
+     "confirm": {
+      "default": false,
+      "title": "Confirm",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "command"
+    ],
+    "title": "CommandRequest",
+    "type": "object"
+   },
+   "CreateServerRequest": {
+    "properties": {
+     "color": {
+      "anyOf": [
+       {
+        "maxLength": 16,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Color"
+     },
+     "directory": {
+      "maxLength": 400,
+      "minLength": 1,
+      "title": "Directory",
+      "type": "string"
+     },
+     "eula_accepted": {
+      "default": false,
+      "title": "Eula Accepted",
+      "type": "boolean"
+     },
+     "loader_version": {
+      "anyOf": [
+       {
+        "maxLength": 64,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Loader Version"
+     },
+     "memory_mb": {
+      "anyOf": [
+       {
+        "maximum": 65536.0,
+        "minimum": 512.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Memory Mb"
+     },
+     "minecraft_version": {
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Minecraft Version",
+      "type": "string"
+     },
+     "name": {
+      "maxLength": 60,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+     },
+     "type": {
+      "maxLength": 32,
+      "title": "Type",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "directory",
+     "type",
+     "minecraft_version"
+    ],
+    "title": "CreateServerRequest",
+    "type": "object"
+   },
+   "CrossplayRequest": {
+    "properties": {
+     "enabled": {
+      "title": "Enabled",
+      "type": "boolean"
+     },
+     "port": {
+      "anyOf": [
+       {
+        "maximum": 65535.0,
+        "minimum": 1.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Port"
+     }
+    },
+    "required": [
+     "enabled"
+    ],
+    "title": "CrossplayRequest",
+    "type": "object"
+   },
+   "DependencyInstallRequest": {
+    "properties": {
+     "mod_ids": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "maxItems": 50,
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mod Ids"
+     }
+    },
+    "title": "DependencyInstallRequest",
+    "type": "object"
+   },
+   "Device": {
+    "additionalProperties": true,
+    "properties": {
+     "created_at": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Created At"
+     },
+     "current": {
+      "default": false,
+      "title": "Current",
+      "type": "boolean"
+     },
+     "expires_at": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expires At"
+     },
+     "id": {
+      "description": "Use it to sign this device out",
+      "title": "Id",
+      "type": "string"
+     },
+     "label": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Label"
+     },
+     "last_used": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Used"
+     },
+     "remember": {
+      "default": false,
+      "title": "Remember",
+      "type": "boolean"
+     },
+     "source_ip": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Ip"
+     },
+     "user": {
+      "title": "User",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "user"
+    ],
+    "title": "Device",
+    "type": "object"
+   },
+   "DeviceList": {
+    "additionalProperties": true,
+    "properties": {
+     "remember_days": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Remember Days"
+     },
+     "sessions": {
+      "items": {
+       "$ref": "#/components/schemas/Device"
+      },
+      "title": "Sessions",
+      "type": "array"
+     }
+    },
+    "required": [
+     "sessions"
+    ],
+    "title": "DeviceList",
+    "type": "object"
+   },
+   "DuplicateRequest": {
+    "properties": {
+     "directory": {
+      "maxLength": 400,
+      "minLength": 1,
+      "title": "Directory",
+      "type": "string"
+     },
+     "name": {
+      "maxLength": 60,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+     },
+     "world": {
+      "enum": [
+       "copy",
+       "fresh"
+      ],
+      "title": "World",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "directory",
+     "world"
+    ],
+    "title": "DuplicateRequest",
+    "type": "object"
+   },
+   "ExportRequest": {
+    "properties": {
+     "backups": {
+      "default": false,
+      "title": "Backups",
+      "type": "boolean"
+     },
+     "passphrase": {
+      "anyOf": [
+       {
+        "maxLength": 256,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Passphrase"
+     },
+     "secrets": {
+      "default": false,
+      "title": "Secrets",
+      "type": "boolean"
+     },
+     "worlds": {
+      "default": false,
+      "title": "Worlds",
+      "type": "boolean"
+     }
+    },
+    "title": "ExportRequest",
+    "type": "object"
+   },
+   "GameSettingsRawRequest": {
+    "properties": {
+     "text": {
+      "maxLength": 262144,
+      "title": "Text",
+      "type": "string"
+     }
+    },
+    "required": [
+     "text"
+    ],
+    "title": "GameSettingsRawRequest",
+    "type": "object"
+   },
+   "GameSettingsRequest": {
+    "properties": {
+     "values": {
+      "additionalProperties": true,
+      "maxProperties": 40,
+      "title": "Values",
+      "type": "object"
+     }
+    },
+    "required": [
+     "values"
+    ],
+    "title": "GameSettingsRequest",
+    "type": "object"
+   },
+   "HTTPValidationError": {
+    "properties": {
+     "detail": {
+      "items": {
+       "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+     }
+    },
+    "title": "HTTPValidationError",
+    "type": "object"
+   },
+   "Health": {
+    "additionalProperties": true,
+    "properties": {
+     "api_version": {
+      "description": "The API version; see /api/version and CHANGELOG.md",
+      "title": "Api Version",
+      "type": "integer"
+     },
+     "auth_configured": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Auth Configured"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "ok",
+     "api_version"
+    ],
+    "title": "Health",
+    "type": "object"
+   },
+   "HelpBundleRequest": {
+    "properties": {
+     "confirm": {
+      "default": false,
+      "title": "Confirm",
+      "type": "boolean"
+     }
+    },
+    "title": "HelpBundleRequest",
+    "type": "object"
+   },
+   "Job": {
+    "additionalProperties": true,
+    "properties": {
+     "created_at": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Created At"
+     },
+     "finished_at": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Finished At"
+     },
+     "id": {
+      "title": "Id",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "message": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Message"
+     },
+     "progress": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "0 to 1; null when it can't be measured",
+      "title": "Progress"
+     },
+     "result": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Result"
+     },
+     "server_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Server Id"
+     },
+     "state": {
+      "description": "running, succeeded, failed or interrupted",
+      "title": "State",
+      "type": "string"
+     },
+     "step": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Step"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "kind",
+     "title",
+     "state"
+    ],
+    "title": "Job",
+    "type": "object"
+   },
+   "JobList": {
+    "additionalProperties": true,
+    "properties": {
+     "jobs": {
+      "items": {
+       "$ref": "#/components/schemas/Job"
+      },
+      "title": "Jobs",
+      "type": "array"
+     }
+    },
+    "required": [
+     "jobs"
+    ],
+    "title": "JobList",
+    "type": "object"
+   },
+   "LoginRequest": {
+    "properties": {
+     "device": {
+      "default": "",
+      "maxLength": 80,
+      "title": "Device",
+      "type": "string"
+     },
+     "label": {
+      "default": "",
+      "maxLength": 80,
+      "title": "Label",
+      "type": "string"
+     },
+     "password": {
+      "maxLength": 256,
+      "title": "Password",
+      "type": "string"
+     },
+     "remember": {
+      "default": false,
+      "title": "Remember",
+      "type": "boolean"
+     },
+     "username": {
+      "maxLength": 64,
+      "title": "Username",
+      "type": "string"
+     }
+    },
+    "required": [
+     "username",
+     "password"
+    ],
+    "title": "LoginRequest",
+    "type": "object"
+   },
+   "MaintenanceRequest": {
+    "properties": {
+     "enabled": {
+      "title": "Enabled",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "enabled"
+    ],
+    "title": "MaintenanceRequest",
+    "type": "object"
+   },
+   "MemoryRequest": {
+    "properties": {
+     "memory_mb": {
+      "maximum": 1048576.0,
+      "minimum": 512.0,
+      "title": "Memory Mb",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "memory_mb"
+    ],
+    "title": "MemoryRequest",
+    "type": "object"
+   },
+   "ModFileRequest": {
+    "properties": {
+     "filename": {
+      "maxLength": 180,
+      "title": "Filename",
+      "type": "string"
+     }
+    },
+    "required": [
+     "filename"
+    ],
+    "title": "ModFileRequest",
+    "type": "object"
+   },
+   "ModInstallRequest": {
+    "properties": {
+     "allow_replace": {
+      "default": false,
+      "title": "Allow Replace",
+      "type": "boolean"
+     },
+     "install_dependencies": {
+      "default": false,
+      "title": "Install Dependencies",
+      "type": "boolean"
+     },
+     "project": {
+      "maxLength": 100,
+      "title": "Project",
+      "type": "string"
+     },
+     "version_id": {
+      "anyOf": [
+       {
+        "maxLength": 64,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Version Id"
+     }
+    },
+    "required": [
+     "project"
+    ],
+    "title": "ModInstallRequest",
+    "type": "object"
+   },
+   "ModRollbackRequest": {
+    "properties": {
+     "archive_path": {
+      "maxLength": 500,
+      "title": "Archive Path",
+      "type": "string"
+     },
+     "mod_id": {
+      "maxLength": 80,
+      "title": "Mod Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "mod_id",
+     "archive_path"
+    ],
+    "title": "ModRollbackRequest",
+    "type": "object"
+   },
+   "ModUpdateRequest": {
+    "properties": {
+     "filename": {
+      "maxLength": 180,
+      "title": "Filename",
+      "type": "string"
+     },
+     "version_id": {
+      "anyOf": [
+       {
+        "maxLength": 64,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Version Id"
+     }
+    },
+    "required": [
+     "filename"
+    ],
+    "title": "ModUpdateRequest",
+    "type": "object"
+   },
+   "ModpackIntoRequest": {
+    "properties": {
+     "confirm": {
+      "default": false,
+      "title": "Confirm",
+      "type": "boolean"
+     },
+     "token": {
+      "maxLength": 32,
+      "minLength": 32,
+      "title": "Token",
+      "type": "string"
+     }
+    },
+    "required": [
+     "token"
+    ],
+    "title": "ModpackIntoRequest",
+    "type": "object"
+   },
+   "ModpackNewRequest": {
+    "properties": {
+     "color": {
+      "anyOf": [
+       {
+        "maxLength": 16,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Color"
+     },
+     "directory": {
+      "maxLength": 400,
+      "minLength": 1,
+      "title": "Directory",
+      "type": "string"
+     },
+     "eula_accepted": {
+      "default": false,
+      "title": "Eula Accepted",
+      "type": "boolean"
+     },
+     "memory_mb": {
+      "anyOf": [
+       {
+        "maximum": 65536.0,
+        "minimum": 512.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Memory Mb"
+     },
+     "name": {
+      "maxLength": 60,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "directory"
+    ],
+    "title": "ModpackNewRequest",
+    "type": "object"
+   },
+   "OffsiteRequest": {
+    "properties": {
+     "directory": {
+      "default": "",
+      "maxLength": 400,
+      "title": "Directory",
+      "type": "string"
+     }
+    },
+    "title": "OffsiteRequest",
+    "type": "object"
+   },
+   "Ok": {
+    "additionalProperties": true,
+    "properties": {
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "ok"
+    ],
+    "title": "Ok",
+    "type": "object"
+   },
+   "OldCopy": {
+    "additionalProperties": true,
+    "properties": {
+     "moved_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Moved At"
+     },
+     "offer": {
+      "title": "Offer",
+      "type": "boolean"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "problems": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Problems",
+      "type": "array"
+     },
+     "removes": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Removes",
+      "type": "array"
+     },
+     "version": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Version"
+     }
+    },
+    "required": [
+     "path",
+     "offer"
+    ],
+    "title": "OldCopy",
+    "type": "object"
+   },
+   "OldCopyRemoveResult": {
+    "additionalProperties": true,
+    "properties": {
+     "failed": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Failed",
+      "type": "array"
+     },
+     "folder_removed": {
+      "title": "Folder Removed",
+      "type": "boolean"
+     },
+     "kept": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Kept",
+      "type": "array"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "removed": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Removed",
+      "type": "array"
+     }
+    },
+    "required": [
+     "ok",
+     "path",
+     "removed",
+     "kept",
+     "failed",
+     "folder_removed"
+    ],
+    "title": "OldCopyRemoveResult",
+    "type": "object"
+   },
+   "OldCopyStatus": {
+    "additionalProperties": true,
+    "properties": {
+     "old_copy": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/OldCopy"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "title": "OldCopyStatus",
+    "type": "object"
+   },
+   "PairingCode": {
+    "additionalProperties": true,
+    "properties": {
+     "address": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Address"
+     },
+     "api_version": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Api Version"
+     },
+     "fingerprint": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "SHA-256 of the certificate, 64 hex digits",
+      "title": "Fingerprint"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "port": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Port"
+     },
+     "qr": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "QR rows, 1 = dark square, no border",
+      "title": "Qr"
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason"
+     },
+     "url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "What the code holds; no password or token",
+      "title": "Url"
+     }
+    },
+    "required": [
+     "ok"
+    ],
+    "title": "PairingCode",
+    "type": "object"
+   },
+   "PasswordChangeRequest": {
+    "properties": {
+     "current": {
+      "maxLength": 256,
+      "title": "Current",
+      "type": "string"
+     },
+     "new": {
+      "maxLength": 256,
+      "title": "New",
+      "type": "string"
+     }
+    },
+    "required": [
+     "current",
+     "new"
+    ],
+    "title": "PasswordChangeRequest",
+    "type": "object"
+   },
+   "PlayerActionRequest": {
+    "properties": {
+     "action": {
+      "enum": [
+       "whitelist_add",
+       "whitelist_remove",
+       "op",
+       "deop",
+       "kick",
+       "ban",
+       "pardon"
+      ],
+      "title": "Action",
+      "type": "string"
+     },
+     "confirm": {
+      "default": false,
+      "title": "Confirm",
+      "type": "boolean"
+     },
+     "name": {
+      "maxLength": 17,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "maxLength": 100,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason"
+     }
+    },
+    "required": [
+     "action",
+     "name"
+    ],
+    "title": "PlayerActionRequest",
+    "type": "object"
+   },
+   "Players": {
+    "additionalProperties": true,
+    "properties": {
+     "max_players": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Max Players"
+     },
+     "online": {
+      "items": {},
+      "title": "Online",
+      "type": "array"
+     },
+     "online_count": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Online Count"
+     },
+     "running": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Running"
+     },
+     "verified": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Verified"
+     }
+    },
+    "required": [
+     "online"
+    ],
+    "title": "Players",
+    "type": "object"
+   },
+   "PreferencesRequest": {
+    "properties": {
+     "mode": {
+      "anyOf": [
+       {
+        "enum": [
+         "simple",
+         "technical"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mode"
+     },
+     "theme": {
+      "anyOf": [
+       {
+        "enum": [
+         "system",
+         "light",
+         "dark",
+         "graphite",
+         "contrast"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Theme"
+     }
+    },
+    "title": "PreferencesRequest",
+    "type": "object"
+   },
+   "PushSubscribeRequest": {
+    "properties": {
+     "label": {
+      "default": "",
+      "maxLength": 80,
+      "title": "Label",
+      "type": "string"
+     },
+     "subscription": {
+      "additionalProperties": true,
+      "title": "Subscription",
+      "type": "object"
+     }
+    },
+    "required": [
+     "subscription"
+    ],
+    "title": "PushSubscribeRequest",
+    "type": "object"
+   },
+   "PushUnsubscribeRequest": {
+    "properties": {
+     "endpoint": {
+      "maxLength": 1000,
+      "title": "Endpoint",
+      "type": "string"
+     }
+    },
+    "required": [
+     "endpoint"
+    ],
+    "title": "PushUnsubscribeRequest",
+    "type": "object"
+   },
+   "RecommendationActionRequest": {
+    "properties": {
+     "action": {
+      "enum": [
+       "dismiss",
+       "snooze",
+       "restore"
+      ],
+      "title": "Action",
+      "type": "string"
+     }
+    },
+    "required": [
+     "action"
+    ],
+    "title": "RecommendationActionRequest",
+    "type": "object"
+   },
+   "Recommendations": {
+    "additionalProperties": true,
+    "properties": {
+     "hidden": {
+      "default": [],
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Hidden",
+      "type": "array"
+     },
+     "recommendations": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Recommendations",
+      "type": "array"
+     }
+    },
+    "required": [
+     "recommendations"
+    ],
+    "title": "Recommendations",
+    "type": "object"
+   },
+   "Release": {
+    "additionalProperties": true,
+    "properties": {
+     "notes": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Notes"
+     },
+     "page": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Page"
+     },
+     "published_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Published At"
+     },
+     "version": {
+      "title": "Version",
+      "type": "string"
+     }
+    },
+    "required": [
+     "version"
+    ],
+    "title": "Release",
+    "type": "object"
+   },
+   "RestoreRequest": {
+    "properties": {
+     "confirm": {
+      "default": false,
+      "title": "Confirm",
+      "type": "boolean"
+     },
+     "safety_backup": {
+      "default": true,
+      "title": "Safety Backup",
+      "type": "boolean"
+     },
+     "start_after": {
+      "default": false,
+      "title": "Start After",
+      "type": "boolean"
+     }
+    },
+    "title": "RestoreRequest",
+    "type": "object"
+   },
+   "ScheduleRequest": {
+    "properties": {
+     "enabled": {
+      "default": true,
+      "title": "Enabled",
+      "type": "boolean"
+     },
+     "expr": {
+      "maxLength": 32,
+      "title": "Expr",
+      "type": "string"
+     },
+     "kind": {
+      "maxLength": 16,
+      "title": "Kind",
+      "type": "string"
+     },
+     "name": {
+      "maxLength": 80,
+      "title": "Name",
+      "type": "string"
+     },
+     "payload": {
+      "additionalProperties": true,
+      "title": "Payload",
+      "type": "object"
+     },
+     "task": {
+      "maxLength": 32,
+      "title": "Task",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "task",
+     "kind",
+     "expr"
+    ],
+    "title": "ScheduleRequest",
+    "type": "object"
+   },
+   "ServerAction": {
+    "additionalProperties": true,
+    "description": "Start, stop and restart. ``result`` says how sure the agent is:\nREQUESTED, IN_PROGRESS or VERIFIED.",
+    "properties": {
+     "detail": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Detail"
+     },
+     "result": {
+      "title": "Result",
+      "type": "string"
+     },
+     "startup_confirmed": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Startup Confirmed"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     }
+    },
+    "required": [
+     "result",
+     "state"
+    ],
+    "title": "ServerAction",
+    "type": "object"
+   },
+   "ServerAddRequest": {
+    "properties": {
+     "color": {
+      "anyOf": [
+       {
+        "maxLength": 16,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Color"
+     },
+     "directory": {
+      "maxLength": 400,
+      "minLength": 1,
+      "title": "Directory",
+      "type": "string"
+     },
+     "id": {
+      "anyOf": [
+       {
+        "maxLength": 64,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Id"
+     },
+     "jar": {
+      "default": "",
+      "maxLength": 180,
+      "title": "Jar",
+      "type": "string"
+     },
+     "name": {
+      "maxLength": 60,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+     },
+     "type": {
+      "anyOf": [
+       {
+        "maxLength": 32,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Type"
+     }
+    },
+    "required": [
+     "name",
+     "directory"
+    ],
+    "title": "ServerAddRequest",
+    "type": "object"
+   },
+   "ServerColorRequest": {
+    "properties": {
+     "color": {
+      "description": "A palette id such as \"teal\", or \"#RRGGBB\"",
+      "maxLength": 16,
+      "title": "Color",
+      "type": "string"
+     }
+    },
+    "required": [
+     "color"
+    ],
+    "title": "ServerColorRequest",
+    "type": "object"
+   },
+   "ServerList": {
+    "additionalProperties": true,
+    "properties": {
+     "default": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Default"
+     },
+     "servers": {
+      "items": {
+       "$ref": "#/components/schemas/ServerRow"
+      },
+      "title": "Servers",
+      "type": "array"
+     }
+    },
+    "required": [
+     "servers"
+    ],
+    "title": "ServerList",
+    "type": "object"
+   },
+   "ServerRow": {
+    "additionalProperties": true,
+    "properties": {
+     "color": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Color"
+     },
+     "default": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Default"
+     },
+     "id": {
+      "title": "Id",
+      "type": "string"
+     },
+     "max_players": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Max Players"
+     },
+     "minecraft_version": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Minecraft Version"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "players_online": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "null until it has been measured",
+      "title": "Players Online"
+     },
+     "players_verified": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Players Verified"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "state_verified": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "State Verified"
+     },
+     "type": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Type"
+     },
+     "type_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Type Name"
+     },
+     "uptime": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Uptime"
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "state"
+    ],
+    "title": "ServerRow",
+    "type": "object"
+   },
+   "ServerSettingsRequest": {
+    "properties": {
+     "updates": {
+      "additionalProperties": true,
+      "title": "Updates",
+      "type": "object"
+     }
+    },
+    "required": [
+     "updates"
+    ],
+    "title": "ServerSettingsRequest",
+    "type": "object"
+   },
+   "ServerStatus": {
+    "additionalProperties": true,
+    "description": "One server's state, as the Overview shows it.",
+    "properties": {
+     "job": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Job"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "max_players": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Max Players"
+     },
+     "metrics": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Metrics"
+     },
+     "minecraft_version": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Minecraft Version"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Name"
+     },
+     "players": {
+      "default": [],
+      "items": {},
+      "title": "Players",
+      "type": "array"
+     },
+     "players_online": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Players Online"
+     },
+     "players_verified": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Players Verified"
+     },
+     "server_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Server Id"
+     },
+     "server_type": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Server Type"
+     },
+     "server_type_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Server Type Name"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "state_verified": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "State Verified"
+     },
+     "uptime": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Uptime"
+     }
+    },
+    "required": [
+     "state"
+    ],
+    "title": "ServerStatus",
+    "type": "object"
+   },
+   "SettingsRequest": {
+    "properties": {
+     "updates": {
+      "additionalProperties": true,
+      "title": "Updates",
+      "type": "object"
+     }
+    },
+    "required": [
+     "updates"
+    ],
+    "title": "SettingsRequest",
+    "type": "object"
+   },
+   "StopRequest": {
+    "properties": {
+     "force": {
+      "default": false,
+      "title": "Force",
+      "type": "boolean"
+     },
+     "timeout": {
+      "anyOf": [
+       {
+        "maximum": 1800.0,
+        "minimum": 1.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Timeout"
+     }
+    },
+    "title": "StopRequest",
+    "type": "object"
+   },
+   "TpsCommandRequest": {
+    "properties": {
+     "command": {
+      "description": "\"auto\", \"off\", or a Minecraft command",
+      "maxLength": 100,
+      "title": "Command",
+      "type": "string"
+     }
+    },
+    "required": [
+     "command"
+    ],
+    "title": "TpsCommandRequest",
+    "type": "object"
+   },
+   "UpdatePreflight": {
+    "additionalProperties": true,
+    "properties": {
+     "available": {
+      "title": "Available",
+      "type": "boolean"
+     },
+     "can_install": {
+      "title": "Can Install",
+      "type": "boolean"
+     },
+     "cannot_install_reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cannot Install Reason"
+     },
+     "checked_at": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Checked At"
+     },
+     "checking": {
+      "title": "Checking",
+      "type": "boolean"
+     },
+     "current": {
+      "title": "Current",
+      "type": "string"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "install_kind": {
+      "description": "installer, or project for a setup.ps1 copy",
+      "title": "Install Kind",
+      "type": "string"
+     },
+     "last_result": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/UpdateResult"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "latest": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Release"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "players": {
+      "default": [],
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Players",
+      "type": "array"
+     },
+     "players_online": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "null when it couldn't be measured",
+      "title": "Players Online"
+     }
+    },
+    "required": [
+     "current",
+     "available",
+     "checking",
+     "install_kind",
+     "can_install"
+    ],
+    "title": "UpdatePreflight",
+    "type": "object"
+   },
+   "UpdateResult": {
+    "additionalProperties": true,
+    "properties": {
+     "message": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Message"
+     },
+     "ok": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ok"
+     },
+     "rolled_back": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Rolled Back"
+     },
+     "version": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Version"
+     }
+    },
+    "title": "UpdateResult",
+    "type": "object"
+   },
+   "UpdateStarted": {
+    "additionalProperties": true,
+    "properties": {
+     "job": {
+      "$ref": "#/components/schemas/Job"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "ok",
+     "job"
+    ],
+    "title": "UpdateStarted",
+    "type": "object"
+   },
+   "UpdateStatus": {
+    "additionalProperties": true,
+    "properties": {
+     "available": {
+      "title": "Available",
+      "type": "boolean"
+     },
+     "can_install": {
+      "title": "Can Install",
+      "type": "boolean"
+     },
+     "cannot_install_reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cannot Install Reason"
+     },
+     "checked_at": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Checked At"
+     },
+     "checking": {
+      "title": "Checking",
+      "type": "boolean"
+     },
+     "current": {
+      "title": "Current",
+      "type": "string"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "install_kind": {
+      "description": "installer, or project for a setup.ps1 copy",
+      "title": "Install Kind",
+      "type": "string"
+     },
+     "last_result": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/UpdateResult"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "latest": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Release"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "current",
+     "available",
+     "checking",
+     "install_kind",
+     "can_install"
+    ],
+    "title": "UpdateStatus",
+    "type": "object"
+   },
+   "ValidationError": {
+    "properties": {
+     "ctx": {
+      "title": "Context",
+      "type": "object"
+     },
+     "input": {
+      "title": "Input"
+     },
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "title": "Location",
+      "type": "array"
+     },
+     "msg": {
+      "title": "Message",
+      "type": "string"
+     },
+     "type": {
+      "title": "Error Type",
+      "type": "string"
+     }
+    },
+    "required": [
+     "loc",
+     "msg",
+     "type"
+    ],
+    "title": "ValidationError",
+    "type": "object"
+   },
+   "VersionChangeRequest": {
+    "properties": {
+     "confirm": {
+      "default": false,
+      "title": "Confirm",
+      "type": "boolean"
+     },
+     "loader_version": {
+      "anyOf": [
+       {
+        "maxLength": 64,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Loader Version"
+     },
+     "minecraft_version": {
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Minecraft Version",
+      "type": "string"
+     },
+     "start_after": {
+      "default": false,
+      "title": "Start After",
+      "type": "boolean"
+     },
+     "type": {
+      "anyOf": [
+       {
+        "maxLength": 32,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Type"
+     }
+    },
+    "required": [
+     "minecraft_version"
+    ],
+    "title": "VersionChangeRequest",
+    "type": "object"
+   },
+   "VersionInfo": {
+    "additionalProperties": true,
+    "properties": {
+     "api_version": {
+      "description": "Goes up only for a change a client must know about",
+      "title": "Api Version",
+      "type": "integer"
+     },
+     "version": {
+      "description": "The app's version, like 1.2.0",
+      "title": "Version",
+      "type": "string"
+     }
+    },
+    "required": [
+     "version",
+     "api_version"
+    ],
+    "title": "VersionInfo",
+    "type": "object"
+   },
+   "WorldFolderRequest": {
+    "properties": {
+     "path": {
+      "maxLength": 400,
+      "minLength": 1,
+      "title": "Path",
+      "type": "string"
+     }
+    },
+    "required": [
+     "path"
+    ],
+    "title": "WorldFolderRequest",
+    "type": "object"
+   },
+   "WorldImportRequest": {
+    "properties": {
+     "confirm": {
+      "default": false,
+      "title": "Confirm",
+      "type": "boolean"
+     },
+     "token": {
+      "maxLength": 32,
+      "minLength": 32,
+      "title": "Token",
+      "type": "string"
+     }
+    },
+    "required": [
+     "token"
+    ],
+    "title": "WorldImportRequest",
+    "type": "object"
+   },
+   "WorldUndoRequest": {
+    "properties": {
+     "backup_id": {
+      "title": "Backup Id",
+      "type": "integer"
+     },
+     "confirm": {
+      "default": false,
+      "title": "Confirm",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "backup_id"
+    ],
+    "title": "WorldUndoRequest",
+    "type": "object"
+   }
+  }
+ },
+ "info": {
+  "title": "Minecraft Server Control",
+  "version": "1.2.0"
+ },
+ "openapi": "3.1.0",
+ "paths": {
+  "/api/account/password": {
+   "post": {
+    "description": "A helper changes their own password. The owner's is reset on the PC.",
+    "operationId": "change_password_api_account_password_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PasswordChangeRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Change Password"
+   }
+  },
+  "/api/account/preferences": {
+   "get": {
+    "operationId": "get_preferences_api_account_preferences_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Preferences"
+   },
+   "put": {
+    "operationId": "set_preferences_api_account_preferences_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PreferencesRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Set Preferences"
+   }
+  },
+  "/api/accounts": {
+   "get": {
+    "operationId": "list_accounts_api_accounts_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "List Accounts"
+   },
+   "post": {
+    "operationId": "add_account_api_accounts_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AccountCreateRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Add Account"
+   }
+  },
+  "/api/accounts/{username}": {
+   "delete": {
+    "operationId": "remove_account_api_accounts__username__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "username",
+      "required": true,
+      "schema": {
+       "title": "Username",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Remove Account"
+   },
+   "put": {
+    "operationId": "change_account_api_accounts__username__put",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "username",
+      "required": true,
+      "schema": {
+       "title": "Username",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AccountUpdateRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Change Account"
+   }
+  },
+  "/api/auth/login": {
+   "post": {
+    "operationId": "login_api_auth_login_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LoginRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Login"
+   }
+  },
+  "/api/auth/logout": {
+   "post": {
+    "operationId": "logout_api_auth_logout_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Logout"
+   }
+  },
+  "/api/auth/me": {
+   "get": {
+    "operationId": "me_api_auth_me_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Me"
+   }
+  },
+  "/api/auth/rotate": {
+   "post": {
+    "operationId": "rotate_api_auth_rotate_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Rotate"
+   }
+  },
+  "/api/backups": {
+   "get": {
+    "operationId": "list_backups_api_backups_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BackupList"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "List Backups"
+   },
+   "post": {
+    "operationId": "create_backup_api_backups_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/BackupRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Create Backup"
+   }
+  },
+  "/api/backups/offsite": {
+   "get": {
+    "description": "Where second copies go, and whether that folder can be reached now.",
+    "operationId": "offsite_status_api_backups_offsite_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Offsite Status"
+   },
+   "put": {
+    "description": "Choose (or clear) the folder for second copies. Existing backups are\nnot copied by this; new ones are, and any one can be copied from the list.",
+    "operationId": "set_offsite_api_backups_offsite_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/OffsiteRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Set Offsite"
+   }
+  },
+  "/api/backups/{backup_id}": {
+   "delete": {
+    "operationId": "delete_backup_api_backups__backup_id__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "backup_id",
+      "required": true,
+      "schema": {
+       "title": "Backup Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Delete Backup"
+   }
+  },
+  "/api/backups/{backup_id}/copy": {
+   "post": {
+    "description": "Copy one backup off the PC now (again, if the last try failed).",
+    "operationId": "copy_backup_api_backups__backup_id__copy_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "backup_id",
+      "required": true,
+      "schema": {
+       "title": "Backup Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Copy Backup"
+   }
+  },
+  "/api/backups/{backup_id}/download": {
+   "get": {
+    "operationId": "download_backup_api_backups__backup_id__download_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "backup_id",
+      "required": true,
+      "schema": {
+       "title": "Backup Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Download Backup"
+   }
+  },
+  "/api/backups/{backup_id}/restore": {
+   "post": {
+    "operationId": "restore_backup_api_backups__backup_id__restore_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "backup_id",
+      "required": true,
+      "schema": {
+       "title": "Backup Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RestoreRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Restore Backup"
+   }
+  },
+  "/api/backups/{backup_id}/verify": {
+   "get": {
+    "operationId": "verify_backup_api_backups__backup_id__verify_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "backup_id",
+      "required": true,
+      "schema": {
+       "title": "Backup Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Verify Backup"
+   }
+  },
+  "/api/crashes": {
+   "get": {
+    "operationId": "crashes_api_crashes_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 50,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Crashes"
+   }
+  },
+  "/api/crashes/{crash_id}": {
+   "get": {
+    "operationId": "crash_detail_api_crashes__crash_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "crash_id",
+      "required": true,
+      "schema": {
+       "title": "Crash Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Crash Detail"
+   }
+  },
+  "/api/events": {
+   "get": {
+    "operationId": "events_api_events_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 100,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Events"
+   }
+  },
+  "/api/export": {
+   "get": {
+    "description": "How big each part would be, measured from disk, before choosing.",
+    "operationId": "export_sizes_api_export_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Export Sizes"
+   },
+   "post": {
+    "description": "Start writing the export file as a job. Its result has the token to\ndownload it with.",
+    "operationId": "start_export_api_export_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ExportRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Start Export"
+   }
+  },
+  "/api/export/{token}": {
+   "get": {
+    "operationId": "download_export_api_export__token__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "token",
+      "required": true,
+      "schema": {
+       "title": "Token",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "filename",
+      "required": false,
+      "schema": {
+       "default": "export.zip",
+       "title": "Filename",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Download Export"
+   }
+  },
+  "/api/folders": {
+   "get": {
+    "operationId": "browse_folders_api_folders_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "path",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Path",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Browse Folders"
+   }
+  },
+  "/api/health": {
+   "get": {
+    "description": "Unauthenticated liveness probe. Deliberately reveals nothing.",
+    "operationId": "health_api_health_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Health"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Health"
+   }
+  },
+  "/api/health/server": {
+   "get": {
+    "operationId": "server_health_api_health_server_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Server Health"
+   }
+  },
+  "/api/help-bundle": {
+   "get": {
+    "operationId": "help_bundle_contents_api_help_bundle_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Help Bundle Contents"
+   },
+   "post": {
+    "operationId": "make_help_bundle_api_help_bundle_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/HelpBundleRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Make Help Bundle"
+   }
+  },
+  "/api/help-bundle/{token}": {
+   "get": {
+    "operationId": "download_help_bundle_api_help_bundle__token__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "token",
+      "required": true,
+      "schema": {
+       "title": "Token",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "filename",
+      "required": false,
+      "schema": {
+       "default": "help.zip",
+       "title": "Filename",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Download Help Bundle"
+   }
+  },
+  "/api/info": {
+   "get": {
+    "operationId": "server_info_api_info_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Server Info"
+   }
+  },
+  "/api/jobs": {
+   "get": {
+    "description": "Recent jobs, newest first; every server's unless one is named.",
+    "operationId": "list_jobs_api_jobs_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "server_id",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Server Id"
+      }
+     },
+     {
+      "in": "query",
+      "name": "running",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Running",
+       "type": "boolean"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 50,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/JobList"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Jobs"
+   }
+  },
+  "/api/jobs/{job_id}": {
+   "get": {
+    "operationId": "get_job_api_jobs__job_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "job_id",
+      "required": true,
+      "schema": {
+       "title": "Job Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Job"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Job"
+   }
+  },
+  "/api/jobs/{job_id}/undo": {
+   "post": {
+    "description": "Undo a finished change by restoring the backup it took first. The\nundo is itself a safe change, so it can be undone too.",
+    "operationId": "undo_job_api_jobs__job_id__undo_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "job_id",
+      "required": true,
+      "schema": {
+       "title": "Job Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Undo Job"
+   }
+  },
+  "/api/logs": {
+   "get": {
+    "operationId": "logs_api_logs_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "lines",
+      "required": false,
+      "schema": {
+       "default": 100,
+       "title": "Lines",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "since",
+      "required": false,
+      "schema": {
+       "default": 0,
+       "title": "Since",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "search",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Search",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "level",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Level",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Logs"
+   }
+  },
+  "/api/logs/clear": {
+   "post": {
+    "description": "Clears the agent's in-memory view only. Minecraft's own log files are untouched.",
+    "operationId": "clear_console_api_logs_clear_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Clear Console"
+   }
+  },
+  "/api/logs/download": {
+   "get": {
+    "operationId": "download_logs_api_logs_download_get",
+    "responses": {
+     "200": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Download Logs"
+   }
+  },
+  "/api/maintenance": {
+   "post": {
+    "operationId": "set_maintenance_api_maintenance_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MaintenanceRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Set Maintenance"
+   }
+  },
+  "/api/modpacks/inspect": {
+   "post": {
+    "description": "Upload a .mrpack and say what it holds, before anything changes.\nWith ``server_id``, also what importing it into that server would do.",
+    "operationId": "inspect_modpack_api_modpacks_inspect_post",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "server_id",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Server Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "$ref": "#/components/schemas/Body_inspect_modpack_api_modpacks_inspect_post"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Inspect Modpack"
+   }
+  },
+  "/api/modpacks/{token}": {
+   "delete": {
+    "description": "Throw an uploaded pack away without importing it.",
+    "operationId": "forget_modpack_api_modpacks__token__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "token",
+      "required": true,
+      "schema": {
+       "title": "Token",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Forget Modpack"
+   }
+  },
+  "/api/modpacks/{token}/new-server": {
+   "post": {
+    "description": "Make a new server from an uploaded pack. Minecraft is not started.",
+    "operationId": "modpack_new_server_api_modpacks__token__new_server_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "token",
+      "required": true,
+      "schema": {
+       "title": "Token",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ModpackNewRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Modpack New Server"
+   }
+  },
+  "/api/mods": {
+   "get": {
+    "operationId": "list_mods_api_mods_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "List Mods"
+   }
+  },
+  "/api/mods/check": {
+   "get": {
+    "operationId": "mod_check_api_mods_check_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Mod Check"
+   }
+  },
+  "/api/mods/dependencies": {
+   "get": {
+    "description": "Every declared dependency, with readable names, ranges and status.",
+    "operationId": "mod_dependencies_api_mods_dependencies_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Mod Dependencies"
+   }
+  },
+  "/api/mods/dependencies/install": {
+   "post": {
+    "operationId": "install_dependencies_api_mods_dependencies_install_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DependencyInstallRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Install Dependencies"
+   }
+  },
+  "/api/mods/dependencies/plan": {
+   "post": {
+    "description": "What would be downloaded, including dependencies of dependencies. Downloads nothing.",
+    "operationId": "plan_dependencies_api_mods_dependencies_plan_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DependencyInstallRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Plan Dependencies"
+   }
+  },
+  "/api/mods/disable": {
+   "post": {
+    "operationId": "disable_mod_api_mods_disable_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ModFileRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Disable Mod"
+   }
+  },
+  "/api/mods/enable": {
+   "post": {
+    "operationId": "enable_mod_api_mods_enable_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ModFileRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Enable Mod"
+   }
+  },
+  "/api/mods/history": {
+   "get": {
+    "operationId": "mod_history_api_mods_history_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 100,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Mod History"
+   }
+  },
+  "/api/mods/impact": {
+   "get": {
+    "operationId": "mod_impact_api_mods_impact_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "filename",
+      "required": true,
+      "schema": {
+       "title": "Filename",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Mod Impact"
+   }
+  },
+  "/api/mods/install": {
+   "post": {
+    "operationId": "install_mod_api_mods_install_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ModInstallRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Install Mod"
+   }
+  },
+  "/api/mods/project/{project}": {
+   "get": {
+    "operationId": "mod_project_api_mods_project__project__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "project",
+      "required": true,
+      "schema": {
+       "title": "Project",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Mod Project"
+   }
+  },
+  "/api/mods/remove": {
+   "post": {
+    "operationId": "remove_mod_api_mods_remove_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ModFileRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Remove Mod"
+   }
+  },
+  "/api/mods/rollback": {
+   "post": {
+    "operationId": "rollback_mod_api_mods_rollback_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ModRollbackRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Rollback Mod"
+   }
+  },
+  "/api/mods/search": {
+   "get": {
+    "operationId": "search_mods_api_mods_search_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "minecraft_version",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Minecraft Version",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 20,
+       "title": "Limit",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "offset",
+      "required": false,
+      "schema": {
+       "default": 0,
+       "title": "Offset",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Search Mods"
+   }
+  },
+  "/api/mods/update": {
+   "post": {
+    "operationId": "update_mod_api_mods_update_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ModUpdateRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Update Mod"
+   }
+  },
+  "/api/mods/updates": {
+   "get": {
+    "operationId": "mod_updates_api_mods_updates_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "refresh",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Refresh",
+       "type": "boolean"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Mod Updates"
+   }
+  },
+  "/api/mods/upload": {
+   "post": {
+    "operationId": "upload_mod_api_mods_upload_post",
+    "requestBody": {
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "$ref": "#/components/schemas/Body_upload_mod_api_mods_upload_post"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Upload Mod"
+   }
+  },
+  "/api/mods/versions/{mod_id}": {
+   "get": {
+    "operationId": "mod_versions_api_mods_versions__mod_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "mod_id",
+      "required": true,
+      "schema": {
+       "title": "Mod Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Mod Versions"
+   }
+  },
+  "/api/new-server": {
+   "post": {
+    "description": "Create a brand-new server: folder, settings, download and set-up.\nMinecraft is not started; the person presses Start themselves.",
+    "operationId": "create_server_api_new_server_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CreateServerRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Create Server"
+   }
+  },
+  "/api/new-server/options": {
+   "get": {
+    "description": "What the New server panel needs before anything is chosen.",
+    "operationId": "new_server_options_api_new_server_options_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "New Server Options"
+   }
+  },
+  "/api/notifications/history": {
+   "get": {
+    "operationId": "notification_history_api_notifications_history_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 50,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AlertHistory"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Notification History"
+   }
+  },
+  "/api/notifications/test": {
+   "post": {
+    "operationId": "test_notification_api_notifications_test_post",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "channel",
+      "required": true,
+      "schema": {
+       "title": "Channel",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Test Notification"
+   }
+  },
+  "/api/pairing": {
+   "get": {
+    "description": "What the \"Open on your phone\" code holds: the address, port,\ncertificate fingerprint and API version. No password or token.",
+    "operationId": "pairing_code_api_pairing_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PairingCode"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Pairing Code"
+   }
+  },
+  "/api/performance": {
+   "get": {
+    "operationId": "performance_api_performance_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "hours",
+      "required": false,
+      "schema": {
+       "default": 6,
+       "title": "Hours",
+       "type": "number"
+      }
+     },
+     {
+      "in": "query",
+      "name": "storage",
+      "required": false,
+      "schema": {
+       "default": true,
+       "title": "Storage",
+       "type": "boolean"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Performance"
+   }
+  },
+  "/api/players": {
+   "get": {
+    "operationId": "players_api_players_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Players"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Players"
+   }
+  },
+  "/api/players/actions": {
+   "post": {
+    "description": "Send whitelist, op, kick, ban or unban for one player. The answer is\n\"sent\"; it becomes \"done\" once the server's console confirms it.",
+    "operationId": "player_action_api_players_actions_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PlayerActionRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Player Action"
+   }
+  },
+  "/api/players/actions/{action_id}": {
+   "get": {
+    "description": "Whether the server has confirmed an action yet.",
+    "operationId": "player_action_status_api_players_actions__action_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "action_id",
+      "required": true,
+      "schema": {
+       "title": "Action Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Player Action Status"
+   }
+  },
+  "/api/players/sessions": {
+   "get": {
+    "operationId": "player_sessions_api_players_sessions_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "username",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Username",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 100,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Player Sessions"
+   }
+  },
+  "/api/ports/suggest": {
+   "get": {
+    "operationId": "suggest_port_api_ports_suggest_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "protocol",
+      "required": false,
+      "schema": {
+       "default": "tcp",
+       "title": "Protocol",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Suggest Port"
+   }
+  },
+  "/api/power": {
+   "get": {
+    "description": "Whether the PC is being kept awake, and what can still make it sleep.",
+    "operationId": "power_api_power_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Power"
+   }
+  },
+  "/api/push": {
+   "get": {
+    "description": "What a phone needs to sign up, and which phones already have.\n\nThe public key is meant to be handed to the browser; the private half\nnever leaves the agent.",
+    "operationId": "push_status_api_push_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Push Status"
+   }
+  },
+  "/api/push/subscribe": {
+   "post": {
+    "description": "Remember a browser's push subscription, so alerts can reach it.",
+    "operationId": "subscribe_api_push_subscribe_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PushSubscribeRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Subscribe"
+   }
+  },
+  "/api/push/test": {
+   "post": {
+    "description": "Send one test alert to every phone signed up.",
+    "operationId": "test_push_api_push_test_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Test Push"
+   }
+  },
+  "/api/push/unsubscribe": {
+   "post": {
+    "operationId": "unsubscribe_api_push_unsubscribe_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PushUnsubscribeRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Unsubscribe"
+   }
+  },
+  "/api/schedules": {
+   "get": {
+    "operationId": "list_schedules_api_schedules_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "List Schedules"
+   },
+   "post": {
+    "operationId": "create_schedule_api_schedules_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ScheduleRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Create Schedule"
+   }
+  },
+  "/api/schedules/{schedule_id}": {
+   "delete": {
+    "operationId": "delete_schedule_api_schedules__schedule_id__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "schedule_id",
+      "required": true,
+      "schema": {
+       "title": "Schedule Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Delete Schedule"
+   },
+   "put": {
+    "operationId": "update_schedule_api_schedules__schedule_id__put",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "schedule_id",
+      "required": true,
+      "schema": {
+       "title": "Schedule Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ScheduleRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Update Schedule"
+   }
+  },
+  "/api/schedules/{schedule_id}/run": {
+   "post": {
+    "operationId": "run_schedule_api_schedules__schedule_id__run_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "schedule_id",
+      "required": true,
+      "schema": {
+       "title": "Schedule Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Run Schedule"
+   }
+  },
+  "/api/security": {
+   "get": {
+    "operationId": "security_overview_api_security_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Security Overview"
+   }
+  },
+  "/api/security/audit": {
+   "get": {
+    "operationId": "audit_log_api_security_audit_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 100,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Audit Log"
+   }
+  },
+  "/api/security/revoke-sessions": {
+   "post": {
+    "operationId": "revoke_sessions_api_security_revoke_sessions_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Revoke Sessions"
+   }
+  },
+  "/api/security/tls": {
+   "get": {
+    "description": "Certificate facts read from disk.\n\nOnly metadata is returned. The private key is never read into a response,\nnever logged, and has no endpoint of its own - the only thing reported\nabout it is whether its public half matches the certificate.",
+    "operationId": "tls_status_api_security_tls_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Tls Status"
+   }
+  },
+  "/api/server-types": {
+   "get": {
+    "description": "Every server type with its capabilities. The dashboard's comparison\ntable is generated from this, so it cannot drift from what the app does.",
+    "operationId": "list_types_api_server_types_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "List Types"
+   }
+  },
+  "/api/server-types/{type_id}/versions": {
+   "get": {
+    "description": "The Minecraft versions this type offers, from its official source.",
+    "operationId": "type_versions_api_server_types__type_id__versions_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "type_id",
+      "required": true,
+      "schema": {
+       "title": "Type Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Type Versions"
+   }
+  },
+  "/api/server/cancel-restart": {
+   "post": {
+    "description": "Stop the automatic-restart countdown. The server stays stopped.",
+    "operationId": "cancel_restart_api_server_cancel_restart_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Cancel Restart"
+   }
+  },
+  "/api/server/clear-crash-block": {
+   "post": {
+    "operationId": "clear_crash_block_api_server_clear_crash_block_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Clear Crash Block"
+   }
+  },
+  "/api/server/command": {
+   "post": {
+    "operationId": "server_command_api_server_command_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CommandRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Server Command"
+   }
+  },
+  "/api/server/command/check": {
+   "get": {
+    "description": "Ask whether a command needs confirmation, before sending it.",
+    "operationId": "check_command_api_server_command_check_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "command",
+      "required": true,
+      "schema": {
+       "title": "Command",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Check Command"
+   }
+  },
+  "/api/server/restart": {
+   "post": {
+    "operationId": "server_restart_api_server_restart_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ServerAction"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Server Restart"
+   }
+  },
+  "/api/server/restart-now": {
+   "post": {
+    "description": "Skip the automatic-restart countdown and start immediately.",
+    "operationId": "restart_now_api_server_restart_now_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Restart Now"
+   }
+  },
+  "/api/server/start": {
+   "post": {
+    "operationId": "server_start_api_server_start_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ServerAction"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Server Start"
+   }
+  },
+  "/api/server/stop": {
+   "post": {
+    "operationId": "server_stop_api_server_stop_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/StopRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ServerAction"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Server Stop"
+   }
+  },
+  "/api/servers": {
+   "get": {
+    "description": "Every registered server with its measured state, players and uptime.",
+    "operationId": "servers_api_servers_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ServerList"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Servers"
+   },
+   "post": {
+    "description": "Register an existing Minecraft server folder. Nothing in the folder is\nchanged and Minecraft is not started.",
+    "operationId": "add_server_api_servers_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ServerAddRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Add Server"
+   }
+  },
+  "/api/servers/{server_id}": {
+   "delete": {
+    "description": "Take a server off the list. Its folder, world and backups stay.",
+    "operationId": "remove_server_api_servers__server_id__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "server_id",
+      "required": true,
+      "schema": {
+       "title": "Server Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Remove Server"
+   }
+  },
+  "/api/servers/{server_id}/backups": {
+   "get": {
+    "operationId": "list_backups_api_servers__server_id__backups_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BackupList"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "List Backups"
+   },
+   "post": {
+    "operationId": "create_backup_api_servers__server_id__backups_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/BackupRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Create Backup"
+   }
+  },
+  "/api/servers/{server_id}/backups/offsite": {
+   "get": {
+    "description": "Where second copies go, and whether that folder can be reached now.",
+    "operationId": "offsite_status_api_servers__server_id__backups_offsite_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Offsite Status"
+   },
+   "put": {
+    "description": "Choose (or clear) the folder for second copies. Existing backups are\nnot copied by this; new ones are, and any one can be copied from the list.",
+    "operationId": "set_offsite_api_servers__server_id__backups_offsite_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/OffsiteRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Set Offsite"
+   }
+  },
+  "/api/servers/{server_id}/backups/{backup_id}": {
+   "delete": {
+    "operationId": "delete_backup_api_servers__server_id__backups__backup_id__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "backup_id",
+      "required": true,
+      "schema": {
+       "title": "Backup Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Delete Backup"
+   }
+  },
+  "/api/servers/{server_id}/backups/{backup_id}/copy": {
+   "post": {
+    "description": "Copy one backup off the PC now (again, if the last try failed).",
+    "operationId": "copy_backup_api_servers__server_id__backups__backup_id__copy_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "backup_id",
+      "required": true,
+      "schema": {
+       "title": "Backup Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Copy Backup"
+   }
+  },
+  "/api/servers/{server_id}/backups/{backup_id}/download": {
+   "get": {
+    "operationId": "download_backup_api_servers__server_id__backups__backup_id__download_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "backup_id",
+      "required": true,
+      "schema": {
+       "title": "Backup Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Download Backup"
+   }
+  },
+  "/api/servers/{server_id}/backups/{backup_id}/restore": {
+   "post": {
+    "operationId": "restore_backup_api_servers__server_id__backups__backup_id__restore_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "backup_id",
+      "required": true,
+      "schema": {
+       "title": "Backup Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RestoreRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Restore Backup"
+   }
+  },
+  "/api/servers/{server_id}/backups/{backup_id}/verify": {
+   "get": {
+    "operationId": "verify_backup_api_servers__server_id__backups__backup_id__verify_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "backup_id",
+      "required": true,
+      "schema": {
+       "title": "Backup Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Verify Backup"
+   }
+  },
+  "/api/servers/{server_id}/chat": {
+   "get": {
+    "description": "The recent chat this server's console printed. Live messages arrive\non the websocket as \"chat\" events.",
+    "operationId": "chat_log_api_servers__server_id__chat_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "lines",
+      "required": false,
+      "schema": {
+       "default": 100,
+       "title": "Lines",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Chat Log"
+   },
+   "post": {
+    "description": "Say something to everyone in the game, as \"Server\".",
+    "operationId": "send_chat_api_servers__server_id__chat_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ChatRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Send Chat"
+   }
+  },
+  "/api/servers/{server_id}/color": {
+   "put": {
+    "description": "Set this server's color: a palette color or the person's own hex.",
+    "operationId": "set_color_api_servers__server_id__color_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ServerColorRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Set Color"
+   }
+  },
+  "/api/servers/{server_id}/crashes": {
+   "get": {
+    "operationId": "crashes_api_servers__server_id__crashes_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 50,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Crashes"
+   }
+  },
+  "/api/servers/{server_id}/crashes/{crash_id}": {
+   "get": {
+    "operationId": "crash_detail_api_servers__server_id__crashes__crash_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "crash_id",
+      "required": true,
+      "schema": {
+       "title": "Crash Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Crash Detail"
+   }
+  },
+  "/api/servers/{server_id}/crossplay": {
+   "get": {
+    "description": "Whether Bedrock players can join, the port they use, and what differs.",
+    "operationId": "crossplay_status_api_servers__server_id__crossplay_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Crossplay Status"
+   },
+   "put": {
+    "description": "Turn \"Let Bedrock players join\" on or off.",
+    "operationId": "set_crossplay_api_servers__server_id__crossplay_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CrossplayRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Set Crossplay"
+   }
+  },
+  "/api/servers/{server_id}/duplicate": {
+   "get": {
+    "description": "A suggested name and folder for a copy of this server.",
+    "operationId": "duplicate_options_api_servers__server_id__duplicate_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Duplicate Options"
+   },
+   "post": {
+    "description": "Start copying this server into a new one. Runs as a job; the new\nserver appears on the list when the copy has been checked.",
+    "operationId": "duplicate_server_api_servers__server_id__duplicate_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DuplicateRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Duplicate Server"
+   }
+  },
+  "/api/servers/{server_id}/eula": {
+   "post": {
+    "description": "Record that the person accepted Minecraft's rules for this server.\nOnly ever called from their own tick: nothing accepts them for them.",
+    "operationId": "accept_eula_api_servers__server_id__eula_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Accept Eula"
+   }
+  },
+  "/api/servers/{server_id}/events": {
+   "get": {
+    "operationId": "events_api_servers__server_id__events_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 100,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Events"
+   }
+  },
+  "/api/servers/{server_id}/game-settings": {
+   "get": {
+    "description": "What server.properties says for each known key, and the whole file.",
+    "operationId": "get_game_settings_api_servers__server_id__game_settings_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Game Settings"
+   },
+   "put": {
+    "description": "Change known keys. Every value is checked first; nothing is written\nunless all of them pass.",
+    "operationId": "save_game_settings_api_servers__server_id__game_settings_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/GameSettingsRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Save Game Settings"
+   }
+  },
+  "/api/servers/{server_id}/game-settings/raw": {
+   "put": {
+    "description": "Replace the whole file with text typed in Technical mode. The known\nkeys in it are still checked like the form's.",
+    "operationId": "save_game_settings_raw_api_servers__server_id__game_settings_raw_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/GameSettingsRawRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Save Game Settings Raw"
+   }
+  },
+  "/api/servers/{server_id}/getting-started": {
+   "get": {
+    "description": "The first-visit checklist, each item ticked from measured state.",
+    "operationId": "getting_started_api_servers__server_id__getting_started_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Getting Started"
+   }
+  },
+  "/api/servers/{server_id}/getting-started/dismiss": {
+   "post": {
+    "operationId": "dismiss_getting_started_api_servers__server_id__getting_started_dismiss_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Dismiss Getting Started"
+   }
+  },
+  "/api/servers/{server_id}/health/server": {
+   "get": {
+    "operationId": "server_health_api_servers__server_id__health_server_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Server Health"
+   }
+  },
+  "/api/servers/{server_id}/info": {
+   "get": {
+    "operationId": "server_info_api_servers__server_id__info_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Server Info"
+   }
+  },
+  "/api/servers/{server_id}/join": {
+   "get": {
+    "description": "The addresses and port friends type into Minecraft, read from this\nPC. Asking Tailscale runs its command, so not on the event loop.",
+    "operationId": "how_to_join_api_servers__server_id__join_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "How To Join"
+   }
+  },
+  "/api/servers/{server_id}/logs": {
+   "get": {
+    "operationId": "logs_api_servers__server_id__logs_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "lines",
+      "required": false,
+      "schema": {
+       "default": 100,
+       "title": "Lines",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "since",
+      "required": false,
+      "schema": {
+       "default": 0,
+       "title": "Since",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "search",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Search",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "level",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Level",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Logs"
+   }
+  },
+  "/api/servers/{server_id}/logs/clear": {
+   "post": {
+    "description": "Clears the agent's in-memory view only. Minecraft's own log files are untouched.",
+    "operationId": "clear_console_api_servers__server_id__logs_clear_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Clear Console"
+   }
+  },
+  "/api/servers/{server_id}/logs/download": {
+   "get": {
+    "operationId": "download_logs_api_servers__server_id__logs_download_get",
+    "responses": {
+     "200": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Download Logs"
+   }
+  },
+  "/api/servers/{server_id}/memory": {
+   "get": {
+    "description": "The memory slider: the PC's measured total and this server's limit.",
+    "operationId": "get_memory_api_servers__server_id__memory_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Memory"
+   },
+   "put": {
+    "description": "Set the -Xmx limit, leaving every other launch flag as it is. Takes\neffect the next time the server starts.",
+    "operationId": "set_memory_api_servers__server_id__memory_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MemoryRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Set Memory"
+   }
+  },
+  "/api/servers/{server_id}/modpack": {
+   "post": {
+    "description": "Import an uploaded pack into this server: stopped, backed up, its old\nadd-ons moved aside, then the pack's files put in place and checked.",
+    "operationId": "modpack_into_server_api_servers__server_id__modpack_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ModpackIntoRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Modpack Into Server"
+   }
+  },
+  "/api/servers/{server_id}/mods": {
+   "get": {
+    "operationId": "list_mods_api_servers__server_id__mods_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "List Mods"
+   }
+  },
+  "/api/servers/{server_id}/mods/check": {
+   "get": {
+    "operationId": "mod_check_api_servers__server_id__mods_check_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Mod Check"
+   }
+  },
+  "/api/servers/{server_id}/mods/dependencies": {
+   "get": {
+    "description": "Every declared dependency, with readable names, ranges and status.",
+    "operationId": "mod_dependencies_api_servers__server_id__mods_dependencies_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Mod Dependencies"
+   }
+  },
+  "/api/servers/{server_id}/mods/dependencies/install": {
+   "post": {
+    "operationId": "install_dependencies_api_servers__server_id__mods_dependencies_install_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DependencyInstallRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Install Dependencies"
+   }
+  },
+  "/api/servers/{server_id}/mods/dependencies/plan": {
+   "post": {
+    "description": "What would be downloaded, including dependencies of dependencies. Downloads nothing.",
+    "operationId": "plan_dependencies_api_servers__server_id__mods_dependencies_plan_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DependencyInstallRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Plan Dependencies"
+   }
+  },
+  "/api/servers/{server_id}/mods/disable": {
+   "post": {
+    "operationId": "disable_mod_api_servers__server_id__mods_disable_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ModFileRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Disable Mod"
+   }
+  },
+  "/api/servers/{server_id}/mods/enable": {
+   "post": {
+    "operationId": "enable_mod_api_servers__server_id__mods_enable_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ModFileRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Enable Mod"
+   }
+  },
+  "/api/servers/{server_id}/mods/history": {
+   "get": {
+    "operationId": "mod_history_api_servers__server_id__mods_history_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 100,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Mod History"
+   }
+  },
+  "/api/servers/{server_id}/mods/impact": {
+   "get": {
+    "operationId": "mod_impact_api_servers__server_id__mods_impact_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "filename",
+      "required": true,
+      "schema": {
+       "title": "Filename",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Mod Impact"
+   }
+  },
+  "/api/servers/{server_id}/mods/install": {
+   "post": {
+    "operationId": "install_mod_api_servers__server_id__mods_install_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ModInstallRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Install Mod"
+   }
+  },
+  "/api/servers/{server_id}/mods/project/{project}": {
+   "get": {
+    "operationId": "mod_project_api_servers__server_id__mods_project__project__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "project",
+      "required": true,
+      "schema": {
+       "title": "Project",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Mod Project"
+   }
+  },
+  "/api/servers/{server_id}/mods/remove": {
+   "post": {
+    "operationId": "remove_mod_api_servers__server_id__mods_remove_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ModFileRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Remove Mod"
+   }
+  },
+  "/api/servers/{server_id}/mods/rollback": {
+   "post": {
+    "operationId": "rollback_mod_api_servers__server_id__mods_rollback_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ModRollbackRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Rollback Mod"
+   }
+  },
+  "/api/servers/{server_id}/mods/search": {
+   "get": {
+    "operationId": "search_mods_api_servers__server_id__mods_search_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "minecraft_version",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Minecraft Version",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 20,
+       "title": "Limit",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "offset",
+      "required": false,
+      "schema": {
+       "default": 0,
+       "title": "Offset",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Search Mods"
+   }
+  },
+  "/api/servers/{server_id}/mods/update": {
+   "post": {
+    "operationId": "update_mod_api_servers__server_id__mods_update_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ModUpdateRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Update Mod"
+   }
+  },
+  "/api/servers/{server_id}/mods/updates": {
+   "get": {
+    "operationId": "mod_updates_api_servers__server_id__mods_updates_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "refresh",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Refresh",
+       "type": "boolean"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Mod Updates"
+   }
+  },
+  "/api/servers/{server_id}/mods/upload": {
+   "post": {
+    "operationId": "upload_mod_api_servers__server_id__mods_upload_post",
+    "requestBody": {
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "$ref": "#/components/schemas/Body_upload_mod_api_servers__server_id__mods_upload_post"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Upload Mod"
+   }
+  },
+  "/api/servers/{server_id}/mods/versions/{mod_id}": {
+   "get": {
+    "operationId": "mod_versions_api_servers__server_id__mods_versions__mod_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "mod_id",
+      "required": true,
+      "schema": {
+       "title": "Mod Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Mod Versions"
+   }
+  },
+  "/api/servers/{server_id}/performance": {
+   "get": {
+    "operationId": "performance_api_servers__server_id__performance_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "hours",
+      "required": false,
+      "schema": {
+       "default": 6,
+       "title": "Hours",
+       "type": "number"
+      }
+     },
+     {
+      "in": "query",
+      "name": "storage",
+      "required": false,
+      "schema": {
+       "default": true,
+       "title": "Storage",
+       "type": "boolean"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Performance"
+   }
+  },
+  "/api/servers/{server_id}/players": {
+   "get": {
+    "operationId": "players_api_servers__server_id__players_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Players"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Players"
+   }
+  },
+  "/api/servers/{server_id}/players/actions": {
+   "post": {
+    "description": "Send whitelist, op, kick, ban or unban for one player. The answer is\n\"sent\"; it becomes \"done\" once the server's console confirms it.",
+    "operationId": "player_action_api_servers__server_id__players_actions_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PlayerActionRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Player Action"
+   }
+  },
+  "/api/servers/{server_id}/players/actions/{action_id}": {
+   "get": {
+    "description": "Whether the server has confirmed an action yet.",
+    "operationId": "player_action_status_api_servers__server_id__players_actions__action_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "action_id",
+      "required": true,
+      "schema": {
+       "title": "Action Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Player Action Status"
+   }
+  },
+  "/api/servers/{server_id}/players/sessions": {
+   "get": {
+    "operationId": "player_sessions_api_servers__server_id__players_sessions_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "username",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Username",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 100,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Player Sessions"
+   }
+  },
+  "/api/servers/{server_id}/recommendations": {
+   "get": {
+    "operationId": "list_recommendations_api_servers__server_id__recommendations_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Recommendations"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "List Recommendations"
+   }
+  },
+  "/api/servers/{server_id}/recommendations/{rec_id}": {
+   "post": {
+    "operationId": "act_on_recommendation_api_servers__server_id__recommendations__rec_id__post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "rec_id",
+      "required": true,
+      "schema": {
+       "title": "Rec Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RecommendationActionRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Act On Recommendation"
+   }
+  },
+  "/api/servers/{server_id}/schedules": {
+   "get": {
+    "operationId": "list_schedules_api_servers__server_id__schedules_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "List Schedules"
+   },
+   "post": {
+    "operationId": "create_schedule_api_servers__server_id__schedules_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ScheduleRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Create Schedule"
+   }
+  },
+  "/api/servers/{server_id}/schedules/{schedule_id}": {
+   "delete": {
+    "operationId": "delete_schedule_api_servers__server_id__schedules__schedule_id__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "schedule_id",
+      "required": true,
+      "schema": {
+       "title": "Schedule Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Delete Schedule"
+   },
+   "put": {
+    "operationId": "update_schedule_api_servers__server_id__schedules__schedule_id__put",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "schedule_id",
+      "required": true,
+      "schema": {
+       "title": "Schedule Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ScheduleRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Update Schedule"
+   }
+  },
+  "/api/servers/{server_id}/schedules/{schedule_id}/run": {
+   "post": {
+    "operationId": "run_schedule_api_servers__server_id__schedules__schedule_id__run_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "schedule_id",
+      "required": true,
+      "schema": {
+       "title": "Schedule Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Run Schedule"
+   }
+  },
+  "/api/servers/{server_id}/server/cancel-restart": {
+   "post": {
+    "description": "Stop the automatic-restart countdown. The server stays stopped.",
+    "operationId": "cancel_restart_api_servers__server_id__server_cancel_restart_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Cancel Restart"
+   }
+  },
+  "/api/servers/{server_id}/server/clear-crash-block": {
+   "post": {
+    "operationId": "clear_crash_block_api_servers__server_id__server_clear_crash_block_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Clear Crash Block"
+   }
+  },
+  "/api/servers/{server_id}/server/command": {
+   "post": {
+    "operationId": "server_command_api_servers__server_id__server_command_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CommandRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Server Command"
+   }
+  },
+  "/api/servers/{server_id}/server/command/check": {
+   "get": {
+    "description": "Ask whether a command needs confirmation, before sending it.",
+    "operationId": "check_command_api_servers__server_id__server_command_check_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "command",
+      "required": true,
+      "schema": {
+       "title": "Command",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Check Command"
+   }
+  },
+  "/api/servers/{server_id}/server/restart": {
+   "post": {
+    "operationId": "server_restart_api_servers__server_id__server_restart_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ServerAction"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Server Restart"
+   }
+  },
+  "/api/servers/{server_id}/server/restart-now": {
+   "post": {
+    "description": "Skip the automatic-restart countdown and start immediately.",
+    "operationId": "restart_now_api_servers__server_id__server_restart_now_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Restart Now"
+   }
+  },
+  "/api/servers/{server_id}/server/start": {
+   "post": {
+    "operationId": "server_start_api_servers__server_id__server_start_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ServerAction"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Server Start"
+   }
+  },
+  "/api/servers/{server_id}/server/stop": {
+   "post": {
+    "operationId": "server_stop_api_servers__server_id__server_stop_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/StopRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ServerAction"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Server Stop"
+   }
+  },
+  "/api/servers/{server_id}/settings": {
+   "get": {
+    "operationId": "get_server_settings_api_servers__server_id__settings_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Server Settings"
+   },
+   "put": {
+    "operationId": "update_server_settings_api_servers__server_id__settings_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ServerSettingsRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Update Server Settings"
+   }
+  },
+  "/api/servers/{server_id}/status": {
+   "get": {
+    "operationId": "status_api_servers__server_id__status_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ServerStatus"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Status"
+   }
+  },
+  "/api/servers/{server_id}/tps": {
+   "get": {
+    "operationId": "tps_status_api_servers__server_id__tps_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Tps Status"
+   },
+   "put": {
+    "operationId": "tps_set_command_api_servers__server_id__tps_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TpsCommandRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Tps Set Command"
+   }
+  },
+  "/api/servers/{server_id}/tps/detect": {
+   "post": {
+    "operationId": "tps_detect_api_servers__server_id__tps_detect_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Tps Detect"
+   }
+  },
+  "/api/servers/{server_id}/version": {
+   "get": {
+    "description": "This server's type and version, as observed, plus what a change kept.",
+    "operationId": "current_version_api_servers__server_id__version_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Current Version"
+   },
+   "post": {
+    "description": "Change this server's version, or its type. Stops the server, takes a\nverified backup, installs, checks, and keeps the old files to go back to.",
+    "operationId": "change_version_api_servers__server_id__version_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/VersionChangeRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Change Version"
+   }
+  },
+  "/api/servers/{server_id}/version/preflight": {
+   "post": {
+    "description": "What a change would do, in plain words, before anything happens.",
+    "operationId": "version_preflight_api_servers__server_id__version_preflight_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/VersionChangeRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Version Preflight"
+   }
+  },
+  "/api/servers/{server_id}/version/roll-back": {
+   "post": {
+    "description": "Put the version that was there before the last change back.",
+    "operationId": "roll_back_version_api_servers__server_id__version_roll_back_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Roll Back Version"
+   }
+  },
+  "/api/servers/{server_id}/world/download": {
+   "post": {
+    "description": "Pack the world as a zip for single-player. Download it with the token.",
+    "operationId": "pack_world_api_servers__server_id__world_download_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Pack World"
+   }
+  },
+  "/api/servers/{server_id}/world/download/{token}": {
+   "get": {
+    "operationId": "download_world_api_servers__server_id__world_download__token__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "token",
+      "required": true,
+      "schema": {
+       "title": "Token",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "filename",
+      "required": false,
+      "schema": {
+       "default": "world.zip",
+       "title": "Filename",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Download World"
+   }
+  },
+  "/api/servers/{server_id}/world/import": {
+   "post": {
+    "description": "Replace this server's world with the uploaded or picked one.",
+    "operationId": "import_world_api_servers__server_id__world_import_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WorldImportRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Import World"
+   }
+  },
+  "/api/servers/{server_id}/world/import/folder": {
+   "post": {
+    "description": "Read a world folder on the PC and say what it is.",
+    "operationId": "pick_world_folder_api_servers__server_id__world_import_folder_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WorldFolderRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Pick World Folder"
+   }
+  },
+  "/api/servers/{server_id}/world/import/upload": {
+   "post": {
+    "description": "Upload a world zip and say what it is. Nothing changes until the\nimport is confirmed.",
+    "operationId": "upload_world_api_servers__server_id__world_import_upload_post",
+    "requestBody": {
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "$ref": "#/components/schemas/Body_upload_world_api_servers__server_id__world_import_upload_post"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Upload World"
+   }
+  },
+  "/api/servers/{server_id}/world/import/{token}": {
+   "delete": {
+    "description": "Throw an uploaded world away without importing it.",
+    "operationId": "forget_world_api_servers__server_id__world_import__token__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "token",
+      "required": true,
+      "schema": {
+       "title": "Token",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Forget World"
+   }
+  },
+  "/api/servers/{server_id}/world/saves": {
+   "get": {
+    "description": "The worlds in single-player Minecraft's saves folder on this PC.",
+    "operationId": "single_player_worlds_api_servers__server_id__world_saves_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Single Player Worlds"
+   }
+  },
+  "/api/servers/{server_id}/world/timeline": {
+   "get": {
+    "operationId": "world_timeline_api_servers__server_id__world_timeline_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "World Timeline"
+   }
+  },
+  "/api/servers/{server_id}/world/undo": {
+   "post": {
+    "description": "Put the world back to one point on the timeline. A fresh backup of\nthe world as it is now is always taken first, so this can be undone.",
+    "operationId": "world_undo_api_servers__server_id__world_undo_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WorldUndoRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "World Undo"
+   }
+  },
+  "/api/servers/{server_id}/worlds": {
+   "get": {
+    "operationId": "worlds_api_servers__server_id__worlds_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Worlds"
+   }
+  },
+  "/api/servers/{server_id}/worlds/save": {
+   "post": {
+    "operationId": "save_worlds_api_servers__server_id__worlds_save_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Save Worlds"
+   }
+  },
+  "/api/sessions": {
+   "get": {
+    "description": "Signed-in devices: the owner sees every account's, a helper their own.",
+    "operationId": "devices_api_sessions_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/DeviceList"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Devices"
+   }
+  },
+  "/api/sessions/{session_id}": {
+   "delete": {
+    "description": "Sign one device out. Its next request is refused.",
+    "operationId": "sign_out_device_api_sessions__session_id__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "session_id",
+      "required": true,
+      "schema": {
+       "title": "Session Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Ok"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Sign Out Device"
+   }
+  },
+  "/api/settings": {
+   "get": {
+    "operationId": "get_settings_api_settings_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Settings"
+   },
+   "put": {
+    "operationId": "update_settings_api_settings_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SettingsRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Update Settings"
+   }
+  },
+  "/api/status": {
+   "get": {
+    "operationId": "status_api_status_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ServerStatus"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Status"
+   }
+  },
+  "/api/system/startup": {
+   "get": {
+    "description": "Test Windows Startup.\n\nReads the registered scheduled task back from Windows, compares it with\nthis installation, checks for the old service and duplicate entries, and\nincludes the agent's own record of its last startup. Read-only.",
+    "operationId": "windows_startup_test_api_system_startup_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Windows Startup Test"
+   }
+  },
+  "/api/tps": {
+   "get": {
+    "operationId": "tps_status_api_tps_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Tps Status"
+   },
+   "put": {
+    "operationId": "tps_set_command_api_tps_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TpsCommandRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Tps Set Command"
+   }
+  },
+  "/api/tps/detect": {
+   "post": {
+    "operationId": "tps_detect_api_tps_detect_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Tps Detect"
+   }
+  },
+  "/api/updates": {
+   "get": {
+    "operationId": "update_status_api_updates_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/UpdateStatus"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Update Status"
+   }
+  },
+  "/api/updates/check": {
+   "post": {
+    "description": "Ask GitHub for the newest release now.",
+    "operationId": "check_now_api_updates_check_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/UpdateStatus"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Check Now"
+   }
+  },
+  "/api/updates/install": {
+   "post": {
+    "description": "Download the newest release's setup file, check its SHA-256, save\nthe settings and database, and hand over to the installer.",
+    "operationId": "install_api_updates_install_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/UpdateStarted"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Install"
+   }
+  },
+  "/api/updates/old-copy": {
+   "get": {
+    "description": "The setup.ps1 copy the installer moved from, if it is still there.",
+    "operationId": "old_copy_api_updates_old_copy_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OldCopyStatus"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Old Copy"
+   }
+  },
+  "/api/updates/old-copy/remove": {
+   "post": {
+    "description": "Remove the old copy's program files. Backups, server folders and\nanything the app doesn't know are kept (agent/oldcopy.py).",
+    "operationId": "remove_old_copy_api_updates_old_copy_remove_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OldCopyRemoveResult"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Remove Old Copy"
+   }
+  },
+  "/api/updates/preflight": {
+   "get": {
+    "description": "What the confirmation needs: the version and who is playing.",
+    "operationId": "preflight_api_updates_preflight_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/UpdatePreflight"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Preflight"
+   }
+  },
+  "/api/version": {
+   "get": {
+    "description": "The app's version and the API version a client talks to. A client\nthat knows an older API version still works; see CHANGELOG.md.",
+    "operationId": "version_api_version_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/VersionInfo"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Version"
+   }
+  },
+  "/api/worlds": {
+   "get": {
+    "operationId": "worlds_api_worlds_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Worlds"
+   }
+  },
+  "/api/worlds/save": {
+   "post": {
+    "operationId": "save_worlds_api_worlds_save_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Save Worlds"
+   }
+  }
+ }
+}

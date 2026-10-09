@@ -39,6 +39,7 @@ from .notifications.dispatcher import Notifier
 from .ports import PortManager
 from .scheduler.scheduler import Scheduler
 from .security.auth import AuthManager
+from .updates import Updater
 
 log = logging.getLogger("msc.core")
 
@@ -273,6 +274,8 @@ class AgentCore:
 
         # Asks Windows not to sleep while any server runs.
         self.keepawake = KeepAwake(self)
+        # Looks for a newer version of the app (agent/updates.py).
+        self.updates = Updater(self)
 
         self.bus.subscribe(self._persist_event)
         self.bus.subscribe(self.notifier.handle)
@@ -352,6 +355,7 @@ class AgentCore:
         await self.bus.publish(
             Event(type="agent_started", level="success", message="Server agent started")
         )
+        await self.updates.start()
         for ctx in list(self.servers.values()):
             await ctx.autostart()
 
@@ -417,6 +421,7 @@ class AgentCore:
         await self.bus.publish(Event(type="agent_stopping", message="Server agent stopping"))
         if self._cert_task:
             self._cert_task.cancel()
+        await self.updates.stop()
         await self.jobs.stop()
         for ctx in list(self.servers.values()):
             await ctx.stop()

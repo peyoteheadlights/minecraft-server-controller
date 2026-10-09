@@ -1,7 +1,8 @@
 """The safe downloader: one module for every file and list the app fetches.
 
 Rules, the same for every source (Mojang, Fabric, Quilt, Forge, NeoForge,
-Paper, Purpur, Modrinth, GeyserMC):
+Paper, Purpur, Modrinth, GeyserMC, Adoptium's Java, and this app's own
+GitHub releases):
 
   * HTTPS only, and only from the official hosts in ALLOWED_HOSTS. A
     redirect is followed only to another allowed host.
@@ -24,6 +25,7 @@ import asyncio
 import hashlib
 import logging
 import os
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -68,8 +70,26 @@ ALLOWED_HOSTS = frozenset(
         "cdn-raw.modrinth.com",
         # GeyserMC
         "download.geysermc.org",
+        # Eclipse Temurin (Adoptium's Java), for the installer only
+        "api.adoptium.net",
+        # GitHub: this app's own releases (the updater) and Temurin's
+        # files. Only the paths in GITHUB_PATHS are allowed there; the
+        # download hosts below are where GitHub redirects those to.
+        "api.github.com",
+        "github.com",
+        "objects.githubusercontent.com",
+        "release-assets.githubusercontent.com",
     }
 )
+
+REPO = "peyoteheadlights/minecraft-server-controller"
+# github.com and api.github.com hold everyone's files, so only these paths
+# are allowed there: this repo's release list and release files, and
+# Adoptium's Temurin release files.
+GITHUB_PATHS = {
+    "api.github.com": (f"/repos/{REPO}/releases",),
+    "github.com": (f"/{REPO}/releases/download/", "/adoptium/"),
+}
 
 MAX_LIST_BYTES = 20 * 1024 * 1024  # a version list or API answer
 MAX_FILE_BYTES = 300 * 1024 * 1024  # one server jar, installer or mod
@@ -144,10 +164,15 @@ def check_url(url: str) -> str:
     if host not in ALLOWED_HOSTS:
         raise DownloadError(
             f"Downloads from {host or 'that address'} aren't allowed. "
-            "Only official Minecraft, mod loader and Modrinth sites are."
+            "Only official Minecraft, mod loader, Modrinth, Java and this app's own sites are."
         )
     if parsed.username or parsed.password or parsed.port not in (None, 443):
         raise DownloadError("That download address isn't allowed.")
+    prefixes = GITHUB_PATHS.get(host)
+    if prefixes is not None and not any(parsed.path.startswith(p) for p in prefixes):
+        raise DownloadError(
+            "Only this app's own releases and Temurin's files can be downloaded from GitHub."
+        )
     return url
 
 
@@ -235,10 +260,15 @@ async def fetch_text(url: str, max_bytes: int = MAX_LIST_BYTES) -> str:
 
 
 async def download(
-    spec: FileSpec, folder: Path, job: JobHandle | None = None, label: str | None = None
+    spec: FileSpec,
+    folder: Path,
+    job: JobHandle | None = None,
+    label: str | None = None,
+    report: Callable[[int, int | None], None] | None = None,
 ) -> FetchedFile:
     """Fetch ``spec`` into ``folder`` under ``spec.name``. The file appears
-    there only once it is complete and its checksum matched."""
+    there only once it is complete and its checksum matched. ``report``
+    (used by the installer) gets real bytes done and the total, when known."""
     from .security.paths import safe_join
 
     expected = spec.expected()
@@ -260,10 +290,12 @@ async def download(
         async with _client(timeout=120.0) as client:
             response, final = await _send(client, spec.url, stream=True)
             try:
-                if job and spec.size is None:
-                    length = response.headers.get("content-length")
-                    if length and length.isdigit():
-                        job.set_total(int(length), "bytes")
+                total = spec.size
+                length = response.headers.get("content-length")
+                if total is None and length and length.isdigit():
+                    total = int(length)
+                    if job:
+                        job.set_total(total, "bytes")
                 # Opened and written in a worker thread, so a slow disk
                 # never blocks the event loop while a large jar streams in.
                 fh = await asyncio.to_thread(temp.open, "wb")
@@ -280,6 +312,8 @@ async def download(
                             digest.update(chunk)
                         if job:
                             job.advance(len(chunk))
+                        if report:
+                            report(size, total)
                 finally:
                     await asyncio.to_thread(fh.close)
             finally:

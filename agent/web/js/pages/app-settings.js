@@ -9,6 +9,7 @@ import { refreshStatus } from "../live.js";
 import { render } from "../nav.js";
 import { choose, currentTheme, THEMES } from "../prefs.js";
 import { currentSubscription, deviceLabel, disablePush, enablePush, pushSupported } from "../pwa.js";
+import { oldCopyCard, pairingCard, updateCard } from "./app-update.js";
 import { can, renderers, state } from "../state.js";
 import { t, technical } from "../strings.js";
 import { advanced, busy, card, confirmDialog, el, fmt, loadInto, table, toast, withHelp } from "../ui.js";
@@ -404,14 +405,20 @@ function startupReport(r) {
 
 renderers["app-settings"] = (page) => loadInto(page, async () => {
   const owner = can("settings.edit");
-  const [data, push, power, sizes] = await Promise.all([
+  const [data, push, power, sizes, updates, pairing, oldCopy] = await Promise.all([
     api("/settings"),
     owner ? api("/push").catch(() => ({ configured: false, enabled: false, phones: [], public_key: "",
       setup_command: ".\\setup.ps1" })) : null,
     api("/power").catch(() => null),
     can("data.export") ? api("/export").catch(() => ({ servers: [] })) : null,
+    can("settings.view") ? api("/updates").catch(() => null) : null,
+    api("/pairing").catch(() => null),
+    can("settings.view") ? api("/updates/old-copy").catch(() => null) : null,
   ]);
   return el("div", { class: "stack" },
+    oldCopy ? oldCopyCard(oldCopy.old_copy) : null,
+    updates ? updateCard(updates) : null,
+    pairing ? pairingCard(pairing) : null,
     appearanceCard(),
     detailCard(),
     accountCard(),

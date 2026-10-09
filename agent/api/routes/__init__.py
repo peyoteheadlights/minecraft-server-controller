@@ -43,6 +43,7 @@ from . import (
     settings,
     system,
     transfer,
+    updates,
     world,
 )
 from .settings import SETTABLE_PREFIXES
@@ -60,7 +61,19 @@ PER_SERVER = (
     chat,
     world,
 )
-GLOBAL = (auth, accounts, settings, security, system, jobs, pushalerts, files, transfer, helpdesk)
+GLOBAL = (
+    auth,
+    accounts,
+    settings,
+    security,
+    system,
+    jobs,
+    pushalerts,
+    files,
+    transfer,
+    helpdesk,
+    updates,
+)
 MODULES = (*GLOBAL, *PER_SERVER)
 SERVER_PREFIX = "/servers/{server_id}"
 

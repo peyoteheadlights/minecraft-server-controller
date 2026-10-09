@@ -48,6 +48,13 @@ CA_VALID_DAYS = 3650  # the CA you trust once
 LEAF_VALID_DAYS = 398  # the maximum browsers accept for a server certificate
 
 
+# SYSTEM and the Administrators group, as icacls takes them by SID. Their
+# names are translated ("Administratoren" on a German Windows), and icacls
+# refuses a name it can't find, so names would fail the lock-down there.
+SYSTEM_SID = "*S-1-5-18"
+ADMINISTRATORS_SID = "*S-1-5-32-544"
+
+
 class CertificateError(RuntimeError):
     pass
 
@@ -73,9 +80,9 @@ def secure_directory(path: Path) -> Path:
                     str(path),
                     "/inheritance:r",
                     "/grant:r",
-                    "SYSTEM:(OI)(CI)F",
+                    f"{SYSTEM_SID}:(OI)(CI)F",
                     "/grant:r",
-                    "Administrators:(OI)(CI)F",
+                    f"{ADMINISTRATORS_SID}:(OI)(CI)F",
                     *(["/grant:r", f"{user}:(OI)(CI)F"] if user else []),
                 ],
                 check=False,
@@ -132,9 +139,9 @@ def shared_groups_in_sddl(sddl: str) -> list[str]:
 
 def folder_access(path: Path) -> tuple[str, str]:
     """("private" | "shared" | "unknown", a sentence saying why), read from
-    the folder's real permissions. Changes nothing."""
+    the folder's (or file's) real permissions. Changes nothing."""
     path = Path(path)
-    if not path.is_dir():
+    if not path.exists():
         return "unknown", f"{path} does not exist yet"
     if os.name != "nt":
         mode = path.stat().st_mode & 0o777
@@ -165,33 +172,41 @@ def folder_access(path: Path) -> tuple[str, str]:
     return "private", "Only SYSTEM, Administrators and the agent's account can open it"
 
 
-def _restrict_file(path: Path) -> None:
+def _restrict_file(path: Path) -> str | None:
+    """Make a secrets file readable only by SYSTEM, Administrators and this
+    account. Returns why that failed, or None when it worked."""
     if os.name == "nt":
         user = os.environ.get("USERNAME", "")
         try:
-            subprocess.run(
+            done = subprocess.run(
                 [
                     "icacls",
                     str(path),
                     "/inheritance:r",
                     "/grant:r",
-                    "SYSTEM:F",
+                    f"{SYSTEM_SID}:F",
                     "/grant:r",
-                    "Administrators:F",
+                    f"{ADMINISTRATORS_SID}:F",
                     *(["/grant:r", f"{user}:F"] if user else []),
                 ],
                 check=False,
                 capture_output=True,
+                text=True,
+                errors="replace",
                 timeout=30,
                 creationflags=NO_WINDOW,
             )
-        except (OSError, subprocess.SubprocessError):
-            pass
-    else:
-        try:
-            path.chmod(0o600)
-        except OSError:
-            pass
+        except (OSError, subprocess.SubprocessError) as exc:
+            return f"icacls couldn't run: {exc}"
+        if done.returncode != 0:
+            said = (done.stderr or done.stdout or "").strip()
+            return f"icacls exit {done.returncode}" + (f": {said}" if said else "")
+        return None
+    try:
+        path.chmod(0o600)
+    except OSError as exc:
+        return f"chmod failed: {exc}"
+    return None
 
 
 # ----------------------------------------------------------------------

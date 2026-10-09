@@ -256,7 +256,12 @@ class AuthManager:
 
     # ------------------------------------------------------------------
     def login(
-        self, username: str, password: str, source_ip: str = "", label: str = ""
+        self,
+        username: str,
+        password: str,
+        source_ip: str = "",
+        label: str = "",
+        remember: bool = False,
     ) -> dict[str, Any]:
         username = (username or "").strip()[:64]
         self.login_rate.check(f"login:{source_ip or 'unknown'}")
@@ -304,8 +309,7 @@ class AuthManager:
 
         self._record_attempt(username, source_ip, True)
         token = secrets.token_urlsafe(TOKEN_BYTES)
-        hours = self.config.security.session_hours
-        expires = time.time() + hours * 3600
+        expires = time.time() + self._lifetime(remember)
         self.db.insert(
             "sessions",
             {
@@ -316,6 +320,7 @@ class AuthManager:
                 "last_used": time.time(),
                 "source_ip": source_ip,
                 "label": label[:80],
+                "remember": 1 if remember else 0,
             },
         )
         self.db.audit("login", user=username, source_ip=source_ip)
@@ -325,7 +330,12 @@ class AuthManager:
             "user": username,
             "expires_at": expires,
             "role": account["role"] if account else "owner",
+            "remember": bool(remember),
         }
+
+    def _lifetime(self, remember: bool) -> float:
+        security = self.config.security
+        return security.remember_days * 86400 if remember else security.session_hours * 3600
 
     def authenticate(self, token: str | None, source_ip: str = "") -> Principal:
         if not token:
@@ -345,9 +355,16 @@ class AuthManager:
             # The helper account was removed: its sessions end with it.
             self.db.execute("DELETE FROM sessions WHERE token_hash = ?", (digest,))
             raise AuthError("You've been signed out. Sign in again.")
+        now = time.time()
+        expires_at = row["expires_at"]
+        if row.get("remember"):
+            # A kept sign-in lasts remember_days from its last use.
+            expires_at = max(expires_at, now + self._lifetime(True))
         self.db.execute(
-            "UPDATE sessions SET last_used = ? WHERE token_hash = ?", (time.time(), digest)
+            "UPDATE sessions SET last_used = ?, expires_at = ? WHERE token_hash = ?",
+            (now, expires_at, digest),
         )
+        row["expires_at"] = expires_at
         return Principal(
             user=row["user"],
             kind="session",
@@ -515,9 +532,15 @@ class AuthManager:
         """Issue a fresh session token and invalidate the current one."""
         if principal.kind != "session" or not principal.token_hash:
             raise AuthError("Only a sign-in from a browser can be given a new key.", status=400)
+        old = (
+            self.db.query_one(
+                "SELECT label, remember FROM sessions WHERE token_hash = ?", (principal.token_hash,)
+            )
+            or {}
+        )
+        remember = bool(old.get("remember"))
         token = secrets.token_urlsafe(TOKEN_BYTES)
-        hours = self.config.security.session_hours
-        expires = time.time() + hours * 3600
+        expires = time.time() + self._lifetime(remember)
         self.db.insert(
             "sessions",
             {
@@ -527,7 +550,9 @@ class AuthManager:
                 "expires_at": expires,
                 "last_used": time.time(),
                 "source_ip": source_ip,
-                "label": "rotated",
+                # The same device keeps its name on the Security page.
+                "label": old.get("label") or "rotated",
+                "remember": 1 if remember else 0,
             },
         )
         self.db.execute("DELETE FROM sessions WHERE token_hash = ?", (principal.token_hash,))
@@ -576,6 +601,50 @@ class AuthManager:
     def purge_expired(self) -> int:
         cur = self.db.execute("DELETE FROM sessions WHERE expires_at < ?", (time.time(),))
         return cur.rowcount
+
+    # -- signed-in devices ------------------------------------------------
+    @staticmethod
+    def session_id(digest: str) -> str:
+        """A short id for one sign-in: enough to tell them apart, never
+        enough to use as a token (it is part of the token's hash)."""
+        return digest[:16]
+
+    def devices(self, principal: Principal) -> list[dict[str, Any]]:
+        """Signed-in devices: every account's for the owner, a helper's own."""
+        rows = self.db.query(
+            "SELECT token_hash, user, created_at, expires_at, last_used, source_ip, label, "
+            "remember FROM sessions WHERE expires_at > ? ORDER BY last_used DESC",
+            (time.time(),),
+        )
+        out = []
+        for row in rows:
+            if not principal.is_owner and row["user"] != principal.user:
+                continue
+            digest = row.pop("token_hash")
+            out.append(
+                {
+                    **row,
+                    "id": self.session_id(digest),
+                    "remember": bool(row["remember"]),
+                    "current": digest == principal.token_hash,
+                }
+            )
+        return out
+
+    def sign_out_device(self, principal: Principal, session_id: str) -> dict[str, Any]:
+        """End one sign-in. A helper can only end their own."""
+        if not re.fullmatch(r"[0-9a-f]{16}", session_id or ""):
+            raise AuthError("There's no such sign-in.", status=404)
+        rows = self.db.query(
+            "SELECT token_hash, user, label FROM sessions WHERE substr(token_hash, 1, 16) = ?",
+            (session_id,),
+        )
+        rows = [r for r in rows if principal.is_owner or r["user"] == principal.user]
+        if not rows:
+            raise AuthError("There's no such sign-in.", status=404)
+        for row in rows:
+            self.db.execute("DELETE FROM sessions WHERE token_hash = ?", (row["token_hash"],))
+        return {"ok": True, "user": rows[0]["user"], "label": rows[0]["label"]}
 
     def active_sessions(self) -> list[dict[str, Any]]:
         rows = self.db.query(

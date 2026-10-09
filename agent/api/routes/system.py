@@ -20,6 +20,7 @@ from ...security.permissions import (
     require,
 )
 from ..deps import audit, get_core
+from ..responses import ServerList
 from .models import ServerAddRequest
 
 router = APIRouter()
@@ -28,7 +29,7 @@ router = APIRouter()
 DEFAULT_JARS = ("fabric-server-launch.jar", "server.jar")
 
 
-@router.get("/servers")
+@router.get("/servers", response_model=ServerList)
 async def servers(principal: Principal = Depends(require(SERVER_VIEW)), core=Depends(get_core)):
     """Every registered server with its measured state, players and uptime."""
     rows = []

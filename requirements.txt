@@ -6,3 +6,4 @@ PyYAML>=6.0
 cryptography>=42.0        # TLS certificate generation and inspection
 python-multipart>=0.0.9
 websockets>=12.0
+segno>=1.6                # QR codes for the phone pairing code (pure Python)

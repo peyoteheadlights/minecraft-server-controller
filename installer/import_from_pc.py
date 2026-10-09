@@ -28,9 +28,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from agent import appinfo
 from installer.setup_tool import write_env_value
-
-ROOT = Path(__file__).resolve().parent.parent
 
 
 def main(argv: list[str] | None = None, ask=getpass.getpass, say=print) -> int:
@@ -39,8 +38,8 @@ def main(argv: list[str] | None = None, ask=getpass.getpass, say=print) -> int:
     parser = argparse.ArgumentParser(description="Import from another PC.")
     parser.add_argument("export_file", type=Path)
     parser.add_argument("--to", type=Path, required=True, help="the folder to put the servers in")
-    parser.add_argument("--config", type=Path, default=ROOT / "config" / "config.yaml")
-    parser.add_argument("--env", type=Path, default=ROOT / ".env")
+    parser.add_argument("--config", type=Path, default=appinfo.default_config_path())
+    parser.add_argument("--env", type=Path, default=appinfo.default_env_path())
     parser.add_argument("--yes", action="store_true", help="don't ask before starting")
     args = parser.parse_args(argv)
 

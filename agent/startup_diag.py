@@ -4,7 +4,8 @@ When Windows launches the agent there is no console to read, so everything
 that happens between "process created" and "controller initialized" is
 written here.
 
-The log lives at <project>/logs/startup.log. That location is derived from
+The log lives at <project>/logs/startup.log (or the data folder's logs for
+an installed copy). That location is derived from
 this file's own path, so it is available *before* configuration is loaded -
 which matters, because a broken config.yaml is one of the things this log
 needs to be able to record.
@@ -24,10 +25,14 @@ import traceback
 from pathlib import Path
 from typing import Any
 
+from . import appinfo
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # MCSC_STARTUP_LOG_DIR exists so the test suite can write somewhere disposable
-# instead of overwriting the real record of the last Windows startup.
-STARTUP_LOG_DIR = Path(os.environ.get("MCSC_STARTUP_LOG_DIR") or (PROJECT_ROOT / "logs"))
+# instead of overwriting the real record of the last Windows startup. An
+# installed copy writes to the data folder's logs (its program folder is
+# read-only for the agent's account).
+STARTUP_LOG_DIR = appinfo.log_dir()
 STARTUP_LOG = STARTUP_LOG_DIR / "startup.log"
 LAST_STARTUP = STARTUP_LOG_DIR / "last_startup.json"
 CONSOLE_LOG = STARTUP_LOG_DIR / "console.log"

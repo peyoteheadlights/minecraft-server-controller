@@ -132,16 +132,23 @@ def write_eula(directory: Path, accepted: bool) -> Path:
 def java_problem(minecraft: str, java_executable: str = "java") -> dict[str, Any] | None:
     """Why this version can't be run with the Java installed now, or None.
     Unknown (Java not detected) is reported, never treated as fine."""
+    from .. import appinfo
     from ..minecraft.java import check_compatibility, detect_java, required_java
 
     info = detect_java(java_executable)
     needed = required_java(minecraft)
     verdict = check_compatibility(info, minecraft)
+    # Installed copies install Java with their setup, on the PC.
+    how = (
+        f' (open "{appinfo.SETUP_SHORTCUT}" from the PC\'s Start menu)'
+        if appinfo.installed()
+        else ""
+    )
     if verdict["verdict"] == "incompatible":
         return {
             "problem": (
                 f"Minecraft {minecraft} needs Java {needed} or newer, but this PC has Java "
-                f"{info.version_major}. Install Java {needed} first, then try again."
+                f"{info.version_major}. Install Java {needed} first{how}, then try again."
             ),
             "required": needed,
             "installed": info.version_major,
@@ -151,7 +158,7 @@ def java_problem(minecraft: str, java_executable: str = "java") -> dict[str, Any
         return {
             "problem": (
                 "Java couldn't be found on this PC, so a Minecraft server can't run yet. "
-                f"Install Java {needed or 21} first, then try again."
+                f"Install Java {needed or 21} first{how}, then try again."
             ),
             "required": needed,
             "installed": None,

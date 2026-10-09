@@ -57,6 +57,42 @@ an estimate. A server runs one risky job at a time; a second gets 409.
 | POST | `/api/auth/logout` | Invalidate this session |
 | POST | `/api/auth/rotate` | New token, old one invalidated |
 | GET | `/api/auth/me` | Who this token belongs to |
+| POST | `/api/account/password` | `{current, new}`: a helper changes their own password (other sessions end). The owner is refused: reset it on the PC |
+
+## Helpers, moving, getting help (owner only)
+
+A helper gets 403 from each of these. See [security.md](security.md#permissions).
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/accounts` | The owner's name, every helper (no hashes), what helpers may do |
+| POST | `/api/accounts` | `{username, password, servers?}`; `servers` null is every server |
+| PUT | `/api/accounts/{username}` | `{all_servers?, servers?, password?}`; a new password signs them out |
+| DELETE | `/api/accounts/{username}` | Remove a helper and end their sessions |
+| GET | `/api/folders?path=` | The folder picker: folder names in one folder, or drives and shortcuts |
+| GET | `/api/power` | Keep awake: on or off, active now, what can still sleep the PC |
+| GET | `/api/export` | Measured sizes of each part, before exporting |
+| POST | `/api/export` | `{worlds, backups, secrets, passphrase?}` starts a job; its result has the token |
+| GET | `/api/export/{token}` | The export file |
+| GET | `/api/help-bundle` | The Get help file's list of files, before it is made |
+| POST | `/api/help-bundle` | `{confirm: true}` makes it; returns a token |
+| GET | `/api/help-bundle/{token}` | The Get help file |
+
+Per server, under `/api/servers/{id}/`:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `memory` | The PC's measured RAM, this server's `-Xmx`, running servers' limits added up |
+| PUT | `memory` | `{memory_mb}` sets `-Xmx` only; refused when the PC's RAM can't be read |
+| GET / PUT | `backups/offsite` | The folder for second copies (`{directory}`, empty is off) |
+| POST | `backups/{id}/copy` | Copy one backup off the PC now |
+| POST | `world/import/upload` | A world `.zip` (multipart); read and described, nothing replaced |
+| POST | `world/import/folder` | `{path}` of a world folder; read and described |
+| GET | `world/saves` | Single-player's saved worlds on this PC |
+| POST | `world/import` | `{token, confirm: true}` replaces the world (server stopped; backup first) |
+| DELETE | `world/import/{token}` | Throw an uploaded world away |
+| POST | `world/download` | Pack the world as a single-player `.zip`; returns a token |
+| GET | `world/download/{token}` | The world `.zip` |
 
 ## Server control
 

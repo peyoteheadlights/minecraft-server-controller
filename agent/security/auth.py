@@ -12,6 +12,13 @@ Design:
     compared in constant time.
   * Failed attempts are counted per username and per source address, and a
     lockout applies after a configurable number.
+  * Helper accounts (friends with limited access) are rows in the accounts
+    table, hashed exactly like the owner's password, signed in and locked
+    out the same way. Their role and servers decide what they may do
+    (agent/security/permissions.py).
+  * The owner's password can be reset only on the PC itself
+    (python -m installer.reset_password), which rewrites .env and signs
+    every session out. A running agent notices the new .env and uses it.
 """
 
 from __future__ import annotations
@@ -19,7 +26,10 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import json
 import logging
+import os
+import re
 import secrets
 import time
 from collections import deque
@@ -75,9 +85,40 @@ class Principal:
     kind: str  # session | api_token
     token_hash: str | None = None
     expires_at: float | None = None
+    role: str = "owner"  # owner | helper
+    # The servers this account may use. None: every server.
+    servers: frozenset[str] | None = None
+
+    @property
+    def is_owner(self) -> bool:
+        return self.role == "owner"
 
     def to_dict(self) -> dict[str, Any]:
-        return {"user": self.user, "kind": self.kind, "expires_at": self.expires_at}
+        return {
+            "user": self.user,
+            "kind": self.kind,
+            "expires_at": self.expires_at,
+            "role": self.role,
+            "servers": sorted(self.servers) if self.servers is not None else None,
+        }
+
+
+# A helper's sign-in name: short, and safe to show anywhere.
+USERNAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{1,31}$")
+MAX_HELPERS = 20
+_DUMMY: list[str] = []
+
+
+def _dummy_hash() -> str:
+    """Verified against when a username is unknown, so a wrong name takes as
+    long as a wrong password and the timing doesn't say which names exist."""
+    if not _DUMMY:
+        _DUMMY.append(hash_password(secrets.token_urlsafe(16)))
+    return _DUMMY[0]
+
+
+class AccountError(ValueError):
+    """A helper account can't be made or changed as asked."""
 
 
 class AuthError(Exception):
@@ -142,10 +183,45 @@ class AuthManager:
         )
         self.login_rate = RateLimiter(10, 300.0)
 
+        self._env_seen: int | None = self._env_stamp()
+
     # ------------------------------------------------------------------
     @property
     def configured(self) -> bool:
         return bool(self.config.admin_password_hash or self.config.api_token)
+
+    # -- the owner's password, which lives in .env --------------------------
+    def _env_stamp(self) -> int | None:
+        path = getattr(self.config, "env_path", None)
+        try:
+            return path.stat().st_mtime_ns if path else None
+        except OSError:
+            return None
+
+    def _refresh_owner(self) -> None:
+        """Pick up a password reset made on the PC while the agent runs: when
+        .env has changed since it was last read, its owner lines win."""
+        stamp = self._env_stamp()
+        if stamp is None or stamp == self._env_seen:
+            return
+        self._env_seen = stamp
+        try:
+            text = self.config.env_path.read_text(encoding="utf-8")
+        except OSError:
+            return
+        for raw in text.splitlines():
+            key, _, value = raw.strip().partition("=")
+            if key.strip() in ("MCSC_ADMIN_PASSWORD_HASH", "MCSC_ADMIN_USERNAME") and value:
+                os.environ[key.strip()] = value.strip().strip('"').strip("'")
+        log.info("the owner's sign-in details in .env changed; using the new ones")
+
+    @property
+    def owner_username(self) -> str:
+        self._refresh_owner()
+        return self.config.admin_username
+
+    def _is_owner_name(self, username: str) -> bool:
+        return hmac.compare_digest(username.lower(), self.owner_username.lower())
 
     def _locked_out(self, user: str, source_ip: str) -> float | None:
         max_failed = self.config.security.max_failed_logins
@@ -184,12 +260,18 @@ class AuthManager:
     ) -> dict[str, Any]:
         username = (username or "").strip()[:64]
         self.login_rate.check(f"login:{source_ip or 'unknown'}")
+        self._refresh_owner()
         if not self.config.admin_password_hash:
             raise AuthError(
                 "No password is configured. Set MCSC_ADMIN_PASSWORD_HASH in the agent's .env file "
                 "(use: python -m installer.make_secrets).",
                 status=503,
             )
+        account = None
+        if not hmac.compare_digest(username, self.config.admin_username):
+            account = self.account(username)
+            if account:
+                username = account["username"]  # helpers' names ignore capitals
         remaining = self._locked_out(username, source_ip)
         if remaining and remaining > 0:
             raise AuthError(
@@ -197,10 +279,14 @@ class AuthManager:
                 status=429,
                 retry_after=int(remaining),
             )
-        expected_user = self.config.admin_username
-        user_ok = hmac.compare_digest(username, expected_user)
-        password_ok = verify_password(password or "", self.config.admin_password_hash)
-        if not (user_ok and password_ok):
+        if account is not None:
+            password_ok = verify_password(password or "", account["password_hash"])
+        elif hmac.compare_digest(username, self.config.admin_username):
+            password_ok = verify_password(password or "", self.config.admin_password_hash)
+        else:
+            verify_password(password or "", _dummy_hash())
+            password_ok = False
+        if not password_ok:
             self._record_attempt(username, source_ip, False)
             self.db.audit("login_failed", user=username, source_ip=source_ip, result="denied")
             if self.bus:
@@ -234,7 +320,12 @@ class AuthManager:
         )
         self.db.audit("login", user=username, source_ip=source_ip)
         self.purge_expired()
-        return {"token": token, "user": username, "expires_at": expires}
+        return {
+            "token": token,
+            "user": username,
+            "expires_at": expires,
+            "role": account["role"] if account else "owner",
+        }
 
     def authenticate(self, token: str | None, source_ip: str = "") -> Principal:
         if not token:
@@ -249,12 +340,176 @@ class AuthManager:
         if row["expires_at"] < time.time():
             self.db.execute("DELETE FROM sessions WHERE token_hash = ?", (digest,))
             raise AuthError("Your session has expired. Sign in again.")
+        role, servers = self._role_of(row["user"])
+        if role is None:
+            # The helper account was removed: its sessions end with it.
+            self.db.execute("DELETE FROM sessions WHERE token_hash = ?", (digest,))
+            raise AuthError("You've been signed out. Sign in again.")
         self.db.execute(
             "UPDATE sessions SET last_used = ? WHERE token_hash = ?", (time.time(), digest)
         )
         return Principal(
-            user=row["user"], kind="session", token_hash=digest, expires_at=row["expires_at"]
+            user=row["user"],
+            kind="session",
+            token_hash=digest,
+            expires_at=row["expires_at"],
+            role=role,
+            servers=servers,
         )
+
+    def _role_of(self, user: str) -> tuple[str | None, frozenset[str] | None]:
+        """The role and server limit of a signed-in name, or (None, None)
+        when no such account exists any more."""
+        self._refresh_owner()
+        if hmac.compare_digest(user, self.config.admin_username):
+            return "owner", None
+        account = self.account(user)
+        if not account:
+            return None, None
+        return account["role"], account["servers"]
+
+    # -- helper accounts ---------------------------------------------------
+    @staticmethod
+    def _account_row(row: dict[str, Any]) -> dict[str, Any]:
+        servers = json.loads(row["servers"]) if row.get("servers") else None
+        return {**row, "servers": frozenset(servers) if servers is not None else None}
+
+    def account(self, username: str) -> dict[str, Any] | None:
+        row = self.db.query_one(
+            "SELECT * FROM accounts WHERE username = ?", ((username or "")[:64],)
+        )
+        return self._account_row(row) if row else None
+
+    def accounts(self) -> list[dict[str, Any]]:
+        """Every helper, without the password hashes."""
+        rows = self.db.query("SELECT * FROM accounts ORDER BY username COLLATE NOCASE")
+        out = []
+        for row in rows:
+            account = self._account_row(row)
+            sessions = self.db.query_one(
+                "SELECT COUNT(*) AS n, MAX(last_used) AS last FROM sessions "
+                "WHERE user = ? AND expires_at > ?",
+                (account["username"], time.time()),
+            ) or {"n": 0, "last": None}
+            last_login = self.db.query_one(
+                "SELECT MAX(ts) AS ts FROM login_attempts WHERE user = ? AND success = 1",
+                (account["username"],),
+            )
+            out.append(
+                {
+                    "username": account["username"],
+                    "role": account["role"],
+                    "servers": sorted(account["servers"])
+                    if account["servers"] is not None
+                    else None,
+                    "created_at": account["created_at"],
+                    "created_by": account["created_by"],
+                    "password_changed_at": account["password_changed_at"],
+                    "active_sessions": int(sessions["n"] or 0),
+                    "last_used": sessions["last"],
+                    "last_sign_in": last_login["ts"] if last_login else None,
+                }
+            )
+        return out
+
+    def _check_new_password(self, password: str) -> str:
+        if len(password or "") < 10:
+            raise AccountError("The password needs at least 10 characters.")
+        if len(password) > 256:
+            raise AccountError("That password is too long.")
+        return password
+
+    def create_account(
+        self, username: str, password: str, servers: list[str] | None, by: str
+    ) -> dict[str, Any]:
+        username = (username or "").strip()
+        if not USERNAME_RE.match(username):
+            raise AccountError(
+                "A username is 2 to 32 letters, numbers, dots, dashes or underscores, "
+                "starting with a letter or number."
+            )
+        if self._is_owner_name(username) or username.lower() == "api-token":
+            raise AccountError("That name is already taken.")
+        if self.account(username):
+            raise AccountError(f"There is already a helper called {username}.")
+        count = self.db.query_one("SELECT COUNT(*) AS n FROM accounts") or {"n": 0}
+        if int(count["n"]) >= MAX_HELPERS:
+            raise AccountError(f"There can be at most {MAX_HELPERS} helpers.")
+        encoded = hash_password(self._check_new_password(password))
+        now = time.time()
+        self.db.insert(
+            "accounts",
+            {
+                "username": username,
+                "password_hash": encoded,
+                "role": "helper",
+                "servers": json.dumps(sorted(servers)) if servers is not None else None,
+                "created_at": now,
+                "created_by": by,
+                "password_changed_at": now,
+            },
+        )
+        self.db.audit("helper_added", user=by, target=username)
+        return self.account(username) or {}
+
+    def update_account(
+        self,
+        username: str,
+        by: str,
+        servers: list[str] | None | bool = False,
+        password: str | None = None,
+    ) -> dict[str, Any]:
+        """Change a helper's servers (``servers`` False: leave as is) or set
+        a new password, which signs them out everywhere."""
+        account = self.account(username)
+        if not account:
+            raise AccountError(f"There is no helper called {username}.")
+        name = account["username"]
+        if servers is not False:
+            value = json.dumps(sorted(servers)) if isinstance(servers, list) else None
+            self.db.execute("UPDATE accounts SET servers = ? WHERE username = ?", (value, name))
+            self.db.audit("helper_servers", user=by, target=name, detail=value or "every server")
+        if password is not None:
+            encoded = hash_password(self._check_new_password(password))
+            self.db.execute(
+                "UPDATE accounts SET password_hash = ?, password_changed_at = ? WHERE username = ?",
+                (encoded, time.time(), name),
+            )
+            self.db.execute("DELETE FROM sessions WHERE user = ?", (name,))
+            self.db.audit("helper_password_set", user=by, target=name)
+        return self.account(name) or {}
+
+    def delete_account(self, username: str, by: str) -> str:
+        account = self.account(username)
+        if not account:
+            raise AccountError(f"There is no helper called {username}.")
+        name = account["username"]
+        self.db.execute("DELETE FROM accounts WHERE username = ?", (name,))
+        self.db.execute("DELETE FROM sessions WHERE user = ?", (name,))
+        self.db.audit("helper_removed", user=by, target=name)
+        return name
+
+    def change_own_password(self, principal: Principal, current: str, new: str) -> None:
+        """A helper changing their own password. Their other sessions end;
+        this one stays signed in."""
+        if principal.is_owner:
+            raise AccountError(
+                "The owner password is changed on the server PC: run "
+                "python -m installer.reset_password there."
+            )
+        account = self.account(principal.user)
+        if not account or not verify_password(current or "", account["password_hash"]):
+            raise AuthError("Your current password isn't right.", status=400)
+        encoded = hash_password(self._check_new_password(new))
+        self.db.execute(
+            "UPDATE accounts SET password_hash = ?, password_changed_at = ? WHERE username = ?",
+            (encoded, time.time(), account["username"]),
+        )
+        self.db.execute(
+            "DELETE FROM sessions WHERE user = ? AND token_hash != ?",
+            (account["username"], principal.token_hash or ""),
+        )
+        self.db.audit("password_changed", user=account["username"])
 
     def rotate(self, principal: Principal, source_ip: str = "") -> dict[str, Any]:
         """Issue a fresh session token and invalidate the current one."""

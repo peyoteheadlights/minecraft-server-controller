@@ -13,11 +13,12 @@ import json
 import re
 from pathlib import Path
 
-from agent import colors, servertypes
+from agent import colors, keepawake, servertypes
 from agent.checklist import ITEMS
 from agent.config import NotificationSettings
 from agent.minecraft.analyzer import CATEGORIES
 from agent.scheduler.scheduler import TASKS
+from agent.security import permissions
 from agent.security.auth import AuthManager
 
 WEB = Path(__file__).resolve().parent.parent / "agent" / "web"
@@ -85,6 +86,8 @@ def families() -> dict[str, set[str]]:
         # one line per server type in the "+" tab's comparison table
         "types.": {f"{type_id}.best" for type_id in servertypes.TYPES},
         "new.ease_": {t.ease for t in servertypes.TYPES.values()},
+        # what can still put the PC to sleep while it is kept awake
+        "awake.still_": set(keepawake.STILL_SLEEPS),
     }
 
 
@@ -100,6 +103,9 @@ def used_keys() -> set[str]:
         plural = {m.group(1) for m in re.finditer(r"\btn\(\s*\"([a-z0-9_.]+)\"", text)}
         for match in re.finditer(r"\"([a-z_]+(?:\.[a-z0-9_]+)+)\"", text):
             key = match.group(1)
+            # permission names ("settings.edit") share the dotted shape
+            if key in permissions.ALL and key not in strings:
+                continue
             if key.split(".")[0] in groups and key not in plural:
                 keys.add(key)
     return keys
@@ -160,3 +166,51 @@ def test_palette_colors_each_have_a_name():
     strings = table()
     for color in colors.palette():
         assert f"color.{color['id']}" in strings
+
+
+# ------------------------------------------------------------------ languages
+LANG = WEB / "lang"
+
+
+def language_problems(entries: dict) -> list[str]:
+    """Why a language file's entries can't be used, one line each."""
+    strings = table()
+    problems = []
+    if not isinstance(entries, dict):
+        return ["the file must hold one JSON object"]
+    for key, entry in entries.items():
+        if key not in strings:
+            problems.append(f"{key}: not in the English table")
+            continue
+        if not (
+            isinstance(entry, list)
+            and len(entry) == 2
+            and all(isinstance(x, str) and x for x in entry)
+        ):
+            problems.append(f"{key}: must be a [Simple, Technical] pair")
+            continue
+        english = sorted(PLACEHOLDER.findall(strings[key][0]))
+        for text in entry:
+            if sorted(PLACEHOLDER.findall(text)) != english:
+                problems.append(f"{key}: placeholders differ from English")
+    return problems
+
+
+def test_every_language_file_matches_the_english_table():
+    for path in sorted(LANG.glob("*.json")) if LANG.is_dir() else []:
+        assert re.fullmatch(r"[a-z]{2}(-[A-Z]{2})?", path.stem), f"{path.name}: not a language code"
+        problems = language_problems(json.loads(path.read_text(encoding="utf-8")))
+        assert not problems, f"{path.name}: {problems}"
+
+
+def test_the_language_check_catches_mistakes():
+    assert language_problems({"action.start": ["Starten", "Starten"]}) == []
+    assert language_problems({"no.such_key": ["a", "b"]})
+    assert language_problems({"action.start": "Starten"})
+    assert language_problems({"head.players.one": ["Spieler online", "{count} Spieler online"]})
+
+
+def test_english_is_the_fallback_for_missing_entries():
+    source = (JS / "strings.js").read_text(encoding="utf-8")
+    assert "export async function loadLanguage" in source
+    assert "return STRINGS[key];" in source  # anything a language leaves out

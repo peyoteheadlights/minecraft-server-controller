@@ -1,14 +1,28 @@
 /* App-wide settings, behind the gear: how the dashboard looks, how much
-   detail it shows, alerts, maintenance mode and the Windows startup check.
-   Everything about one server is on that server's own Settings page. */
+   detail it shows, your account, alerts, keeping the PC awake, maintenance
+   mode, moving to a new PC, Get help and the Windows startup check.
+   Everything about one server is on that server's own Settings page.
+   A helper sees the parts about themselves only. */
 
 import { api } from "../api.js";
 import { refreshStatus } from "../live.js";
+import { render } from "../nav.js";
 import { choose, currentTheme, THEMES } from "../prefs.js";
 import { currentSubscription, deviceLabel, disablePush, enablePush, pushSupported } from "../pwa.js";
-import { renderers, state } from "../state.js";
+import { can, renderers, state } from "../state.js";
 import { t, technical } from "../strings.js";
-import { advanced, busy, card, el, fmt, loadInto, table, toast, withHelp } from "../ui.js";
+import { advanced, busy, card, confirmDialog, el, fmt, loadInto, table, toast, withHelp } from "../ui.js";
+
+/* Fetch a file with the sign-in header and hand it to the browser, so the
+   token never goes in a URL. */
+export async function saveFile(href, filename) {
+  const response = await fetch(href, { headers: { Authorization: `Bearer ${state.token}` } });
+  if (!response.ok) throw new Error(t("backups.download_failed"));
+  const url = URL.createObjectURL(await response.blob());
+  const link = el("a", { href: url, download: filename });
+  document.body.append(link); link.click(); link.remove();
+  URL.revokeObjectURL(url);
+}
 
 function choiceGroup(name, options, current, onChange, extraClass = "") {
   return el("div", { class: `choices ${extraClass}`, role: "radiogroup", "aria-label": t(`appset.${name}`) },
@@ -182,6 +196,144 @@ function phoneCard(push, pendingFor) {
     list);
 }
 
+/* ------------------------------------------------------------ account */
+
+function accountCard() {
+  const me = state.me || {};
+  if (me.role !== "helper") {
+    return card(t("account.title"),
+      el("p", { class: "mt-0" }, t("account.owner", { name: me.user || state.user })),
+      el("p", { class: "hint" }, t("account.owner_reset")),
+      el("p", { class: "hint mono" }, "python -m installer.reset_password"));
+  }
+  const current = el("input", { type: "password", id: "pw-current", autocomplete: "current-password" });
+  const next = el("input", { type: "password", id: "pw-new", autocomplete: "new-password" });
+  return card(t("account.title"),
+    el("p", { class: "mt-0" }, t("account.helper", { name: me.user })),
+    el("div", { class: "grid cols-2" },
+      el("div", { class: "field" }, el("label", { for: "pw-current" }, t("account.current")), current),
+      el("div", { class: "field" }, el("label", { for: "pw-new" }, t("account.new")), next,
+        el("div", { class: "hint" }, t("helpers.password_hint")))),
+    el("div", { class: "btn-row mt-10" }, el("button", { class: "btn primary", type: "button",
+      onclick: (e) => busy(e.currentTarget, t("action.saving"), async () => {
+        try {
+          await api("/account/password", { method: "POST", body: { current: current.value, new: next.value } });
+          current.value = ""; next.value = "";
+          toast(t("account.changed"), "success", 8000);
+        } catch (err) { toast(err.message, "error", 9000); }
+      }) }, t("account.change"))));
+}
+
+/* ------------------------------------------------------------ keep awake */
+
+function powerCard(power, data) {
+  const enabled = Boolean(data.config.power && data.config.power.keep_awake);
+  const input = el("input", { type: "checkbox", id: "keep-awake", checked: enabled ? "checked" : false,
+    onchange: async () => {
+      try {
+        await api("/settings", { method: "PUT", body: { updates: { "power.keep_awake": input.checked } } });
+        toast(input.checked ? t("awake.turned_on") : t("awake.turned_off"), "success");
+        render();
+      } catch (err) { input.checked = !input.checked; toast(err.message, "error"); }
+    } });
+  let now;
+  if (!power.supported) now = t("awake.unsupported");
+  else if (!power.enabled) now = t("awake.off_now");
+  else if (power.active) now = t("awake.active", { names: power.running.join(", ") });
+  else now = t("awake.idle");
+  const notes = (power.still_sleeps || []).map((key) => el("li", {}, t(`awake.still_${key}`)));
+  return card(t("awake.title"),
+    withHelp(el("label", { class: "switch" }, input, t("awake.label")), "keep_awake", "configuration"),
+    el("p", { class: "hint" }, now),
+    power.problem ? el("div", { class: "banner error" }, power.problem) : null,
+    notes.length ? el("div", { class: "banner warn" }, el("strong", {}, t("awake.still_title")), el("ul", {}, notes)) : null,
+    power.battery && power.battery.present && technical()
+      ? el("p", { class: "hint" }, t("awake.battery", {
+          percent: power.battery.percent ?? t("value.unknown"),
+          source: power.battery.plugged_in ? t("awake.plugged_in") : t("awake.on_battery") }))
+      : null);
+}
+
+/* ------------------------------------------------------------ move to a new PC */
+
+async function waitForJob(id) {
+  for (;;) {
+    const found = await api(`/jobs/${encodeURIComponent(id)}`);
+    const job = found.job || found;
+    if (!["running", "queued"].includes(job.state)) return job;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+}
+
+function exportCard(sizes) {
+  const total = (key) => sizes.servers.reduce((sum, s) => sum + (s[key] || 0), 0);
+  const worlds = el("input", { type: "checkbox", id: "export-worlds", checked: "checked" });
+  const backups = el("input", { type: "checkbox", id: "export-backups" });
+  const secrets = el("input", { type: "checkbox", id: "export-secrets" });
+  const phrase = el("input", { type: "password", id: "export-phrase", autocomplete: "new-password" });
+  const phraseField = el("div", { class: "field" }, el("label", { for: "export-phrase" }, t("export.passphrase")),
+    phrase, el("div", { class: "hint" }, t("export.passphrase_hint")));
+  phraseField.hidden = true;
+  secrets.addEventListener("change", () => { phraseField.hidden = !secrets.checked; });
+  return card(t("export.title"),
+    el("p", { class: "hint mt-0" }, t("export.lead")),
+    el("label", { class: "check-row" }, el("input", { type: "checkbox", checked: "checked", disabled: "disabled" }),
+      t("export.always", { size: fmt.bytes(total("files")) })),
+    el("label", { class: "check-row" }, worlds, t("export.worlds", { size: fmt.bytes(total("worlds")) })),
+    el("label", { class: "check-row" }, backups, t("export.backups", { size: fmt.bytes(total("backups")) })),
+    el("label", { class: "check-row" }, secrets, t("export.secrets")),
+    phraseField,
+    el("div", { class: "btn-row mt-12" }, el("button", { class: "btn primary", type: "button",
+      onclick: (e) => busy(e.currentTarget, t("export.working"), async () => {
+        try {
+          const started = await api("/export", { method: "POST", body: {
+            worlds: worlds.checked, backups: backups.checked, secrets: secrets.checked,
+            passphrase: secrets.checked ? phrase.value : null } });
+          const job = await waitForJob(started.job_id);
+          if (job.state !== "succeeded" || !job.result) throw new Error(job.error || t("export.failed"));
+          await saveFile(`/api/export/${job.result.token}?filename=${encodeURIComponent(job.result.filename)}`,
+            job.result.filename);
+          phrase.value = "";
+          toast(t("export.done", { size: fmt.bytes(job.result.size_bytes) }), "success", 10000);
+        } catch (err) { toast(err.message, "error", 12000); }
+      }) }, t("export.button"))),
+    el("p", { class: "hint" }, t("export.other_side")));
+}
+
+/* ------------------------------------------------------------ get help */
+
+export async function getHelp(button) {
+  await busy(button, t("gethelp.listing"), async () => {
+    let listing;
+    try {
+      listing = await api("/help-bundle");
+    } catch (err) { toast(err.message, "error"); return; }
+    const ok = await confirmDialog({
+      title: t("gethelp.confirm_title"),
+      body: el("div", {},
+        el("p", {}, t("gethelp.confirm_body")),
+        el("ul", { class: "file-list mono" }, listing.files.map((f) =>
+          el("li", {}, f.name, el("span", { class: "hint" }, f.size ? ` ${fmt.bytes(f.size)}` : ` ${t("gethelp.made_now")}`)))),
+        el("p", { class: "hint" }, t("gethelp.never"))),
+      confirmLabel: t("gethelp.save"), wide: true,
+    });
+    if (!ok) return;
+    try {
+      const made = await api("/help-bundle", { method: "POST", body: { confirm: true } });
+      await saveFile(`/api/help-bundle/${made.token}?filename=${encodeURIComponent(made.filename)}`, made.filename);
+      toast(t("gethelp.saved"), "success", 8000);
+    } catch (err) { toast(err.message, "error", 9000); }
+  });
+}
+
+function helpCard() {
+  return card(t("gethelp.title"),
+    el("p", { class: "hint mt-0" }, t("gethelp.lead")),
+    el("div", { class: "btn-row" },
+      el("button", { class: "btn", type: "button", onclick: (e) => getHelp(e.currentTarget) }, t("gethelp.button")),
+      el("a", { class: "btn plain", href: "#getting-started" }, t("page.getting_started"))));
+}
+
 function maintenanceCard() {
   const on = Boolean(state.status && state.status.maintenance);
   const input = el("input", {
@@ -251,15 +403,22 @@ function startupReport(r) {
 }
 
 renderers["app-settings"] = (page) => loadInto(page, async () => {
-  const [data, push] = await Promise.all([
+  const owner = can("settings.edit");
+  const [data, push, power, sizes] = await Promise.all([
     api("/settings"),
-    api("/push").catch(() => ({ configured: false, enabled: false, phones: [], public_key: "",
-      setup_command: ".\\setup.ps1" })),
+    owner ? api("/push").catch(() => ({ configured: false, enabled: false, phones: [], public_key: "",
+      setup_command: ".\\setup.ps1" })) : null,
+    api("/power").catch(() => null),
+    can("data.export") ? api("/export").catch(() => ({ servers: [] })) : null,
   ]);
   return el("div", { class: "stack" },
     appearanceCard(),
     detailCard(),
-    alertsCard(data, push),
-    maintenanceCard(),
-    startupCard());
+    accountCard(),
+    owner ? alertsCard(data, push) : null,
+    owner && power ? powerCard(power, data) : null,
+    owner ? maintenanceCard() : null,
+    sizes ? exportCard(sizes) : null,
+    can("help.bundle") ? helpCard() : null,
+    owner ? startupCard() : null);
 });

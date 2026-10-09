@@ -264,6 +264,29 @@ MIGRATIONS: list[tuple[int, str]] = [
         );
         """,
     ),
+    (
+        8,
+        # Helper accounts: friends' own logins with limited access. The
+        # password is hashed exactly like the owner's; servers is a JSON list
+        # of the server ids the helper may use, empty for every server.
+        # Each backup can also have a second copy off the PC (another drive
+        # or a synced cloud folder), with that copy's own checked status.
+        """
+        CREATE TABLE accounts (
+            username TEXT PRIMARY KEY COLLATE NOCASE,
+            password_hash TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'helper',
+            servers TEXT,
+            created_at REAL NOT NULL,
+            created_by TEXT,
+            password_changed_at REAL
+        );
+        ALTER TABLE backups ADD COLUMN copy_path TEXT;
+        ALTER TABLE backups ADD COLUMN copy_status TEXT;
+        ALTER TABLE backups ADD COLUMN copy_detail TEXT;
+        ALTER TABLE backups ADD COLUMN copy_checked_at REAL;
+        """,
+    ),
 ]
 
 

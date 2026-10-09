@@ -10,6 +10,8 @@ import "./pages/console.js";
 import "./pages/crashes.js";
 import "./pages/events.js";
 import "./pages/game-settings.js";
+import "./pages/getting-started.js";
+import "./pages/helpers.js";
 import "./pages/mods.js";
 import "./pages/overview.js";
 import "./pages/performance.js";
@@ -22,6 +24,7 @@ import "./servers.js";
 import { api } from "./api.js";
 import { signOut } from "./auth.js";
 import { connectSocket, renderStatus } from "./live.js";
+import { showOffline } from "./offline.js";
 import { render, renderRail } from "./nav.js";
 import { adopt } from "./prefs.js";
 import { registerServiceWorker } from "./pwa.js";
@@ -65,7 +68,11 @@ $("#login-form").addEventListener("submit", async (event) => {
 });
 
 async function startApp(me) {
-  if (me) adopt(me.preferences);
+  if (me) {
+    adopt(me.preferences);
+    state.me = me;
+    state.user = me.user || state.user;
+  }
   $("#login").hidden = true;
   $("#app").classList.add("visible");
   const hash = location.hash.replace("#", "");
@@ -88,5 +95,7 @@ async function startApp(me) {
 }
 
 if (state.token) {
-  api("/auth/me").then(startApp).catch(() => signOut(true));
+  // Unreachable is not signed out: the offline screen waits for the PC and
+  // then loads the page again, still signed in.
+  api("/auth/me").then(startApp).catch((err) => (err.offline ? showOffline({ reload: true }) : signOut(true)));
 }

@@ -10,6 +10,10 @@ Rules that do not bend:
 Creating and restoring run as jobs (agent/jobs.py), so the dashboard shows
 their real progress and a server never runs two at once. Restoring goes
 through the safe-change routine (agent/safechange.py).
+
+When an off-PC folder is set (backups.offsite_directory), each verified
+backup is also copied there and the copy checked (agent/backups/offsite.py).
+A copy that fails is reported; the local backup stands either way.
 """
 
 from __future__ import annotations
@@ -35,6 +39,7 @@ from ..security.paths import (
     safe_filename,
     zip_member_is_symlink,
 )
+from . import offsite
 
 if TYPE_CHECKING:
     from ..jobs import JobHandle, JobTracker
@@ -76,6 +81,12 @@ class BackupManager:
         path = self.config.backup_dir
         path.mkdir(parents=True, exist_ok=True)
         return path
+
+    @property
+    def offsite_root(self) -> Path | None:
+        """The folder second copies go to, or None when that is off."""
+        value = self.config.backups.offsite_directory.strip()
+        return Path(value) if value else None
 
     # ------------------------------------------------------------------
     def _sources(self, includes: list[str] | None = None) -> list[Path]:
@@ -308,6 +319,7 @@ class BackupManager:
                 f"The backup was written but failed verification: {verification['reason']}. "
                 f"It is recorded as unverified and must not be relied on."
             )
+        copy = await self._copy_offsite(row_id, target, digest, base_name, job)
         duration = time.time() - started
         self.db.audit("backup_create", user=user, target=base_name, detail=f"{files} files")
         await self.bus.publish(
@@ -335,7 +347,68 @@ class BackupManager:
             "seconds": duration,
             "verified": True,
             "verification": verification,
+            "copy": copy,
         }
+
+    # ------------------------------------------------------------------
+    async def _copy_offsite(
+        self, row_id: int, path: Path, digest: str, name: str, job: JobHandle | None
+    ) -> dict[str, Any]:
+        """Copy a verified backup to the off-PC folder and check the copy.
+        Never raises: a failed copy is recorded and reported as a warning."""
+        root = self.offsite_root
+        if root is None:
+            return {"state": "none"}
+        reason = offsite.unavailable_reason(root)
+        destination = offsite.target_folder(root, self.server.server_id) / name
+        if reason is None:
+            try:
+                await asyncio.to_thread(offsite.copy_file, path, destination, digest, job)
+            except offsite.OffsiteError as exc:
+                reason = str(exc)
+            except Exception as exc:  # pragma: no cover - reported, never hidden
+                log.exception("off-PC copy failed")
+                reason = f"unexpected error: {exc}"
+        if reason is None:
+            offsite.record(self.db, row_id, offsite.OK, str(destination), None)
+            return {"state": "ok", "path": str(destination)}
+        offsite.record(self.db, row_id, offsite.FAILED, None, reason)
+        await self.bus.publish(
+            Event(
+                type="backup_copy_failed",
+                level="warn",
+                message=f"Backup {name} is safe on this PC, but its second copy failed: {reason}",
+                data={"name": name, "reason": reason, "folder": str(root)},
+            )
+        )
+        return {"state": "failed", "reason": reason}
+
+    async def copy_again(self, backup_id: int, user: str = "system") -> dict[str, Any]:
+        """Copy one existing backup off the PC (again), as a job."""
+        row = self.get(backup_id)
+        if self.offsite_root is None:
+            raise BackupError("Choose a folder for second copies first.")
+        if row["status"] != "ok":
+            raise BackupError("Only a checked backup is copied off the PC.")
+        path = Path(row["path"])
+        if not is_inside(self.directory, path) or not path.is_file():
+            raise BackupError("That backup's file isn't in the backups folder any more.")
+
+        async def run(job: JobHandle | None) -> dict[str, Any]:
+            return await self._copy_offsite(row["id"], path, row["sha256"], row["name"], job)
+
+        if self.jobs is None:
+            return await run(None)
+        _, result = await self.jobs.run(
+            "backup_copy",
+            f"Copying {row['name']} off the PC",
+            run,
+            server_id=self.server.server_id,
+            risky=True,
+            user=user,
+        )
+        self.db.audit("backup_copy", user=user, target=row["name"], detail=result.get("state"))
+        return result
 
     def _verify_file(
         self, path: Path, expected_sha256: str | None = None, expected_files: int | None = None
@@ -388,8 +461,10 @@ class BackupManager:
             "SELECT * FROM backups WHERE server_id = ? ORDER BY created_at DESC",
             (self.server.server_id,),
         )
+        root = self.offsite_root
         for row in rows:
             row["exists"] = Path(row["path"]).is_file()
+            row["copy"] = offsite.copy_status(row, root)
         return rows
 
     def get(self, backup_id: int) -> dict[str, Any]:
@@ -423,6 +498,7 @@ class BackupManager:
         if not is_inside(self.directory, path):
             raise PathSafetyError("That file isn't in the backups folder, so nothing was deleted.")
         path.unlink(missing_ok=True)
+        offsite.remove_copy(row, self.offsite_root)
         self.db.execute("DELETE FROM backups WHERE id = ?", (backup_id,))
         self.db.audit("backup_delete", user=user, target=row["name"])
         await self.bus.publish(
@@ -641,6 +717,8 @@ class BackupManager:
             path = Path(row["path"])
             if is_inside(self.directory, path):
                 path.unlink(missing_ok=True)
+                # The same retention for the second copy.
+                offsite.remove_copy(row, self.offsite_root)
                 self.db.execute("DELETE FROM backups WHERE id = ?", (row["id"],))
                 removed.append(row["name"])
         if removed:

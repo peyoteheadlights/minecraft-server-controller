@@ -9,7 +9,7 @@ import { setLink, updateStatusViews, updateTitle } from "./live.js";
 import { overview } from "./pages/overview.js";
 import { hooks as prefHooks } from "./prefs.js";
 import { hooks, renderTabs, serverBadge, serverRow, jobsIndicator } from "./servers.js";
-import { PAGES, contentPage, pageEntry, renderers, stateInfo, state } from "./state.js";
+import { PAGES, can, contentPage, pageAllowed, pageEntry, renderers, stateInfo, state } from "./state.js";
 import { t } from "./strings.js";
 import { $, el, icon } from "./ui.js";
 
@@ -74,7 +74,7 @@ function navLink([key, label, , iconName]) {
 
 function renderSubnav() {
   const nav = $("#subnav");
-  const items = PAGES.filter(([key, , scope]) =>
+  const items = PAGES.filter((entry) => pageAllowed(entry)).filter(([key, , scope]) =>
     scope === state.scope && scope !== "all" && scope !== "add"
     // Vanilla takes neither mods nor plugins, so it gets no add-ons page.
     && !(key === "mods" && state.scope === "server" && !contentPage(serverRow())));
@@ -87,7 +87,7 @@ function renderSubnav() {
     const loose = items.filter(([key]) => !grouped.has(key));
     nav.replaceChildren(...NAV_GROUPS.map(([labelKey, keys]) => {
       const id = `nav-${labelKey.split("_").pop()}`;
-      const links = keys.map(pageEntry).filter(Boolean).map(navLink);
+      const links = keys.map(pageEntry).filter(pageAllowed).map(navLink);
       return el("div", { class: "nav-group", role: "group", "aria-labelledby": id },
         el("span", { class: "nav-group-label", id }, t(labelKey)), ...links);
     }), ...loose.map(navLink));
@@ -111,7 +111,8 @@ export function renderRail() {
 }
 
 export function navigate(page) {
-  state.page = pageEntry(page) ? page : "dashboard";
+  state.page = pageAllowed(pageEntry(page)) ? page : "dashboard";
+  if (state.page === "add-server" && !can("servers.manage")) state.page = "dashboard";
   if (location.hash !== `#${state.page}`) history.replaceState(null, "", `#${state.page}`);
   renderRail();
   render();

@@ -12,7 +12,13 @@ from ...config import PROJECT_ROOT, ConfigError
 from ...ports import read_properties_port
 from ...security.auth import Principal
 from ...security.paths import PathSafetyError, check_server_folder
-from ...security.permissions import SERVER_VIEW, SERVERS_MANAGE, SYSTEM_VIEW, require
+from ...security.permissions import (
+    SERVER_VIEW,
+    SERVERS_MANAGE,
+    SYSTEM_VIEW,
+    can_see_server,
+    require,
+)
 from ..deps import audit, get_core
 from .models import ServerAddRequest
 
@@ -27,6 +33,8 @@ async def servers(principal: Principal = Depends(require(SERVER_VIEW)), core=Dep
     """Every registered server with its measured state, players and uptime."""
     rows = []
     for ctx in core.servers.values():
+        if not can_see_server(principal, ctx.server_id):
+            continue  # a helper limited to other servers
         row = ctx.summary()
         row["current"] = row["default"]
         rows.append(row)
@@ -183,3 +191,11 @@ async def windows_startup_test(principal: Principal = Depends(require(SYSTEM_VIE
             status_code=500, detail=f"The startup inspector could not be loaded: {exc}"
         ) from exc
     return await asyncio.to_thread(report)
+
+
+@router.get("/power")
+async def power(principal: Principal = Depends(require(SYSTEM_VIEW)), core=Depends(get_core)):
+    """Whether the PC is being kept awake, and what can still make it sleep."""
+    import asyncio
+
+    return await asyncio.to_thread(core.keepawake.status)

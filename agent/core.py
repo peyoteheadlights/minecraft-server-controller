@@ -18,7 +18,7 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from . import __version__, colors
+from . import __version__, colors, memory
 from .autosleep import AutoSleep
 from .backups.manager import BackupManager
 from .config import ConfigError
@@ -26,6 +26,7 @@ from .database.db import Database, ServerDb
 from .database.event_writer import EventWriter
 from .events import AGENT_SCOPE, Event, EventBus, ServerBus
 from .jobs import JobConflict, JobHandle, JobTracker
+from .keepawake import KeepAwake
 from .minecraft.chat import ChatLog
 from .minecraft.crash import CrashReporter
 from .minecraft.playeractions import PlayerActions
@@ -89,7 +90,10 @@ class ServerContext:
         self.server.crash_hook = self.crashes.collect
         self.server.maintenance = core.config.maintenance.enabled
         self.server.start_guard = lambda: core.ports.start_conflicts(self)
-        self.server.start_warnings = lambda: core.ports.start_warnings(self)
+        self.server.start_warnings = lambda: [
+            *core.ports.start_warnings(self),
+            *memory.start_warnings(self),
+        ]
         self._update_task: asyncio.Task | None = None
 
     async def _console_signals(self, sig, line) -> None:
@@ -267,9 +271,13 @@ class AgentCore:
         for server_id in config.server_ids:
             self.servers[server_id] = ServerContext(self, server_id)
 
+        # Asks Windows not to sleep while any server runs.
+        self.keepawake = KeepAwake(self)
+
         self.bus.subscribe(self._persist_event)
         self.bus.subscribe(self.notifier.handle)
         self.bus.subscribe(self._dispatch)
+        self.bus.subscribe(self.keepawake.handle)
         self._cert_task: asyncio.Task | None = None
         self._cert_alerted: str | None = None
         self._servers_lock = asyncio.Lock()
@@ -412,6 +420,7 @@ class AgentCore:
         await self.jobs.stop()
         for ctx in list(self.servers.values()):
             await ctx.stop()
+        self.keepawake.stop()
         await self.notifier.stop()
         await self.events.stop()
         self.db.close()

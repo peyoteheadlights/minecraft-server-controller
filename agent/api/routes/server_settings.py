@@ -5,14 +5,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from ... import colors
+from ... import colors, memory
 from ...config import SERVER_OVERRIDES, ConfigError
 from ...events import Event
 from ...minecraft import cpu
 from ...security.auth import Principal
 from ...security.permissions import SETTINGS_EDIT, SETTINGS_VIEW, require
 from ..deps import audit, get_server
-from .models import ServerColorRequest, ServerSettingsRequest
+from .models import MemoryRequest, ServerColorRequest, ServerSettingsRequest
 
 router = APIRouter()
 
@@ -157,3 +157,37 @@ async def _announce_change(ctx, message: str) -> None:
     await ctx.bus.publish(
         Event(type="server_changed", message=message, data={"color": ctx.color, "name": ctx.name})
     )
+
+
+@router.get("/memory")
+async def get_memory(
+    principal: Principal = Depends(require(SETTINGS_VIEW)), ctx=Depends(get_server)
+):
+    """The memory slider: the PC's measured total and this server's limit."""
+    return memory.overview(ctx)
+
+
+@router.put("/memory")
+async def set_memory(
+    payload: MemoryRequest,
+    request: Request,
+    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    ctx=Depends(get_server),
+):
+    """Set the -Xmx limit, leaving every other launch flag as it is. Takes
+    effect the next time the server starts."""
+    try:
+        mb = memory.check_limit(ctx, payload.memory_mb)
+    except memory.MemoryLimitError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    previous = list(ctx.config.server.jvm_args)
+    ctx.config.set("server.jvm_args", memory.with_limit(previous, mb))
+    try:
+        ctx.config.save()
+    except OSError as exc:
+        ctx.config.set("server.jvm_args", previous)
+        raise HTTPException(
+            status_code=500, detail=f"Settings could not be written to disk: {exc}"
+        ) from exc
+    audit(ctx, request, "memory_limit", detail=f"{mb} MB")
+    return {"ok": True, **memory.overview(ctx)}

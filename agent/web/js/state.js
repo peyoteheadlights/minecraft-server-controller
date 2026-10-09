@@ -15,6 +15,9 @@ export const state = {
   // Running jobs (backups, restores) by id, from "job" events.
   jobs: {},
   user: "",
+  // The signed-in account: {role, servers, permissions} from /auth/me. The
+  // agent checks every action itself; this only hides what would be refused.
+  me: null,
   status: null,
   console: [],
   consoleLimit: 1000,
@@ -35,12 +38,15 @@ export const state = {
   refreshTimer: null,
   // Performance graphs: hours of history shown.
   range: Number(remembered("mcsc_range")) || 6,
+  // A search handed to the mods page by a suggestion ("Install spark").
+  modSearch: null,
   // In-game chat for the selected server, newest last.
   chat: [],
   chatLimit: 300,
 };
 
-/* Every page: [key, strings key of its name, where it lives, icon].
+/* Every page: [key, strings key of its name, where it lives, icon, and the
+   permission it needs when that is more than viewing].
    "server" pages sit in a server's sheet and act on state.serverId; "app"
    pages are about the agent itself and open from the gear; "all" is the
    All servers tab and "add" the "+" tab. Keys are URL hashes: never
@@ -62,8 +68,22 @@ export const PAGES = [
   ["crashes", "page.crashes", "server", "crashes"],
   ["settings", "page.server_settings", "server", "settings"],
   ["app-settings", "page.app_settings", "app", "gear"],
-  ["security", "page.security", "app", "security"],
+  ["helpers", "page.helpers", "app", "players", "users.manage"],
+  ["security", "page.security", "app", "security", "security.view"],
+  ["getting-started", "page.getting_started", "app", "help"],
 ];
+
+/* Whether this account holds a permission. Before /auth/me answers,
+   nothing is hidden: the agent refuses what isn't allowed either way. */
+export function can(permission) {
+  if (!state.me || !Array.isArray(state.me.permissions)) return true;
+  return state.me.permissions.includes(permission);
+}
+
+/* Whether this account may open a page at all. */
+export function pageAllowed(entry) {
+  return Boolean(entry) && (!entry[4] || can(entry[4]));
+}
 
 export function pageEntry(key) {
   return PAGES.find(([k]) => k === key) || null;

@@ -1,260 +1,111 @@
 # Minecraft Server Controller
 
-A self-hosted control panel for Minecraft servers on Windows — Vanilla,
-Fabric, Quilt, Forge, NeoForge, Paper and Purpur. A small
-agent runs on the server PC, supervises the Minecraft process, and serves a
-dashboard you can open from your computer or phone over a private
-[Tailscale](https://tailscale.com) network, using HTTPS.
+Run your Minecraft server on your own Windows PC, and look after it from
+your phone or any computer. Start and stop it, see who's playing, keep
+backups, add mods, and get told when something goes wrong.
 
-## Features
+It works with Vanilla, Fabric, Quilt, Forge, NeoForge, Paper and Purpur.
+Only your own devices can reach it: it uses [Tailscale](https://tailscale.com),
+a free private network, and HTTPS.
 
-- Start, stop and restart the server, with a graceful stop and a forced stop
-  only after a timeout
-- Live status: running, starting, stopping, crashed, uptime, players, memory
-  and CPU
-- TPS and MSPT when a tick-rate source is available (Carpet, spark, or
-  `tick query` on 1.20.3+); shown as *Unknown* otherwise, never guessed
-- Live server console with filter, copy, download and command input.
-  Commands go to Minecraft only, and risky ones ask first
-- Crash detection that tells a crash from a normal stop, saves the evidence,
-  and names a likely cause with its confidence
-- Automatic restart after a crash, with crash-loop protection
-- Player tracking: who's online, sessions and total playtime
-- Player buttons: whitelist, operator, kick, ban and unban, shown as "Sent"
-  until the server's console confirms them, with the lists read from
-  Minecraft's own files
-- Game settings: the main `server.properties` settings as a form that keeps
-  every comment and setting it doesn't show, with a copy of the old file
-  kept, and the whole file as text in Technical mode
-- Duplicate a server, with a copy of its world or a fresh one, its own port
-  and color
-- Import a Modrinth modpack (`.mrpack`) as a new server or into one: see
-  everything in it first, every mod checked against the pack's SHA-512
-- "How friends join": the addresses to type, read from this PC, with copy
-  buttons
-- Backups of worlds, config and mods, verified before they're trusted, with
-  safe restore, one-click undo and retention
-- Limit each server to some of the PC's CPU cores, applied to the running
-  server at once and read back from its process
-- Mod manager: install from Modrinth with checksum verification, enable,
-  disable, update, roll back, and dependency checks. On Paper and Purpur it
-  is the plugins folder instead, and it says so
-- Make a new server from scratch: pick the kind from a comparison table and
-  a Minecraft version, and it is downloaded, checked against the checksum
-  its own project published, and set up
-- Change a server's version, up or down, or change the kind of server it is.
-  It stops, takes a verified backup, tells you first what will happen, and
-  one button puts the old version back
-- Let Bedrock players join a Java server (Geyser and Floodgate), with the
-  differences they will notice written out in plain words
-- In-game chat on its own page, read from the server's console, with a box to
-  say something to everyone as "Server"
-- Restore world: the backups that hold a world as a timeline, each saying what
-  going back would lose, with a fresh backup taken first
-- Sleep when empty: stop a server nobody is playing on after a set time, with
-  a warning in the game first. It never acts on a player count that is Unknown,
-  and never starts the server again by itself
-- A getting-started checklist on a new server, every item ticked from
-  something the app measured
-- Activity in plain sentences grouped by day, with the raw event type and data
-  in Technical mode
-- Scheduled tasks: backups, restarts, log cleanup, maintenance windows
-- Discord, email and phone alerts (Web Push, encrypted per phone, no account
-  anywhere)
-- Install it on a phone's home screen and open it full screen, with a service
-  worker that caches the app's own files and never an API answer
-- Starts with Windows through a scheduled task, without anyone logging in
-- HTTPS, hashed passwords, session tokens, rate limiting, audit log,
-  Tailscale-only access
-- One tab per server, each in its own color (twelve to pick from, or any
-  color), with text kept readable on every color
-- Five themes (match your device, light, dark, graphite, high contrast) that
-  follow your account to every device
-- Simple mode in everyday words, or Technical mode with the exact terms (TPS,
-  MSPT, RSS, `-Xmx`) and extra detail; every label has both
+![Overview in the light theme](docs/screenshots/overview-light.png)
 
-## Screenshots
+## What you can do
 
-![Overview in the light theme, Simple mode](docs/screenshots/overview-light.png)
+- **Start, stop and restart** from anywhere. If the server crashes, it
+  says why in plain words and can start again by itself.
+- **See who's playing**, chat with them, and whitelist, kick or ban.
+- **Back up** the world on a schedule. Each backup is checked before it
+  counts, and a second copy can go to a USB drive or a cloud folder.
+- **Go back in time**: put the world back to how it was yesterday. What
+  it's like now is saved first, so that can be undone too.
+- **Bring a world in** from single-player, or take the server's world home
+  as a .zip to play offline.
+- **Add mods** from Modrinth, with the mods they need, checked before
+  they're installed.
+- **Make new servers** of any kind and version, change versions, and let
+  Bedrock players join.
+- **Give friends their own sign-in** as helpers: they can start the server
+  and look after players, but can't change how it's set up.
+- **Get alerts** on your phone, Discord or email.
+- **Keep the PC awake** while someone is playing.
+- **Move to a new PC** with one file.
 
-| Overview, dark theme | Console, dark theme, Technical mode |
+Every number you see was measured. When something can't be measured, it
+says *Unknown* and why, rather than guessing.
+
+| Overview, dark theme | All servers |
 | --- | --- |
-| ![Overview in the dark theme](docs/screenshots/overview-dark.png) | ![Console in the dark theme, Technical mode](docs/screenshots/console-dark.png) |
+| ![Overview in the dark theme](docs/screenshots/overview-dark.png) | ![All servers](docs/screenshots/all-servers-light.png) |
 
-| All servers | Overview on a phone |
-| --- | --- |
-| ![All servers, one card per server in its color](docs/screenshots/all-servers-light.png) | ![Overview on a phone](docs/screenshots/overview-phone.png) |
+## What you need
 
-## Requirements
+- A Windows 10 or 11 PC to run the server
+- [Python](https://www.python.org) 3.11 or newer
+- Java, the version your Minecraft needs (the app tells you which)
+- [Tailscale](https://tailscale.com) on that PC and on each phone or
+  computer you want to use the dashboard from
 
-- Windows 10 or 11 on the server PC
-- Python 3.11 or newer, from [python.org](https://www.python.org)
-- Java, the version your Minecraft needs. A server you already have works as
-  it is; a new one can be made from the dashboard
-- [Tailscale](https://tailscale.com) on the server PC and on every device you
-  want to connect from
+## Install
 
-## Installation
+1. Download this project to the PC (Code → Download ZIP, then unzip it).
+2. In the folder, right-click `setup.cmd` and choose **Run**. Or, in
+   PowerShell in that folder: `.\setup.ps1`
+3. Answer its questions: where your server is (or where a new one should
+   go), and a password for the dashboard.
+4. Open the address it shows, on the PC or your phone, and sign in.
 
-On the server PC, from the project folder:
+Setup is safe to run again: it keeps what's already set up and fixes what
+isn't. `.\setup.ps1 --check` only checks, and changes nothing.
 
-```powershell
-.\setup.ps1
-```
+More detail, step by step: [docs/installation.md](docs/installation.md).
 
-This finds Python (3.11+), creates a virtual environment in `.venv`,
-installs dependencies, then sets up whatever's missing: server folder,
-dashboard password, HTTPS certificate, firewall rule, Windows startup task.
-Works from any folder. Safe to re-run — existing settings are left alone.
+## First steps
 
-Your password is stored only as a hash in `.env`, never shown, logged or
-saved in plain text. Firewall and startup steps need Administrator rights;
-setup offers to open an elevated window for them.
+After signing in, open **Getting started** (under the gear, or from the
+checklist on a new server's Overview). It walks through starting the
+server, letting friends join, backups and alerts, with a button to each.
 
-If Windows says the script "is not digitally signed," use `setup.cmd`
-instead, or run `powershell -ExecutionPolicy Bypass -File .\setup.ps1`.
-Either bypasses the policy for that one run only.
+## Forgot the password?
 
-### Health check
+On the PC, open PowerShell in the app's folder and run:
 
 ```powershell
-.\setup.ps1 --check
+python -m installer.reset_password
 ```
 
-Read-only: verifies every component, changes nothing, and says what to do
-about anything that fails. Options: `--logon` (start at login instead of at
-boot), `--skip-firewall`, `--skip-startup`, `--non-interactive`.
+It asks for a new password twice and signs everyone out. This only works on
+the PC itself, never over the network.
 
-Step-by-step detail: [docs/installation.md](docs/installation.md).
+## Moving to a new PC
 
-## Configuration
+1. On the old PC: **App settings → Move to a new PC → Export everything**.
+   Tick worlds and backups if you want them. Tick passwords and keys only if
+   you want them moved too; they are locked with a passphrase you choose.
+2. Install the app on the new PC with `setup.ps1`.
+3. On the new PC, with the app stopped:
 
-Settings live in `config/config.yaml`. Secrets live only in `.env`, created
-by `make_secrets` and never committed.
+   ```powershell
+   python -m installer.import_from_pc "D:\the-export-file.zip" --to "C:\Minecraft Servers"
+   ```
 
-| Setting | What to set |
-| --- | --- |
-| `server.directory` | **Required.** The folder that contains your server jar. There is no default. Several servers go in a `servers:` list instead ([how](docs/configuration.md#server-or-servers)). |
-| `server.type` | `vanilla`, `fabric`, `quilt`, `forge`, `neoforge`, `paper` or `purpur`. Left out, it is read as `fabric`, as before |
-| `server.jar` | Your server jar, e.g. `fabric-server-launch.jar`. Forge and NeoForge use `server.args_file` instead, written by their installer |
-| `server.java` | `java`, or the full path to `java.exe` |
-| `server.jvm_args` | Memory and JVM options, e.g. `["-Xmx6G"]` |
-| `network.host` | This PC's Tailscale address, from `tailscale ip -4` |
-| `tls.hostname` | The name you type in the browser, e.g. `server-pc.your-tailnet.ts.net` |
-| `monitor.tps_command` | `auto` (default) detects it; or force `tick query`, `tps`, `spark tps`; `off` disables |
+4. Run `setup.ps1` once more. It makes the new PC's certificate and start
+   with Windows task.
 
-The agent keeps its database, backups and certificates in
-`C:\ProgramData\Minecraft Server Controller` (an older install's
-`<server>\mcsc-data` is copied there once, and the original left in place:
-[details](docs/configuration.md#the-data-folder-pathsdata_dir)).
+## When something goes wrong
 
-Every option is described in [docs/configuration.md](docs/configuration.md).
-Discord and email alerts: [docs/notifications.md](docs/notifications.md).
+- **Crashes** shows what happened and the likely cause.
+- **Get help** (on the Crashes page and in App settings) saves one file of
+  logs and checks to send to whoever is helping you. It never contains
+  passwords, keys or worlds, and shows its file list before saving.
+- [docs/troubleshooting.md](docs/troubleshooting.md) covers the common
+  problems.
 
-## How it handles…
+## For developers
 
-### Crashes and automatic restart
-
-When Minecraft exits without being asked to, the agent records the crash,
-names a likely cause from the log, and starts a countdown if automatic
-restart is on (`monitor.restart_delay`, 10 seconds by default). The
-dashboard shows **Restarting in 7s** with two choices: **Restart Now**
-skips the countdown, **Cancel** stops it and the server stays down.
-
-During the countdown the Start button is hidden, and the agent refuses a
-second start, so two server processes can't run at once. After repeated
-crashes (`monitor.max_crashes` within `monitor.crash_window_minutes`)
-automatic restart pauses until you allow it again.
-
-### TPS
-
-With `monitor.tps_command: auto`, the agent tries `tick query` (vanilla
-1.20.3+), `tps` (Carpet) and `spark tps` once when the server finishes
-starting, uses the first that answers with real figures, and remembers it
-for next time. It never polls on a timer. If none answers, TPS shows as
-unavailable with the reason — never estimated. On vanilla, TPS is
-calculated from the measured tick time, not the configured target rate. To
-force a command, use **Performance → TPS monitoring → Change Command**, or
-set `monitor.tps_command` in `config.yaml`.
-
-### Mod dependencies
-
-The Mods page lists every missing, disabled, or wrong-version dependency by
-name, with the version required ("Any version," "1.2 or newer") and which
-mod needs it. **Install Missing Dependencies** looks them up on Modrinth,
-picks a version that satisfies the range, follows their own dependencies (A
-needs B needs C), and shows the full list before downloading anything. Each
-download is checksum-verified, nothing already installed is replaced, and a
-mod the server is running with isn't touched — stop the server first.
-
-## Running
-
-```powershell
-python -m agent.main
-```
-
-Open `https://<tls.hostname>:8765` and sign in. Once `autostart enable` has
-run, the agent starts by itself whenever Windows starts; check it with
-`python -m installer.autostart test`.
-
-## Project structure
-
-```
-agent/              the server agent
-  api/              REST API and live WebSocket
-  minecraft/        process control, console parsing, crash analysis
-  servertypes/      what each kind of server is, its versions and installs
-  mods/  backups/  monitoring/  notifications/  scheduler/  security/
-  downloads.py      the one safe downloader
-  crossplay.py      Geyser and Floodgate for Bedrock players
-  modpack.py        Modrinth modpack import
-  duplicate.py      copying a server
-  web/              the dashboard (plain HTML, CSS and JavaScript)
-  main.py           entry point
-installer/          secrets, certificates, firewall, Windows startup
-config/             config.example.yaml
-docs/               installation, HTTPS, Tailscale, mods, backups, API and more
-scripts/            end-to-end and browser checks
-tests/              automated tests, with a fake Minecraft server
-```
-
-## Tests
-
-```powershell
-pip install -r requirements-dev.lock
-python -m pytest -q
-python -m ruff check . ; python -m ruff format --check . ; python -m mypy
-```
-
-See [docs/testing.md](docs/testing.md) for the browser and end-to-end checks,
-the lock files and pre-commit.
-
-### CI
-
-`.github/workflows/ci.yml` runs on every push and pull request:
-
-- **Lint and type check**: `ruff check`, `ruff format --check` and `mypy`,
-  with the settings in `pyproject.toml`.
-- **Unit tests** on both Linux and Windows.
-- **Dashboard in a real browser**: `scripts/ui_check.py --quick` signs in and
-  visits every page in headless Chromium in both Simple and Technical mode,
-  and fails on any JavaScript or console error, failed request, sideways
-  scrolling, code text such as `undefined` on the page, or text without
-  enough contrast. The screenshots are kept as a build artifact.
-
-### Windows CI
-
-`.github/workflows/windows-startup-test.yml` runs on every push, on
-GitHub's `windows-latest` runners:
-
-- **Startup task**: registers a real scheduled task under a unique name,
-  reads it back from Windows and checks its settings, launches it and
-  confirms the agent started from the right folder, then removes it and
-  confirms it's gone. The task is always deleted, even if a step fails.
-- **Setup script**: runs `setup.ps1` on Windows PowerShell 5.1 — from
-  another folder, twice (to prove repeat runs keep existing settings), with
-  Python missing, with a dependency removed, through `setup.cmd`, and
-  `--check` — and checks the password never appears in output or files.
+How it's built, the settings file, the API, security and the tests:
+[docs/developers.md](docs/developers.md). The rest of the technical guides
+are in [docs/](docs/).
 
 ## License
 

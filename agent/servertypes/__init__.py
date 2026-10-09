@@ -79,6 +79,11 @@ class ServerType:
     mrpack_loader_version: str = "{loader}"
     takes_memory_limit: bool = True
     reports_speed: bool = True
+    # Bukkit's layout: the Nether and the End in their own folders beside
+    # the world (world_nether/DIM-1, world_the_end/DIM1), where single-player
+    # and every other type keep them inside it (world/DIM-1, world/DIM1).
+    # World import and download convert between the two.
+    split_dimensions: bool = False
     ports: tuple[tuple[str, str], ...] = (("tcp", "game"),)
     extra: dict[str, Any] = field(default_factory=dict)
 
@@ -258,6 +263,7 @@ TYPES: dict[str, ServerType] = {
             geyser_platform="spigot",
             backup_extra=("plugins", "config"),
             software_paths=("paper.jar", "cache", "libraries", "versions"),
+            split_dimensions=True,
             ease="easy",
         ),
         ServerType(
@@ -277,6 +283,7 @@ TYPES: dict[str, ServerType] = {
             geyser_platform="spigot",
             backup_extra=("plugins", "config"),
             software_paths=("purpur.jar", "cache", "libraries", "versions"),
+            split_dimensions=True,
             ease="medium",
         ),
     )

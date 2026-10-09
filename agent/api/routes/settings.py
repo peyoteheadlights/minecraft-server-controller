@@ -34,6 +34,7 @@ SETTABLE_PREFIXES = (
     "server.autostart_minecraft",
     "server.jvm_args",
     "security.session_hours",
+    "power.keep_awake",
 )
 
 
@@ -41,8 +42,14 @@ SETTABLE_PREFIXES = (
 async def get_settings(
     principal: Principal = Depends(require(SETTINGS_VIEW)), core=Depends(get_core)
 ):
+    config = core.config.as_dict(redact_secrets=True)
+    if principal.servers is not None:
+        # A helper limited to some servers isn't shown the others.
+        config["servers"] = [
+            s for s in config.get("servers", []) if s.get("id") in principal.servers
+        ]
     return {
-        "config": core.config.as_dict(redact_secrets=True),
+        "config": config,
         "editable": list(SETTABLE_PREFIXES),
         "secrets": {
             "discord_webhook_configured": bool(core.config.discord_webhook),

@@ -347,7 +347,10 @@ function recommendationItem(r) {
   };
   const fix = r.action.url
     ? el("a", { class: "btn small", href: r.action.url, target: "_blank", rel: "noopener noreferrer" }, r.action.label)
-    : el("button", { class: "btn small", type: "button", onclick: () => navigate(r.action.page) }, r.action.label);
+    : el("button", { class: "btn small", type: "button", onclick: () => {
+        if (r.action.search) state.modSearch = r.action.search;
+        navigate(r.action.page);
+      } }, r.action.label);
   return el("li", { class: "rec" },
     el("div", { class: "rec-main" },
       el("strong", {}, r.title),

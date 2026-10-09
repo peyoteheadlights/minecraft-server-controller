@@ -46,6 +46,13 @@ export function connectSocket() {
   socket.onclose = () => {
     if (state.socket !== socket) return;
     setLink(false);
+    // After a couple of failed tries, check whether the agent answers at
+    // all; if not, the offline screen takes over and keeps trying.
+    if (state.reconnectDelay > 2500) {
+      fetch("/api/health", { cache: "no-store" })
+        .then((r) => { if (!r.ok) throw new Error("down"); })
+        .catch(() => import("./offline.js").then((o) => o.showOffline()));
+    }
     setTimeout(() => { if (state.token) connectSocket(); }, state.reconnectDelay);
     state.reconnectDelay = Math.min(state.reconnectDelay * 1.7, 20000);
   };

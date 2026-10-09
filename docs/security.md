@@ -18,15 +18,45 @@
 - Sessions expire after 12 hours by default, and can be rotated or revoked.
 - A long-lived API token is supported for scripts, compared in constant time.
 - Failed attempts are counted per user and per address. Five failures locks
-  sign-in for 15 minutes, with `Retry-After` in the response.
-- All API requests are rate limited (120/minute per address by default).
-  Rejected requests don't count, so retrying doesn't extend the block.
+  sign-in for 15 minutes, with `Retry-After` in the response. Helpers are
+  locked out per account, the same way.
+- All API requests are rate limited (120/minute per address by default),
+  and again per signed-in account. Rejected requests don't count, so
+  retrying doesn't extend the block.
+- Helper passwords are hashed exactly like the owner's, in the `accounts`
+  table. A sign-in for an unknown name still runs a full-strength hash, so
+  the time taken doesn't reveal which names exist.
+- The owner's password can't be changed over the network. It is reset on
+  the PC with `python -m installer.reset_password`, which asks twice, writes
+  only the hash to `.env`, never shows or logs the password, and deletes
+  every session. A running agent notices `.env` changed and uses the new
+  hash at once. `tests/test_helpers.py` checks no route reaches it.
 
 ## Secrets
 
 Secrets are read from environment variables via `.env`:
 `MCSC_ADMIN_PASSWORD_HASH`, `MCSC_API_TOKEN`, `MCSC_DISCORD_WEBHOOK`,
-`MCSC_SMTP_USERNAME`, `MCSC_SMTP_PASSWORD`.
+`MCSC_SMTP_USERNAME`, `MCSC_SMTP_PASSWORD`, `MCSC_VAPID_PRIVATE_KEY`.
+
+Two files leave the PC on purpose, and both are built to hold no secrets
+unless asked:
+
+- **Export everything** (Move to a new PC) holds settings, data and server
+  folders. `.env`'s values, helpers' password hashes, phone subscriptions
+  and `server.properties`' RCON and management passwords go in only when
+  "Passwords and keys" is ticked, and then only inside `secrets.bin`,
+  encrypted with AES-256-GCM under a key derived from a passphrase with
+  scrypt (n=2^15, r=8, p=1). The passphrase is never stored. Without it, the
+  plain parts have those passwords blanked.
+- **Get help** holds this app's logs, the install logs, a fresh `--check`
+  report and version facts. Never `.env`, `config.yaml`, the database,
+  certificates, worlds, backups or Minecraft's own logs (they hold players'
+  addresses). Every line is passed through redaction first: the actual
+  secret values in use, password hashes, bearer tokens, webhook URLs and
+  `password=`-style pairs are cut. The file list is shown before it's made.
+
+`tests/test_first_run_safety.py` builds both with known secret values and
+fails if any of them is found inside.
 
 None of these appear in `config.yaml`, in source, or in the browser, and
 `.env` is gitignored. The settings API reports only whether a secret is
@@ -57,6 +87,23 @@ own console output; nothing is reconstructed from what this app sent.
 
 Auto-sleep adds no new way to run anything either: it stops a server through
 the same code path as a scheduled stop.
+
+Keeping the PC awake runs no program either. It calls Windows'
+`SetThreadExecutionState` directly through `ctypes` from the agent's own
+thread, and reads the battery (psutil) and the lid setting
+(`powrprof.dll`, read only). The dashboard can only turn it on or off.
+
+The folder picker (`GET /api/folders`, owner only) lists folder names inside
+one folder, and whether each holds a `level.dat`. It never lists files or
+reads their contents, and it follows no links. Whatever folder is picked is
+checked again by the feature that uses it: an off-PC copy folder must exist,
+be writable, not be a system folder and not overlap the servers or the
+app's data (`agent/backups/offsite.py`); a world folder must hold a
+`level.dat`.
+
+A world brought in as a `.zip` is read through the same zip-slip check every
+extraction uses (`check_archive_member`) before anything is written; a zip
+with a path that would land outside the server folder is refused whole.
 
 ### The one program the agent runs that isn't Minecraft
 
@@ -177,8 +224,19 @@ rules on somebody's behalf, and a new server is refused outright without it.
 Every REST route declares the permission it needs (`server.control`,
 `backups.restore`, `servers.manage`, …, listed in
 `agent/security/permissions.py`), and a test fails if a route is added without
-one. WebSocket messages are checked the same way. Today every signed-in
-account has every permission; this is the hook helper accounts will use.
+one. WebSocket messages are checked the same way.
+
+There are two roles. The **owner** (the account in `.env`, and the API
+token) holds every permission. A **helper** can start, stop and restart,
+manage players, chat, take a backup and view everything, and nothing else:
+no settings, no restoring, downloading or deleting backups, no mods or
+versions, no console commands, no user management, and no security page
+(it shows sign-in addresses). A permission added later is the owner's
+alone until it is added to the helper role on purpose. A helper can also be
+limited to some servers: every per-server route is refused for the others
+(`server_access`), the server list and jobs leave them out, and the live
+connection carries none of their events. `tests/test_helpers.py` walks every
+route as a helper and expects 403 wherever the role doesn't allow it.
 The player buttons need `players.manage`, game settings and importing a
 modpack into a server need `settings.edit`, reading a modpack needs
 `mods.manage`, and duplicating or creating a server from a pack needs
@@ -243,7 +301,9 @@ and to deliver phone alerts.
   `/api` or `/ws` returns before the caching branch, so no world data, no
   player name and no sign-in token is ever written to the phone's storage.
 - It asks the network first and falls back to the cache, so the dashboard is
-  never a stale copy of itself.
+  never a stale copy of itself. When the PC can't be reached at all,
+  opening any dashboard address gets the cached page, whose offline screen
+  ("Can't reach your PC") tries `/api/health` again by itself.
 - It calls no `eval`, no `Function` and no `importScripts`, so nothing it is
   sent can become code.
 - A phone alert is rendered from the JSON in the push message alone; the
@@ -281,7 +341,10 @@ includes the keys.
 ## Auditing
 
 Every privileged action is written to `audit_log` with the time, user,
-source address, action, target and result. The Security page shows it. Mod
+source address, action, target and result. Routes write their own, more
+specific entries; any other signed-in POST, PUT or DELETE gets a plain one
+from a middleware in `agent/main.py`, refused ones (403) included, so a
+helper's every attempt is recorded under their name. The Security page shows it. Mod
 changes also get a record in `mod_history` with checksums and source URLs.
 
 ## Transport

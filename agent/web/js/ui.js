@@ -339,15 +339,18 @@ const DOCS = "https://github.com/peyoteheadlights/minecraft-server-controller/bl
 
 /* Every topic a "?" can explain. Each one has a "help.<topic>" entry in the
    strings table, which tests/test_strings.py checks against this list. */
-export const HELP_TOPICS = ["autosleep", "phone_alerts", "world_undo", "keep_backups", "memory"];
+export const HELP_TOPICS = ["autosleep", "phone_alerts", "world_undo", "keep_backups", "memory",
+  "offsite", "keep_awake"];
 
 export function help(topic, doc = null) {
   if (!HELP_TOPICS.includes(topic)) console.error(`Unknown help topic: ${topic}`);
   const id = `help-${topic.replace(/[^a-z0-9]/g, "-")}-${Math.random().toString(36).slice(2, 7)}`;
   const panel = el("div", { class: "help-text", id, hidden: true },
     el("p", {}, t(`help.${topic}`)),
-    doc ? el("a", { class: "btn plain small", href: `${DOCS}${doc}.md`, target: "_blank", rel: "noopener noreferrer" },
-      t("help.learn_more")) : null);
+    el("div", { class: "btn-row" },
+      el("a", { class: "btn plain small", href: "#getting-started" }, t("help.getting_started")),
+      doc ? el("a", { class: "btn plain small", href: `${DOCS}${doc}.md`, target: "_blank", rel: "noopener noreferrer" },
+        t("help.learn_more")) : null));
   const button = el("button", {
     class: "help-button", type: "button", "aria-expanded": "false", "aria-controls": id,
     title: t("help.what_is_this"), "aria-label": t("help.what_is_this"),

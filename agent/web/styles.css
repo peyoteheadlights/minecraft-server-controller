@@ -1249,3 +1249,69 @@ td .btn-row { flex-wrap: nowrap; justify-content: flex-end; }
   .chat-line { grid-template-columns: 48px minmax(0, auto) minmax(0, 1fr); padding: 3px var(--space-3); }
   .timeline-point { align-items: flex-start; }
 }
+
+/* ------------------------------------------------------------------ offline screen */
+.offline {
+  position: fixed; inset: 0; z-index: 90;
+  display: grid; place-items: center;
+  padding: var(--space-5);
+  background: var(--sheet);
+  overflow-y: auto;
+}
+.offline[hidden] { display: none; }
+.offline-panel { width: min(420px, 100%); text-align: center; }
+.offline-panel h1 { font-size: 22px; font-weight: 600; margin-bottom: var(--space-3); }
+.offline-reasons {
+  text-align: left; margin: var(--space-4) 0; padding-left: 1.2em;
+  color: var(--text-secondary);
+}
+.offline-reasons li { margin: 4px 0; }
+.offline-panel .btn { min-width: 160px; }
+
+/* ------------------------------------------------------------------ Phase 6 pieces */
+.drop-zone {
+  border: 1px dashed var(--border-strong);
+  border-radius: 10px;
+  padding: var(--space-5) var(--space-4);
+  text-align: center;
+  color: var(--text-secondary);
+  background: var(--surface-sunken);
+}
+.drop-zone.over { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
+.saves-list { list-style: none; margin: 6px 0 0; padding: 0; }
+.saves-list li { display: flex; align-items: center; gap: var(--space-3); padding: 6px 0; border-top: 0.5px solid var(--border); }
+.saves-list li:first-child { border-top: 0; }
+.folder-where { font-size: 12px; color: var(--text-secondary); margin-bottom: var(--space-2); word-break: break-all; }
+.folder-list { list-style: none; margin: 0; padding: 0; max-height: 50vh; overflow-y: auto; }
+.folder-row {
+  display: flex; align-items: center; gap: var(--space-2); width: 100%;
+  padding: 7px 8px; border: 0; border-radius: 6px; background: none;
+  color: var(--text-primary); font: inherit; text-align: left; cursor: pointer;
+}
+.folder-row:hover, .folder-row:focus-visible { background: var(--surface-hover); }
+.folder-row .icon { width: 14px; height: 14px; flex: none; color: var(--text-tertiary); }
+.memory-slider { display: flex; align-items: center; gap: var(--space-3); margin: var(--space-3) 0; }
+.memory-slider input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); }
+.memory-value { min-width: 64px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.copy-cell { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.file-list { list-style: none; margin: var(--space-2) 0; padding: 0; font-size: 12px; max-height: 40vh; overflow-y: auto; }
+.file-list li { padding: 2px 0; }
+.guide { list-style: none; counter-reset: step; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+.guide-step {
+  counter-increment: step;
+  display: flex; align-items: center; gap: var(--space-4);
+  padding: var(--space-4); border-radius: 10px;
+  background: var(--surface); box-shadow: var(--shadow-control), 0 0 0 0.5px var(--border);
+}
+.guide-step::before {
+  content: counter(step);
+  flex: none; width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--accent-soft); color: var(--accent-ink); font-weight: 600;
+}
+.guide-step h3 { font-size: 15px; margin: 0 0 2px; }
+.guide-step p { margin: 0; }
+@media (max-width: 600px) {
+  .guide-step { flex-wrap: wrap; }
+}
+.guide-step > .grow { flex: 1; min-width: 0; }

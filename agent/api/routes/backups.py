@@ -2,21 +2,25 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 
+from ...backups import offsite
+from ...config import PROJECT_ROOT
 from ...security.auth import Principal
+from ...security.paths import PathSafetyError
 from ...security.permissions import (
     BACKUPS_CREATE,
     BACKUPS_DELETE,
     BACKUPS_DOWNLOAD,
     BACKUPS_RESTORE,
     SERVER_VIEW,
+    SETTINGS_EDIT,
     require,
 )
-from ..deps import get_server
+from ..deps import audit, get_server
 from ..errors import audit_failure, respond_as
-from .models import BackupRequest, RestoreRequest
+from .models import BackupRequest, OffsiteRequest, RestoreRequest
 
 router = APIRouter()
 
@@ -113,3 +117,61 @@ async def delete_backup(
     with respond_as(404):
         result = await ctx.backups.delete(backup_id, user=principal.user)
     return {"ok": True, **result}
+
+
+@router.get("/backups/offsite")
+async def offsite_status(
+    principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
+):
+    """Where second copies go, and whether that folder can be reached now."""
+    root = ctx.backups.offsite_root
+    return {
+        "directory": str(root) if root else "",
+        "unavailable": offsite.unavailable_reason(root) if root else None,
+        "subfolder": str(offsite.target_folder(root, ctx.server_id)) if root else None,
+    }
+
+
+@router.put("/backups/offsite")
+async def set_offsite(
+    payload: OffsiteRequest,
+    request: Request,
+    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    ctx=Depends(get_server),
+):
+    """Choose (or clear) the folder for second copies. Existing backups are
+    not copied by this; new ones are, and any one can be copied from the list."""
+    value = ""
+    if payload.directory.strip():
+        protected = [PROJECT_ROOT, ctx.core.config.data_dir, ctx.config.backup_dir]
+        protected += [other.config.server_dir for other in ctx.core.servers.values()]
+        try:
+            value = str(offsite.check_folder(payload.directory, protected))
+        except PathSafetyError as exc:
+            audit(ctx, request, "offsite_folder", result="refused", detail=str(exc))
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    previous = ctx.config.backups.offsite_directory
+    ctx.config.set("backups.offsite_directory", value)
+    try:
+        ctx.config.save()
+    except OSError as exc:
+        ctx.config.set("backups.offsite_directory", previous)
+        raise HTTPException(
+            status_code=500, detail=f"The setting couldn't be saved: {exc}"
+        ) from exc
+    audit(ctx, request, "offsite_folder", detail=value or "off")
+    return {"ok": True, "directory": value}
+
+
+@router.post("/backups/{backup_id}/copy")
+async def copy_backup(
+    backup_id: int,
+    request: Request,
+    principal: Principal = Depends(require(BACKUPS_CREATE)),
+    ctx=Depends(get_server),
+):
+    """Copy one backup off the PC now (again, if the last try failed)."""
+    with audit_failure(ctx, request, "backup_copy", target=str(backup_id)):
+        result = await ctx.backups.copy_again(backup_id, user=principal.user)
+    request.state.audited = True  # copy_again writes its own entry
+    return {"ok": result.get("state") == "ok", "copy": result}

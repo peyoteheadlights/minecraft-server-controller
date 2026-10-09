@@ -5,8 +5,13 @@
 
    The table between the two markers is plain JSON, so tests can read it:
    tests/test_strings.py checks every entry has both versions with the same
-   {placeholders}, and that every key the code uses exists. More languages
-   can later live in their own files with this one as the fallback. */
+   {placeholders}, and that every key the code uses exists.
+
+   Ready for translation: this English table is the fallback for every
+   other language. A language is one file, agent/web/lang/<code>.json, with
+   the same keys and the same [Simple, Technical] pairs; it may hold only
+   some of them, and any key it leaves out is shown in English. See
+   docs/translating.md. */
 
 export const STRINGS = /* strings-table */ {
   "app.name": ["Minecraft Server Control", "Minecraft Server Control"],
@@ -398,13 +403,6 @@ export const STRINGS = /* strings-table */ {
   "serverset.restart_delay": ["Wait before restart (seconds)", "Restart delay (s)"],
   "serverset.max_crashes": ["Stop after this many crashes", "Max crashes in window"],
   "serverset.max_crashes_hint": ["…within {minutes} minutes. Then auto restarts pause until you allow them.", "Within {minutes} min; then auto-restart is blocked until cleared."],
-  "serverset.memory": ["Memory", "Memory"],
-  "serverset.memory_limit": ["Max memory (GB)", "Max heap -Xmx (GB)"],
-  "serverset.memory_hint": ["Leave enough for Windows and other programs.", "Sets -Xmx in the JVM arguments. Applies on next start."],
-  "serverset.memory_unset": ["No limit set. Java picks one.", "No -Xmx set: the JVM default applies."],
-  "serverset.launch_args": ["Java options", "JVM arguments"],
-  "serverset.jvm_args": ["Java options", "JVM arguments"],
-  "serverset.jvm_args_hint": ["One line. Used from the next start.", "Space-separated. Applies on next start."],
   "serverset.cpu": ["CPU cores", "CPU affinity"],
   "serverset.cpu_unreadable": ["Couldn't read this PC's cores.", "Logical core count unavailable."],
   "serverset.all_cores": ["All cores ({count})", "All logical cores ({count})"],
@@ -1286,8 +1284,6 @@ export const STRINGS = /* strings-table */ {
                               "Empty. The countdown starts at the next check."],
   "serverset.sleep_restart_note": ["It does not start again by itself: start it here or on a schedule.",
                                    "No automatic start follows: start it here or with a schedule."],
-  "serverset.memory_label": ["How much memory the server may use",
-                             "Java heap limit for this server"],
   "serverset.keep_label": ["How many backups to keep", "Backup retention"],
 
   "appset.phone": ["Phone alerts", "Phone alerts (Web Push)"],
@@ -1349,7 +1345,214 @@ export const STRINGS = /* strings-table */ {
   "feed.agent_started": ["This app started.", "Agent started."],
   "feed.agent_stopping": ["This app stopped.", "Agent stopping."],
 
-  "alert_event.autosleep": ["Server stopped because nobody was playing", "Auto-sleep stopped a server"]
+  "alert_event.autosleep": ["Server stopped because nobody was playing", "Auto-sleep stopped a server"],
+
+  "alert_event.backup_copy_failed": ["Backup's second copy failed", "Off-PC backup copy failed"],
+  "alert_event.world_imported": ["World imported", "World imported over the server's world"],
+  "alert_event.helper_added": ["Helper added", "Helper account created"],
+  "alert_event.helper_removed": ["Helper removed", "Helper account deleted"],
+  "page.helpers": ["Helpers", "Helper accounts"],
+  "page.getting_started": ["Getting started", "Getting started"],
+  "start.guide": ["Read the guide", "Open the Getting started guide"],
+  "help.getting_started": ["Getting started", "Getting started"],
+  "help.offsite": ["A second copy of each backup on another drive or a cloud folder, so a broken PC or drive doesn't take the backups with it.", "Each verified backup is copied to the chosen folder and its SHA-256 checked after the copy. Retention removes copies too."],
+  "help.keep_awake": ["While a server is running, Windows is asked not to sleep, so it doesn't stop for everyone playing.", "Calls SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED) while any server runs. The lid, the power button and a low battery can still sleep the PC."],
+  "helpers.lead": ["Give friends their own sign-in. They can run the server and look after players, but can't change how it's set up.", "Helper accounts: own credentials, the Helper role, optionally limited to some servers. Every action is checked on the agent."],
+  "helpers.list": ["Helpers", "Helper accounts"],
+  "helpers.none": ["No helpers yet", "No helper accounts"],
+  "helpers.none_hint": ["Add one below to let a friend start and stop the server.", "Create one below."],
+  "helpers.col_name": ["Name", "Username"],
+  "helpers.col_servers": ["Servers", "Servers"],
+  "helpers.col_last": ["Last sign-in", "Last sign-in"],
+  "helpers.every_server": ["Every server", "All servers"],
+  "helpers.change_servers": ["Servers", "Change servers"],
+  "helpers.new_password": ["New password", "Reset password"],
+  "helpers.remove": ["Remove", "Delete"],
+  "helpers.owner_note": ["You sign in as {owner}, the owner. Only the owner can change settings and manage helpers.", "Owner account: {owner} (from .env). The owner holds every permission."],
+  "helpers.add": ["Add a helper", "Create a helper account"],
+  "helpers.username": ["Name to sign in with", "Username"],
+  "helpers.username_hint": ["2 to 32 letters, numbers, dots, dashes or underscores.", "2 to 32 characters: A-Z, a-z, 0-9, . _ -"],
+  "helpers.password": ["Password", "Password"],
+  "helpers.password_hint": ["At least 10 characters. Give it to them yourself.", "At least 10 characters. Stored as a PBKDF2 hash only."],
+  "helpers.adding": ["Adding…", "Creating…"],
+  "helpers.add_button": ["Add helper", "Create account"],
+  "helpers.added": ["{name} can sign in now.", "Helper {name} created."],
+  "helpers.pick_a_server": ["Pick at least one server, or every server.", "Select at least one server."],
+  "helpers.servers_title": ["Which servers can {name} use?", "Servers for {name}"],
+  "helpers.password_title": ["New password for {name}", "Reset {name}'s password"],
+  "helpers.password_body": ["They're signed out everywhere and use the new password from now on.", "All of their sessions end."],
+  "helpers.set_password": ["Set password", "Set password"],
+  "helpers.password_set": ["{name} has a new password and was signed out.", "Password reset; {name}'s sessions revoked."],
+  "helpers.remove_title": ["Remove {name}?", "Delete helper {name}?"],
+  "helpers.remove_body": ["They're signed out at once and can't sign in again.", "The account and all its sessions are deleted."],
+  "helpers.removed": ["{name} was removed.", "Helper {name} deleted."],
+  "helpers.what": ["What helpers can do", "Helper role"],
+  "helpers.can": ["Can", "Allowed"],
+  "helpers.cannot": ["Can't", "Refused (403)"],
+  "helpers.can_start": ["Start, stop and restart", "server.control"],
+  "helpers.can_players": ["Whitelist, kick, ban and make operator", "players.manage"],
+  "helpers.can_chat": ["Chat in the game", "chat.send"],
+  "helpers.can_backup": ["Take a backup", "backups.create"],
+  "helpers.can_view": ["See every page", "server.view, settings.view, system.view"],
+  "helpers.cannot_settings": ["Change settings", "settings.edit"],
+  "helpers.cannot_backups": ["Restore, download or delete backups", "backups.restore, backups.download, backups.delete"],
+  "helpers.cannot_mods": ["Install or remove mods, or change versions", "mods.manage, servers.manage"],
+  "helpers.cannot_console": ["Type console commands", "console.send"],
+  "helpers.cannot_users": ["Manage helpers or see sign-ins", "users.manage, security.view"],
+  "account.title": ["Your account", "Account"],
+  "account.owner": ["You're signed in as {name}, the owner.", "Signed in as {name} (owner, from .env)."],
+  "account.owner_reset": ["Forgot the password? On the PC, open PowerShell in the app's folder and run:", "The owner password is only reset on the PC, never over the network:"],
+  "account.helper": ["You're signed in as {name}, a helper.", "Signed in as {name} (helper)."],
+  "account.current": ["Current password", "Current password"],
+  "account.new": ["New password", "New password"],
+  "account.change": ["Change password", "Change password"],
+  "account.changed": ["Password changed. Other devices were signed out.", "Password changed; other sessions revoked."],
+  "awake.title": ["Keep the PC awake", "Sleep prevention"],
+  "awake.label": ["Keep the PC awake while a server runs", "SetThreadExecutionState while a server runs"],
+  "awake.active": ["On now: {names} is running.", "Active: ES_SYSTEM_REQUIRED held for {names}."],
+  "awake.idle": ["No server is running, so Windows may sleep as usual.", "Idle: no server running, request released."],
+  "awake.off_now": ["Off. Windows may sleep while a server runs.", "Disabled (power.keep_awake = false)."],
+  "awake.unsupported": ["Only works on Windows.", "Not available on this platform."],
+  "awake.turned_on": ["The PC stays awake while a server runs.", "Sleep prevention on."],
+  "awake.turned_off": ["Windows may sleep again while a server runs.", "Sleep prevention off."],
+  "awake.still_title": ["Windows can still sleep:", "Still able to sleep:"],
+  "awake.still_on_battery": ["This PC is on battery. A low battery still puts it to sleep.", "Running on battery (psutil): low-battery action still applies."],
+  "awake.still_lid_sleeps": ["Closing the lid puts it to sleep. Change that in Windows' power settings.", "Lid close action is sleep or hibernate in the active power plan."],
+  "awake.battery": ["Battery {percent}%, {source}.", "Battery {percent}% ({source})."],
+  "awake.plugged_in": ["plugged in", "AC"],
+  "awake.on_battery": ["on battery", "DC"],
+  "export.title": ["Move to a new PC", "Export everything"],
+  "export.lead": ["Saves everything this app knows into one file. On the new PC, the installer's \"Import from another PC\" puts it all back.", "One .zip with config.yaml, database rows and server folders. Import with python -m installer.import_from_pc."],
+  "export.always": ["Settings, servers, mods and configs ({size})", "Config, data and server folders without worlds ({size})"],
+  "export.worlds": ["Worlds ({size})", "World folders ({size})"],
+  "export.backups": ["Backups ({size})", "Backup archives ({size})"],
+  "export.secrets": ["Passwords and keys, locked with a passphrase", "Secrets (.env values, helper hashes, push subscriptions), AES-GCM with a scrypt key"],
+  "export.passphrase": ["Passphrase", "Passphrase"],
+  "export.passphrase_hint": ["At least 10 characters. You'll need it on the new PC. It can't be recovered.", "Min 10 characters. Not stored; needed to decrypt secrets.bin."],
+  "export.button": ["Export everything", "Export"],
+  "export.working": ["Exporting…", "Writing export…"],
+  "export.done": ["Saved ({size}). Keep it somewhere safe.", "Export written ({size})."],
+  "export.failed": ["The export didn't finish.", "The export job failed."],
+  "export.other_side": ["Without passwords and keys, you choose a new password on the new PC and add helpers again.", "Without secrets, run setup.ps1 on the new PC for a new owner password; helpers are recreated by hand."],
+  "gethelp.title": ["Get help", "Support bundle"],
+  "gethelp.lead": ["Saves one file to send to whoever is helping you: this app's logs, the install logs and a fresh system check. No passwords or worlds.", "Zip of agent logs, install/startup logs, the --check report and version info, with secrets redacted."],
+  "gethelp.button": ["Get help file", "Save support bundle"],
+  "gethelp.listing": ["Checking…", "Listing files…"],
+  "gethelp.confirm_title": ["Save this help file?", "Save support bundle?"],
+  "gethelp.confirm_body": ["It holds exactly these files:", "Contents:"],
+  "gethelp.made_now": ["(made now)", "(generated)"],
+  "gethelp.never": ["Never included: passwords, keys, .env, the database, worlds and backups. Anything that looks like a password in a log is blanked.", "Excluded: .env, config.yaml, the database, certificates, worlds, backups and Minecraft logs. Log lines are redacted."],
+  "gethelp.save": ["Save file", "Save"],
+  "gethelp.saved": ["Help file saved.", "Support bundle saved."],
+  "gethelp.crash_hint": ["Send this to whoever is helping you.", "Logs and --check report for support."],
+  "offline.title": ["Can't reach your PC", "Agent unreachable"],
+  "offline.lead": ["The dashboard reconnects by itself when the PC answers again.", "No response from /api/health. Retrying with backoff."],
+  "offline.reason_asleep": ["The PC is asleep or turned off.", "The host is asleep or powered off."],
+  "offline.reason_app": ["The app on the PC isn't running.", "The agent process isn't running."],
+  "offline.reason_network": ["This device isn't on Tailscale, or the network is down.", "No route to the host (Tailscale down or not connected)."],
+  "offline.next_try": ["Trying again in {seconds} s", "Next retry in {seconds} s"],
+  "offline.trying": ["Trying now…", "Retrying…"],
+  "offline.try_now": ["Try now", "Retry now"],
+  "folders.title": ["Choose a folder", "Choose a folder"],
+  "folders.choose": ["Use this folder", "Select"],
+  "folders.this_pc": ["This PC", "This PC"],
+  "folders.up": ["Up one folder", "Parent folder"],
+  "folders.home": ["Your folder", "Home"],
+  "folders.desktop": ["Desktop", "Desktop"],
+  "folders.onedrive": ["OneDrive", "OneDrive"],
+  "folders.google_drive": ["Google Drive", "Google Drive"],
+  "folders.dropbox": ["Dropbox", "Dropbox"],
+  "folders.saves": ["Minecraft saves", "Minecraft saves"],
+  "folders.drive": ["Drive {name}", "{name}"],
+  "folders.world": ["World", "level.dat"],
+  "folders.empty": ["No folders in here.", "No subfolders."],
+  "folders.truncated": ["Only the first 500 folders are shown.", "Listing truncated at 500 entries."],
+  "import.title": ["Bring a world in", "Import a world"],
+  "import.lead": ["Use a world from single-player or another server. It's read and shown first; this server's world is backed up before it's replaced.", "Zip or folder with level.dat. Zip-slip checked, then applied via the safe-change routine with a backup of the current world."],
+  "import.stop_first": ["Stop the server first.", "Stop the server first."],
+  "import.drop": ["Drop a world .zip here", "Drop a .zip with level.dat here"],
+  "import.choose_zip": ["Choose a .zip", "Upload .zip"],
+  "import.choose_folder": ["Choose a folder", "Pick a folder"],
+  "import.pick_title": ["Choose the world's folder", "Choose a folder with level.dat"],
+  "import.from_saves": ["From single-player", "From .minecraft/saves"],
+  "import.use": ["Use", "Use"],
+  "import.reading": ["Reading…", "Inspecting…"],
+  "import.name": ["Name", "LevelName"],
+  "import.version": ["Last played on", "Minecraft version"],
+  "import.size": ["Size", "Size"],
+  "import.size_value": ["{size} in {files} files", "{size}, {files} files"],
+  "import.last_played": ["Last played", "LastPlayed"],
+  "import.confirm_title": ["Use \"{name}\" as this server's world?", "Replace the world with {name}?"],
+  "import.confirm_body": ["This server's world is backed up first, so you can undo this from Backups.", "A verified backup of the current world folders is taken first; it is the undo."],
+  "import.confirm_action": ["Replace world", "Import"],
+  "import.read_problem": ["Its level.dat couldn't be read fully ({problem}), so its name and version are Unknown.", "level.dat parse error: {problem}"],
+  "import.working": ["Importing the world…", "Importing…"],
+  "import.done": ["World imported.", "World imported."],
+  "import.done_with_undo": ["World imported. The old one is in Backups if you want it back.", "World imported; undo restores the safety backup."],
+  "download.title": ["Take the world home", "Download the world"],
+  "download.lead": ["Saves this server's world as a .zip you can put in single-player's saves folder.", "Zip in single-player layout (DIM-1 and DIM1 inside the world folder), with saving paused while it packs."],
+  "download.button": ["Download world", "Download .zip"],
+  "download.packing": ["Packing…", "Packing…"],
+  "offsite.title": ["Second copy off this PC", "Off-PC backup copies"],
+  "offsite.lead": ["Keep a copy of each backup on a USB drive or a cloud folder.", "Copy each verified backup to another folder and check its hash."],
+  "offsite.off": ["Off. Backups are only on this PC.", "Not configured (backups.offsite_directory is empty)."],
+  "offsite.folder_ok": ["New backups are also copied to {folder}.", "Copying to {folder}."],
+  "offsite.folder_unavailable": ["{folder} can't be reached: {reason}. Backups still work; their copies wait.", "{folder} unavailable: {reason}. Local backups are unaffected."],
+  "offsite.choose": ["Choose a folder", "Choose folder"],
+  "offsite.change": ["Change folder", "Change folder"],
+  "offsite.turn_off": ["Turn off", "Disable"],
+  "offsite.pick_title": ["Where should the second copies go?", "Folder for off-PC copies"],
+  "offsite.saved": ["New backups will be copied there. Copy older ones from the list.", "Saved. Existing backups are not copied automatically."],
+  "offsite.turned_off": ["Second copies are off.", "Off-PC copies disabled."],
+  "offsite.col": ["Second copy", "Off-PC copy"],
+  "offsite.copied": ["Copied and checked", "Copied, SHA-256 matches"],
+  "offsite.failed": ["Failed: {reason}", "Failed: {reason}"],
+  "offsite.unreachable": ["Can't check: {reason}", "Unreachable: {reason}"],
+  "offsite.missing": ["Copy is gone", "Copy missing"],
+  "offsite.not_copied": ["Not copied", "None"],
+  "offsite.copy_now": ["Copy", "Copy now"],
+  "offsite.copying": ["Copying…", "Copying…"],
+  "offsite.copy_done": ["Copied and checked.", "Copied; hash verified."],
+  "offsite.copy_failed": ["The copy failed: {reason}. The backup on this PC is fine.", "Copy failed: {reason}. Local backup unaffected."],
+  "memory.title": ["Memory", "Memory (-Xmx)"],
+  "memory.label": ["How much memory the server may use", "Java heap limit for this server"],
+  "memory.pc_has": ["This PC has {total} of memory.", "Total RAM (psutil): {total}."],
+  "memory.pc_unknown": ["This PC's memory couldn't be read, so the slider is off. Set it in Technical mode.", "Total RAM unknown (psutil failed). The slider is disabled."],
+  "memory.not_used": ["This kind of server sets its own memory.", "This server type takes no -Xmx."],
+  "memory.now": ["Now: up to {limit}. Changes apply on the next start.", "Current -Xmx: {limit}. Applies on next start."],
+  "memory.unset": ["No limit set, so Java picks one.", "No -Xmx set: the JVM default applies."],
+  "memory.over_alone": ["{total} is more than this PC has ({pc}). Windows may slow down or the server may crash.", "-Xmx {total} exceeds total RAM {pc}."],
+  "memory.over_together": ["With {names} running, servers may use {total}, more than this PC has ({pc}).", "Running heaps with {names}: {total} > total RAM {pc}."],
+  "memory.save": ["Save memory", "Save -Xmx"],
+  "memory.saved": ["Saved. Used from the next start.", "-Xmx saved; applies on next start."],
+  "memory.saved_running": ["Saved. Restart the server to use it.", "-Xmx saved; restart to apply."],
+  "memory.raw_args": ["Java options", "JVM arguments"],
+  "memory.raw_hint": ["Every option, on one line. The slider only changes -Xmx.", "Space-separated. The slider replaces -Xmx only."],
+  "memory.save_raw": ["Save options", "Save JVM arguments"],
+  "guide.lead": ["The few things to know, in order. Each button opens the page where it's done.", "Setup steps, each linking to its page."],
+  "guide.start": ["Start your server", "Start the server"],
+  "guide.start_text": ["Press Start on the Overview. The first start makes the world, so it takes a little longer.", "Overview, Start. The first start generates the world."],
+  "guide.start_button": ["Open Overview", "Overview"],
+  "guide.friends": ["Let friends join", "Let players connect"],
+  "guide.friends_text": ["The Overview's \"How friends join\" card shows the address to type in Minecraft, with a copy button.", "The join card lists the reachable addresses and port."],
+  "guide.friends_button": ["Show addresses", "Join info"],
+  "guide.world": ["Bring a world in", "Import a world"],
+  "guide.world_text": ["Use a single-player world on this server, or take this world home as a .zip.", "Import a world zip or folder, or download this one."],
+  "guide.world_button": ["Open World", "World"],
+  "guide.backups": ["Keep backups", "Back up"],
+  "guide.backups_text": ["Back up now, add a daily schedule, and keep a second copy on a USB drive or cloud folder.", "Manual backup, a schedule, and off-PC copies."],
+  "guide.backups_button": ["Open Backups", "Backups"],
+  "guide.alerts": ["Get alerts", "Notifications"],
+  "guide.alerts_text": ["Get told on your phone, Discord or email when the server crashes or the PC needs attention.", "Push, Discord and email channels."],
+  "guide.alerts_button": ["Open App settings", "App settings"],
+  "guide.helpers": ["Add helpers", "Helper accounts"],
+  "guide.helpers_text": ["Give a friend their own sign-in to start and stop the server without changing settings.", "Accounts with the Helper role."],
+  "guide.helpers_button": ["Open Helpers", "Helpers"],
+  "guide.trouble": ["If something goes wrong", "Troubleshooting"],
+  "guide.trouble_text": ["Crashes says what happened and why. \"Get help file\" saves logs to send to whoever helps you.", "Crash analysis and the support bundle."],
+  "guide.trouble_button": ["Open Crashes", "Crashes"],
+  "guide.password": ["Forgot the password?", "Owner password reset"],
+  "guide.password_text": ["On the PC, open PowerShell in the app's folder and run this. It asks for a new password and signs everyone out.", "Local only. Asks twice, writes the hash to .env, revokes every session."]
 } /* end-strings-table */;
 
 /* The display mode, set before first paint by theme.js from what this
@@ -1363,8 +1566,39 @@ export function technical() {
 }
 
 /* The text for key in the current mode, with {name} placeholders filled. */
+/* The language in use, beyond the English table. Empty means English. */
+export const language = { code: "en", entries: {} };
+
+/* Load agent/web/lang/<code>.json. Anything that goes wrong leaves English
+   in place; a key the file doesn't have is always shown in English. */
+export async function loadLanguage(code) {
+  if (!code || code === "en" || !/^[a-z]{2}(-[A-Z]{2})?$/.test(code)) {
+    language.code = "en";
+    language.entries = {};
+    return false;
+  }
+  try {
+    const response = await fetch(`/assets/lang/${code}.json`);
+    if (!response.ok) return false;
+    const entries = await response.json();
+    language.code = code;
+    language.entries = entries && typeof entries === "object" ? entries : {};
+    document.documentElement.lang = code;
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+function lookup(key) {
+  const own = language.entries[key];
+  // a translated entry must be a [Simple, Technical] pair to be used
+  if (Array.isArray(own) && own.length === 2 && own.every((x) => typeof x === "string" && x)) return own;
+  return STRINGS[key];
+}
+
 export function t(key, values = null, mode = display.mode) {
-  const entry = STRINGS[key];
+  const entry = lookup(key);
   if (!entry) {
     // Shows up as a console error, which the browser check fails on.
     console.error(`Missing text: ${key}`);

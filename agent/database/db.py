@@ -297,9 +297,9 @@ MIGRATIONS: list[tuple[int, str]] = [
     ),
     (
         10,
-        # Phone alerts the phone app reads from the agent itself (Phase 9),
-        # since an app's web view can't receive Web Push. Only the newest
-        # few hundred are kept.
+        # Alerts the phone app's Notifications tab reads from the agent
+        # (Phase 9), since the app has no Google or Apple push. Only the
+        # newest few hundred are kept.
         """
         CREATE TABLE app_alerts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

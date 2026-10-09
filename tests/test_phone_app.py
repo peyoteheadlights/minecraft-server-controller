@@ -41,7 +41,7 @@ def crash(server_id="survival"):
     return Event(type="server_crashed", level="error", message="It crashed", server_id=server_id)
 
 
-def test_an_alert_is_kept_for_the_app_when_phone_alerts_are_on(multi_client):
+def test_an_alert_is_kept_for_the_app(multi_client):
     core = alerts_on(multi_client)
     start = multi_client.get("/api/alerts").json()
     assert start["alerts"] == [] and start["enabled"] is True
@@ -58,11 +58,22 @@ def test_an_alert_is_kept_for_the_app_when_phone_alerts_are_on(multi_client):
     assert again["alerts"] == []
 
 
-def test_nothing_is_kept_while_phone_alerts_are_off(multi_client):
+def test_alerts_are_kept_for_the_app_even_with_every_channel_off(multi_client):
     core = alerts_on(multi_client, False)
     send(core, crash())
-    assert core.db.query("SELECT * FROM app_alerts") == []
+    assert len(core.db.query("SELECT * FROM app_alerts")) == 1
     assert multi_client.get("/api/alerts").json()["enabled"] is False
+
+
+def test_an_event_switched_off_in_alert_settings_isnt_kept(multi_client):
+    core = alerts_on(multi_client)
+    response = multi_client.put(
+        "/api/settings", json={"updates": {"notifications.events.server_crashed": False}}
+    )
+    assert response.status_code == 200, response.text
+    asyncio.run(core.notifier.handle(crash()))
+    asyncio.run(core.notifier.drain())
+    assert core.db.query("SELECT * FROM app_alerts") == []
 
 
 def test_a_new_phone_doesnt_replay_old_alerts(multi_client):

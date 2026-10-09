@@ -181,7 +181,7 @@ class AppAlert(Open):
 class AppAlerts(Open):
     alerts: list[AppAlert]
     latest: int = Field(description="Ask with after=latest next time")
-    enabled: bool = Field(description="Whether phone alerts are turned on")
+    enabled: bool = Field(description="Whether Web Push phone alerts are also turned on")
 
 
 class Release(Open):

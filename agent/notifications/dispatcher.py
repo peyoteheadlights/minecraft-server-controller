@@ -471,10 +471,10 @@ class Notifier:
         }
 
     def record_app_alert(self, event: Event, title: str | None = None) -> None:
-        """Keep the alert where the phone app can read it (/api/alerts).
+        """Keep the alert for the phone app's Notifications tab (/api/alerts).
 
-        An app's web view can't receive Web Push, so the app asks the agent
-        for alerts instead. Only the newest APP_ALERTS_KEPT are kept."""
+        The app has no Google or Apple push, so it reads alerts from the
+        agent instead. Only the newest APP_ALERTS_KEPT are kept."""
         message = self.phone_message(event, title)
         try:
             self.db.insert(
@@ -490,8 +490,7 @@ class Notifier:
                 },
             )
             self.db.execute(
-                "DELETE FROM app_alerts WHERE id <= "
-                "(SELECT MAX(id) FROM app_alerts) - ?",
+                "DELETE FROM app_alerts WHERE id <= (SELECT MAX(id) FROM app_alerts) - ?",
                 (APP_ALERTS_KEPT,),
             )
         except Exception:  # pragma: no cover
@@ -583,13 +582,15 @@ class Notifier:
     async def deliver(self, event: Event) -> None:
         """Send one alert to every enabled channel. Never raises."""
         try:
+            # The app's Notifications tab lists every alert, whether or not
+            # any other channel is turned on.
+            self.record_app_alert(event)
             tasks = []
             if self.config.notifications.discord_enabled:
                 tasks.append(self.send_discord(event))
             if self.config.notifications.email_enabled:
                 tasks.append(self.send_email(event))
             if self.config.notifications.push_enabled:
-                self.record_app_alert(event)
                 tasks.append(self.send_push(event))
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)

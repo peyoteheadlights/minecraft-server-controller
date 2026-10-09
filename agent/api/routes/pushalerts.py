@@ -84,11 +84,9 @@ async def test_push(
         message="Test alert from Minecraft Server Control",
         data={"startup_seconds": 0.0},
     )
-    # The phone app reads alerts from the agent, so it gets the test too
-    # whenever phone alerts are on.
-    for_app = core.config.notifications.push_enabled
-    if for_app:
-        core.notifier.record_app_alert(event, title=PUSH_TEST_TITLE)
+    # The phone app reads alerts from the agent, so it gets the test too.
+    core.notifier.record_app_alert(event, title=PUSH_TEST_TITLE)
+    for_app = True
     sent = await core.notifier.send_push(event, title=PUSH_TEST_TITLE)
     audit(core, request, "push_test", detail=str(sent))
     return {"channel": "push", "sent": sent, "for_app": for_app, "phones": push.listed(core.db)}

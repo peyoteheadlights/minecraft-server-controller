@@ -1,10 +1,10 @@
 """What the phone app (mobile/) reads that the dashboard doesn't: the
-alerts the agent sent, since an app's web view can't receive Web Push.
+alerts the agent sent, for the app's Notifications tab.
 
-The app reads them when it opens and from time to time in the background,
-then shows each new one as a notification. They are the same alerts as
-everywhere else (``notifications.*`` decides which events send one and how
-often), kept only while phone alerts are turned on.
+The app has no Google or Apple push, so it shows new alerts live while
+open and catches up from this list when it opens again. They are the same
+alerts as everywhere else (``notifications.*`` decides which events send
+one and how often), kept whether or not any other channel is turned on.
 """
 
 from __future__ import annotations

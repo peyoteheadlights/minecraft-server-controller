@@ -285,3 +285,32 @@ async def test_player_list_reply_reconciles_state(parts):
     await tracker.player_joined("Ghost")
     await tracker.reconcile(["Steve", "Alex"])
     assert sorted(p["username"] for p in tracker.online()) == ["Alex", "Steve"]
+
+
+def test_every_alert_setting_has_an_event_that_sends_it(config):
+    from agent.notifications.dispatcher import EVENT_MAP
+
+    sent_by = {mapping[0] for mapping in EVENT_MAP.values()}
+    missing = set(config.notifications.events) - sent_by
+    assert not missing, f"alert settings no event sends: {sorted(missing)}"
+
+
+@pytest.mark.parametrize(
+    "event_type", ["backup_copy_failed", "world_imported", "helper_added", "helper_removed"]
+)
+async def test_phase6_events_reach_discord(parts, monkeypatch, event_type):
+    config, bus, db, server = parts
+    config.set("notifications.discord_enabled", True)
+    monkeypatch.setenv("MCSC_DISCORD_WEBHOOK", "https://discord.example/webhook")
+    posted = []
+
+    async def post(self, url, *args, **kwargs):
+        posted.append(kwargs.get("json"))
+        return httpx.Response(204, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", post)
+    notifier = Notifier(config, bus, db, server)
+    await notifier.handle(Event(type=event_type, message="it happened", data={"username": "ann"}))
+    await notifier.drain()
+    assert len(posted) == 1
+    assert notifier.history()[0]["status"] == "sent"

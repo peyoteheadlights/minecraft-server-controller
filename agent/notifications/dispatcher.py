@@ -102,6 +102,15 @@ EVENT_MAP: dict[str, tuple[str, str, int, str]] = {
         "{server}: CPU core limit not applied",
     ),
     "autosleep_stopped": ("autosleep", "😴", 0x9AA0A6, "{server} stopped: nobody was playing"),
+    "backup_copy_failed": (
+        "backup_copy_failed",
+        "❌",
+        0xED4245,
+        "{server}: backup's second copy failed",
+    ),
+    "world_imported": ("world_imported", "🌍", 0x3BA55D, "{server}: world imported"),
+    "helper_added": ("helper_added", "👤", 0x5865F2, "Helper added"),
+    "helper_removed": ("helper_removed", "👤", 0xFAA61A, "Helper removed"),
 }
 
 

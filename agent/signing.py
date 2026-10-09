@@ -41,7 +41,7 @@ PRODUCT = "Minecraft Server Controller"
 # The public half of the owner's release signing key (32 bytes, base64).
 # Written by make-update-key.cmd (scripts/make_update_key.py). Empty:
 # updates are never installed by the app itself.
-UPDATE_PUBLIC_KEY = ""
+UPDATE_PUBLIC_KEY = "vF9SYzNynG3vf5kdnC+N7OuxqWXpd1LIO1rnzQ3Nz5M="
 
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 MAX_RELEASE_FILE = 8192

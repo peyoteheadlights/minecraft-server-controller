@@ -122,7 +122,9 @@ export function renderRail() {
    lands on that server's page. App-wide pages are just #app-settings. An
    old #console link still works: it opens that page of the current server. */
 export function parseHash(hash = location.hash) {
-  const text = decodeURIComponent(hash.replace(/^#/, ""));
+  let text = hash.replace(/^#/, "");
+  // A mistyped link (a stray %) opens the page it can, not an error.
+  try { text = decodeURIComponent(text); } catch (e) { /* used as typed */ }
   const slash = text.indexOf("/");
   if (slash < 0) return { server: null, page: text };
   return { server: text.slice(0, slash), page: text.slice(slash + 1) };

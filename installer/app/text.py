@@ -71,7 +71,8 @@ TEXT = {
     "working": "Setting things up",
     "working_sub": "This can take a few minutes. Your servers aren't changed.",
     "failed_title": "Setup stopped",
-    "rolled_back": "Nothing was changed: your previous version is back and running.",
+    "rolled_back": "Everything was put back: your previous version is running again.",
+    "rolled_back_new": "Everything it had done was undone.",
     "not_rolled_back": "Putting the previous version back didn't fully work. "
     "Open the log for what was done.",
     "nothing_changed": "Nothing had been changed yet.",
@@ -90,6 +91,8 @@ TEXT = {
     "no_qr": "The code for your phone isn't ready yet:",
     "players_one": "1 player is online. Update now or wait?",
     "players_many": "{count} players are online. Update now or wait?",
+    "players_unknown": "A Minecraft server is running, and who is on it isn't known. "
+    "Update now or wait?",
     "update_now": "Update now",
     "wait": "Wait",
     "found_sub": "Updating keeps your settings, servers and backups.",

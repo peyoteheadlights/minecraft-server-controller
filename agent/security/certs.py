@@ -48,6 +48,13 @@ CA_VALID_DAYS = 3650  # the CA you trust once
 LEAF_VALID_DAYS = 398  # the maximum browsers accept for a server certificate
 
 
+# SYSTEM and the Administrators group, as icacls takes them by SID. Their
+# names are translated ("Administratoren" on a German Windows), and icacls
+# refuses a name it can't find, so names would fail the lock-down there.
+SYSTEM_SID = "*S-1-5-18"
+ADMINISTRATORS_SID = "*S-1-5-32-544"
+
+
 class CertificateError(RuntimeError):
     pass
 
@@ -73,9 +80,9 @@ def secure_directory(path: Path) -> Path:
                     str(path),
                     "/inheritance:r",
                     "/grant:r",
-                    "SYSTEM:(OI)(CI)F",
+                    f"{SYSTEM_SID}:(OI)(CI)F",
                     "/grant:r",
-                    "Administrators:(OI)(CI)F",
+                    f"{ADMINISTRATORS_SID}:(OI)(CI)F",
                     *(["/grant:r", f"{user}:(OI)(CI)F"] if user else []),
                 ],
                 check=False,
@@ -177,14 +184,15 @@ def _restrict_file(path: Path) -> str | None:
                     str(path),
                     "/inheritance:r",
                     "/grant:r",
-                    "SYSTEM:F",
+                    f"{SYSTEM_SID}:F",
                     "/grant:r",
-                    "Administrators:F",
+                    f"{ADMINISTRATORS_SID}:F",
                     *(["/grant:r", f"{user}:F"] if user else []),
                 ],
                 check=False,
                 capture_output=True,
                 text=True,
+                errors="replace",
                 timeout=30,
                 creationflags=NO_WINDOW,
             )

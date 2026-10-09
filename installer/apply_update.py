@@ -123,7 +123,9 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def staging_dir(program: Path) -> Path:
-    return program.with_name(program.name + ".update")
+    from .bootstrap import UPDATE_FOLDER_SUFFIX
+
+    return program.with_name(program.name + UPDATE_FOLDER_SUFFIX)
 
 
 def start(setup: Path, arguments: list[str]) -> None:

@@ -172,6 +172,7 @@ class Engine:
         self.created_settings: list[Path] = []
         self.previous_launch: dict[str, str] | None = None
         self.stopped_servers: list[str] = []
+        self.agent_stopped = False
         self.certificate_renewed = False
         self.notes: list[str] = []
         self._plan()
@@ -450,6 +451,7 @@ class Engine:
             if self.stopped_servers:
                 self.log.write("servers_stopping", servers=self.stopped_servers)
                 self._wait_servers_stopped(port, tls, token)
+        self.agent_stopped = True
         if not self.system.stop_agent(port, tls):
             raise StepFailed(
                 "The server panel didn't stop. Restart the PC and select Try again.",
@@ -565,7 +567,34 @@ class Engine:
         (self.c.data_root / OLD_COPY_RECORD).write_text(json.dumps(record, indent=2), "utf-8")
         self.log.write("settings_moved", files=copied.files, from_=str(found.program_dir))
         self._check_config()
+        self._anchor_server_folders(found.program_dir)
         return None
+
+    def _anchor_server_folders(self, old_folder: Path) -> None:
+        """A setup.ps1 copy ran from its own folder, so a server folder
+        written as a relative path (``servers/survival``) meant one inside
+        it. The installed copy runs from Program Files, so such a path is
+        written out in full, pointing where it always did."""
+        from agent.config import Config
+
+        config = Config.load(self.config_path, self.env_path)
+        changed = {}
+        for server_id in config.server_ids:
+            directory = config.for_server(server_id).server.directory.strip()
+            if directory and not Path(directory).expanduser().is_absolute():
+                full = str((old_folder / directory).resolve())
+                config.set_server_value(server_id, "server.directory", full)
+                changed[server_id] = full
+        if not changed:
+            return
+        extras = [
+            self.config_path.with_name(self.config_path.name + suffix)
+            for suffix in (".original", ".bak")
+        ]
+        new_extras = [path for path in extras if not path.exists()]
+        config.save(self.config_path)
+        self.created_settings.extend(path for path in new_extras if path.exists())
+        self.log.write("server_folders_made_absolute", servers=changed)
 
     def _check_config(self) -> None:
         from agent.config import Config
@@ -818,10 +847,19 @@ class Engine:
         """Put the PC back the way it was. Returns (rolled back?, what was
         done). None means nothing had been changed that needed it."""
         changed = self.new_program_created or self.created_settings
-        if not changed:
+        if not changed and not self.agent_stopped and not self.stopped_servers:
             return None, "Nothing had been changed yet."
         actions = []
         try:
+            if not changed and not self.agent_stopped:
+                # Only Minecraft servers were stopped, through the app,
+                # which is still running: start them again.
+                port, tls, token = self._settings()
+                for server_id in self.stopped_servers:
+                    self.system.api(port, tls, token, "POST", f"/servers/{server_id}/server/start")
+                actions.append("started the Minecraft servers it had stopped")
+                self.log.write("rolled_back", actions=actions)
+                return True, "; ".join(actions)
             port, tls, _ = self._settings()
             self.system.stop_agent(port, tls)
             if self.new_program_created:

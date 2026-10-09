@@ -184,7 +184,10 @@ all. What happens:
    to the program folder that only Administrators can change, and starts
    that copy with fixed arguments (`--update --quiet --from-app
    --program-dir <program folder>`). A file swapped after the check is
-   never the one that runs.
+   never the one that runs. That setup unpacks the program it carries into
+   the same Administrators-only folder (`installer/bootstrap.py:
+   unpack_parent`), not the person's temporary folder, which the agent's
+   own account could change.
 6. **The setup updates as it would by hand**: a restore point first, then
    the new files, then it checks the agent answers. If anything fails, it
    puts the restore point back by itself and says so. The outcome is
@@ -202,8 +205,12 @@ dashboard can cause to run, and both are listed in
 #### The signing key
 
 The private half of the update key never goes in this repo. It is a GitHub
-Actions secret (`MCSC_UPDATE_SIGNING_KEY`) that only the release workflow
-reads, plus Mark's offline copy. `docs/releases.md` has how to make it.
+Actions secret (`MCSC_UPDATE_SIGNING_KEY`) that only the release workflow's
+"Sign the update file" job reads, plus Mark's offline copy. That job runs
+in the `release` environment and installs nothing but the app's own
+hash-locked libraries, so no build or test tool (PyInstaller, pytest,
+Playwright and what they pull in) ever runs while the key is loaded
+(`tests/test_release.py` checks this). `docs/releases.md` has how to make it.
 
 **If the private key leaks** (or is lost): make a new pair with
 `python scripts/make_update_key.py --replace`, which writes the new public

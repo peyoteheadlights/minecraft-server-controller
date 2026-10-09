@@ -63,3 +63,18 @@ def test_workflows_ask_for_least_permissions():
         for name, job in flow["jobs"].items():
             if job.get("permissions", {}).get("contents") == "write":
                 assert (path.name, name) == ("release.yml", "publish"), (path.name, name)
+
+
+def test_the_signing_key_is_only_in_a_job_that_installs_only_the_app():
+    """Build and test tools (PyInstaller, pytest, Playwright...) never run
+    in the job that holds the update-signing key."""
+    flow = yaml.safe_load((WORKFLOWS / "release.yml").read_text(encoding="utf-8"))
+    holders = [
+        name for name, job in flow["jobs"].items() if "MCSC_UPDATE_SIGNING_KEY" in json.dumps(job)
+    ]
+    assert holders == ["sign"]
+    sign = flow["jobs"]["sign"]
+    assert sign.get("environment") == "release"
+    assert set(sign["permissions"].values()) == {"read"}
+    installs = [step["run"] for step in sign["steps"] if "pip install" in step.get("run", "")]
+    assert installs == ["python -m pip install --require-hashes -r requirements.lock"]

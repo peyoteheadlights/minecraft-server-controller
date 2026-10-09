@@ -27,6 +27,12 @@ in two places:
    copies can't update themselves until the new version is installed by
    hand.
 
+3. **Optional, recommended**: Settings > Environments > `release` (the
+   first release run makes it) > Deployment branches and tags > Selected,
+   add the tag rule `v*`. Then only a version tag's run can use the key.
+   You can also move the secret there (Environment secrets) and delete the
+   repository one.
+
 Then commit the change it made to `agent/signing.py` (the public key). A
 copy built without a public key never installs updates by itself, and the
 release workflow refuses to run.
@@ -66,11 +72,13 @@ The workflow then:
 - runs the tests on the Python in `.python-version`, which is the Python
   the setup file packs;
 - builds `MinecraftServerController-Setup-<version>.exe` and its `.sha256`;
+- attests the setup file with GitHub's artifact attestations
+  (`gh attestation verify <file> --repo <repo>` checks it);
 - signs `update.json` (version, file name, size, SHA-256) into
-  `update.json.sig` with the secret; it refuses if the secret's public half
-  isn't the one built in;
-- attests the setup file and `update.json` with GitHub's artifact
-  attestations (`gh attestation verify <file> --repo <repo>` checks them);
+  `update.json.sig` with the secret, in a job of its own that installs only
+  the app's own hash-locked libraries, so none of the build and test tools
+  ever run next to the key; it refuses if the secret's public half isn't
+  the one built in;
 - publishes the release with those four files and the notes. Only this
   last job can write to the repository.
 

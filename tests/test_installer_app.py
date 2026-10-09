@@ -196,6 +196,20 @@ def test_update_asks_only_when_players_are_online(qapp, monkeypatch):
     assert quiet.asked == []
     assert quiet.wizard.started
 
+    # A running server whose players can't be counted is never taken as empty.
+    unknown = make(
+        qapp,
+        monkeypatch,
+        wizard=DemoWizard(found=found, players_online=None, running=1),
+        answers=[False],
+    )
+    press(unknown, TEXT["update"])
+    assert unknown.asked == [TEXT["players_unknown"]]
+    assert unknown.wizard.started == []
+    stopped = make(qapp, monkeypatch, wizard=DemoWizard(found=found, players_online=None))
+    press(stopped, TEXT["update"])
+    assert stopped.asked == []
+
 
 def test_downgrade_is_one_sentence_and_close(qapp, monkeypatch):
     found = [

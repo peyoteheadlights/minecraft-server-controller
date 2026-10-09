@@ -18,7 +18,7 @@ import pytest
 
 from agent.config import SECRET_ENV_KEYS
 from agent.security.auth import hash_password
-from installer import detect, engine, layout, restorepoint
+from installer import detect, engine, fileops, layout, restorepoint
 from installer.engine import Choices, Engine
 from installer.progress import Progress
 
@@ -610,3 +610,110 @@ def test_a_failed_lock_down_fails_the_password_step_and_rolls_back(
     assert result.failed_step == "password"
     assert "couldn't be made private" in result.message and "administrator" in result.message
     assert "icacls exit 1332" in result.details
+
+
+# ====================================================================
+# audit fixes
+# ====================================================================
+def test_an_update_failing_before_the_new_program_is_in_place_starts_the_old_one_again(
+    places, program_files, monkeypatch
+):
+    """Copying the new program can fail (a full disk, a file held open by
+    antivirus) after the app and its servers were stopped. They come back."""
+    found = make_installer_copy(places, "1.0.0")
+    system = FakeSystem()
+    system.running = True
+    system.servers = [{"id": "s0", "name": "S0", "state": "running"}]
+
+    def full_disk(pairs, report=None):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(fileops, "copy_files", full_disk)
+    choices = Choices(
+        action=engine.UPDATE, program_dir=places["program"], data_root=places["data"], found=found
+    )
+    _, result, system = run_engine(choices, program_files, system=system)
+    assert not result.ok and result.failed_step == "program"
+    assert result.rolled_back is True, result.rollback_detail
+    assert "started the previous version again" in result.rollback_detail
+    assert system.called("start_agent")
+    assert ("api", "POST", "/servers/s0/server/start", None) in system.calls
+    assert (places["program"] / "MinecraftServerController.exe").read_bytes() == b"old agent"
+
+
+def test_servers_stopped_before_the_app_refused_to_stop_are_started_again(places, program_files):
+    found = make_installer_copy(places, "1.0.0")
+    system = FakeSystem()
+    system.running = True
+    system.servers = [{"id": "s0", "name": "S0", "state": "running"}]
+    system.stop_agent = lambda port, tls: False
+    choices = Choices(
+        action=engine.UPDATE, program_dir=places["program"], data_root=places["data"], found=found
+    )
+    _, result, system = run_engine(choices, program_files, system=system)
+    assert not result.ok and result.failed_step == "stop"
+    assert result.rolled_back is True
+    assert ("api", "POST", "/servers/s0/server/start", None) in system.calls
+
+
+def test_a_moved_copy_keeps_relative_server_folders_pointing_where_they_did(
+    tmp_path, places, program_files
+):
+    project = make_setup_ps1_install(tmp_path, places["data"])
+    inside = project / "servers" / "survival"
+    inside.mkdir(parents=True)
+    (inside / "server.properties").write_text("server-port=25565\n", encoding="utf-8")
+    config = project / "config" / "config.yaml"
+    text = config.read_text(encoding="utf-8")
+    one = str(tmp_path / "One")
+    config.write_text(text.replace(f"'{one}'", "'servers/survival'"), encoding="utf-8")
+    found = detect.classify(project)
+    choices = Choices(
+        action=engine.MIGRATE, program_dir=places["program"], data_root=places["data"], found=found
+    )
+    _, result, _ = run_engine(choices, program_files)
+    assert result.ok, result.message + result.details
+    from agent.config import Config
+
+    moved = Config.load(
+        places["data"] / "config" / "config.yaml", places["data"] / "config" / ".env"
+    )
+    assert moved.for_server("one").server_dir == inside.resolve()
+    assert moved.for_server("two").server_dir == tmp_path / "Two"
+
+
+def test_an_update_started_by_the_app_unpacks_next_to_the_program_folder(tmp_path):
+    from installer import apply_update, bootstrap
+
+    program = tmp_path / "Program Files" / layout.PRODUCT
+    staged = apply_update.staging_dir(program) / "MinecraftServerController-Setup-1.2.1.exe"
+    assert bootstrap.unpack_parent(staged) == staged.parent
+    downloaded = tmp_path / "Downloads" / "MinecraftServerController-Setup-1.2.1.exe"
+    assert bootstrap.unpack_parent(downloaded) is None
+
+
+def test_removing_data_never_removes_a_server_folder_inside_it(places):
+    from installer import uninstall
+
+    make_installer_copy(places, "1.2.0", servers=1)
+    server = places["data"] / "s0"
+    server.mkdir()
+    (server / "level.dat").write_bytes(b"world")
+    staging = places["program"].with_name(places["program"].name + ".update")
+    staging.mkdir()
+    result = uninstall.uninstall(
+        places["program"], places["data"], remove_data=True, system=FakeSystem()
+    )
+    assert (server / "level.dat").read_bytes() == b"world"
+    assert any("holds a Minecraft server folder" in p for p in result["problems"])
+    assert not places["program"].exists() and not staging.exists()
+
+    (places["data"] / "config" / "config.yaml").write_text(
+        f"paths:\n  data_dir: '{places['data']}'\nservers:\n"
+        f"  - id: s0\n    name: S0\n    directory: '{places['data'].parent / 'elsewhere'}'\n",
+        encoding="utf-8",
+    )
+    result = uninstall.uninstall(
+        places["program"], places["data"], remove_data=True, system=FakeSystem()
+    )
+    assert not places["data"].exists(), result

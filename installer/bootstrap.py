@@ -30,6 +30,8 @@ from pathlib import Path
 
 NO_WINDOW = 0x08000000 if os.name == "nt" else 0
 RELAUNCHED = "--relaunched-from-temp"
+# installer/apply_update.py's staging folder: "<program folder>.update".
+UPDATE_FOLDER_SUFFIX = ".update"
 
 
 def bundle_dir() -> Path:
@@ -49,6 +51,16 @@ def unpack(payload: Path, manifest: dict, target: Path) -> Path:
         if digest != expected:
             raise RuntimeError(f"{relative} is damaged. Download the setup file again.")
     return target / "program"
+
+
+def unpack_parent(me: Path) -> Path | None:
+    """Where to unpack the program. An update the dashboard asked for runs
+    from the folder next to the program folder that only Administrators can
+    change (installer/apply_update.py), so it unpacks there too: the
+    person's temporary folder can be changed by the app's own account,
+    which must never be able to swap what this elevated setup runs. Any
+    other run uses the usual temporary folder (None)."""
+    return me.parent if me.parent.name.endswith(UPDATE_FOLDER_SUFFIX) else None
 
 
 def message(text: str) -> None:
@@ -77,7 +89,7 @@ def main() -> int:
     folder = bundle_dir()
     try:
         manifest = json.loads((folder / "payload.json").read_text(encoding="utf-8"))
-        staging = Path(tempfile.mkdtemp(prefix="mcsc-setup-files-"))
+        staging = Path(tempfile.mkdtemp(prefix="mcsc-setup-files-", dir=unpack_parent(me)))
         program = unpack(folder / "payload.zip", manifest, staging)
     except Exception as exc:
         message(f"The setup file couldn't be opened: {exc}")

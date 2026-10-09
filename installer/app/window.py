@@ -538,9 +538,15 @@ class SetupWindow(QWidget):
 
     def update_found(self, index: int) -> None:
         online = self.wizard.players(index)
+        question = None
         if online.get("known") and (online.get("online") or 0) > 0:
-            if not self.ask(players(int(online["online"])), t("update_now"), t("wait")):
-                return
+            question = players(int(online["online"]))
+        elif not online.get("known") and online.get("running") != 0:
+            # A server is running but who is on it isn't known: never
+            # assume nobody is.
+            question = t("players_unknown")
+        if question and not self.ask(question, t("update_now"), t("wait")):
+            return
         self.answers["found"] = index
         self.run()
 
@@ -1019,7 +1025,7 @@ class SetupWindow(QWidget):
         copy.clicked.connect(lambda _c=False: copy_log())
         rolled = result.get("rolled_back")
         said = (
-            t("rolled_back")
+            t("rolled_back_new" if result.get("action") == "install" else "rolled_back")
             if rolled is True
             else t("not_rolled_back")
             if rolled is False

@@ -45,6 +45,7 @@ class DemoWizard:
         uninstall: bool = False,
         admin: bool = True,
         players_online: int | None = None,
+        running: int | None = 0,
         fail_at: int | None = None,
         older_in: str = "D:\\Apps\\Minecraft Server Controller",
     ):
@@ -53,6 +54,7 @@ class DemoWizard:
         self.uninstall_mode = uninstall
         self.admin = admin
         self.players_online = players_online
+        self.running = running
         self.fail_at = fail_at
         self.older_in = older_in
         self.started: list[dict[str, Any]] = []
@@ -104,8 +106,8 @@ class DemoWizard:
 
     def players(self, index: int) -> dict[str, Any]:
         if self.players_online is None:
-            return {"known": False, "online": None}
-        return {"known": True, "online": self.players_online}
+            return {"known": False, "online": None, "running": self.running}
+        return {"known": True, "online": self.players_online, "running": self.running}
 
     def start(self, body: dict[str, Any]) -> dict[str, Any]:
         self.started.append(body)

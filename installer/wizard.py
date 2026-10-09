@@ -180,15 +180,17 @@ class Wizard:
         except Exception:
             pass
         if not token or not self.system.agent_answers(port, tls):
-            return {"known": False, "online": None}
+            return {"known": False, "online": None, "running": 0}
         try:
             rows = self.system.api(port, tls, token, "GET", "/servers")["servers"]
         except Exception:
-            return {"known": False, "online": None}
+            # The app answers but wouldn't list its servers: one may be
+            # running with people on it, so ask rather than assume.
+            return {"known": False, "online": None, "running": None}
         counts = [r.get("players_online") for r in rows if r.get("state") == "running"]
         if any(c is None for c in counts):
-            return {"known": False, "online": None}
-        return {"known": True, "online": sum(counts)}
+            return {"known": False, "online": None, "running": len(counts)}
+        return {"known": True, "online": sum(counts), "running": len(counts)}
 
     # ------------------------------------------------------------ the work
     def choices_from(self, body: dict[str, Any]) -> engine.Choices:

@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from . import layout
+from .bootstrap import UPDATE_FOLDER_SUFFIX
 from .installlog import InstallLog
 from .system import System
 
@@ -70,9 +71,23 @@ def uninstall(
                 problems.append(f"some files in {folder} were in use and are removed on restart")
             else:
                 done.append(f"removed {folder}")
+    # The last update's checked setup file (installer/apply_update.py).
+    staging = program_dir.with_name(program_dir.name + UPDATE_FOLDER_SUFFIX)
+    if staging.is_dir():
+        shutil.rmtree(staging, ignore_errors=True)
+        done.append(f"removed {staging}")
     if remove_data and data_root.is_dir():
-        shutil.rmtree(data_root, ignore_errors=True)
-        done.append(f"removed {data_root}")
+        inside = servers_inside(data_root)
+        if inside:
+            # Minecraft server folders are never removed, so neither is the
+            # data folder that holds one.
+            problems.append(
+                f"{data_root} was kept because it holds a Minecraft server folder "
+                f"({inside[0]}). Move or delete it yourself."
+            )
+        else:
+            shutil.rmtree(data_root, ignore_errors=True)
+            done.append(f"removed {data_root}")
     note("uninstall_finished", done=done, problems=problems)
     return {
         "ok": not problems,
@@ -81,6 +96,26 @@ def uninstall(
         "kept": None if remove_data else str(data_root),
         "log": str(log.path) if log else None,
     }
+
+
+def servers_inside(data_root: Path) -> list[str]:
+    """The server folders in config.yaml that are inside the data folder."""
+    try:
+        from agent.config import Config
+
+        config = Config.load(layout.config_path(data_root), layout.env_path(data_root))
+        folders = [config.for_server(i).server_dir for i in config.server_ids]
+    except Exception:
+        return []
+    root = data_root.resolve()
+    found = []
+    for folder in folders:
+        try:
+            folder.resolve().relative_to(root)
+        except (ValueError, OSError):
+            continue
+        found.append(str(folder))
+    return found
 
 
 def _settings(data_root: Path) -> tuple[int, bool, str]:

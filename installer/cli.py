@@ -31,10 +31,11 @@ def open_dashboard() -> int:
     from agent.config import Config
 
     from . import autostart
-    from .system import System
+    from .system import System, contact_host
 
     config = Config.load()
     system = System()
+    system.host = contact_host(config.network.host)
     if not system.agent_answers(config.network.port, config.tls_enabled):
         autostart.run_tool(["schtasks.exe", "/Run", "/TN", autostart.TASK_NAME])
         deadline = time.monotonic() + 45

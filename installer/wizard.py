@@ -168,17 +168,10 @@ class Wizard:
         """Who is playing on the copy about to be updated, from the app itself."""
         found = self.found[index]
         from .setup_tool import read_env
+        from .system import read_address
 
         token = read_env(found.env_path).get("MCSC_API_TOKEN", "")
-        port, tls = 8765, True
-        try:
-            import yaml
-
-            data = yaml.safe_load(found.config_path.read_text(encoding="utf-8")) or {}
-            port = int((data.get("network") or {}).get("port") or port)
-            tls = bool((data.get("tls") or {}).get("enabled", True))
-        except Exception:
-            pass
+        self.system.host, port, tls = read_address(found.config_path)
         if not token or not self.system.agent_answers(port, tls):
             return {"known": False, "online": None, "running": 0}
         try:

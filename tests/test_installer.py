@@ -29,8 +29,12 @@ PASSWORD = "a secret password 9"
 class FakeSystem:
     """Stands in for installer.system.System."""
 
+    host = "127.0.0.1"
+    tailscale: str | None = None
+
     def __init__(self):
         self.running = False
+        self.hosts_asked: list[str] = []
         self.calls: list[tuple] = []
         self.servers = [{"id": "main", "name": "Survival", "state": "stopped"}]
         self.fail_start = False
@@ -41,10 +45,15 @@ class FakeSystem:
         return True
 
     def agent_answers(self, port, tls=True):
+        self.hosts_asked.append(self.host)
         return self.running
 
     def wait_for_agent(self, port, tls, timeout=90.0):
+        self.hosts_asked.append(self.host)
         return self.running
+
+    def tailscale_address(self):
+        return self.tailscale
 
     def api(self, port, tls, token, method, path, body=None):
         self.calls.append(("api", method, path, body))
@@ -717,3 +726,88 @@ def test_removing_data_never_removes_a_server_folder_inside_it(places):
         places["program"], places["data"], remove_data=True, system=FakeSystem()
     )
     assert not places["data"].exists(), result
+
+
+# ====================================================================
+# the address the app listens on
+# ====================================================================
+@pytest.mark.parametrize(
+    "network_host, contacted",
+    [
+        ("127.0.0.1", "127.0.0.1"),
+        ("", "127.0.0.1"),
+        ("0.0.0.0", "127.0.0.1"),
+        ("::", "127.0.0.1"),
+        ("localhost", "127.0.0.1"),
+        ("100.101.102.103", "100.101.102.103"),
+        ("fd7a:115c:a1e0::1", "[fd7a:115c:a1e0::1]"),
+    ],
+)
+def test_the_installer_reaches_the_app_where_it_listens(network_host, contacted):
+    from installer.system import contact_host
+
+    assert contact_host(network_host) == contacted
+
+
+def new_install(places, **choices):
+    return Choices(
+        action=engine.INSTALL,
+        program_dir=places["program"],
+        data_root=places["data"],
+        password=PASSWORD,
+        **choices,
+    )
+
+
+def test_a_new_install_without_tailscale_names_an_address_that_answers(places, program_files):
+    from agent.config import Config
+
+    _, result, system = run_engine(new_install(places), program_files)
+    assert result.ok, result.message + result.details
+    config = Config.load(places["data"] / "config" / "config.yaml")
+    assert config.network.host == "127.0.0.1"
+    # The PC's own name isn't where it listens, so the address is localhost.
+    assert result.dashboard_url == f"https://localhost:{config.network.port}"
+    assert set(system.hosts_asked) == {"127.0.0.1"}
+
+
+def test_a_new_install_with_tailscale_listens_on_its_address(places, program_files):
+    from agent.config import Config
+
+    system = FakeSystem()
+    system.tailscale = "100.101.102.103"
+    _, result, _ = run_engine(new_install(places), program_files, system)
+    assert result.ok, result.message + result.details
+    config = Config.load(places["data"] / "config" / "config.yaml")
+    assert config.network.host == "100.101.102.103"
+    assert system.hosts_asked and set(system.hosts_asked) == {"100.101.102.103"}
+    assert result.dashboard_url == config.base_url
+
+
+def test_a_new_install_for_this_pc_only_stays_on_127_0_0_1(places, program_files):
+    from agent.config import Config
+
+    system = FakeSystem()
+    system.tailscale = "100.101.102.103"
+    _, result, _ = run_engine(new_install(places, allow_devices=False), program_files, system)
+    assert result.ok, result.message + result.details
+    config = Config.load(places["data"] / "config" / "config.yaml")
+    assert config.network.host == "127.0.0.1"
+
+
+def test_an_update_reaches_an_app_on_its_tailscale_address(places, program_files):
+    found = make_installer_copy(places)
+    config_file = places["data"] / "config" / "config.yaml"
+    config_file.write_text(
+        config_file.read_text(encoding="utf-8") + "network:\n  host: 100.101.102.103\n",
+        encoding="utf-8",
+    )
+    action, _ = engine.decide_action(found, "1.2.0")
+    system = FakeSystem()
+    system.running = True
+    choices = Choices(
+        action=action, program_dir=places["program"], data_root=places["data"], found=found
+    )
+    _, result, _ = run_engine(choices, program_files, system)
+    assert result.ok, result.message + result.details
+    assert system.hosts_asked and set(system.hosts_asked) == {"100.101.102.103"}

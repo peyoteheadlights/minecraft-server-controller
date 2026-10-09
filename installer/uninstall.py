@@ -33,7 +33,7 @@ def uninstall(
             log.write(event, **fields)
 
     note("uninstall_started", program_dir=str(program_dir), remove_data=remove_data)
-    port, tls, token = _settings(data_root)
+    system.host, port, tls, token = _settings(data_root)
     if log:
         log.hide(token)
     if system.agent_answers(port, tls):
@@ -118,16 +118,9 @@ def servers_inside(data_root: Path) -> list[str]:
     return found
 
 
-def _settings(data_root: Path) -> tuple[int, bool, str]:
+def _settings(data_root: Path) -> tuple[str, int, bool, str]:
     from .setup_tool import read_env
+    from .system import read_address
 
-    port, tls = 8765, True
-    try:
-        import yaml
-
-        data = yaml.safe_load(layout.config_path(data_root).read_text(encoding="utf-8")) or {}
-        port = int((data.get("network") or {}).get("port") or port)
-        tls = bool((data.get("tls") or {}).get("enabled", True))
-    except Exception:
-        pass
-    return port, tls, read_env(layout.env_path(data_root)).get("MCSC_API_TOKEN", "")
+    host, port, tls = read_address(layout.config_path(data_root))
+    return host, port, tls, read_env(layout.env_path(data_root)).get("MCSC_API_TOKEN", "")

@@ -18,6 +18,9 @@ at `/api/version` and only goes up for those changes.
   the old folder is left where it was until you choose to remove it.
 - Every update makes a restore point first and puts things back by itself if
   the new version doesn't start.
+- A new install that lets other devices in listens on the PC's Tailscale
+  address, so the address on the last screen opens from your phone. Without
+  Tailscale it stays on this PC only and shows `https://localhost:8765`.
 - The installer can install Java (Eclipse Temurin) for you, checked against
   its published checksum, and point the servers you tick at it. When a
   server needs a newer Java, the dashboard says to open the setup from the

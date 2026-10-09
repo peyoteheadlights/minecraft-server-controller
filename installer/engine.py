@@ -45,7 +45,7 @@ from agent import __version__, appinfo
 from . import detect, fileops, layout, restorepoint
 from .installlog import InstallLog
 from .progress import Progress
-from .system import System, SystemError_
+from .system import LOOPBACK, System, SystemError_, contact_host, read_address
 
 INSTALL, UPDATE, REPAIR, MIGRATE = "install", "update", "repair", "migrate"
 OLD_COPY_RECORD = "old-copy.json"
@@ -335,16 +335,8 @@ class Engine:
         """The dashboard port, whether it uses HTTPS, and the API token."""
         from .setup_tool import read_env
 
-        port, tls = 8765, True
-        try:
-            import yaml
-
-            data = yaml.safe_load(self._current_config().read_text(encoding="utf-8")) or {}
-            network = data.get("network") or {}
-            port = int(network.get("port") or port)
-            tls = bool((data.get("tls") or {}).get("enabled", True))
-        except Exception:
-            pass
+        host, port, tls = read_address(self._current_config())
+        self.system.host = host
         token = read_env(self._current_env()).get("MCSC_API_TOKEN", "")
         self.log.hide(token)
         return port, tls, token
@@ -379,7 +371,14 @@ class Engine:
         try:
             from agent.config import Config
 
-            return Config.load(self.config_path, self.env_path).base_url
+            config = Config.load(self.config_path, self.env_path)
+            if contact_host(config.network.host) == LOOPBACK:
+                # It listens on this PC only, so the PC's name (which the
+                # certificate is made for) points at an address nothing
+                # answers on.
+                scheme = "https" if config.tls_enabled else "http"
+                return f"{scheme}://localhost:{config.network.port}"
+            return config.base_url
         except Exception:
             return None
 
@@ -528,6 +527,33 @@ class Engine:
         shutil.copyfile(example, self.config_path)
         self.created_settings.append(self.config_path)
         self._check_config()
+        return self._listen_on_tailscale()
+
+    def _listen_on_tailscale(self) -> str | None:
+        """A new install that lets other devices in listens on this PC's
+        Tailscale address, which the dashboard address and certificate name
+        and the firewall rule allows. Without Tailscale it stays on this PC
+        only (127.0.0.1)."""
+        if not self.c.allow_devices:
+            return None
+        address = self.system.tailscale_address()
+        if not address:
+            self.log.write("listen_address", host=LOOPBACK, reason="Tailscale not connected")
+            return "Tailscale isn't connected, so only this PC can open the dashboard for now."
+        from agent.config import Config
+
+        config = Config.load(self.config_path, self.env_path)
+        config.set("network.host", address)
+        config.save(self.config_path)
+        self.created_settings.extend(
+            path
+            for path in (
+                self.config_path.with_name(self.config_path.name + suffix)
+                for suffix in (".original", ".bak")
+            )
+            if path.exists() and path not in self.created_settings
+        )
+        self.log.write("listen_address", host=address)
         return None
 
     def _move_settings(self) -> str | None:
@@ -809,7 +835,7 @@ class Engine:
             raise StepFailed(
                 f"The server panel didn't answer on port {port}. Another program may be "
                 "using that port: close it and select Try again.",
-                f"no answer from 127.0.0.1:{port}/api/health within the wait",
+                f"no answer from {self.system.host}:{port}/api/health within the wait",
             )
         self.log.write("agent_answered", port=port, tls=tls)
         return None

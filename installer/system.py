@@ -30,12 +30,46 @@ class SystemError_(RuntimeError):
         self.details = details
 
 
+LOOPBACK = "127.0.0.1"
+
+
+def contact_host(network_host: str | None) -> str:
+    """Where this PC reaches its own app: the address the app listens on
+    (network.host), or 127.0.0.1 when it listens on every address. A
+    Tailscale address works from the PC itself too."""
+    host = str(network_host or "").strip()
+    if host in ("", "0.0.0.0", "::", "localhost"):
+        return LOOPBACK
+    return f"[{host}]" if ":" in host else host
+
+
+def read_address(config_path: Path) -> tuple[str, int, bool]:
+    """(host to contact, port, HTTPS?) from a config.yaml, with the
+    defaults when it can't be read."""
+    host, port, tls = LOOPBACK, 8765, True
+    try:
+        import yaml
+
+        data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+        network = data.get("network") or {}
+        host = contact_host(network.get("host"))
+        port = int(network.get("port") or port)
+        tls = bool((data.get("tls") or {}).get("enabled", True))
+    except Exception:
+        pass
+    return host, port, tls
+
+
 def _ps_quote(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
 
 
 class System:
     """The real thing, on Windows."""
+
+    # The address the app listens on (contact_host); callers set it from the
+    # settings before asking the app anything.
+    host: str = LOOPBACK
 
     # ------------------------------------------------------------ tools
     def run(self, args: list[str], timeout: float = 120) -> tuple[int, str, str]:
@@ -53,15 +87,16 @@ class System:
     def _client(self, timeout: float = 10.0):
         import httpx
 
-        # Only ever 127.0.0.1: the certificate names the PC's Tailscale name,
-        # not the loopback address, and this is the PC talking to itself.
+        # The PC talking to itself, on the address the app listens on (127.0.0.1
+        # or its Tailscale address). The certificate names the PC's Tailscale
+        # name, not the address, so it isn't checked here.
         return httpx.Client(verify=False, timeout=timeout)
 
     def agent_answers(self, port: int, tls: bool = True) -> bool:
         scheme = "https" if tls else "http"
         try:
             with self._client(5.0) as client:
-                answer = client.get(f"{scheme}://127.0.0.1:{port}/api/health")
+                answer = client.get(f"{scheme}://{self.host}:{port}/api/health")
                 return answer.status_code == 200 and bool(answer.json().get("ok"))
         except Exception:
             return False
@@ -81,7 +116,7 @@ class System:
         with self._client(30.0) as client:
             answer = client.request(
                 method,
-                f"{scheme}://127.0.0.1:{port}/api{path}",
+                f"{scheme}://{self.host}:{port}/api{path}",
                 headers={"Authorization": f"Bearer {token}"},
                 json=body,
             )
@@ -91,6 +126,25 @@ class System:
                 f"{method} {path}: HTTP {answer.status_code}",
             )
         return answer.json()
+
+    def tailscale_address(self) -> str | None:
+        """This PC's Tailscale IPv4 address, only when the Tailscale daemon
+        itself says it is connected."""
+        import ipaddress
+
+        from agent.tailscale import connection_status
+
+        report = connection_status()
+        if not (report.get("connected") and report.get("verified")):
+            return None
+        for address in report.get("addresses") or []:
+            try:
+                ip = ipaddress.ip_address(str(address))
+            except ValueError:
+                continue
+            if ip.version == 4 and ip in ipaddress.ip_network("100.64.0.0/10"):
+                return str(ip)
+        return None
 
     def stop_agent(self, port: int, tls: bool) -> bool:
         """End the startup task's copy of the app and wait for the port to

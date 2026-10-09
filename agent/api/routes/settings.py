@@ -90,6 +90,10 @@ async def update_settings(
                 status_code=500, detail=f"Settings could not be written to disk: {exc}"
             ) from exc
         audit(core, request, "settings_update", detail=", ".join(applied))
+        if "power.keep_awake" in applied:
+            # Turned off or on while a server runs: Windows is told now, not
+            # at the next start or stop.
+            core.keepawake.update()
     return {"ok": True, "applied": applied, "rejected": rejected}
 
 

@@ -1,7 +1,8 @@
 """How much memory each server may use, against how much the PC has.
 
 The memory slider writes one setting, the ``-Xmx`` limit in a server's
-``jvm_args``, and leaves every other launch flag exactly as it was.
+``jvm_args``, and leaves every other launch flag as it was (except a
+starting size, ``-Xms``, above the new limit, which is lowered to it).
 
 House rule 1: the PC's memory is read from the machine (psutil) and is
 reported as Unknown when it can't be read; nothing here falls back to a
@@ -41,10 +42,24 @@ def total_ram_mb() -> int | None:
         return None
 
 
+def _size(mb: int) -> str:
+    return f"{mb // 1024}G" if mb % 1024 == 0 else f"{mb}M"
+
+
+def _starting_mb(arg: str) -> int | None:
+    """The size in an -Xms (starting memory) flag, in MB."""
+    text = arg.strip()
+    if not text.startswith("-Xms"):
+        return None
+    return memory_limit_mb(["-Xmx" + text[4:]])
+
+
 def with_limit(jvm_args: list[str], mb: int) -> list[str]:
     """``jvm_args`` with its -Xmx set to ``mb``. Every other flag stays where
-    it was; the limit replaces the old one in place, or is added at the end."""
-    flag = f"-Xmx{mb // 1024}G" if mb % 1024 == 0 else f"-Xmx{mb}M"
+    it was; the limit replaces the old one in place, or is added at the end.
+    A starting size (-Xms) bigger than the new limit is lowered to it, since
+    Java refuses to start when the start is above the limit."""
+    flag = f"-Xmx{_size(mb)}"
     out: list[str] = []
     placed = False
     for arg in jvm_args:
@@ -53,6 +68,10 @@ def with_limit(jvm_args: list[str], mb: int) -> list[str]:
                 out.append(flag)
                 placed = True
             continue  # a second -Xmx would only confuse which one counts
+        starting = _starting_mb(str(arg))
+        if starting is not None and starting > mb:
+            out.append(f"-Xms{_size(mb)}")
+            continue
         out.append(str(arg))
     if not placed:
         out.append(flag)

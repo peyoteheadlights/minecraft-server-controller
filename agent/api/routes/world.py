@@ -174,6 +174,7 @@ async def download_world(
 ):
     path = worldimport.download_path(ctx.core, token)
     safe = "".join(c for c in filename if c.isalnum() or c in " ._-").strip() or "world.zip"
-    if not safe.lower().endswith(".zip"):
+    # A Bedrock world is a .mcworld, which Bedrock opens with a double-click.
+    if not safe.lower().endswith((".zip", ".mcworld")):
         safe += ".zip"
     return FileResponse(path, media_type="application/zip", filename=safe)

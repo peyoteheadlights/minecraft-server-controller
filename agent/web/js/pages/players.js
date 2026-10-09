@@ -8,7 +8,7 @@
 
 import { api, serverPath } from "../api.js";
 import { render } from "../nav.js";
-import { renderers, state } from "../state.js";
+import { can, renderers, state } from "../state.js";
 import { t, technical } from "../strings.js";
 import { busy, card, confirmDialog, el, emptyState, fmt, loadInto, table, toast } from "../ui.js";
 
@@ -115,7 +115,12 @@ async function act(kind, name, button, log) {
   });
 }
 
+// Making someone an operator is the owner's alone (players.op): an operator
+// can type any command in the game.
+const OPERATOR = new Set(["op", "deop"]);
+
 function actionButton(kind, name, enabled, log, extra = "") {
+  if (OPERATOR.has(kind) && !can("players.op")) return null;
   return el("button", {
     class: `btn small${extra}`, type: "button", disabled: enabled ? false : "disabled",
     onclick: (e) => act(kind, name, e.currentTarget, log),
@@ -157,7 +162,7 @@ function addCard(running, log, sets) {
   const bedrock = sets.edition === "bedrock";
   const input = el("input", { id: "player-add-name", maxlength: bedrock ? "20" : "17", autocomplete: "off",
     placeholder: bedrock ? "Steve Gamer" : "Alex", class: "mono" });
-  const button = (kind, extra = "") => el("button", {
+  const button = (kind, extra = "") => (OPERATOR.has(kind) && !can("players.op") ? null : el("button", {
     class: `btn${extra}`, type: "button", disabled: running ? false : "disabled",
     onclick: (e) => {
       const name = input.value.trim();
@@ -168,13 +173,13 @@ function addCard(running, log, sets) {
       }
       act(kind, name, e.currentTarget, log);
     },
-  }, t(ACTION_WORDS[kind]));
+  }, t(ACTION_WORDS[kind])));
   return card(t("players.add_title"),
     el("div", { class: "field" }, el("label", { for: "player-add-name" }, t("players.add_name")), input,
       el("div", { class: "hint" }, t("players.add_hint"))),
     el("div", { class: "btn-row" }, button("whitelist_add", " primary"), button("op"),
       sets.bans ? button("ban", " danger") : null),
-    bedrock ? el("p", { class: "hint" }, t("players.bedrock_op_online")) : null);
+    bedrock && can("players.op") ? el("p", { class: "hint" }, t("players.bedrock_op_online")) : null);
 }
 
 /* One of Minecraft's lists, read from its file. */

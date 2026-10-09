@@ -356,14 +356,17 @@ There are two roles. The **owner** (the account in `.env`, and the API
 token) holds every permission. A **helper** can start, stop and restart,
 manage players, chat, take a backup and view everything, and nothing else:
 no settings, no restoring, downloading or deleting backups, no mods or
-versions, no console commands, no user management, and no security page
-(it shows sign-in addresses). A permission added later is the owner's
+versions, no console commands, no making players operators (an operator can
+type any command in the game, so that would be the console by another
+door), no user management, and no security page (it shows sign-in
+addresses). A permission added later is the owner's
 alone until it is added to the helper role on purpose. A helper can also be
 limited to some servers: every per-server route is refused for the others
 (`server_access`), the server list and jobs leave them out, and the live
 connection carries none of their events. `tests/test_helpers.py` walks every
 route as a helper and expects 403 wherever the role doesn't allow it.
-The player buttons need `players.manage`, game settings and importing a
+The player buttons need `players.manage`, except Make operator and Remove
+operator, which need `players.op` (the owner's alone); game settings and importing a
 modpack into a server need `settings.edit`, reading a modpack needs
 `mods.manage`, and duplicating or creating a server from a pack needs
 `servers.manage`.

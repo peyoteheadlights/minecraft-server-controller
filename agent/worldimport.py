@@ -47,6 +47,7 @@ from .security.paths import (
     assert_not_symlink,
     check_archive_member,
     directory_size,
+    is_inside,
     zip_member_is_symlink,
 )
 
@@ -477,12 +478,19 @@ async def import_world(ctx: ServerContext, token: str, user: str = "system") -> 
             f"Stop {ctx.name} first. A running server would write over the world being put in."
         )
     kind, source = _ticket(ctx.core, token)
+    base = ctx.config.server_dir
     if kind == "zip":
         info, root = await asyncio.to_thread(inspect_zip, source)
     else:
         info, source = await asyncio.to_thread(inspect_folder, str(source))
         root = ""
-    base = ctx.config.server_dir
+        if is_inside(base.resolve(), source):
+            # Its own world (or a folder kept from an earlier import) would be
+            # moved aside before it was copied, leaving nothing to copy.
+            raise WorldImportError(
+                f"That folder is inside {ctx.name}'s own folder. Choose a world from somewhere "
+                "else, such as the saves folder."
+            )
     server_type = ctx.config.server_type
     if info.edition != server_type.edition:
         raise WorldImportError(

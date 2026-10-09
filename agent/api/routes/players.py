@@ -6,12 +6,16 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ...minecraft import playeractions
 from ...security.auth import Principal
-from ...security.permissions import PLAYERS_MANAGE, SERVER_VIEW, require
+from ...security.permissions import PLAYERS_MANAGE, PLAYERS_OP, SERVER_VIEW, check, require
 from ..deps import audit, get_server
 from ..responses import Players
 from .models import PlayerActionRequest
 
 router = APIRouter()
+
+# An operator can type any command in the game, so these need players.op,
+# which only the owner has.
+OPERATOR_ACTIONS = ("op", "deop")
 
 
 @router.get("/players", response_model=Players)
@@ -55,6 +59,8 @@ async def player_action(
 ):
     """Send whitelist, op, kick, ban or unban for one player. The answer is
     "sent"; it becomes "done" once the server's console confirms it."""
+    if payload.action in OPERATOR_ACTIONS:
+        check(principal, PLAYERS_OP)
     pending = await ctx.player_actions.send(
         payload.action, payload.name, payload.reason or "", confirm=payload.confirm
     )

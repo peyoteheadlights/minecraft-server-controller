@@ -9,7 +9,8 @@ two roles:
   * **Helper**: a friend's own login, made by the owner on the Helpers page.
     Can start, stop and restart, manage players, chat, back up and view
     everything, and nothing else: no settings, no deleting or restoring
-    backups, no mods, no version changes, no console commands, no user
+    backups, no mods, no version changes, no console commands, no making
+    operators (an operator can type any command in the game), no user
     management. A helper can also be limited to some servers.
 
 A permission that is not in HELPER is the owner's alone. New permissions
@@ -30,7 +31,11 @@ ACCOUNT = "account.self"  # sign out, rotate or read one's own session
 SERVER_VIEW = "server.view"  # status, console, players, performance, history
 SERVER_CONTROL = "server.control"  # start, stop, restart, save the world
 CONSOLE_SEND = "console.send"  # type commands into the Minecraft console
-PLAYERS_MANAGE = "players.manage"  # whitelist, operator, kick, ban and unban
+PLAYERS_MANAGE = "players.manage"  # whitelist, kick, ban and unban
+# Making someone an operator (or taking it away) is its own permission: an
+# operator can type any command in the game, so it is console access by
+# another door, and a helper doesn't have it.
+PLAYERS_OP = "players.op"
 CHAT_SEND = "chat.send"  # say something to everyone in the game
 MODS_MANAGE = "mods.manage"  # install, remove, enable, update, roll back mods
 BACKUPS_CREATE = "backups.create"
@@ -58,6 +63,7 @@ ALL = frozenset(
         SERVER_CONTROL,
         CONSOLE_SEND,
         PLAYERS_MANAGE,
+        PLAYERS_OP,
         CHAT_SEND,
         MODS_MANAGE,
         BACKUPS_CREATE,

@@ -319,10 +319,19 @@ def _folder_name(entry: dict[str, Any]) -> str:
 
 def plan_import(manifest: dict[str, Any], servers_root: Path) -> list[dict[str, Any]]:
     """Where each server's folder will go on this PC. Refuses folders that
-    already have files in them."""
+    already have files in them. Two servers whose folders had the same name
+    on the old PC (C:\\A\\server and D:\\B\\server) get "server" and
+    "server (2)", never one folder between them."""
     out = []
+    taken: set[str] = set()
     for entry in manifest["servers"]:
-        target = Path(servers_root) / _folder_name(entry)
+        name = base = _folder_name(entry)
+        number = 2
+        while name.lower() in taken:
+            name = f"{base} ({number})"
+            number += 1
+        taken.add(name.lower())
+        target = Path(servers_root) / name
         if target.exists() and any(target.iterdir()):
             raise TransferError(f"{target} already has files in it. Choose another folder.")
         out.append(

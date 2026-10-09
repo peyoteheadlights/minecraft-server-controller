@@ -83,7 +83,16 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     except WebSocketDisconnect:
         return
 
-    visible = [ctx for ctx in core.servers.values() if can_see_server(principal, ctx.server_id)]
+    # Who is signed in, read again at every heartbeat: the owner can change
+    # which servers a helper may use while their page is open.
+    who = {"principal": principal}
+
+    def visible_servers() -> list:
+        return [
+            ctx for ctx in core.servers.values() if can_see_server(who["principal"], ctx.server_id)
+        ]
+
+    visible = visible_servers()
     if not visible:
         await _send(ws, {"type": "error", "message": "Your account can't use any server."})
         await ws.close(code=1008)
@@ -93,18 +102,19 @@ async def websocket_endpoint(ws: WebSocket) -> None:
         """The server a message is about; the first one this account may see
         if it names none (or names one it may not see)."""
         ctx = core.servers.get(str(message.get("server_id") or ""))
-        if ctx is not None and can_see_server(principal, ctx.server_id):
+        if ctx is not None and can_see_server(who["principal"], ctx.server_id):
             return ctx
-        return visible[0]
+        allowed = visible_servers()
+        return allowed[0] if allowed else None
 
-    selected = server_for(message)
+    selected = server_for(message) or visible[0]
     # The server this page shows. Console lines and metrics samples of the
     # other servers are not sent at all: a phone that falls behind drops its
     # oldest messages, and those must never push out another server's crash.
     watching = {"server_id": selected.server_id}
 
     def accept(event) -> bool:
-        if event.server_id is not None and not can_see_server(principal, event.server_id):
+        if event.server_id is not None and not can_see_server(who["principal"], event.server_id):
             return False  # a helper limited to other servers hears nothing of this one
         if event.type in PAGE_ONLY and event.server_id is not None:
             return event.server_id == watching["server_id"]
@@ -141,9 +151,15 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                 # A session signed out since (a password reset on the PC,
                 # "sign out everywhere", a removed helper) ends here too.
                 try:
-                    core.auth.authenticate(token, source_ip=client_ip)
+                    who["principal"] = core.auth.authenticate(token, source_ip=client_ip)
                 except AuthError as exc:
                     await _send(ws, {"type": "error", "message": exc.message})
+                    await ws.close(code=1008)
+                    return
+                if not visible_servers():
+                    await _send(
+                        ws, {"type": "error", "message": "Your account can't use any server."}
+                    )
                     await ws.close(code=1008)
                     return
                 await _send(ws, {"type": "ping", "ts": time.time()})
@@ -165,12 +181,14 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                 if kind not in WS_ACTIONS:
                     continue
                 try:
-                    check(principal, WS_ACTIONS[kind])
+                    check(who["principal"], WS_ACTIONS[kind])
                 except AuthError as exc:
                     # Not "error": that one means the session ended.
                     await _send(ws, {"type": "denied", "action": kind, "message": exc.message})
                     continue
                 ctx = server_for(message)
+                if ctx is None:
+                    continue
                 # Asking for a named server's console or status means the page
                 # now shows that server.
                 if ctx.server_id == message.get("server_id"):

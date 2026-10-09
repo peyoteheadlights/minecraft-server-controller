@@ -24,7 +24,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from agent import appinfo
-from installer.setup_tool import write_env_value
+from installer.setup_tool import LockDownError, write_env_value
 
 MIN_LENGTH = 10
 
@@ -61,9 +61,14 @@ def reset(
         return 1
     hashed = hash_password(password)
     del password
-    config = Config.load(config_path, env_path)
-    use_data_in_use(config)
-    write_env_value(env_path, "MCSC_ADMIN_PASSWORD_HASH", hashed)
+    try:
+        config = Config.load(config_path, env_path)
+        use_data_in_use(config)
+        write_env_value(env_path, "MCSC_ADMIN_PASSWORD_HASH", hashed)
+    except (OSError, LockDownError) as exc:
+        say(f"Nothing was changed: {exc}")
+        say("Open PowerShell as administrator and run this again.")
+        return 1
     db = Database(config.database_path)
     signed_out = db.execute("DELETE FROM sessions").rowcount
     owner = config.admin_username

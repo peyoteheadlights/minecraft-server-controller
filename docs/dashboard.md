@@ -168,7 +168,9 @@ always shown exactly as printed. With crossplay off, nobody is badged.
 
 While the server is running, each player has buttons: **Add to whitelist**
 or **Remove from whitelist**, **Make operator** or **Remove operator**,
-**Kick** (online players) and **Ban** or **Unban**. **Add a player by name**
+**Kick** (online players) and **Ban** or **Unban**. Helpers don't see the
+operator buttons: an operator can type any command in the game, so only the
+owner makes one. **Add a player by name**
 does the same for someone who hasn't joined yet. Kick and ban ask first and
 take an optional reason. Each button sends Minecraft's own command and the
 line at the top says **Sent** until the server's console confirms it, then

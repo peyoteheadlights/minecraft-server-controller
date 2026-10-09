@@ -31,7 +31,9 @@ class FakeGh:
         if args[:2] == ["secret", "list"]:
             if not self.can_list:
                 return subprocess.CompletedProcess(args, 1, "", "HTTP 404: Not Found")
-            listed = f"{make_update_key.SECRET}\t2026-10-09T12:00:00Z\n" if self.has_secret else ""
+            listed = (
+                f"{make_update_key.GITHUB_NAME}\t2026-10-09T12:00:00Z\n" if self.has_secret else ""
+            )
             return subprocess.CompletedProcess(args, 0, "OTHER\t2026-01-01\n" + listed, "")
         if args[:2] == ["secret", "set"]:
             return subprocess.CompletedProcess(args, 0 if self.set_ok else 1, "", "set failed")

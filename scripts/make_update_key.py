@@ -36,7 +36,7 @@ sys.path.insert(0, str(ROOT))
 
 SIGNING = ROOT / "agent" / "signing.py"
 LINE = re.compile(r'^UPDATE_PUBLIC_KEY = "(.*)"$', re.MULTILINE)
-SECRET = "MCSC_UPDATE_SIGNING_KEY"
+GITHUB_NAME = "MCSC_UPDATE_SIGNING_KEY"  # what the release workflow reads it as
 BATCH = "make-update-key.cmd"
 CONFIRM = "REPLACE"
 
@@ -88,7 +88,7 @@ def github_problem(repo: str, run: Run, which: Callable[[str], str | None]) -> s
 
 def secret_exists(repo: str, run: Run) -> bool:
     listed = run(["secret", "list", "--repo", repo])
-    return any(line.split("\t")[0].strip() == SECRET for line in listed.stdout.splitlines())
+    return any(line.split("\t")[0].strip() == GITHUB_NAME for line in listed.stdout.splitlines())
 
 
 def to_github(
@@ -114,7 +114,7 @@ def to_github(
     if built_in_key(signing_file):
         existing.append("agent/signing.py already has a public key.")
     if secret_exists(repo, run):
-        existing.append(f"GitHub already has the secret {SECRET}.")
+        existing.append(f"GitHub already has the secret {GITHUB_NAME}.")
     if existing:
         print("\n".join(existing))
         print(
@@ -127,14 +127,14 @@ def to_github(
             return 1
 
     private, public = signing.new_key()
-    saved = run(["secret", "set", SECRET, "--repo", repo], stdin=private)
+    saved = run(["secret", "set", GITHUB_NAME, "--repo", repo], stdin=private)
     if saved.returncode != 0:
         detail = (saved.stderr or saved.stdout).strip()
         print(f"GitHub didn't take the secret:\n    {detail}\nNothing was changed.")
         return 1
     write_public_key(public, signing_file)
 
-    print(f"\nDone. The private key is saved on GitHub as the secret {SECRET}")
+    print(f"\nDone. The private key is saved on GitHub as the secret {GITHUB_NAME}")
     print(f"for {repo}. It isn't in any file on this PC.")
     print(f"The public key was written to {signing_file.name} (agent/signing.py).\n")
     answer = ask("Show the private key once, to keep a copy in your password manager? [y/N] ")
@@ -162,7 +162,7 @@ def print_only() -> int:
     print("Private key (save it now; it isn't shown again or written anywhere):\n")
     print(f"    {private}\n")
     print("1. GitHub > Settings > Secrets and variables > Actions > New repository secret")
-    print(f"   Name: {SECRET}   Value: the line above")
+    print(f"   Name: {GITHUB_NAME}   Value: the line above")
     print("2. Save the same line in your password manager.")
     print(f"\nThe public key was written to {SIGNING.relative_to(ROOT)}. Commit that change.")
     return 0

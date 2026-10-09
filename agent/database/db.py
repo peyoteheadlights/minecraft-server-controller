@@ -313,6 +313,25 @@ MIGRATIONS: list[tuple[int, str]] = [
         );
         """,
     ),
+    (
+        11,
+        # Phones the app registered for lock-screen alerts through Google's
+        # push service (agent/notifications/fcm.py). Each belongs to one
+        # sign-in and goes when that sign-in ends.
+        """
+        CREATE TABLE app_phones (
+            token TEXT PRIMARY KEY,
+            session TEXT NOT NULL REFERENCES sessions(token_hash) ON DELETE CASCADE,
+            user TEXT NOT NULL,
+            platform TEXT NOT NULL,
+            label TEXT,
+            created_at REAL NOT NULL,
+            last_sent REAL,
+            last_result TEXT
+        );
+        CREATE INDEX app_phones_session ON app_phones(session);
+        """,
+    ),
 ]
 
 

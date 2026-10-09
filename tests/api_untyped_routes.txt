@@ -8,7 +8,6 @@ DELETE /api/servers/{server_id}/schedules/{schedule_id}
 DELETE /api/servers/{server_id}/world/import/{token}
 GET /api/account/preferences
 GET /api/accounts
-GET /api/auth/me
 GET /api/export
 GET /api/export/{token}
 GET /api/folders
@@ -65,8 +64,6 @@ GET /api/settings
 GET /api/system/startup
 POST /api/account/password
 POST /api/accounts
-POST /api/auth/login
-POST /api/auth/logout
 POST /api/auth/rotate
 POST /api/export
 POST /api/help-bundle

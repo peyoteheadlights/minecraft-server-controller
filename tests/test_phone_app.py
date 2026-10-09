@@ -1,7 +1,7 @@
 """Phase 9: what the agent does for the phone app (mobile/). The app's own
-screens and pairing are tested in mobile/shell/test; these cover the agent
-side: the alert list the app reads, who sees which alert, and that signing
-out on the PC locks the app out."""
+pairing and requests are tested in mobile/android/core and mobile/ios/Core;
+these cover the agent side: the alert list the app reads, who sees which
+alert, and that signing out on the PC locks the app out."""
 
 import asyncio
 import logging
@@ -116,8 +116,10 @@ def test_a_long_list_comes_in_pages(multi_client):
         send(core, Event(type="backup_completed", level="success", server_id="survival"))
     page = multi_client.get("/api/alerts", params={"after": 0, "limit": 2}).json()
     assert len(page["alerts"]) == 2
+    assert page["more"] is True
     rest = multi_client.get("/api/alerts", params={"after": page["latest"], "limit": 50}).json()
     assert len(rest["alerts"]) == 3
+    assert rest["more"] is False
 
 
 def test_the_test_alert_reaches_the_app(multi_client):
@@ -139,7 +141,7 @@ def test_signing_the_phone_out_on_the_pc_locks_the_app(multi_client, owner):
     [entry] = [s for s in sessions if s["label"] == "Android app"]
     assert multi_client.delete(f"/api/sessions/{entry['id']}", headers=owner).status_code == 200
     # What the app and its widget ask for next is refused: the app then
-    # forgets the token (mobile/shell/test covers that side).
+    # forgets the token (mobile/android/core AgentClientTest covers that side).
     for path in ("/api/servers", "/api/alerts", "/api/auth/me"):
         assert multi_client.get(path, headers=headers).status_code == 401
 
@@ -178,3 +180,234 @@ def test_every_route_the_app_uses_exists_and_is_typed():
     for name in used:
         assert name in current, f"the phone app uses {name}, which is gone"
         assert current[name].response_model is not None, name
+
+
+# ------------------------------------------------ lock-screen alerts (FCM)
+def service_account(tmp_path, **changes):
+    import json
+
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    pem = key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    ).decode()
+    data = {
+        "type": "service_account",
+        "project_id": "my-project",
+        "client_email": "alerts@my-project.iam.gserviceaccount.com",
+        "private_key": pem,
+        "token_uri": "https://oauth2.googleapis.com/token",
+        **changes,
+    }
+    path = tmp_path / "downloaded-key.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return path, key
+
+
+@pytest.fixture
+def google(multi_client, tmp_path, monkeypatch):
+    """A Firebase key on the PC, and Google's two addresses answered by a
+    mock that records every request."""
+    import httpx
+
+    from agent.notifications import fcm
+    from installer.setup_phone_alerts import install_key
+
+    path, key = service_account(tmp_path)
+    install_key(multi_client.app.state.core.config, path)
+    calls = []
+    answers = {"send": (200, {"name": "projects/my-project/messages/1"})}
+
+    def handler(request):
+        calls.append(request)
+        if request.url.host == "oauth2.googleapis.com":
+            return httpx.Response(200, json={"access_token": "ya29.test", "expires_in": 3600})
+        status, body = answers["send"]
+        return httpx.Response(status, json=body)
+
+    monkeypatch.setattr(fcm, "TRANSPORT", httpx.MockTransport(handler))
+    return {"calls": calls, "answers": answers, "key": key}
+
+
+PHONE_TOKEN = "fcm-token-" + "a" * 40
+
+
+def register_phone(client, headers=None, token=PHONE_TOKEN):
+    response = client.put(
+        "/api/app/phone",
+        json={"token": token, "platform": "android", "label": "Pixel"},
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def sends(calls):
+    return [c for c in calls if c.url.host == "fcm.googleapis.com"]
+
+
+def test_a_registered_phone_is_woken_without_any_words(multi_client, google):
+    import json
+
+    state = register_phone(multi_client)
+    assert state["configured"] is True and state["registered"] is True
+    core = multi_client.app.state.core
+    send(core, crash())
+    [request] = sends(google["calls"])
+    assert request.url.path == "/v1/projects/my-project/messages:send"
+    assert request.headers["Authorization"] == "Bearer ya29.test"
+    body = json.loads(request.content)
+    message = body["message"]
+    assert message["token"] == PHONE_TOKEN
+    alert_id = core.db.query_one("SELECT MAX(id) AS id FROM app_alerts")["id"]
+    assert message["data"] == {"kind": "alert", "alert": str(alert_id)}
+    # Nothing about the server, the event or what happened reaches Google.
+    text = request.content.decode()
+    for secret in ("Survival", "survival", "crash", "It crashed"):
+        assert secret not in text
+
+
+def test_the_token_request_is_signed_with_the_key(multi_client, google):
+    import base64
+    import json
+    from urllib.parse import parse_qs
+
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import padding
+
+    register_phone(multi_client)
+    send(multi_client.app.state.core, crash())
+    [token_request] = [c for c in google["calls"] if c.url.host == "oauth2.googleapis.com"]
+    form = parse_qs(token_request.content.decode())
+    header, claims, signature = form["assertion"][0].split(".")
+
+    def unb64(text):
+        return base64.urlsafe_b64decode(text + "=" * (-len(text) % 4))
+
+    google["key"].public_key().verify(
+        unb64(signature), f"{header}.{claims}".encode(), padding.PKCS1v15(), hashes.SHA256()
+    )
+    assert json.loads(unb64(claims))["scope"].endswith("/auth/firebase.messaging")
+
+
+def test_a_helpers_phone_is_only_woken_for_their_servers(multi_client, owner, google):
+    helper = add_helper(multi_client, owner, servers=["creative"])
+    multi_client.headers.pop("Authorization")
+    register_phone(multi_client, headers=helper)
+    core = multi_client.app.state.core
+    google["calls"].clear()
+    send(core, crash("survival"))
+    send(core, Event(type="auth_failure", level="warn", message="Wrong password"))
+    assert sends(google["calls"]) == []
+    send(core, crash("creative"))
+    assert len(sends(google["calls"])) == 1
+
+
+@pytest.mark.parametrize("how", ["logout", "device", "revoke_all"])
+def test_signing_out_forgets_the_phone(multi_client, owner, google, how):
+    phone = multi_client.post(
+        "/api/auth/login",
+        json={"username": "admin", "password": "correct horse battery", "device": "Pixel"},
+    ).json()
+    headers = {"Authorization": f"Bearer {phone['token']}"}
+    register_phone(multi_client, headers=headers)
+    core = multi_client.app.state.core
+    assert len(core.db.query("SELECT * FROM app_phones")) == 1
+    if how == "logout":
+        multi_client.post("/api/auth/logout", headers=headers)
+    elif how == "device":
+        sessions = multi_client.get("/api/sessions", headers=owner).json()["sessions"]
+        [entry] = [s for s in sessions if s["label"] == "Pixel"]
+        multi_client.delete(f"/api/sessions/{entry['id']}", headers=owner)
+    else:
+        core.auth.revoke_all()
+    assert core.db.query("SELECT * FROM app_phones") == []
+    google["calls"].clear()
+    send(core, crash())
+    assert sends(google["calls"]) == []
+
+
+def test_removing_a_helper_forgets_their_phone(multi_client, owner, google):
+    helper = add_helper(multi_client, owner)
+    multi_client.headers.pop("Authorization")
+    register_phone(multi_client, headers=helper)
+    assert multi_client.delete("/api/accounts/sam", headers=owner).status_code == 200
+    assert multi_client.app.state.core.db.query("SELECT * FROM app_phones") == []
+
+
+def test_a_phone_google_says_is_gone_is_forgotten(multi_client, google):
+    register_phone(multi_client)
+    google["answers"]["send"] = (
+        404,
+        {"error": {"status": "NOT_FOUND", "details": [{"errorCode": "UNREGISTERED"}]}},
+    )
+    core = multi_client.app.state.core
+    send(core, crash())
+    assert core.db.query("SELECT * FROM app_phones") == []
+
+
+def test_a_failed_send_is_recorded_not_raised(multi_client, google):
+    register_phone(multi_client)
+    google["answers"]["send"] = (503, {"error": {"status": "UNAVAILABLE"}})
+    core = multi_client.app.state.core
+    send(core, crash())
+    [row] = core.db.query("SELECT last_result FROM app_phones")
+    assert "503" in row["last_result"]
+    # The alert itself is still in the Notifications tab.
+    assert core.db.query("SELECT * FROM app_alerts")
+
+
+def test_without_a_key_nothing_is_sent(multi_client, monkeypatch):
+    import httpx
+
+    from agent.notifications import fcm
+
+    calls = []
+    monkeypatch.setattr(
+        fcm, "TRANSPORT", httpx.MockTransport(lambda r: calls.append(r) or httpx.Response(500))
+    )
+    state = register_phone(multi_client)
+    assert state["configured"] is False and state["registered"] is True
+    send(multi_client.app.state.core, crash())
+    assert calls == []
+
+
+def test_turning_alerts_off_in_the_app_forgets_the_phone(multi_client, google):
+    register_phone(multi_client)
+    state = multi_client.delete("/api/app/phone").json()
+    assert state["registered"] is False
+    assert multi_client.app.state.core.db.query("SELECT * FROM app_phones") == []
+
+
+def test_a_key_file_naming_another_address_is_refused(tmp_path):
+    from agent.notifications import fcm
+
+    path, _ = service_account(tmp_path, token_uri="https://evil.example/token")
+    with pytest.raises(fcm.FcmError, match="unexpected"):
+        fcm.load_service_account(path)
+    path, _ = service_account(tmp_path, type="authorized_user")
+    with pytest.raises(fcm.FcmError, match="isn't a Firebase"):
+        fcm.load_service_account(path)
+
+
+def test_the_key_is_copied_into_the_data_folder(config, tmp_path):
+    from agent.notifications import fcm
+    from installer.setup_phone_alerts import install_key
+
+    path, _ = service_account(tmp_path)
+    target = install_key(config, path)
+    assert target == fcm.key_path(config)
+    assert target.read_bytes() == path.read_bytes()
+    assert str(target).startswith(str(config.data_dir))
+    assert fcm.configured(config)
+
+
+def test_a_bad_push_address_is_refused(multi_client):
+    response = multi_client.put(
+        "/api/app/phone", json={"token": "x y", "platform": "android", "label": ""}
+    )
+    assert response.status_code == 422

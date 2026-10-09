@@ -286,6 +286,7 @@ class AgentCore:
         bedrock.configure(config.data_dir)
         self.servers: dict[str, ServerContext] = {}
         self.notifier = Notifier(config, self.bus, self.db, servers=self.servers)
+        self.notifier.can_see = self.auth.may_see_alert
         for server_id in config.server_ids:
             self.servers[server_id] = ServerContext(self, server_id)
 

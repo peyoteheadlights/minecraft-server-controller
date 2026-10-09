@@ -1,9 +1,20 @@
-# Every agent route the phone app itself calls (its own screens, the widget,
-# the alert check), not counting the dashboard pages it shows, which come
-# from the agent and always match it. tests/test_phone_app.py fails if one
-# of these disappears or loses its typed answer, so the agent stays
-# compatible with the last released app.
+# Every agent route the phone apps call (their screens, the widget, the
+# alert check, lock-screen alerts). tests/test_phone_app.py fails if one of
+# these disappears or loses its typed answer, so the agent stays compatible
+# with the apps already on people's phones. Add a route here when an app
+# starts calling it. The live feed (/ws) the apps also use is covered by
+# tests/test_api.py and tests/test_reliability.py.
 GET /api/health
+POST /api/auth/login
+POST /api/auth/logout
+GET /api/auth/me
 GET /api/servers
+GET /api/servers/{server_id}/status
+POST /api/servers/{server_id}/server/start
+POST /api/servers/{server_id}/server/stop
+POST /api/servers/{server_id}/server/restart
 GET /api/alerts
+GET /api/app/phone
+PUT /api/app/phone
+DELETE /api/app/phone
 GET /api/version

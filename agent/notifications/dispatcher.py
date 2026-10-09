@@ -15,6 +15,7 @@ import asyncio
 import logging
 import smtplib
 import time
+from collections.abc import Callable
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Any
@@ -22,7 +23,7 @@ from typing import Any
 import httpx
 
 from ..events import Event, EventBus
-from . import push
+from . import fcm, push
 
 log = logging.getLogger("msc.notify")
 
@@ -203,6 +204,10 @@ class Notifier:
         self._last_sent: dict[tuple[str | None, str], float] = {}
         self._queue: asyncio.Queue[Event] = asyncio.Queue(maxsize=self.QUEUE_SIZE)
         self._worker: asyncio.Task | None = None
+        self.fcm = fcm.Sender(config)
+        # Whether an account may see a server's alerts (user, server id);
+        # set by AgentCore from the accounts. None: everyone sees everything.
+        self.can_see: Callable[[str, str | None], bool] | None = None
 
     # ------------------------------------------------------------------
     def enabled_for(self, event_type: str) -> bool:
@@ -470,14 +475,14 @@ class Notifier:
             "url": alert_link(event),
         }
 
-    def record_app_alert(self, event: Event, title: str | None = None) -> None:
+    def record_app_alert(self, event: Event, title: str | None = None) -> int:
         """Keep the alert for the phone app's Notifications tab (/api/alerts).
 
         The app has no Google or Apple push, so it reads alerts from the
         agent instead. Only the newest APP_ALERTS_KEPT are kept."""
         message = self.phone_message(event, title)
         try:
-            self.db.insert(
+            alert_id = self.db.insert(
                 "app_alerts",
                 {
                     "ts": time.time(),
@@ -493,8 +498,36 @@ class Notifier:
                 "DELETE FROM app_alerts WHERE id <= (SELECT MAX(id) FROM app_alerts) - ?",
                 (APP_ALERTS_KEPT,),
             )
+            return alert_id
         except Exception:  # pragma: no cover
             log.exception("could not keep the alert for the phone app")
+            return 0
+
+    async def wake_phones(self, event: Event, alert_id: int) -> bool:
+        """Wake the phone apps that may see this alert, through Google's push
+        service. The message has no words in it (see fcm.py)."""
+        targets = [
+            phone["token"]
+            for phone in fcm.phones(self.db)
+            if self.can_see is None or self.can_see(phone["user"], event.server_id)
+        ]
+        if not targets or not fcm.configured(self.config):
+            return False
+        results = await self.fcm.wake(targets, alert_id)
+        sent = 0
+        for token, result in results.items():
+            if result.gone:
+                fcm.forget(self.db, token)
+                self._log("app", event.type, "dropped", result.detail)
+                continue
+            fcm.record_result(self.db, token, result)
+            if result.ok:
+                sent += 1
+            else:
+                self._log("app", event.type, "failed", result.detail)
+        if sent:
+            self._log("app", event.type, "sent", f"{sent} phone(s)")
+        return sent > 0
 
     async def send_push(self, event: Event, title: str | None = None) -> bool:
         """One short message to every phone signed up for alerts.
@@ -583,9 +616,11 @@ class Notifier:
         """Send one alert to every enabled channel. Never raises."""
         try:
             # The app's Notifications tab lists every alert, whether or not
-            # any other channel is turned on.
-            self.record_app_alert(event)
+            # any other channel is turned on, and its phones are woken.
+            alert_id = self.record_app_alert(event)
             tasks = []
+            if alert_id:
+                tasks.append(self.wake_phones(event, alert_id))
             if self.config.notifications.discord_enabled:
                 tasks.append(self.send_discord(event))
             if self.config.notifications.email_enabled:

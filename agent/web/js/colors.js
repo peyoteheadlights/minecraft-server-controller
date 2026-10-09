@@ -99,8 +99,8 @@ function themeTokens() {
 
 /* How much of the server's color each surface takes. High contrast keeps
    its tint faint so it stays as stark as it is meant to be. */
-function tintAmounts(dark) {
-  if (document.documentElement.dataset.theme === "contrast") {
+function tintAmounts(dark, theme) {
+  if (theme === "contrast") {
     return { sheet: 0.1, surface: 0.06, sunken: 0.1, band: 0.2 };
   }
   return dark
@@ -117,14 +117,21 @@ function keepReadable(color, before, after, floor = AA_TEXT) {
 }
 
 export function derive(baseHex) {
+  if (!rgb(baseHex)) return null;
+  return deriveFrom(baseHex, themeTokens(), document.documentElement.dataset.theme || "");
+}
+
+/* derive() for given theme tokens ({"--sheet": [r, g, b], ...}) and theme
+   name, without a page. The phone apps (mobile/) do the same sums, and
+   their tests check them against this (mobile/tools/color_cases.mjs). */
+export function deriveFrom(baseHex, k, theme) {
   const base = rgb(baseHex);
   if (!base) return null;
-  const k = themeTokens();
   const sheet0 = k["--sheet"] || WHITE, surface0 = k["--surface"] || WHITE;
   const sunken0 = k["--surface-sunken"] || surface0, float0 = k["--surface-float"] || surface0;
   const desk = k["--desk"] || WHITE;
   const dark = luminance(sheet0) < 0.18;
-  const amount = tintAmounts(dark);
+  const amount = tintAmounts(dark, theme);
   const sheet = mix(sheet0, base, amount.sheet);
   const surface = mix(surface0, base, amount.surface);
   const sunken = mix(sunken0, base, amount.sunken);

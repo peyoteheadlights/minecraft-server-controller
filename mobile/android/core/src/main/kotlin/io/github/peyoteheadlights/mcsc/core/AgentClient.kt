@@ -1,0 +1,218 @@
+package io.github.peyoteheadlights.mcsc.core
+
+import java.io.IOException
+import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLException
+import javax.net.ssl.X509TrustManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
+
+/** Why a request to the agent didn't give an answer. Each has a strings key. */
+sealed class AgentException(val key: String, message: String? = null) : Exception(message ?: key) {
+    /** No answer at all: the PC is off or asleep, the agent isn't running,
+     * or this phone isn't on Tailscale (the dashboard's offline screen). */
+    class Unreachable : AgentException("mobile.error.unreachable")
+
+    /** The PC presented a different certificate from the one paired with. */
+    class CertificateChanged(val presented: String?) : AgentException("mobile.error.certificate_changed")
+
+    /** A typed address whose certificate the phone doesn't trust. */
+    class CertificateNotTrusted(val presented: String?) : AgentException("mobile.error.certificate_untrusted")
+
+    /** Something answered, but not this app's agent. */
+    class NotAnAgent : AgentException("mobile.error.not_agent")
+
+    /** The sign-in ended (signed out on the PC, a helper removed, expired). */
+    class SignedOut : AgentException("error.session_ended")
+
+    /** Sign-in refused: the agent's own words ("Wrong username or password"). */
+    class SignInRefused(val reason: String) : AgentException("mobile.error.sign_in", reason)
+
+    /** The account isn't allowed to do that (403), in the agent's words. */
+    class NotAllowed(val reason: String) : AgentException("mobile.error.not_allowed", reason)
+
+    /** Any other refusal, in the agent's words, with its error number. */
+    class Failed(val status: Int, val reason: String?, val requestId: String?) :
+        AgentException("mobile.error.failed", reason)
+}
+
+/** Lines the client may log: method, path and status. Never headers, bodies
+ * or the token; tests/NoSecretsTest checks that. */
+fun interface AgentLog {
+    fun line(text: String)
+}
+
+/**
+ * Talks to one paired PC over HTTPS with the certificate check from
+ * [PinnedTrust]. [token] is read for every request, from the phone's secure
+ * storage; [onSignedOut] is called on a 401, so the app forgets the token
+ * and locks itself out at once.
+ */
+class AgentClient(
+    val pairing: Pairing,
+    private val token: () -> String?,
+    private val onSignedOut: () -> Unit = {},
+    private val log: AgentLog = AgentLog { },
+    strict: Boolean = false,
+    baseClient: OkHttpClient = OkHttpClient(),
+    systemTrust: X509TrustManager = PinnedTrust.systemTrustManager(),
+) {
+    val trust = PinnedTrust(pairing.fingerprint, strict, systemTrust)
+
+    val http: OkHttpClient = trust.applyTo(baseClient.newBuilder())
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        // Stopping a server waits until Minecraft has saved and exited.
+        .callTimeout(150, TimeUnit.SECONDS)
+        .build()
+
+    private val jsonType = "application/json".toMediaType()
+
+    suspend fun health(): Health = get("/api/health", Health.serializer(), signedIn = false)
+
+    suspend fun login(username: String, password: String, device: String): LoginResult {
+        val body = buildJsonObject {
+            put("username", username)
+            put("password", password)
+            put("device", device)
+            put("label", device)
+            // The app always keeps the sign-in, behind its own unlock.
+            put("remember", true)
+        }
+        return call(post("/api/auth/login", body), LoginResult.serializer(), signedIn = false)
+    }
+
+    suspend fun logout() {
+        runCatching { call(post("/api/auth/logout", JsonObject(emptyMap())), JsonObject.serializer()) }
+    }
+
+    suspend fun me(): Me = get("/api/auth/me", Me.serializer())
+
+    suspend fun servers(): ServerList = get("/api/servers", ServerList.serializer())
+
+    suspend fun status(serverId: String): ServerStatus =
+        get("/api/servers/${path(serverId)}/status", ServerStatus.serializer())
+
+    /** start, stop or restart. */
+    suspend fun serverAction(serverId: String, action: String): ServerAction {
+        require(action in QUICK_ACTIONS) { "Not an action the app offers: $action" }
+        return call(
+            post("/api/servers/${path(serverId)}/server/$action", JsonObject(emptyMap())),
+            ServerAction.serializer(),
+        )
+    }
+
+    suspend fun alerts(after: Long?, limit: Int = 50): AppAlerts {
+        val query = buildString {
+            append("?limit=").append(limit)
+            if (after != null) append("&after=").append(after)
+        }
+        return get("/api/alerts$query", AppAlerts.serializer())
+    }
+
+    suspend fun phone(): AppPhone = get("/api/app/phone", AppPhone.serializer())
+
+    suspend fun registerPhone(pushToken: String, platform: String, label: String): AppPhone {
+        val body = buildJsonObject {
+            put("token", pushToken)
+            put("platform", platform)
+            put("label", label)
+        }
+        return call(request("/api/app/phone").put(body.toBody()).build(), AppPhone.serializer())
+    }
+
+    suspend fun forgetPhone(): AppPhone =
+        call(request("/api/app/phone").delete().build(), AppPhone.serializer())
+
+    suspend fun version(): VersionInfo = get("/api/version", VersionInfo.serializer())
+
+    // ------------------------------------------------------------------
+    private fun path(id: String) = java.net.URLEncoder.encode(id, "UTF-8").replace("+", "%20")
+
+    private fun request(path: String): Request.Builder =
+        Request.Builder().url(pairing.origin + path).header("Accept", "application/json")
+
+    private fun JsonObject.toBody(): RequestBody = toString().toRequestBody(jsonType)
+
+    private fun post(path: String, body: JsonObject): Request = request(path).post(body.toBody()).build()
+
+    private suspend fun <T> get(path: String, serializer: KSerializer<T>, signedIn: Boolean = true): T =
+        call(request(path).get().build(), serializer, signedIn)
+
+    private suspend fun <T> call(request: Request, serializer: KSerializer<T>, signedIn: Boolean = true): T =
+        withContext(Dispatchers.IO) {
+            val withToken = if (signedIn) {
+                val current = token() ?: throw AgentException.SignedOut()
+                request.newBuilder().header("Authorization", "Bearer $current").build()
+            } else {
+                request
+            }
+            val response = try {
+                http.newCall(withToken).execute()
+            } catch (e: IOException) {
+                log.line("${request.method} ${request.url.encodedPath} -> no answer")
+                throw translate(e)
+            }
+            response.use { read(it, request, serializer, signedIn) }
+        }
+
+    private fun <T> read(response: Response, request: Request, serializer: KSerializer<T>, signedIn: Boolean): T {
+        log.line("${request.method} ${request.url.encodedPath} -> ${response.code}")
+        val text = response.body?.string().orEmpty()
+        val isJson = response.header("Content-Type").orEmpty().contains("application/json")
+        if (response.code == 401 && signedIn) {
+            onSignedOut()
+            throw AgentException.SignedOut()
+        }
+        if (!response.isSuccessful) {
+            val reason = if (isJson) detail(text) else null
+            when {
+                response.code == 401 || response.code == 429 ->
+                    throw AgentException.SignInRefused(reason ?: "")
+                response.code == 403 -> throw AgentException.NotAllowed(reason ?: "")
+                else -> throw AgentException.Failed(response.code, reason, response.header("X-Request-ID"))
+            }
+        }
+        if (!isJson) throw AgentException.NotAnAgent()
+        return try {
+            AgentJson.decodeFromString(serializer, text)
+        } catch (e: IllegalArgumentException) {
+            throw AgentException.NotAnAgent()
+        }
+    }
+
+    private fun detail(text: String): String? = runCatching {
+        AgentJson.parseToJsonElement(text).let { it as? JsonObject }?.get("detail")?.jsonPrimitive?.contentOrNull
+    }.getOrNull()
+
+    internal fun translateFailure(e: IOException): AgentException = translate(e)
+
+    private fun translate(e: IOException): AgentException {
+        var cause: Throwable? = e
+        while (cause != null) {
+            when (cause) {
+                is CertificateMismatchException -> return AgentException.CertificateChanged(cause.presented)
+                is CertificateNotTrustedException -> return AgentException.CertificateNotTrusted(cause.presented)
+            }
+            cause = cause.cause
+        }
+        if (e is SSLException) return AgentException.NotAnAgent()
+        return AgentException.Unreachable()
+    }
+
+    companion object {
+        val QUICK_ACTIONS = listOf("start", "stop", "restart")
+    }
+}

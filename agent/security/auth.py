@@ -432,6 +432,17 @@ class AuthManager:
             return None, None
         return account["role"], account["servers"]
 
+    def may_see_alert(self, user: str, server_id: str | None) -> bool:
+        """Whether this account's phones are told about an alert: a helper
+        only about the servers they may use, and alerts about the PC itself
+        (failed sign-ins, the certificate) only go to the owner."""
+        role, servers = self._role_of(user)
+        if role is None:
+            return False
+        if server_id is None:
+            return role == "owner"
+        return servers is None or server_id in servers
+
     # -- helper accounts ---------------------------------------------------
     @staticmethod
     def _account_row(row: dict[str, Any]) -> dict[str, Any]:

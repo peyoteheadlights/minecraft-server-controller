@@ -145,6 +145,24 @@ class Recommendations(Open):
 
 
 # ------------------------------------------------------------ the agent itself
+class LoginResult(Open):
+    token: str = Field(description="Send as 'Authorization: Bearer <token>'")
+    user: str
+    expires_at: float
+    role: str = Field(description="owner or helper")
+    remember: bool
+
+
+class Me(Open):
+    user: str
+    kind: str
+    expires_at: float | None = None
+    role: str = Field(description="owner or helper")
+    servers: list[str] | None = Field(None, description="A helper's servers; null for the owner")
+    permissions: list[str]
+    preferences: dict[str, Any]
+
+
 class Health(Open):
     ok: bool
     auth_configured: bool | None = None
@@ -181,7 +199,14 @@ class AppAlert(Open):
 class AppAlerts(Open):
     alerts: list[AppAlert]
     latest: int = Field(description="Ask with after=latest next time")
+    more: bool = Field(False, description="More alerts are waiting after latest")
     enabled: bool = Field(description="Whether Web Push phone alerts are also turned on")
+
+
+class AppPhone(Open):
+    configured: bool = Field(description="Whether this PC has a Firebase key to send with")
+    registered: bool = Field(description="Whether this sign-in has a push address")
+    phone: dict[str, Any] | None = None
 
 
 class Release(Open):

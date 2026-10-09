@@ -138,6 +138,52 @@ def test_the_batch_file_runs_the_script_with_github():
     assert "pause" in text  # a double-clicked window stays open to be read
 
 
+def test_the_batch_file_installs_only_what_the_key_needs():
+    """Not the whole lock: some of it has no build for the newest Python."""
+    text = (ROOT / "make-update-key.cmd").read_text(encoding="utf-8")
+    assert "--requirements" in text
+    assert "--require-hashes" in text and "--only-binary=:all:" in text
+    assert "-r requirements.lock" not in text
+
+
+def test_the_needed_requirements_are_pinned_and_hashed_from_the_lock():
+    text = make_update_key.needed_requirements()
+    names = {line.split("==")[0] for line in text.splitlines() if not line[0].isspace()}
+    assert names == set(make_update_key.NEEDS)
+    lock = (ROOT / "requirements.lock").read_text(encoding="utf-8")
+    for line in text.splitlines():
+        assert line in lock.splitlines()
+    assert text.count("--hash=sha256:") >= 3
+    assert "# via" not in text
+
+
+def test_what_signing_imports_is_all_in_the_needed_requirements():
+    """If agent/signing.py starts using another library, NEEDS must grow."""
+    import ast
+
+    tree = ast.parse(Path(signing.__file__).read_text(encoding="utf-8"))
+    imported = {
+        node.module.split(".")[0]
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module and node.level == 0
+    } | {
+        alias.name.split(".")[0]
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    }
+    import sys
+
+    outside = {name for name in imported if name not in sys.stdlib_module_names}
+    assert outside <= set(make_update_key.NEEDS)
+
+
+def test_the_repository_is_read_without_importing_the_downloader():
+    from agent import downloads
+
+    assert make_update_key.repository() == downloads.REPO
+
+
 def test_release_check_names_the_batch_file_when_there_is_no_key(monkeypatch):
     from agent import __version__
 

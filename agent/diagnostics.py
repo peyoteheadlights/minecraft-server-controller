@@ -22,6 +22,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from . import appinfo
+from .appinfo import default_env_path
 from .minecraft.java import detect_java
 from .security.tls import inspect_certificate, verify_endpoint
 from .tailscale import tailscale_status
@@ -521,6 +523,19 @@ def _certificate_file(report: Report, config, section: str, cert) -> bool:
     report.add(
         section, Check("Certificate", OK, str(config.tls_certificate), f"issued by {cert.issuer}")
     )
+    # What a phone app checks it is talking to (the pairing code holds it).
+    from .security.tls import fingerprint
+
+    value = fingerprint(Path(config.tls_certificate))
+    report.add(
+        section,
+        Check(
+            "Certificate fingerprint",
+            OK if value else UNKNOWN,
+            value or "unknown",
+            "SHA-256; phones that paired before a new certificate scan the code again",
+        ),
+    )
     return True
 
 
@@ -824,13 +839,28 @@ def _authentication(report: Report, config) -> None:
             "" if config.api_token else "Optional: only needed for scripts.",
         ),
     )
-    env_path = Path(__file__).resolve().parent.parent / ".env"
+    env_path = config.env_path or default_env_path()
     if env_path.is_file():
-        detail = ""
-        if os.name != "nt":
-            mode = env_path.stat().st_mode & 0o777
-            detail = f"permissions {oct(mode)}" + (" - consider chmod 600" if mode & 0o077 else "")
-        report.add(section, Check(".env file", OK, str(env_path), detail))
+        # It holds the password hash and the phone-alert key: only Windows,
+        # administrators and the agent's account should be able to open it.
+        from .security.certs import folder_access
+
+        status, detail = folder_access(env_path)
+        if status == "private":
+            report.add(section, Check(".env file", OK, str(env_path), detail))
+        elif status == "shared":
+            report.add(
+                section,
+                Check(
+                    ".env file",
+                    FAIL,
+                    str(env_path),
+                    f"{detail}. Run the setup again to lock it: Start menu > "
+                    f'"{appinfo.SETUP_SHORTCUT}" > Repair, or .\\setup.ps1 in a project folder.',
+                ),
+            )
+        else:
+            report.add(section, Check(".env file", UNKNOWN, str(env_path), detail))
     else:
         report.add(
             section,

@@ -1,6 +1,34 @@
 # Upgrading and uninstalling
 
-## Upgrading
+## Installed with the setup file
+
+**From the dashboard.** When a new version is out, a dot appears on the gear
+(top right). App settings shows what changed and, for the owner, **Install
+update**. It says who is playing first, then makes a restore point, updates
+and checks the app answers again. If the new version doesn't start, it puts
+the old one back by itself and says so. Running servers are stopped
+cleanly first and started again afterwards. Details: [security](security.md#updating-the-app-itself).
+
+**By hand.** Download the newer setup file and run it: it finds the
+installed copy and offers **Update**, keeping every setting, server and
+backup. Running the same version again offers **Repair**. An older setup
+file won't replace a newer install.
+
+**Moving from a `setup.ps1` copy.** Run the setup file. It finds the copy by
+its startup task (or its `config.yaml`), copies the settings, `.env` and
+data over with every file checked, makes the startup task point at the new
+program, and leaves the old folder exactly where it was. After a week, App
+settings offers to remove the old copy's app files (never your settings,
+data or server folders); it refuses if the folder holds anything it doesn't
+recognise as the app's.
+
+**Uninstalling.** Settings > Apps > Installed apps > Minecraft Server
+Controller > Uninstall, or **"Minecraft Server Controller setup"** in the
+Start menu. Your data folder (`C:\ProgramData\Minecraft Server Controller`:
+settings, database, backups, logs) is kept unless you tick **Also delete my
+settings, database and backups**. Your Minecraft servers are never touched.
+
+## Upgrading a project folder (setup.ps1)
 
 1. Stop the agent: Ctrl+C in its window, or, if it starts with Windows,
    `schtasks /End /TN "Minecraft Server Control"`
@@ -38,7 +66,7 @@ new.
   you wrote it is kept once as `config.yaml.original`, and the version before
   each save as `config.yaml.bak`.
 
-## Uninstalling
+## Uninstalling a project folder (setup.ps1)
 
 ```powershell
 # 1. Stop Minecraft from the dashboard if it is running

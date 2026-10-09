@@ -132,9 +132,9 @@ def shared_groups_in_sddl(sddl: str) -> list[str]:
 
 def folder_access(path: Path) -> tuple[str, str]:
     """("private" | "shared" | "unknown", a sentence saying why), read from
-    the folder's real permissions. Changes nothing."""
+    the folder's (or file's) real permissions. Changes nothing."""
     path = Path(path)
-    if not path.is_dir():
+    if not path.exists():
         return "unknown", f"{path} does not exist yet"
     if os.name != "nt":
         mode = path.stat().st_mode & 0o777
@@ -165,11 +165,13 @@ def folder_access(path: Path) -> tuple[str, str]:
     return "private", "Only SYSTEM, Administrators and the agent's account can open it"
 
 
-def _restrict_file(path: Path) -> None:
+def _restrict_file(path: Path) -> str | None:
+    """Make a secrets file readable only by SYSTEM, Administrators and this
+    account. Returns why that failed, or None when it worked."""
     if os.name == "nt":
         user = os.environ.get("USERNAME", "")
         try:
-            subprocess.run(
+            done = subprocess.run(
                 [
                     "icacls",
                     str(path),
@@ -182,16 +184,21 @@ def _restrict_file(path: Path) -> None:
                 ],
                 check=False,
                 capture_output=True,
+                text=True,
                 timeout=30,
                 creationflags=NO_WINDOW,
             )
-        except (OSError, subprocess.SubprocessError):
-            pass
-    else:
-        try:
-            path.chmod(0o600)
-        except OSError:
-            pass
+        except (OSError, subprocess.SubprocessError) as exc:
+            return f"icacls couldn't run: {exc}"
+        if done.returncode != 0:
+            said = (done.stderr or done.stdout or "").strip()
+            return f"icacls exit {done.returncode}" + (f": {said}" if said else "")
+        return None
+    try:
+        path.chmod(0o600)
+    except OSError as exc:
+        return f"chmod failed: {exc}"
+    return None
 
 
 # ----------------------------------------------------------------------

@@ -103,11 +103,22 @@ agent/              the server agent
   filebrowse.py     the folder picker (folder names only)
   web/              the dashboard (plain HTML, CSS and JavaScript)
   main.py           entry point
-installer/          secrets, certificates, firewall, Windows startup,
-                    reset_password.py (on the PC only), import_from_pc.py
+installer/          the Windows installer and the on-PC tools:
+  app/              the setup window (PySide6), styled from the dashboard's
+                    styles.css tokens; demo.py drives it with a pretend PC
+  wizard.py         what the window asks the PC; --quiet for automation
+  engine.py         the install, update, repair and move, step by step,
+                    with a restore point and rollback
+  bootstrap.py      setup.exe itself: checks and unpacks the program
+  apply_update.py   what the updater task runs (security.md)
+  setup_tool.py, make_secrets.py, make_certs.py, autostart.py,
+  reset_password.py, import_from_pc.py   reused by both setups
+packaging/          PyInstaller specs for the program and setup.exe
 config/             config.example.yaml
 docs/               installation, HTTPS, Tailscale, mods, backups, API and more
-scripts/            end-to-end and browser checks
+scripts/            end-to-end and browser checks; build_installer.py,
+                    installer_shots.py, release_check.py, sign_release.py,
+                    make_update_key.py, api_contract.py
 tests/              automated tests, with a fake Minecraft server
 ```
 
@@ -122,18 +133,48 @@ python -m ruff check . ; python -m ruff format --check . ; python -m mypy
 See [docs/testing.md](testing.md) for the browser and end-to-end checks,
 the lock files and pre-commit.
 
+### Building the installer
+
+On Windows, with `requirements-build.lock` installed:
+
+```powershell
+python scripts/build_installer.py
+```
+
+It builds the program folder with PyInstaller (`packaging/app.spec`), zips
+it with a SHA-256 for every file (`payload.json`, checked again as
+setup.exe unpacks), and wraps that in
+`dist/MinecraftServerController-Setup-<version>.exe` plus its `.sha256`.
+Releases are built by `.github/workflows/release.yml`
+([releases](releases.md)).
+
+The setup window runs anywhere PySide6 does. To see every screen without
+touching the PC, `python scripts/installer_shots.py` saves them (light and
+dark) to `ui-shots/installer/`, driven by `installer/app/demo.py`;
+`tests/test_installer_app.py` clicks through them off-screen.
+
 ### CI
 
 `.github/workflows/ci.yml` runs on every push and pull request:
 
 - **Lint and type check**: `ruff check`, `ruff format --check` and `mypy`,
   with the settings in `pyproject.toml`.
-- **Unit tests** on both Linux and Windows.
+- **Unit tests** on both Linux and Windows, each on the Python in
+  `.python-version` (the one the installer packs) and on 3.11, the lowest
+  `pyproject.toml` allows.
+- **Installer**: builds the setup file on Windows, installs it with no
+  window and a password from an environment variable, signs in to the agent
+  it started, checks the password was written nowhere, then uninstalls and
+  checks nothing is left (`scripts/installer_smoke.py`).
 - **Dashboard in a real browser**: `scripts/ui_check.py --quick` signs in and
   visits every page in headless Chromium in both Simple and Technical mode,
   and fails on any JavaScript or console error, failed request, sideways
   scrolling, code text such as `undefined` on the page, or text without
   enough contrast. The screenshots are kept as a build artifact.
+
+Every workflow is read-only (`permissions: contents: read`) except the
+release workflow's publish job, and every action is pinned to a full commit
+SHA with its version in a comment (`tests/test_release.py` checks both).
 
 ### Windows CI
 

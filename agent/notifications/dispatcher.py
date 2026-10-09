@@ -84,6 +84,9 @@ EVENT_MAP: dict[str, tuple[str, str, int, str]] = {
         0xED4245,
         "Secure connection certificate problem",
     ),
+    "update_available": ("app_updates", "⬆️", 0x5865F2, "A new version of the app is out"),
+    "update_finished": ("app_updates", "✅", 0x3BA55D, "The app was updated"),
+    "update_failed": ("app_updates", "❌", 0xED4245, "The app's update didn't work"),
     "server_added": ("servers_changed", "➕", 0x5865F2, "Server added: {server}"),
     "server_removed": ("servers_changed", "➖", 0x9AA0A6, "Server removed: {server}"),
     "server_duplicated": ("servers_changed", "➕", 0x5865F2, "Server copied: {server}"),
@@ -123,6 +126,58 @@ THROTTLED = {
     "auth_failure",
     "certificate_expiring",
 }
+
+
+# The dashboard page an alert is about, so tapping it on a phone opens that
+# page of that server (agent/web/sw.js). Anything not listed opens the
+# server's Overview, or the server list for an app-wide alert.
+ALERT_PAGES = {
+    "server_crashed": "crashes",
+    "crash_loop": "crashes",
+    "backup_completed": "backups",
+    "backup_failed": "backups",
+    "backup_copy_failed": "backups",
+    "mod_installed": "mods",
+    "mod_removed": "mods",
+    "mod_updated": "mods",
+    "mod_dependency_problem": "mods",
+    "player_joined": "players",
+    "player_left": "players",
+    "player_managed": "players",
+    "low_tps": "performance",
+    "high_mspt": "performance",
+    "high_ram": "performance",
+    "high_cpu": "performance",
+    "low_disk": "performance",
+    "game_settings_changed": "game-settings",
+    "world_imported": "world",
+    "auth_failure": "security",
+    "certificate_expiring": "security",
+    "helper_added": "helpers",
+    "update_available": "app-settings",
+    "update_finished": "app-settings",
+    "update_failed": "app-settings",
+}
+APP_PAGES = {"security", "helpers", "app-settings"}
+
+
+def alert_page(event: Event) -> str:
+    page = ALERT_PAGES.get(event.type)
+    if page in APP_PAGES:
+        return page
+    if event.server_id:
+        return page or "dashboard"
+    return page or "servers"
+
+
+def alert_link(event: Event) -> str:
+    """The dashboard address for an alert, like /#survival/crashes."""
+    from urllib.parse import quote
+
+    page = alert_page(event)
+    if event.server_id and page not in APP_PAGES and page != "servers":
+        return f"/#{quote(event.server_id, safe='')}/{page}"
+    return f"/#{page}"
 
 
 class Notifier:
@@ -420,6 +475,9 @@ class Notifier:
             "level": event.level,
             "server_id": event.server_id,
             "ts": event.ts,
+            # Tapping the alert opens this page of this server.
+            "page": alert_page(event),
+            "url": alert_link(event),
         }
         sent = 0
         for subscription in subscriptions:

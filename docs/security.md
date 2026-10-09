@@ -16,6 +16,15 @@
 - Signing in returns a random 256-bit session token; only its SHA-256 is
   stored, so a stolen database yields no usable tokens.
 - Sessions expire after 12 hours by default, and can be rotated or revoked.
+- **Keep me signed in** (for a phone, or a PC you own) makes a session that
+  lasts `security.remember_days` (90 by default) from its **last use**, and
+  the browser keeps its token in `localStorage` instead of the tab's
+  session storage. The Security page lists every signed-in device (name,
+  account, when it signed in, last used, address) with a **Sign out**
+  button for each. Signing a device out deletes its session at once;
+  `DELETE /api/sessions/<id>` takes the listed id (the first 16 hex digits of
+  the token's hash), never the token, and an account can only sign out its
+  own devices unless it is the owner.
 - A long-lived API token is supported for scripts, compared in constant time.
 - Failed attempts are counted per user and per address. Five failures locks
   sign-in for 15 minutes, with `Retry-After` in the response. Helpers are
@@ -59,7 +68,10 @@ unless asked:
 fails if any of them is found inside.
 
 None of these appear in `config.yaml`, in source, or in the browser, and
-`.env` is gitignored. The settings API reports only whether a secret is
+`.env` is gitignored. Setup makes `.env` readable only by SYSTEM,
+Administrators and the account that runs the app (`icacls`). If that
+fails, setup says so as a failed step with what to do, rather than
+carrying on, and `--check` reports who can open the file. The settings API reports only whether a secret is
 configured, never its value.
 
 ## Command injection
@@ -135,8 +147,79 @@ install.py` is the only place that does it, and the rules are:
 list of every file in the agent that starts a program at all: a new one
 fails that test until it is added on purpose.
 
-Updating this app itself (Phase 7) will be the second such exception. Both
-are listed here, and nowhere else does the dashboard run a program.
+### Updating the app itself
+
+The second exception. The dashboard shows "Version X is out" and, for the
+owner (`app.update`; helpers never have it), an **Install update** button
+behind a confirmation that says who is playing. Nothing the browser sends
+becomes part of a command or a file name: the request carries no body at
+all. What happens:
+
+1. **The agent checks the release** (`agent/updates.py`). It reads this
+   repo's latest release from `api.github.com/repos/<repo>/releases/latest`
+   (only this repo's release paths are on the download allow-list), then
+   fetches that version's `update.json` and `update.json.sig`. The
+   signature is checked **first**, with the Ed25519 public key built into
+   the app (`agent/signing.py`, `UPDATE_PUBLIC_KEY`). A file that isn't
+   signed, is signed with any other key, or names another product, repo,
+   version or file name is refused (`agent/signing.py: verify`). A copy
+   built with no key built in never installs updates by itself; it says
+   so and links the release page.
+2. **It downloads the setup file** named in the signed file, from that
+   release only, as `<name>.exe.download` (the agent never writes a file
+   ending in `.exe`, see `agent/security/paths.py`), and checks its size
+   and SHA-256 against the signed values. A mismatch deletes it.
+3. **It takes a backup** of `config.yaml`, `.env` and the database into
+   `updates/backup-<version>`, and writes `updates/request.json` holding
+   only the version.
+4. **It asks Windows to run one fixed task**: `schtasks /Run /TN
+   "Minecraft Server Controller updater"`, an argument list with no
+   values from anywhere (`tests/test_command_isolation.py` pins the exact
+   list). The installer made that task; it runs `mcsc.exe apply-update`
+   from Program Files, which only Administrators can change.
+5. **`apply-update` trusts nothing but the version number**
+   (`installer/apply_update.py`). It builds the file name itself, fetches
+   and verifies the signed `update.json` again, reads the downloaded bytes
+   once, checks their SHA-256, writes exactly those bytes into a folder next
+   to the program folder that only Administrators can change, and starts
+   that copy with fixed arguments (`--update --quiet --from-app
+   --program-dir <program folder>`). A file swapped after the check is
+   never the one that runs.
+6. **The setup updates as it would by hand**: a restore point first, then
+   the new files, then it checks the agent answers. If anything fails, it
+   puts the restore point back by itself and says so. The outcome is
+   written to `updates/last-update.json`, which the dashboard shows once,
+   and an `update_finished` or `update_failed` alert is sent.
+
+Tests: `tests/test_updates.py` refuses an unsigned release, a bad signature,
+a signature from another key, a signed file naming another version or file,
+and a setup file that fails its checksum (each before anything runs).
+
+These two (the loader installer and the update) are the only programs the
+dashboard can cause to run, and both are listed in
+`tests/test_command_isolation.py`'s allow-list.
+
+#### The signing key
+
+The private half of the update key never goes in this repo. It is a GitHub
+Actions secret (`MCSC_UPDATE_SIGNING_KEY`) that only the release workflow
+reads, plus Mark's offline copy. `docs/releases.md` has how to make it.
+
+**If the private key leaks** (or is lost): make a new pair with
+`python scripts/make_update_key.py --replace`, which writes the new public
+key into `agent/signing.py`; put the new private key in the GitHub secret;
+release a new version and tell people to **install that one by hand** from
+the release page, because copies with the old key will refuse anything
+signed with the new one (that is the point). Delete the old secret. Until
+then, someone holding the old key could sign an update the old copies
+accept, but they would also need to publish it as a release of this repo.
+
+#### What isn't covered yet
+
+The setup file itself isn't code-signed (Authenticode), so Windows
+SmartScreen warns "Unknown publisher" on a manual download. The update
+signature above covers in-app updates either way. `docs/installation.md`
+has the path to code signing.
 
 Console commands pass through `agent/minecraft/commands.py`: single line,
 length capped, restricted character set, first token must look like a
@@ -270,8 +353,13 @@ SHA-512 (`allow_unverified=False`), and a mismatch stops the import: a new
 server is removed again, and an existing one is put back from the backup
 taken first.
 
-Nothing downloaded is executed by the agent, with the single documented
-exception of the loader installer described under Command injection.
+Nothing downloaded is executed by the agent, with the two documented
+exceptions under Command injection: the loader installer, and an update of
+this app, which runs only after its signature and checksum check out.
+
+The installer downloads one more thing, on the PC with you present: Java
+(Eclipse Temurin) from Adoptium's API over HTTPS, checked against the
+SHA-256 Adoptium publishes before it is installed (`installer/java_setup.py`).
 
 ## Web surface
 

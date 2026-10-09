@@ -15,11 +15,12 @@ from ...security.permissions import (
 )
 from ..deps import audit, get_core
 from ..errors import audit_failure
+from ..responses import Job, JobList
 
 router = APIRouter()
 
 
-@router.get("/jobs")
+@router.get("/jobs", response_model=JobList)
 async def list_jobs(
     server_id: str | None = None,
     running: bool = False,
@@ -36,7 +37,7 @@ async def list_jobs(
     return {"jobs": [job.to_dict() for job in jobs if can_see_server(principal, job.server_id)]}
 
 
-@router.get("/jobs/{job_id}")
+@router.get("/jobs/{job_id}", response_model=Job)
 async def get_job(
     job_id: str, principal: Principal = Depends(require(SERVER_VIEW)), core=Depends(get_core)
 ):

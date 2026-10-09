@@ -40,7 +40,8 @@ def test_no_shell_execution_anywhere_in_the_agent():
 
 
 def test_no_dynamic_code_execution():
-    forbidden = re.compile(r"\beval\s*\(|\bexec\s*\(|__import__\s*\(|pickle\.loads?\(")
+    # A method named exec (Qt's dialog.exec()) is not Python's exec().
+    forbidden = re.compile(r"\beval\s*\(|(?<![.\w])exec\s*\(|__import__\s*\(|pickle\.loads?\(")
     offenders = []
     for path in python_sources():
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
@@ -306,6 +307,11 @@ def test_only_the_documented_places_start_a_program():
         "tailscale.py",  # asking Tailscale for this PC's address
         "certs.py",  # making this app's own HTTPS certificate
         "autostart.py",  # the Windows entry that starts this app at sign-in
+        # Phase 7. The installer runs as Administrator from setup.exe, never
+        # from the dashboard; the updater is the documented exception.
+        "bootstrap.py",  # setup.exe running the setup it carries
+        "apply_update.py",  # the update task running a checked setup file
+        "updates.py",  # asking Windows to run that update task (fixed arguments)
     }
     unexpected = sorted(path.name for path in subprocess_sites() if path.name not in allowed)
     assert not unexpected, (
@@ -383,3 +389,15 @@ def test_a_requested_version_never_reaches_a_file_name_or_a_url(payload):
 
     with pytest.raises(VersionError):
         check_version(payload)
+
+
+def test_the_dashboard_can_only_ask_windows_to_run_the_update_task():
+    """The in-app updater's one program call: a fixed schtasks command for
+    the task the installer made. Nothing from a request or GitHub is in it."""
+    from agent import updates
+
+    source = inspect.getsource(updates.run_updater_task)
+    assert '["schtasks.exe", "/Run", "/TN", UPDATER_TASK]' in source
+    assert updates.UPDATER_TASK == "Minecraft Server Controller updater"
+    others = inspect.getsource(updates).replace(source, "")
+    assert "subprocess.run" not in others and "Popen" not in others

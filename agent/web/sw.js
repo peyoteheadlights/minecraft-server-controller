@@ -95,17 +95,27 @@ self.addEventListener("push", (event) => {
     // first, but Creative crashing never hides Survival crashing.
     tag: `${data.event || "mcsc"}:${data.server_id || ""}`,
     timestamp: data.ts ? data.ts * 1000 : Date.now(),
-    data: { server_id: data.server_id || null },
+    // Where tapping it goes, like /#survival/crashes. Only a link inside
+    // this dashboard is used.
+    data: { server_id: data.server_id || null, url: typeof data.url === "string" && data.url.startsWith("/#") ? data.url : "/" },
   }));
 });
 
+/* Tapping an alert opens the page it is about (an already open dashboard
+   goes there), or the dashboard's front page for an older alert. */
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  const data = event.notification.data || {};
+  const link = typeof data.url === "string" && data.url.startsWith("/#") ? data.url : "/";
+  const target = new URL(link, self.location.origin).href;
   event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true })
     .then((windows) => {
       for (const client of windows) {
-        if (client.url.startsWith(self.location.origin)) return client.focus();
+        if (client.url.startsWith(self.location.origin)) {
+          return client.focus().then((focused) => (focused && "navigate" in focused && link !== "/"
+            ? focused.navigate(target) : focused));
+        }
       }
-      return self.clients.openWindow("/");
+      return self.clients.openWindow(target);
     }));
 });

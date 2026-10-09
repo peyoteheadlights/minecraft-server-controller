@@ -195,6 +195,9 @@ def test_java_too_old_only_when_both_versions_are_known():
     unknown = {"verdict": "unknown", "java_major": 17, "required": None, "minecraft_version": None}
     assert ids(facts(java=unknown)) == []
     assert ids(facts(java=None)) == []
+    assert "Start menu" not in found[0].reason  # a setup.ps1 copy has no setup entry
+    installed = rec.evaluate(facts(java=old, installed=True))[0]
+    assert '"Minecraft Server Controller setup" from the Start menu' in installed.reason
 
 
 def test_automatic_restart_turned_off():

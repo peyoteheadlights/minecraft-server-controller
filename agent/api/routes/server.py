@@ -20,12 +20,13 @@ from ...security.permissions import (
 )
 from ..deps import audit, get_server
 from ..errors import audit_failure
+from ..responses import ServerAction, ServerStatus
 from .models import CommandRequest, StopRequest, TpsCommandRequest
 
 router = APIRouter()
 
 
-@router.get("/status")
+@router.get("/status", response_model=ServerStatus)
 async def status(principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)):
     return ctx.status()
 
@@ -65,7 +66,7 @@ async def server_info(
     }
 
 
-@router.post("/server/start")
+@router.post("/server/start", response_model=ServerAction)
 async def server_start(
     request: Request,
     principal: Principal = Depends(require(SERVER_CONTROL)),
@@ -88,7 +89,7 @@ async def server_start(
     }
 
 
-@router.post("/server/stop")
+@router.post("/server/stop", response_model=ServerAction)
 async def server_stop(
     payload: StopRequest,
     request: Request,
@@ -117,7 +118,7 @@ async def server_stop(
     }
 
 
-@router.post("/server/restart")
+@router.post("/server/restart", response_model=ServerAction)
 async def server_restart(
     request: Request,
     principal: Principal = Depends(require(SERVER_CONTROL)),

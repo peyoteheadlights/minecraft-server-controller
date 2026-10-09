@@ -25,7 +25,7 @@ import { api } from "./api.js";
 import { signOut } from "./auth.js";
 import { connectSocket, renderStatus } from "./live.js";
 import { showOffline } from "./offline.js";
-import { render, renderRail } from "./nav.js";
+import { pageHash, parseHash, render, renderRail } from "./nav.js";
 import { adopt } from "./prefs.js";
 import { registerServiceWorker } from "./pwa.js";
 import { loadServers } from "./servers.js";
@@ -38,6 +38,21 @@ $("#login-title").textContent = t("app.name");
 $("#username-label").textContent = t("login.username");
 $("#password-label").textContent = t("login.password");
 $("#login-button").textContent = t("login.sign_in");
+$("#remember-label").textContent = t("login.remember");
+
+/* What the Security page calls this device: "Chrome on Windows". Read
+   from the browser's own description of itself. */
+function deviceName() {
+  const ua = navigator.userAgent;
+  const system = [["iPhone", /iPhone/], ["iPad", /iPad/], ["Android", /Android/],
+    ["Windows", /Windows/], ["Mac", /Macintosh/], ["Linux", /Linux/]].find(([, re]) => re.test(ua));
+  const browser = [["Edge", /Edg\//], ["Firefox", /Firefox\//], ["Chrome", /Chrome\//],
+    ["Safari", /Safari\//]].find(([, re]) => re.test(ua));
+  if (!system && !browser) return ua.slice(0, 60);
+  return t("login.device_name", {
+    browser: browser ? browser[0] : t("login.browser"), system: system ? system[0] : "",
+  }).trim();
+}
 
 $("#login-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -52,10 +67,18 @@ $("#login-form").addEventListener("submit", async (event) => {
           username: $("#username").value,
           password: $("#password").value,
           label: navigator.userAgent.slice(0, 60),
+          device: deviceName(),
+          remember: $("#remember").checked,
         },
       });
       state.token = result.token;
       state.user = result.user;
+      // A kept sign-in survives closing the browser (or the phone's home
+      // screen app); otherwise it ends with this tab.
+      try {
+        if (result.remember) localStorage.setItem("mcsc_token", state.token);
+        else localStorage.removeItem("mcsc_token");
+      } catch (e) { /* kept for this tab only */ }
       sessionStorage.setItem("mcsc_token", state.token);
       $("#password").value = "";
       const me = await api("/auth/me").catch(() => null);
@@ -75,9 +98,11 @@ async function startApp(me) {
   }
   $("#login").hidden = true;
   $("#app").classList.add("visible");
-  const hash = location.hash.replace("#", "");
-  if (pageEntry(hash)) state.page = hash;
+  const wanted = parseHash();
+  if (pageEntry(wanted.page)) state.page = wanted.page;
   try {
+    // A link that names a server (#survival/console) opens that server.
+    if (wanted.server) state.serverId = wanted.server;
     await loadServers();
     state.status = await api("/status");
   } catch (e) { return; }
@@ -85,6 +110,13 @@ async function startApp(me) {
     const running = await api("/jobs?running=true");
     for (const job of running.jobs || []) state.jobs[job.id] = job;
   } catch (e) { /* the jobs indicator stays empty; nothing is assumed */ }
+  // A new version shows as a dot on the gear, so it is seen without
+  // opening App settings. Checked by the agent once a day.
+  api("/updates").then((u) => {
+    state.newVersion = u.available && u.latest ? u.latest.version : "";
+    renderRail();
+  }).catch(() => { /* no dot; App settings says why */ });
+  history.replaceState(null, "", pageHash());
   renderRail();
   renderStatus();
   render();

@@ -53,11 +53,42 @@ an estimate. A server runs one risky job at a time; a second gets 409.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| POST | `/api/auth/login` | `{username, password}` → `{token, expires_at}` |
+| POST | `/api/auth/login` | `{username, password, remember?, device?}` → `{token, expires_at, remember}`. `remember: true` is "Keep me signed in": the session lasts `security.remember_days` from its last use. `device` names it on the Security page (the phone app sends its name) |
 | POST | `/api/auth/logout` | Invalidate this session |
 | POST | `/api/auth/rotate` | New token, old one invalidated |
 | GET | `/api/auth/me` | Who this token belongs to |
 | POST | `/api/account/password` | `{current, new}`: a helper changes their own password (other sessions end). The owner is refused: reset it on the PC |
+
+## Versions, pairing, devices and updates
+
+What a client (the dashboard, or the phone app) needs to know about the app
+itself. Every one of these declares its answer's shape in `/api/openapi.json`
+(`agent/api/responses.py`).
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/health` | No sign-in. `{ok, auth_configured, api_version}` |
+| GET | `/api/version` | `{version, api_version}`. `api_version` (an integer) goes up only for a change a client must handle; CHANGELOG.md lists them under "API" |
+| GET | `/api/pairing` | "Open on your phone": `{ok, address, port, fingerprint, api_version, url, qr}` or `{ok: false, reason}`. `url` is `https://<address>:<port>/?pair=1&fp=<64 hex>&api=<n>`, what the QR code holds; it carries no password or token. `fingerprint` is the SHA-256 of the agent's certificate, so an app can check it reached the right PC. `qr` is the code's rows, `"1"` a dark square, no border |
+| GET | `/api/sessions` | Signed-in devices: `{sessions: [{id, user, label, created_at, last_used, expires_at, source_ip, remember, current}], remember_days}`. A helper sees only their own |
+| DELETE | `/api/sessions/{id}` | Sign one device out at once (the owner: any; a helper: their own) |
+| GET | `/api/updates` | `{current, latest, available, checked_at, error, checking, install_kind, can_install, cannot_install_reason, last_result}`. `latest` is `{version, page, notes, published_at}` |
+| POST | `/api/updates/check` | Check GitHub now (`app.update`) |
+| GET | `/api/updates/preflight` | The same, plus `players_online` (null when unknown) and who: what the confirmation shows |
+| POST | `/api/updates/install` | Start the update (`app.update`, owner only, no body) → `{ok, job}`. See [security](security.md#updating-the-app-itself) |
+| GET | `/api/updates/old-copy` | `{old_copy}`: a `setup.ps1` copy left behind after moving, what removing it would delete, and why it can't (`problems`) |
+| POST | `/api/updates/old-copy/remove` | Remove that copy's app files (`app.update`) → `{ok, path, removed, kept, failed, folder_removed}` |
+
+**Links.** Dashboard addresses name the server and page: `/#<server id>/<page>`
+(`/#survival/console`), or `/#<page>` for app-wide pages (`/#app-settings`).
+Older links (`/#console`) still open that page on the last server used. Phone
+alerts carry `url` and `page` and open that place.
+
+**The contract.** `docs/api/released.txt` names the saved copy of the last
+released API. `tests/test_api_contract.py` fails if a route or a field of an
+answer disappears without having been marked deprecated in a release first,
+and if a new route declares no response model. Older routes without one are
+listed in `tests/api_untyped_routes.txt`; the list only shrinks.
 
 ## Helpers, moving, getting help (owner only)
 

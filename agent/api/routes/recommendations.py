@@ -11,6 +11,7 @@ from ... import recommendations
 from ...security.auth import Principal
 from ...security.permissions import SERVER_VIEW, SETTINGS_EDIT, require
 from ..deps import audit, get_server
+from ..responses import Recommendations
 from .models import RecommendationActionRequest
 
 router = APIRouter()
@@ -22,7 +23,7 @@ async def _found(ctx) -> list[recommendations.Recommendation]:
     return recommendations.evaluate(facts)
 
 
-@router.get("/recommendations")
+@router.get("/recommendations", response_model=Recommendations)
 async def list_recommendations(
     principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):

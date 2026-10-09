@@ -16,9 +16,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from agent import appinfo
 from agent.security.auth import hash_password
 
-ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
+ENV_PATH = appinfo.default_env_path()
 
 
 def main() -> int:

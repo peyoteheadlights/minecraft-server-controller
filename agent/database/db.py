@@ -287,6 +287,14 @@ MIGRATIONS: list[tuple[int, str]] = [
         ALTER TABLE backups ADD COLUMN copy_checked_at REAL;
         """,
     ),
+    (
+        9,
+        # "Keep me signed in on this device": a longer sign-in that each use
+        # renews, listed with the others on the Security page.
+        """
+        ALTER TABLE sessions ADD COLUMN remember INTEGER NOT NULL DEFAULT 0;
+        """,
+    ),
 ]
 
 

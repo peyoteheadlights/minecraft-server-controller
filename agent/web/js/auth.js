@@ -13,6 +13,7 @@ export function signOut(expired) {
   if (!expired && state.token) api("/auth/logout", { method: "POST" }).catch(() => {});
   state.token = "";
   sessionStorage.removeItem("mcsc_token");
+  try { localStorage.removeItem("mcsc_token"); } catch (e) { /* nothing kept */ }
   clearTimers();
   applyServerColor(null);
   $("#app").classList.remove("visible");

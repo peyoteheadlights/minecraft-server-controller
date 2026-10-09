@@ -20,12 +20,13 @@ from ...security.permissions import (
 )
 from ..deps import audit, get_server
 from ..errors import audit_failure, respond_as
+from ..responses import BackupList
 from .models import BackupRequest, OffsiteRequest, RestoreRequest
 
 router = APIRouter()
 
 
-@router.get("/backups")
+@router.get("/backups", response_model=BackupList)
 async def list_backups(
     principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):

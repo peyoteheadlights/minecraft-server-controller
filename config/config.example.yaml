@@ -117,6 +117,9 @@ network:
 
 security:
   session_hours: 12
+  # "Keep me signed in on this device" lasts this many days after the device
+  # was last used. Sign it out on the Security page at any time.
+  remember_days: 90
   max_failed_logins: 5
   lockout_minutes: 15
   rate_limit_requests: 120
@@ -180,6 +183,7 @@ notifications:
     auth_failure: true
     maintenance_mode: true
     certificate_expiring: true
+    app_updates: true        # a new version is out, or an update finished or didn't work
     servers_changed: true    # a server was added or removed in Settings
     cpu_cores_failed: true   # a server's CPU core limit could not be applied
     game_settings_changed: false  # someone saved a server's Game settings
@@ -214,6 +218,11 @@ paths:
 power:
   # Ask Windows not to sleep while any server is running.
   keep_awake: true
+
+updates:
+  # Look for a newer version of this app once a day (on GitHub). Updates
+  # are only installed when you start one from the dashboard.
+  check: true
 
 maintenance:
   enabled: false

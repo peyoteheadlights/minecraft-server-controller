@@ -49,6 +49,7 @@ FILES_BROWSE = "files.browse"  # list folders on the PC, for the folder picker
 WORLD_REPLACE = "world.replace"  # import a world over a server's own
 DATA_EXPORT = "data.export"  # "Export everything" for moving to a new PC
 HELP_BUNDLE = "help.bundle"  # the "Get help" file of logs and checks
+APP_UPDATE = "app.update"  # check for, and install, a new version; remove the old copy
 
 ALL = frozenset(
     {
@@ -75,6 +76,7 @@ ALL = frozenset(
         WORLD_REPLACE,
         DATA_EXPORT,
         HELP_BUNDLE,
+        APP_UPDATE,
     }
 )
 

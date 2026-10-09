@@ -2,7 +2,7 @@ import { api } from "../api.js";
 import { signOut } from "../auth.js";
 import { renderers, state } from "../state.js";
 import { t, technical } from "../strings.js";
-import { card, confirmDialog, el, emptyState, fmt, known, loadInto, metric, table, toast } from "../ui.js";
+import { $, card, confirmDialog, el, emptyState, fmt, known, loadInto, metric, table, toast } from "../ui.js";
 
 const yesNo = (value) => (value === true ? t("value.yes") : value === false ? t("value.no") : null);
 
@@ -39,17 +39,43 @@ function certificateStats(data) {
       data.dashboard_hostname ? t("security.covers_note", { host: data.dashboard_hostname })
         : t("security.covers_unset")),
     metric(t("security.key_match"), yesNo(tls.key_matches_certificate),
-      tls.key_check_error || t("security.key_note")));
+      tls.key_check_error || t("security.key_note")),
+    // What a phone app pins: shown in Technical mode, and in the pairing code.
+    technical() ? metric(t("security.fingerprint"), tls.fingerprint ? t("security.fingerprint_sha") : null,
+      tls.fingerprint ? el("span", { class: "mono break" }, tls.fingerprint) : t("security.cert_unreadable"))
+      : null);
 }
 
-function sessionsCard(data) {
-  return card(t("security.sessions", { count: data.active_sessions.length }),
-    data.active_sessions.length
-      ? table([t("security.col_user"), t("security.col_signed_in"), t("security.col_last_used"),
-          t("security.col_from"), t("security.col_device")], data.active_sessions.map((s) => [
-          s.user, fmt.time(s.created_at), fmt.ago(s.last_used),
-          el("span", { class: "mono" }, s.source_ip || "—"), (s.label || "").slice(0, 40)]))
+/* Signed-in devices: each can be signed out on its own. A kept sign-in
+   ("Keep me signed in") is marked, since it lasts until it is signed out
+   or goes unused for a long time. */
+function devicesCard(devices, rememberDays) {
+  const signOutDevice = async (row) => {
+    if (row.current) { signOut(false); return; }
+    const ok = await confirmDialog({
+      title: t("security.device_out_title", { device: row.label || t("security.device_unknown") }),
+      body: t("security.device_out_body"), confirmLabel: t("security.device_out"), danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api(`/sessions/${encodeURIComponent(row.id)}`, { method: "DELETE" });
+      toast(t("security.device_out_done"), "success");
+      renderers.security($("#page"));
+    } catch (err) { toast(err.message, "error"); }
+  };
+  return card(t("security.sessions", { count: devices.length }),
+    devices.length
+      ? table([t("security.col_device"), t("security.col_user"), t("security.col_signed_in"),
+          t("security.col_last_used"), t("security.col_from"), ""], devices.map((row) => [
+          el("span", {}, (row.label || t("security.device_unknown")).slice(0, 40),
+            row.current ? el("span", { class: "tag ok ml-6" }, t("security.this_device")) : null,
+            row.remember ? el("span", { class: "tag ml-6" }, t("security.kept")) : null),
+          row.user, fmt.ago(row.created_at), fmt.ago(row.last_used),
+          el("span", { class: "mono" }, row.source_ip || "—"),
+          el("button", { class: "btn small", type: "button", onclick: () => signOutDevice(row) },
+            t("security.device_out"))]))
       : emptyState(t("security.no_sessions")),
+    el("p", { class: "hint" }, t("security.kept_note", { days: rememberDays })),
     el("div", { class: "btn-row mt-12" },
       el("button", {
         class: "btn small", type: "button",
@@ -58,6 +84,9 @@ function sessionsCard(data) {
             const result = await api("/auth/rotate", { method: "POST" });
             state.token = result.token;
             sessionStorage.setItem("mcsc_token", state.token);
+            try {
+              if (localStorage.getItem("mcsc_token")) localStorage.setItem("mcsc_token", state.token);
+            } catch (e) { /* kept for this tab only */ }
             toast(t("security.rotated"), "success");
           } catch (err) { toast(err.message, "error"); }
         },
@@ -88,11 +117,12 @@ function auditCard(audit) {
 }
 
 renderers.security = (page) => loadInto(page, async () => {
-  const [data, audit] = await Promise.all([api("/security"), api("/security/audit?limit=100")]);
+  const [data, audit, devices] = await Promise.all([
+    api("/security"), api("/security/audit?limit=100"), api("/sessions")]);
   return el("div", { class: "stack" },
     connectionStats(data),
     certificateStats(data),
-    sessionsCard(data),
+    devicesCard(devices.sessions || [], devices.remember_days),
     auditCard(audit),
     el("p", { class: "hint" }, t("security.bind", { address: data.bind_address })));
 });

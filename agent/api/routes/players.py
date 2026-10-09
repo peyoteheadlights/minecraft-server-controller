@@ -8,12 +8,13 @@ from ...minecraft import playeractions
 from ...security.auth import Principal
 from ...security.permissions import PLAYERS_MANAGE, SERVER_VIEW, require
 from ..deps import audit, get_server
+from ..responses import Players
 from .models import PlayerActionRequest
 
 router = APIRouter()
 
 
-@router.get("/players")
+@router.get("/players", response_model=Players)
 async def players(principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)):
     return {
         "online": ctx.players.online(),

@@ -25,10 +25,12 @@ jobs:
         if: github.event_name == 'pull_request'
         run: python scripts/check_authorship.py "origin/${{ github.base_ref }}..${{ github.event.pull_request.head.sha }}"
       - name: Pushed commits
-        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
+        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000' && !github.event.forced
         run: python scripts/check_authorship.py "${{ github.event.before }}..${{ github.sha }}"
-      - name: Commits on a new branch
-        if: github.event_name == 'push' && github.event.before == '0000000000000000000000000000000000000000'
+      # A new branch, or one rebased and force-pushed (the old tip is gone,
+      # so there is no "before" to start from): check all it adds to main.
+      - name: Commits on a new or rebased branch
+        if: github.event_name == 'push' && (github.event.before == '0000000000000000000000000000000000000000' || github.event.forced)
         run: python scripts/check_authorship.py "origin/main..${{ github.sha }}"
 
   lint:

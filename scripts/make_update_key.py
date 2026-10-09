@@ -20,6 +20,12 @@ GitHub (Settings > Secrets and variables > Actions) yourself.
 If a key already exists (in agent/signing.py or on GitHub), it asks before
 making a new one: copies built with the old public key then refuse updates
 until the new version is installed by hand once.
+
+``--requirements`` prints the hashed lines from requirements.lock for the
+only libraries this needs (cryptography and what it uses), so the batch file
+installs just those. The whole lock has libraries with no ready-made build
+for a Python newer than the app supports yet, and pip can't build them on a
+PC without a compiler.
 """
 
 from __future__ import annotations
@@ -35,6 +41,10 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 SIGNING = ROOT / "agent" / "signing.py"
+DOWNLOADS = ROOT / "agent" / "downloads.py"
+LOCK = ROOT / "requirements.lock"
+# What ``from agent import signing`` needs, by name in requirements.lock.
+NEEDS = ("cryptography", "cffi", "pycparser")
 LINE = re.compile(r'^UPDATE_PUBLIC_KEY = "(.*)"$', re.MULTILINE)
 GITHUB_NAME = "MCSC_UPDATE_SIGNING_KEY"  # what the release workflow reads it as
 BATCH = "make-update-key.cmd"
@@ -168,11 +178,33 @@ def print_only() -> int:
     return 0
 
 
-def main() -> int:
-    if "--github" in sys.argv:
-        from agent import downloads
+def repository(path: Path = DOWNLOADS) -> str:
+    """The repository updates come from, read from agent/downloads.py's text:
+    importing it would need its web libraries, which this doesn't install."""
+    match = re.search(r'^REPO = "([^"]+)"$', path.read_text(encoding="utf-8"), re.MULTILINE)
+    if not match:
+        raise SystemExit(f"{path} has no REPO line")
+    return match.group(1)
 
-        return to_github(downloads.REPO)
+
+def needed_requirements(lock: Path = LOCK, names: tuple[str, ...] = NEEDS) -> str:
+    """The pinned, hashed entries for ``names`` from the lock, as a requirements file."""
+    picked: list[str] = []
+    keep = False
+    for line in lock.read_text(encoding="utf-8").splitlines():
+        if line and not line[0].isspace():
+            keep = re.split(r"[=<>!~ ;\\[]", line, maxsplit=1)[0].lower() in names
+        if keep and not line.lstrip().startswith("#"):
+            picked.append(line)
+    return "\n".join(picked) + "\n"
+
+
+def main() -> int:
+    if "--requirements" in sys.argv:
+        sys.stdout.write(needed_requirements())
+        return 0
+    if "--github" in sys.argv:
+        return to_github(repository())
     return print_only()
 
 

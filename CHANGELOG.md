@@ -21,6 +21,8 @@ at `/api/version` and only goes up for those changes.
 - For whoever publishes releases: double-click `make-update-key.cmd` to make
   the update-signing key. It saves the private half as the GitHub secret
   and writes the public half into the app, and asks before replacing a key.
+  It works with the newest Python too: it installs only the one library it
+  needs.
 - **Bedrock servers.** Pick Bedrock in the "+" tab to run Mojang's Bedrock
   Dedicated Server for friends on phones, tablets and consoles. It gets its
   own tab (marked "Bedrock"), and:

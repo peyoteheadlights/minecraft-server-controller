@@ -16,14 +16,19 @@ if not defined PY (
     goto :done
 )
 %PY% -c "import cryptography" >nul 2>nul && goto :run
-rem The key is made with the app's own libraries: install them into .venv,
-rem the same place setup.cmd puts them.
+rem The key needs only the cryptography library (and what it uses): install
+rem just those, pinned and hash-checked from requirements.lock, into .venv.
+rem Not the whole lock: some of it has no ready-made build for the newest
+rem Python yet, and pip can't build those without a compiler.
 echo Installing what this needs into .venv (once)...
 if not exist ".venv\Scripts\python.exe" %PY% -m venv .venv
 set "PY=.venv\Scripts\python.exe"
-"%PY%" -m pip install --quiet --require-hashes -r requirements.lock
+"%PY%" scripts\make_update_key.py --requirements > ".venv\update-key-requirements.txt"
+"%PY%" -m pip install --quiet --only-binary=:all: --require-hashes -r ".venv\update-key-requirements.txt"
 if errorlevel 1 (
-    echo Couldn't install the libraries. Run setup.cmd once, then try again.
+    echo Couldn't install the cryptography library for this Python.
+    echo Install Python 3.13 from https://www.python.org/downloads/ ^(tick "Add python.exe to PATH"^),
+    echo delete the .venv folder here, then double-click this file again.
     set "CODE=1"
     goto :done
 )

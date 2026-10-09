@@ -16,7 +16,7 @@ from typing import Any
 
 from agent import appinfo
 
-from . import autostart, layout
+from . import autostart, bootstrap, layout
 
 IS_WINDOWS = os.name == "nt"
 
@@ -145,6 +145,12 @@ class System:
             if ip.version == 4 and ip in ipaddress.ip_network("100.64.0.0/10"):
                 return str(ip)
         return None
+
+    def remove_after_exit(self, setup_exe: Path, folder: Path) -> None:
+        """Have a copy of the setup remove ``folder`` once the program
+        folder's setup.exe, which runs until this uninstall ends, exits."""
+        if IS_WINDOWS:
+            bootstrap.start_leftover_remover(setup_exe, folder)
 
     def stop_agent(self, port: int, tls: bool) -> bool:
         """End the startup task's copy of the app and wait for the port to

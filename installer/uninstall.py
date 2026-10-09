@@ -11,6 +11,7 @@ are never touched either way.
 from __future__ import annotations
 
 import shutil
+import time
 from pathlib import Path
 from typing import Any
 
@@ -19,10 +20,20 @@ from .bootstrap import UPDATE_FOLDER_SUFFIX
 from .installlog import InstallLog
 from .system import System
 
+# A file the app was still closing can stay locked for a moment after it
+# stopped: try the program folder again a few times before giving up.
+REMOVE_TRIES = 5
+
 
 def uninstall(
-    program_dir: Path, data_root: Path, remove_data: bool = False, system: System | None = None
+    program_dir: Path,
+    data_root: Path,
+    remove_data: bool = False,
+    system: System | None = None,
+    setup_exe: Path | None = None,
 ) -> dict[str, Any]:
+    """``setup_exe`` is the setup copy this is running from, when it runs
+    from a temporary copy of the program folder's setup.exe (bootstrap.py)."""
     system = system or System()
     log = InstallLog(layout.logs_dir(data_root)) if not remove_data else None
     done: list[str] = []
@@ -66,11 +77,27 @@ def uninstall(
         problems.append(f"the firewall rules: {exc}")
     for folder in (program_dir, program_dir.with_name(program_dir.name + ".previous")):
         if folder.exists() and (folder / "install.json").is_file():
-            shutil.rmtree(folder, ignore_errors=True)
-            if folder.exists():
-                problems.append(f"some files in {folder} were in use and are removed on restart")
-            else:
+            for attempt in range(REMOVE_TRIES):
+                if attempt:
+                    time.sleep(1)
+                shutil.rmtree(folder, ignore_errors=True)
+                if not folder.exists():
+                    break
+            left = [p for p in folder.rglob("*") if p.is_file()] if folder.exists() else []
+            if not folder.exists():
                 done.append(f"removed {folder}")
+            elif (
+                setup_exe is not None
+                and folder == program_dir
+                and left
+                and all(p.name.lower() == layout.SETUP_COPY for p in left)
+            ):
+                # Only the setup.exe that started this is left, held open
+                # until it exits: a copy of the setup removes it then.
+                system.remove_after_exit(setup_exe, folder)
+                done.append(f"removed {folder} (its setup.exe goes when the setup closes)")
+            else:
+                problems.append(f"some files in {folder} were in use and are removed on restart")
     # The last update's checked setup file (installer/apply_update.py).
     staging = program_dir.with_name(program_dir.name + UPDATE_FOLDER_SUFFIX)
     if staging.is_dir():

@@ -157,7 +157,11 @@ def main() -> int:
     removed = json.loads(removed_file.read_text("utf-8")) if removed_file.is_file() else {}
     if done.returncode != 0 or not removed.get("ok"):
         fail(f"Removing the app failed: {removed or done.returncode}")
-    time.sleep(3)  # the program folder goes once the setup copy has exited
+    # The program folder's own setup.exe goes once it has exited (a copy of
+    # the setup removes it then): give that a moment.
+    deadline = time.monotonic() + 60
+    while program.exists() and time.monotonic() < deadline:
+        time.sleep(1)
     left = [
         str(p)
         for p in (program, layout.start_menu_dir(), data_root)

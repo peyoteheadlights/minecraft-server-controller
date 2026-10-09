@@ -273,6 +273,7 @@ class Wizard:
             self.data_root,
             remove_data=remove_data,
             system=self.system,
+            setup_exe=Path(self.args.setup_exe) if self.args.setup_exe else None,
         )
 
 

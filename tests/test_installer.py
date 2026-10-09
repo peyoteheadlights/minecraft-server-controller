@@ -64,6 +64,9 @@ class FakeSystem:
                 row["state"] = "stopped"
         return {"ok": True}
 
+    def remove_after_exit(self, setup_exe, folder):
+        self.calls.append(("remove_after_exit", str(setup_exe), str(folder)))
+
     def stop_agent(self, port, tls):
         self.calls.append(("stop_agent",))
         self.running = False
@@ -811,3 +814,64 @@ def test_an_update_reaches_an_app_on_its_tailscale_address(places, program_files
     _, result, _ = run_engine(choices, program_files, system)
     assert result.ok, result.message + result.details
     assert system.hosts_asked and set(system.hosts_asked) == {"100.101.102.103"}
+
+
+# ====================================================================
+# the program folder's own setup.exe
+# ====================================================================
+def test_the_running_setup_copy_is_removed_once_it_exits(places, monkeypatch, tmp_path):
+    """Uninstalling from Installed apps runs the program folder's setup.exe,
+    which stays open (and locked, on Windows) until the uninstall ends."""
+    from installer import uninstall
+
+    make_installer_copy(places, "1.2.0")
+    program = places["program"]
+    (program / layout.SETUP_COPY).write_bytes(b"setup")
+
+    def rmtree_but_setup(path, ignore_errors=False):
+        for item in sorted(Path(path).rglob("*"), reverse=True):
+            if item.name == layout.SETUP_COPY:
+                continue
+            item.unlink() if item.is_file() else item.rmdir()
+
+    monkeypatch.setattr(uninstall.shutil, "rmtree", rmtree_but_setup)
+    monkeypatch.setattr(uninstall.time, "sleep", lambda _s: None)
+    system = FakeSystem()
+    temp_copy = tmp_path / "mcsc-setup-x" / "setup.exe"
+    result = uninstall.uninstall(program, places["data"], system=system, setup_exe=temp_copy)
+    assert result["ok"], result
+    assert system.called("remove_after_exit") == [
+        ("remove_after_exit", str(temp_copy), str(program))
+    ]
+
+
+def test_any_other_locked_file_is_reported(places, monkeypatch):
+    from installer import uninstall
+
+    make_installer_copy(places, "1.2.0")
+    program = places["program"]
+    monkeypatch.setattr(uninstall.shutil, "rmtree", lambda path, ignore_errors=False: None)
+    monkeypatch.setattr(uninstall.time, "sleep", lambda _s: None)
+    system = FakeSystem()
+    result = uninstall.uninstall(
+        program, places["data"], system=system, setup_exe=program / layout.SETUP_COPY
+    )
+    assert not result["ok"]
+    assert any("were in use" in p for p in result["problems"])
+    assert system.called("remove_after_exit") == []
+
+
+def test_the_leftover_remover_never_touches_an_installed_folder(tmp_path):
+    from installer import bootstrap
+
+    installed = tmp_path / "Installed"
+    installed.mkdir()
+    (installed / "install.json").write_text("{}", encoding="utf-8")
+    assert bootstrap.remove_leftovers(installed, tries=1, wait=0) == 1
+    assert (installed / "install.json").exists()
+
+    leftover = tmp_path / "Leftover"
+    leftover.mkdir()
+    (leftover / "setup.exe").write_bytes(b"setup")
+    assert bootstrap.remove_leftovers(leftover, tries=1, wait=0) == 0
+    assert not leftover.exists()

@@ -132,6 +132,7 @@ export function pairingCard(code) {
         el("p", {}, t("pair.scan")),
         el("p", { class: "mono break" }, code.address_url),
         el("p", { class: "hint" }, t("pair.no_secret")),
+        el("p", { class: "hint" }, t("pair.app")),
         el("p", { class: "hint" }, t("pair.rescan")),
         technical() ? el("dl", { class: "pair-facts" },
           el("dt", {}, t("pair.fingerprint")), el("dd", { class: "mono break" }, code.fingerprint),

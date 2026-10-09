@@ -160,6 +160,9 @@ ALERT_PAGES = {
 }
 APP_PAGES = {"security", "helpers", "app-settings"}
 
+# How many alerts the agent keeps for the phone app to read.
+APP_ALERTS_KEPT = 200
+
 
 def alert_page(event: Event) -> str:
     page = ALERT_PAGES.get(event.type)
@@ -452,6 +455,48 @@ class Notifier:
             return False
 
     # ------------------------------------------------------------------
+    def phone_message(self, event: Event, title: str | None = None) -> dict[str, Any]:
+        """What a phone alert says, the same for Web Push and the phone app."""
+        emoji, _colour, event_title = self.title(event)
+        return {
+            "title": title or f"{emoji} {event_title}",
+            "body": (event.message or event_title)[:300],
+            "event": event.type,
+            "level": event.level,
+            "server_id": event.server_id,
+            "ts": event.ts,
+            # Tapping the alert opens this page of this server.
+            "page": alert_page(event),
+            "url": alert_link(event),
+        }
+
+    def record_app_alert(self, event: Event, title: str | None = None) -> None:
+        """Keep the alert where the phone app can read it (/api/alerts).
+
+        An app's web view can't receive Web Push, so the app asks the agent
+        for alerts instead. Only the newest APP_ALERTS_KEPT are kept."""
+        message = self.phone_message(event, title)
+        try:
+            self.db.insert(
+                "app_alerts",
+                {
+                    "ts": time.time(),
+                    "server_id": event.server_id,
+                    "event": event.type,
+                    "title": message["title"],
+                    "body": message["body"],
+                    "page": message["page"],
+                    "url": message["url"],
+                },
+            )
+            self.db.execute(
+                "DELETE FROM app_alerts WHERE id <= "
+                "(SELECT MAX(id) FROM app_alerts) - ?",
+                (APP_ALERTS_KEPT,),
+            )
+        except Exception:  # pragma: no cover
+            log.exception("could not keep the alert for the phone app")
+
     async def send_push(self, event: Event, title: str | None = None) -> bool:
         """One short message to every phone signed up for alerts.
 
@@ -466,19 +511,7 @@ class Notifier:
         if not subscriptions:
             self._log("push", event.type, "skipped", "No phone has signed up for alerts")
             return False
-        emoji, _colour, event_title = self.title(event)
-        heading = title or f"{emoji} {event_title}"
-        message = {
-            "title": heading,
-            "body": (event.message or event_title)[:300],
-            "event": event.type,
-            "level": event.level,
-            "server_id": event.server_id,
-            "ts": event.ts,
-            # Tapping the alert opens this page of this server.
-            "page": alert_page(event),
-            "url": alert_link(event),
-        }
+        message = self.phone_message(event, title)
         sent = 0
         for subscription in subscriptions:
             result = await push.send(
@@ -556,6 +589,7 @@ class Notifier:
             if self.config.notifications.email_enabled:
                 tasks.append(self.send_email(event))
             if self.config.notifications.push_enabled:
+                self.record_app_alert(event)
                 tasks.append(self.send_push(event))
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)

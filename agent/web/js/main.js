@@ -26,6 +26,7 @@ import { signOut } from "./auth.js";
 import { connectSocket, renderStatus } from "./live.js";
 import { showOffline } from "./offline.js";
 import { pageHash, parseHash, render, renderRail } from "./nav.js";
+import { acceptQuickActions, inApp, tellApp } from "./phoneapp.js";
 import { adopt } from "./prefs.js";
 import { registerServiceWorker } from "./pwa.js";
 import { loadServers } from "./servers.js";
@@ -39,6 +40,9 @@ $("#username-label").textContent = t("login.username");
 $("#password-label").textContent = t("login.password");
 $("#login-button").textContent = t("login.sign_in");
 $("#remember-label").textContent = t("login.remember");
+// The phone app always keeps the sign-in, in the phone's secure storage,
+// behind its own fingerprint or face unlock.
+if (inApp) $("#remember").closest("label").hidden = true;
 
 /* What the Security page calls this device: "Chrome on Windows". Read
    from the browser's own description of itself. */
@@ -68,18 +72,23 @@ $("#login-form").addEventListener("submit", async (event) => {
           password: $("#password").value,
           label: navigator.userAgent.slice(0, 60),
           device: deviceName(),
-          remember: $("#remember").checked,
+          remember: inApp || $("#remember").checked,
         },
       });
       state.token = result.token;
       state.user = result.user;
-      // A kept sign-in survives closing the browser (or the phone's home
-      // screen app); otherwise it ends with this tab.
-      try {
-        if (result.remember) localStorage.setItem("mcsc_token", state.token);
-        else localStorage.removeItem("mcsc_token");
-      } catch (e) { /* kept for this tab only */ }
-      sessionStorage.setItem("mcsc_token", state.token);
+      if (inApp) {
+        // Kept by the app in the phone's secure storage, not here.
+        tellApp("signed-in", { token: result.token, user: result.user });
+      } else {
+        // A kept sign-in survives closing the browser (or the phone's home
+        // screen app); otherwise it ends with this tab.
+        try {
+          if (result.remember) localStorage.setItem("mcsc_token", state.token);
+          else localStorage.removeItem("mcsc_token");
+        } catch (e) { /* kept for this tab only */ }
+        sessionStorage.setItem("mcsc_token", state.token);
+      }
       $("#password").value = "";
       const me = await api("/auth/me").catch(() => null);
       startApp(me);
@@ -121,6 +130,11 @@ async function startApp(me) {
   renderStatus();
   render();
   connectSocket();
+  if (inApp) {
+    // The app is already installed and gets its alerts from the agent.
+    acceptQuickActions();
+    return;
+  }
   // Lets the dashboard be added to a phone's home screen, and is what
   // phone alerts are delivered through.
   registerServiceWorker();

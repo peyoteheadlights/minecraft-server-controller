@@ -9,6 +9,7 @@ import { refreshStatus } from "../live.js";
 import { render } from "../nav.js";
 import { choose, currentTheme, THEMES } from "../prefs.js";
 import { currentSubscription, deviceLabel, disablePush, enablePush, pushSupported } from "../pwa.js";
+import { inApp, tellApp } from "../phoneapp.js";
 import { oldCopyCard, pairingCard, updateCard } from "./app-update.js";
 import { can, renderers, state } from "../state.js";
 import { t, technical } from "../strings.js";
@@ -174,13 +175,22 @@ function phoneCard(push, pendingFor) {
       onclick: (e) => busy(e.currentTarget, t("appset.sending"), async () => {
         try {
           const result = await api("/push/test", { method: "POST" });
+          if (inApp) {
+            tellApp("check-alerts");
+            toast(result.for_app ? t("push.app_test_sent") : t("push.app_off"),
+              result.for_app ? "success" : "error", 9000);
+            return;
+          }
           toast(result.sent ? t("appset.test_sent") : t("push.test_failed"),
             result.sent ? "success" : "error", 9000);
         } catch (err) { toast(err.message, "error", 9000); }
       }) }, t("appset.send_test")));
   drawThisPhone(false);
   refresh(push.phones || []);
-  if (pushSupported()) {
+  // The phone app gets alerts from the agent, not through this browser
+  // sign-up, so only the test button is offered there.
+  if (inApp) thisPhone.replaceChildren(thisPhone.lastChild);
+  if (!inApp && pushSupported()) {
     currentSubscription().then((sub) => drawThisPhone(Boolean(sub))).catch(() => {});
   }
 
@@ -190,9 +200,10 @@ function phoneCard(push, pendingFor) {
         type: "checkbox", checked: push.enabled ? "checked" : false,
         onchange: (e) => { pendingFor["notifications.push_enabled"] = e.target.checked; },
       }), t("appset.phone")), "phone_alerts", "notifications"),
-    push.configured ? null : el("p", { class: "hint" }, t("push.not_set_up", { command: push.setup_command })),
-    pushSupported() ? null : el("p", { class: "hint" }, t("push.unsupported")),
-    el("p", { class: "hint" }, t("push.iphone")),
+    inApp ? el("p", { class: "hint" }, t("push.in_app")) : null,
+    inApp || push.configured ? null : el("p", { class: "hint" }, t("push.not_set_up", { command: push.setup_command })),
+    inApp || pushSupported() ? null : el("p", { class: "hint" }, t("push.unsupported")),
+    inApp ? null : el("p", { class: "hint" }, t("push.iphone")),
     thisPhone,
     list);
 }

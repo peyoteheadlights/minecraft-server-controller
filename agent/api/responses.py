@@ -167,6 +167,23 @@ class PairingCode(Open):
     reason: str | None = None
 
 
+class AppAlert(Open):
+    id: int
+    ts: float
+    server_id: str | None = None
+    event: str
+    title: str
+    body: str
+    page: str = Field(description="The dashboard page the alert opens")
+    url: str = Field(description="Its link, like /#survival/crashes")
+
+
+class AppAlerts(Open):
+    alerts: list[AppAlert]
+    latest: int = Field(description="Ask with after=latest next time")
+    enabled: bool = Field(description="Whether phone alerts are turned on")
+
+
 class Release(Open):
     version: str
     page: str | None = None

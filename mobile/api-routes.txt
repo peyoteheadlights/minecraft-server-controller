@@ -1,0 +1,9 @@
+# Every agent route the phone app itself calls (its own screens, the widget,
+# the alert check), not counting the dashboard pages it shows, which come
+# from the agent and always match it. tests/test_phone_app.py fails if one
+# of these disappears or loses its typed answer, so the agent stays
+# compatible with the last released app.
+GET /api/health
+GET /api/servers
+GET /api/alerts
+GET /api/version

@@ -295,6 +295,24 @@ MIGRATIONS: list[tuple[int, str]] = [
         ALTER TABLE sessions ADD COLUMN remember INTEGER NOT NULL DEFAULT 0;
         """,
     ),
+    (
+        10,
+        # Phone alerts the phone app reads from the agent itself (Phase 9),
+        # since an app's web view can't receive Web Push. Only the newest
+        # few hundred are kept.
+        """
+        CREATE TABLE app_alerts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts REAL NOT NULL,
+            server_id TEXT,
+            event TEXT NOT NULL,
+            title TEXT NOT NULL,
+            body TEXT NOT NULL,
+            page TEXT NOT NULL,
+            url TEXT NOT NULL
+        );
+        """,
+    ),
 ]
 
 

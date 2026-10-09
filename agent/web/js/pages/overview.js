@@ -8,6 +8,7 @@ import { showCrash } from "./crashes.js";
 import { CAUSES, renderers, stateInfo, state } from "../state.js";
 import { t, technical, tn } from "../strings.js";
 import { busy, confirmDialog, detailRows, el, emptyState, fmt, icon, known, metric, section, toast } from "../ui.js";
+import { serverName } from "../servers.js";
 
 export const overview = { nodes: null, hour: null };
 
@@ -511,9 +512,17 @@ export async function pendingRestartAction(kind, button) {
   }
 }
 
-export async function serverAction(action, button) {
+export async function serverAction(action, button, { askFirst = false } = {}) {
   if (state.pendingAction) return;
-  if (action === "stop") {
+  if (action === "start" && askFirst) {
+    // A start from the phone app's shortcut or widget is asked about too,
+    // since it was tapped outside the dashboard.
+    const ok = await confirmDialog({
+      title: t("confirm.start_title", { server: serverName(state.serverId) }),
+      body: t("confirm.start_body"), confirmLabel: t("action.start"),
+    });
+    if (!ok) return;
+  } else if (action === "stop") {
     const ok = await confirmDialog({
       title: t("confirm.stop_title"), body: t("confirm.stop_body"),
       confirmLabel: t("action.stop"), danger: true,

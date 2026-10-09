@@ -161,8 +161,6 @@ export const STRINGS = /* strings-table */ {
   "action.what_happened": ["What happened?", "What happened?"],
   "action.restart_requested": ["Restarting. Watch the status.", "Restart requested; not yet verified. Watch the status for ONLINE."],
 
-  "confirm.start_title": ["Start {server}?", "Start {server}?"],
-  "confirm.start_body": ["Players can join once it's online.", "Launches the server process; ONLINE once the console reports Done."],
   "confirm.stop_title": ["Stop the server?", "Stop the server?"],
   "confirm.stop_body": ["Players are disconnected. The world saves first.", "Players are disconnected. The server runs save-all and stop, then the process is waited for."],
   "confirm.restart_title": ["Restart the server?", "Restart the server?"],
@@ -1419,9 +1417,6 @@ export const STRINGS = /* strings-table */ {
                    "Notification permission was not granted."],
   "push.not_set_up": ["Phone alerts aren't set up yet. On the PC, run setup again: {command}",
                       "No VAPID keys configured. On the PC, run: {command}"],
-  "push.in_app": ["The phone app checks this PC for alerts by itself. Turn phone alerts on above.", "The app polls /api/alerts (foreground, and in the background as the OS allows). Requires notifications.push_enabled."],
-  "push.app_test_sent": ["Test sent. The app shows it in a moment.", "Test alert stored for the app; it fetches it now."],
-  "push.app_off": ["Turn phone alerts on and save first.", "notifications.push_enabled is off; nothing was stored for the app."],
   "push.iphone": ["On an iPhone, add the dashboard to your home screen first, then turn this on.",
                   "iOS only allows Web Push from a home-screen (standalone) install."],
   "push.test_failed": ["The test couldn't be sent to any phone.", "No push service accepted the test."],

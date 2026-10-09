@@ -1,13 +1,9 @@
-import { appToken, inApp } from "./phoneapp.js";
-
 function remembered(key) {
   try { return localStorage.getItem(key) || ""; } catch (e) { return ""; }
 }
 
 export const state = {
-  // In the phone app the token comes from the phone's secure storage and
-  // is never written to the web view's own.
-  token: inApp ? appToken() : (sessionStorage.getItem("mcsc_token") || remembered("mcsc_token")),
+  token: sessionStorage.getItem("mcsc_token") || remembered("mcsc_token"),
   // The server every page acts on, remembered per browser.
   serverId: remembered("mcsc_server"),
   servers: [],

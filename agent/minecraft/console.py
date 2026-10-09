@@ -32,6 +32,12 @@ LINE_RE = re.compile(
 # Paper, Purpur and Spigot print their console differently from their log
 # file: [12:34:56 INFO]: message
 BUKKIT_LINE_RE = re.compile(r"^\[(?P<time>\d{2}:\d{2}:\d{2}) (?P<level>[A-Z]+)\]:\s?(?P<msg>.*)$")
+# Bedrock Dedicated Server: [2025-07-15 16:33:49:805 INFO] message
+# (older builds leave the milliseconds off: [2020-05-14 16:27:38 INFO]).
+BEDROCK_LINE_RE = re.compile(
+    r"^\[(?P<date>\d{4}-\d{2}-\d{2}) (?P<time>\d{2}:\d{2}:\d{2})(?::\d{1,3})? "
+    r"(?P<level>[A-Z]+)\]\s?(?P<msg>.*)$"
+)
 # Colour codes a console may print even into a pipe. They are kept in the raw
 # line and left out of the message the parsers read.
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
@@ -109,6 +115,24 @@ PLAYER_LIST_RE = re.compile(
     r"^There are (?P<online>\d+) of a max of (?P<max>\d+) players online:\s*(?P<names>.*)"
 )
 
+# Bedrock Dedicated Server's own lines, as it prints them (see
+# tests/fixtures/bedrock_console.txt). Each is matched against the whole
+# message, so nothing a player does can produce one: Bedrock's console
+# doesn't print chat at all.
+BEDROCK_VERSION_RE = re.compile(r"^Version:? (?P<ver>\d+(?:\.\d+){1,3})$")
+BEDROCK_STARTED_RE = re.compile(r"^Server started\.$")
+# A gamertag can hold spaces but never a comma.
+BEDROCK_PLAYER = r"[^,\x00-\x1f]{1,32}"
+BEDROCK_JOIN_RE = re.compile(
+    rf"^Player connected: (?P<name>{BEDROCK_PLAYER}), xuid: (?P<xuid>\d*)(?:, pfid: \S*)?$"
+)
+BEDROCK_LEAVE_RE = re.compile(
+    rf"^Player disconnected: (?P<name>{BEDROCK_PLAYER}), xuid: (?P<xuid>\d*)(?:, pfid: \S*)?$"
+)
+BEDROCK_PORT_RE = re.compile(r"^IPv4 supported, port: (?P<port>\d+)")
+BEDROCK_LIST_RE = re.compile(r"^There are (?P<online>\d+)/(?P<max>\d+) players online:$")
+BEDROCK_STOPPING_RE = re.compile(r"^(Server stop requested\.|Stopping server\.\.\.)$")
+
 # TPS/MSPT answers differ per mod/server. We support the common shapes and
 # report "unknown" instead of inventing a number when nothing answers.
 TPS_PATTERNS = [
@@ -153,7 +177,7 @@ class ConsoleLine:
 def parse_line(raw: str, seq: int, source: str = "stdout") -> ConsoleLine:
     raw = raw.rstrip("\r\n")
     plain = ANSI_RE.sub("", raw) if "\x1b" in raw else raw
-    m = LINE_RE.match(plain) or BUKKIT_LINE_RE.match(plain)
+    m = LINE_RE.match(plain) or BUKKIT_LINE_RE.match(plain) or BEDROCK_LINE_RE.match(plain)
     if m:
         level = m.group("level").upper()
         if level not in {"INFO", "WARN", "ERROR", "DEBUG", "FATAL", "TRACE"}:
@@ -242,10 +266,41 @@ class ParsedSignals:
     mod_count: int | None = None
     target_tps: float | None = None
     unknown_command: bool = False
+    # Bedrock: "Server started." (no time given; the supervisor measures it)
+    # and the header of a "list" answer, whose names come on the next line.
+    started: bool = False
+    list_header: tuple[int, int] | None = None
     extras: dict = field(default_factory=dict)
 
 
-def extract_signals(line: ConsoleLine) -> ParsedSignals:
+def bedrock_signals(line: ConsoleLine) -> ParsedSignals:
+    """What one Bedrock Dedicated Server line says."""
+    sig = ParsedSignals()
+    if line.source != "stdout":
+        return sig
+    said = (line.message or line.raw).strip()
+    if m := BEDROCK_VERSION_RE.match(said):
+        sig.mc_version = m.group("ver")
+    elif BEDROCK_STARTED_RE.match(said):
+        sig.started = True
+    elif m := BEDROCK_JOIN_RE.match(said):
+        sig.player_joined = m.group("name")
+        if m.group("xuid"):
+            sig.player_uuid = (m.group("name"), m.group("xuid"))
+    elif m := BEDROCK_LEAVE_RE.match(said):
+        sig.player_left = m.group("name")
+    elif m := BEDROCK_PORT_RE.match(said):
+        sig.port = int(m.group("port"))
+    elif m := BEDROCK_LIST_RE.match(said):
+        sig.list_header = (int(m.group("online")), int(m.group("max")))
+    elif BEDROCK_STOPPING_RE.match(said):
+        sig.stopping = True
+    return sig
+
+
+def extract_signals(line: ConsoleLine, dialect: str = "java") -> ParsedSignals:
+    if dialect == "bedrock":
+        return bedrock_signals(line)
     sig = ParsedSignals()
     text = line.message or line.raw
 

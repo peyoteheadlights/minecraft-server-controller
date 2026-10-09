@@ -37,16 +37,35 @@ To run these before every commit: `pip install pre-commit`, then
 
 ## Pinned versions
 
-`requirements.txt` and `requirements-dev.txt` list what the project needs.
-`requirements.lock` and `requirements-dev.lock` pin the exact versions (with
-hashes) that CI tests, for every platform and Python 3.11+. `setup.ps1`
-installs `requirements.lock`, so a PC runs what CI tested. After changing a
-requirements file, regenerate both:
+`pyproject.toml` lists what the project needs: `[project.dependencies]` for
+the app, and the `dev` and `build` extras for the tests and the installer
+build. `requirements.lock`, `requirements-dev.lock` and
+`requirements-build.lock` pin the exact versions (with hashes) that CI tests,
+for every platform and Python 3.11+. Everything (setup.ps1, CI, the
+installer) installs from a lock with `--require-hashes`, so a PC runs what CI
+tested. After changing a dependency in `pyproject.toml`, regenerate all
+three:
 
 ```powershell
-uv pip compile requirements.txt --universal --python-version 3.11 --generate-hashes -o requirements.lock
-uv pip compile requirements-dev.txt --universal --python-version 3.11 --generate-hashes -o requirements-dev.lock
+uv pip compile pyproject.toml --universal --python-version 3.11 --generate-hashes -o requirements.lock
+uv pip compile pyproject.toml --extra dev --universal --python-version 3.11 --generate-hashes -o requirements-dev.lock
+uv pip compile pyproject.toml --extra build --universal --python-version 3.11 --generate-hashes -o requirements-build.lock
 ```
+
+`tests/test_dependencies.py` fails if a lock is missing a package
+`pyproject.toml` asks for.
+
+## Security scans and coverage
+
+CI's "Known security problems in dependencies" job runs `pip-audit` on the
+lock files, and the CodeQL workflow scans the Python and JavaScript (results
+under the repository's Security tab). Keep GitHub's Dependabot **alerts** on
+and Dependabot **pull requests** off: its commits aren't under the owner's
+name, so they would fail the authorship check.
+
+One of the test runs prints the coverage per file
+(`python -m pytest --cov=agent --cov=installer --cov-report=term:skip-covered`).
+There is no minimum; it shows which code no test reaches.
 
 ## What is safe about the tests
 

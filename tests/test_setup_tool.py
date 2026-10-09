@@ -22,7 +22,7 @@ def root(tmp_path, monkeypatch):
     r = tmp_path / "project"
     (r / "config").mkdir(parents=True)
     shutil.copy(PROJECT / "config" / "config.example.yaml", r / "config" / "config.example.yaml")
-    shutil.copy(PROJECT / "requirements.txt", r / "requirements.txt")
+    shutil.copy(PROJECT / "pyproject.toml", r / "pyproject.toml")
     (r / "installer").mkdir()
     server = tmp_path / "Minecraft Server"
     server.mkdir()
@@ -205,7 +205,9 @@ def test_mismatched_password_entries_are_retried(root, monkeypatch):
 
 def test_a_missing_dependency_is_named(root, monkeypatch):
     r, _ = root
-    (r / "requirements.txt").write_text("fastapi>=0.1\ndefinitely-not-installed-pkg>=1.0\n")
+    (r / "pyproject.toml").write_text(
+        '[project]\ndependencies = ["fastapi>=0.1", "definitely-not-installed-pkg>=1.0"]\n'
+    )
     ctx, out = ctx_for(r, mode="check")
     step = setup_tool.step_dependencies(ctx)
     assert step.status == "FAIL"
@@ -353,3 +355,19 @@ def test_check_reports_a_secrets_file_others_can_read(root, monkeypatch):
     text = "\n".join(out)
     assert "[FAIL] Secrets file privacy - Other accounts on this PC can open it: Users" in text
     assert "Run the setup again as an administrator to lock it." in text
+
+
+def test_env_is_never_left_cut_off_or_unlocked(tmp_path, monkeypatch):
+    """.env is written beside itself, locked down, then swapped in: a failed
+    lock-down leaves the old file exactly as it was."""
+    env = tmp_path / ".env"
+    env.write_text("MCSC_ADMIN_PASSWORD_HASH=old\n", encoding="utf-8")
+    monkeypatch.setattr("agent.security.certs._restrict_file", lambda path: "icacls exit 5")
+    with pytest.raises(setup_tool.LockDownError, match=r"\.env couldn't be made private"):
+        write_env_value(env, "MCSC_ADMIN_PASSWORD_HASH", "new")
+    assert env.read_text(encoding="utf-8") == "MCSC_ADMIN_PASSWORD_HASH=old\n"
+    assert sorted(p.name for p in tmp_path.iterdir()) == [".env"]
+    monkeypatch.setattr("agent.security.certs._restrict_file", lambda path: None)
+    write_env_value(env, "MCSC_ADMIN_PASSWORD_HASH", "new")
+    assert read_env(env)["MCSC_ADMIN_PASSWORD_HASH"] == "new"
+    assert sorted(p.name for p in tmp_path.iterdir()) == [".env"]

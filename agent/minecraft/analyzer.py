@@ -330,6 +330,20 @@ def guess_mods(lines: Iterable[str], known_mod_ids: Iterable[str] = ()) -> list[
     return found[:5]
 
 
+def unknown_cause(lines: Iterable[str], exit_code: int | None = None) -> Analysis:
+    """A Bedrock server's crash: the last lines and the exit code, with the
+    cause left Unknown. Its console doesn't print enough to name one."""
+    lines = [ln for ln in lines if ln and ln.strip()]
+    analysis = Analysis()
+    analysis.summary = (
+        "The cause can't be read from a Bedrock server's console, so none is claimed."
+        + (f" It exited with code {exit_code}." if exit_code is not None else "")
+    )
+    analysis.evidence = lines[-8:]
+    analysis.evidence_basis = "Bedrock servers print too little when they stop to identify a cause."
+    return analysis
+
+
 def analyze(
     lines: Iterable[str], exit_code: int | None = None, known_mod_ids: Iterable[str] = ()
 ) -> Analysis:

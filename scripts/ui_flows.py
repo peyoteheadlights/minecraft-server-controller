@@ -519,7 +519,7 @@ def main():
             page.locator("#tab-all").click()
             check(
                 "All servers shows a card per server",
-                lambda: expect(page.locator(".server-card")).to_have_count(2),
+                lambda: expect(page.locator(".server-card")).to_have_count(3),
             )
             page.screenshot(path=str(shots / "06b-all-servers.png"))
 
@@ -554,7 +554,7 @@ def main():
                 lambda: expect(page.locator(".add-ways button")).to_have_count(3),
             )
             check(
-                "Every kind of server this app supports is in the table",
+                "Every kind of Java server this app supports is in the table",
                 lambda: expect(page.locator(".type-table tbody tr")).to_have_count(7),
             )
             check(
@@ -566,8 +566,8 @@ def main():
                 lambda: expect(page.locator(".type-table .btn.primary")).to_have_count(0),
             )
             check(
-                "Bedrock servers say they come later rather than being offered",
-                lambda: expect(page.get_by_role("radio", name="Bedrock Edition")).to_be_disabled(),
+                "Bedrock servers can be chosen",
+                lambda: expect(page.get_by_role("radio", name="Bedrock Edition")).to_be_enabled(),
             )
             page.screenshot(path=str(shots / "06c-new-server.png"))
             page.get_by_role("button", name="Server I already have").click()
@@ -695,6 +695,48 @@ def main():
             )
             page.screenshot(path=str(shots / "08-phone.png"))
             page.set_viewport_size({"width": 1440, "height": 900})
+
+            print("\n=== A Bedrock server ===")
+            page.locator("#tab-phones").click()
+            check(
+                "A Bedrock server's tab carries a Bedrock label",
+                lambda: expect(page.locator("#tab-phones .tab-edition")).to_have_text("Bedrock"),
+            )
+            check(
+                "Its add-ons page is called Add-ons",
+                lambda: expect(page.locator(".nav-item", has_text="Add-ons")).to_be_visible(),
+            )
+            page.locator(".nav-item", has_text="Add-ons").click()
+            check(
+                "The Add-ons page takes .mcpack files and has no Modrinth search",
+                lambda: (
+                    expect(page.locator("#addon-file")).to_have_attribute(
+                        "accept", ".mcpack,.mcaddon,.mctemplate"
+                    ),
+                    expect(page.locator("input[type=search]")).to_have_count(0),
+                )[-1],
+            )
+            page.screenshot(path=str(shots / "10-bedrock-addons.png"))
+            page.locator(".nav-item", has_text="Chat").click()
+            check(
+                "Chat says Bedrock doesn't show players' messages",
+                lambda: expect(page.locator(".banner", has_text="Bedrock")).to_be_visible(),
+            )
+            page.locator(".nav-item", has_text="Game settings").click()
+            check(
+                "Game settings shows Bedrock's own settings, and no memory slider",
+                lambda: (
+                    expect(page.locator("#game-allow-list")).to_have_count(1),
+                    expect(page.locator("#game-pvp")).to_have_count(0),
+                    expect(page.get_by_text("Not available for Bedrock servers")).to_be_visible(),
+                )[-1],
+            )
+            page.screenshot(path=str(shots / "10-bedrock-game-settings.png"))
+            page.locator(".nav-item", has_text="Players").click()
+            check(
+                "Players has no ban button on a Bedrock server",
+                lambda: expect(page.locator("button", has_text="Ban")).to_have_count(0),
+            )
 
             print("\n=== Helpers, Getting started, offline ===")
             page.evaluate("location.hash = 'helpers'")

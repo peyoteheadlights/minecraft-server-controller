@@ -2,6 +2,8 @@ import { api } from "../api.js";
 import { render } from "../nav.js";
 import { dependenciesPanel } from "../panels/dependencies.js";
 import { modpackPanel } from "../panels/modpack.js";
+import { serverRow } from "../servers.js";
+import { addonsPage } from "./addons.js";
 import { serverAction } from "./overview.js";
 import { renderers, stateInfo, state } from "../state.js";
 import { t, technical, tn } from "../strings.js";
@@ -85,7 +87,13 @@ function searchCard(data, offline) {
     el("p", { class: "hint mt-10" }, t("mods.search_hint", { version: data.minecraft_version || t("value.unknown") })));
 }
 
-renderers.mods = (page) => loadInto(page, async () => {
+renderers.mods = (page) => {
+  // A Bedrock server's add-ons are packs, on a page of their own.
+  if ((serverRow() || {}).edition === "bedrock") return addonsPage(page);
+  return modsPage(page);
+};
+
+const modsPage = (page) => loadInto(page, async () => {
   const data = await api("/mods");
   const holder = el("div", { class: "stack" });
   const offline = data.server_state === "OFFLINE" || data.server_state === "CRASHED";

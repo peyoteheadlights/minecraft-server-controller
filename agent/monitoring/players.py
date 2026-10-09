@@ -8,6 +8,11 @@ With crossplay on, Floodgate gives Bedrock players a name prefix (".Name").
 That prefix is what marks them as Bedrock players, and their name is always
 shown exactly as the server printed it: a Bedrock player's Java name is
 never guessed, because they may not have one.
+
+On a Bedrock server everyone is a Bedrock player, the id kept is the
+player's xuid (Xbox account id, from "Player connected: Name, xuid: ..."),
+and the answer to "list" comes on two lines: "There are 1/10 players
+online:" and then the names.
 """
 
 from __future__ import annotations
@@ -33,10 +38,25 @@ class PlayerTracker:
         # stop. Until then the count is UNKNOWN, not zero.
         self.verified_at: float | None = None
         self.verified_source: str | None = None
+        # Bedrock: the count from a "list" header, until its names line.
+        self._list_expected: int | None = None
 
     # ------------------------------------------------------------------
     async def handle_signals(self, sig, line) -> None:
         """Hook called by MinecraftServer for every console line."""
+        if self._list_expected is not None and line.source == "stdout":
+            expected, self._list_expected = self._list_expected, None
+            text = (line.message or line.raw).strip()
+            names = [n.strip() for n in text.split(",") if n.strip()]
+            if len(names) == expected:
+                await self.reconcile(names)
+                return
+        if sig.list_header:
+            online, _max = sig.list_header
+            if online == 0:
+                await self.reconcile([])
+            else:
+                self._list_expected = online
         if sig.player_uuid:
             name, uuid = sig.player_uuid
             self._pending_uuid[name] = uuid
@@ -70,6 +90,8 @@ class PlayerTracker:
         """
         from ..crossplay import is_bedrock_name
 
+        if self.config.server_type.edition == "bedrock":
+            return "bedrock"
         if not getattr(self.config.server, "crossplay", False):
             return "java"
         return "bedrock" if is_bedrock_name(username) else "java"
@@ -182,6 +204,15 @@ class PlayerTracker:
         for player in self.online():
             await self.player_left(player["username"])
         self.mark_verified("server process is not running")
+
+    def names_by_id(self) -> dict[str, str]:
+        """The name each id (uuid, or a Bedrock player's xuid) last joined with."""
+        rows = self.db.query(
+            "SELECT username, uuid FROM players WHERE server_id = ? AND uuid IS NOT NULL "
+            "ORDER BY last_seen ASC",
+            (self.server_id,),
+        )
+        return {str(row["uuid"]): row["username"] for row in rows}
 
     # ------------------------------------------------------------------
     def online(self) -> list[dict[str, Any]]:

@@ -209,7 +209,7 @@ def tailscale(ts: dict[str, Any]) -> Check:
     )
 
 
-def port(port_number: int, state: str, listening: bool | None) -> Check:
+def port(port_number: int, state: str, listening: bool | None, method: str = "tcp") -> Check:
     if state != "ONLINE" or listening is None:
         return check(
             f"Port {port_number}",
@@ -227,7 +227,7 @@ def port(port_number: int, state: str, listening: bool | None) -> Check:
         "listening" if listening else "not listening",
         "listening",
         "Minecraft accepts connections when the server is online",
-        source="TCP connect attempt",
+        source="Bedrock (RakNet) ping over UDP" if method == "raknet" else "TCP connect attempt",
     )
 
 

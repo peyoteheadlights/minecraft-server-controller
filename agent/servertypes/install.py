@@ -194,6 +194,13 @@ async def install_plan(
     """Download and set up one version. Returns what to record: the jar or
     argument file to launch, what was downloaded and whether it was checked."""
     server_type = servertypes.get(plan.type_id)
+    if server_type.launch == "exe":
+        from . import bedrock
+
+        try:
+            return await bedrock.install(ctx, plan, directory, job=job)
+        except (bedrock.BedrockError, DownloadError) as exc:
+            raise InstallError(str(exc)) from exc
     files = []
     try:
         for item in plan.downloads:
@@ -297,6 +304,10 @@ def put_software_back(ctx: ServerContext, kept: dict[str, Any]) -> list[str]:
         if not source.exists():
             continue
         target = directory / name
+        # Bedrock's built-in packs are kept as behavior_packs/<pack>.
+        if not is_inside(directory, target.resolve()):
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
         if target.exists():
             shutil.rmtree(target) if target.is_dir() else target.unlink()
         shutil.move(str(source), str(target))
@@ -348,6 +359,7 @@ async def preflight(
 
     current = ctx.config.server_type
     target = servertypes.get(type_id)
+    refuse_other_edition(current, target)
     versions = await list_versions(target.id)
     entry = next((v for v in versions if v.minecraft == minecraft), None)
     if entry is None:
@@ -364,14 +376,17 @@ async def preflight(
         if now and then:
             direction = "newer" if then > now else "older" if then < now else "same"
 
-    if ctx.server.java_info is None:
-        await asyncio.to_thread(ctx.server.detect_java)
-    java_info = ctx.server.java_info
-    java = (
-        check_compatibility(java_info, minecraft)
-        if java_info is not None
-        else {"verdict": "unknown", "detail": "Java couldn't be checked on this PC."}
-    )
+    if not target.needs_java:
+        java: dict[str, Any] = {"verdict": "not_needed", "detail": None}
+    else:
+        if ctx.server.java_info is None:
+            await asyncio.to_thread(ctx.server.detect_java)
+        java_info = ctx.server.java_info
+        java = (
+            check_compatibility(java_info, minecraft)
+            if java_info is not None
+            else {"verdict": "unknown", "detail": "Java couldn't be checked on this PC."}
+        )
     content = []
     if current.has_content:
         for mod in ctx.mods.scan():
@@ -413,7 +428,11 @@ async def preflight(
         "direction": direction,
         "downgrade_warning": direction == "older",
         "java": java,
-        "java_required": required_java(minecraft),
+        "java_required": required_java(minecraft) if target.needs_java else None,
+        # Bedrock: Mojang offers only the newest version; older ones only
+        # where a copy was kept.
+        "latest_only": target.latest_only,
+        "kept": bool(entry.kept),
         "content_kind": current.content,
         "target_content_kind": target.content,
         "content": content,
@@ -428,6 +447,16 @@ async def preflight(
         "crossplay": ctx.config.server.crossplay,
         "crossplay_available": target.crossplay,
     }
+
+
+def refuse_other_edition(current: ServerType, target: ServerType) -> None:
+    """Java and Bedrock keep their worlds in different formats, so a server
+    never changes between them."""
+    if not current.can_change_to(target):
+        raise InstallError(
+            f"A {current.name} server can't become a {target.name} server: their worlds are "
+            "stored differently. Create a new server instead (the + tab)."
+        )
 
 
 def _declares(mod, minecraft: str) -> bool | None:
@@ -454,6 +483,14 @@ async def change_version(
 
     target = servertypes.get(type_id)
     current = ctx.config.server_type
+    refuse_other_edition(current, target)
+    if target.download_terms:
+        from . import bedrock
+
+        try:
+            bedrock.require_terms(ctx.core.db)
+        except bedrock.BedrockError as exc:
+            raise InstallError(str(exc)) from exc
     plan = await make_plan(target.id, minecraft, loader)
     directory = _server_dir(ctx)
     type_change = target.id != current.id
@@ -467,7 +504,35 @@ async def change_version(
         else f"Changing {ctx.name} to Minecraft {minecraft}"
     )
 
+    async def apply_exe(job: JobHandle | None) -> dict[str, Any]:
+        """Bedrock: only Mojang's files are replaced, moved aside with their
+        folder layout once the new download is here."""
+        from . import bedrock
+
+        label = f"{current.id}-{ctx.server.mc_version or 'unknown'}"
+        keep = ctx.config.data_dir / PREVIOUS / f"{time.strftime('%Y%m%d-%H%M%S')}-{label}"
+        old_record = bedrock.shipped_record(ctx)
+        try:
+            result = await bedrock.install(ctx, plan, directory, job=job, keep=keep)
+        except (bedrock.BedrockError, DownloadError) as exc:
+            raise InstallError(str(exc)) from exc
+        kept = {
+            "folder": str(keep),
+            "moved": result.pop("moved_aside"),
+            "type": current.id,
+            "jar": ctx.config.server.jar,
+            "args_file": ctx.config.server.args_file,
+            "shipped": old_record,
+        }
+        return {
+            **result,
+            "previous": kept,
+            "content_moved_aside": {"moved": [], "kept": [], "folder": None},
+        }
+
     async def apply(job: JobHandle | None) -> dict[str, Any]:
+        if target.launch == "exe":
+            return await apply_exe(job)
         kept = move_software_aside(
             ctx, current, f"{current.id}-{ctx.server.mc_version or 'unknown'}"
         )
@@ -623,6 +688,16 @@ async def roll_back(ctx: ServerContext, user: str = "system") -> dict[str, Any]:
         directory = _server_dir(ctx)
         for entry in software_entries(directory, target_type):
             shutil.rmtree(entry) if entry.is_dir() else entry.unlink()
+        if target_type.launch == "exe":
+            from . import bedrock
+
+            # What the change unpacked goes; what it replaced comes back.
+            now = bedrock.shipped_record(ctx) or {}
+            for relative in [*now.get("top", []), *now.get("packs", [])]:
+                path = directory / relative
+                if path.exists() and not path.is_symlink():
+                    shutil.rmtree(path) if path.is_dir() else path.unlink()
+            ctx.db.set_setting(bedrock.SHIPPED_KEY, previous.get("shipped"))
         restored = put_software_back(ctx, previous)
         moved = record.get("content_moved_aside") or {}
         put_back = []

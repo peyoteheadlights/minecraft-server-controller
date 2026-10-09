@@ -51,7 +51,9 @@ function playerName(player) {
 }
 
 function names(list) {
-  return new Set(((list && list.players) || []).map((p) => p.name.toLowerCase()));
+  // Bedrock's permissions.json names players only by xuid; one this app
+  // never saw join has no name.
+  return new Set(((list && list.players) || []).filter((p) => p.name).map((p) => p.name.toLowerCase()));
 }
 
 /* The line at the top saying what was sent and what the server answered. */
@@ -137,27 +139,42 @@ function rowButtons(name, sets, running, log, online) {
       : actionButton("whitelist_add", name, running, log),
     sets.ops.has(lower) ? actionButton("deop", name, running, log) : actionButton("op", name, running, log),
     online ? actionButton("kick", name, running, log, " danger") : null,
-    sets.banned.has(lower)
-      ? actionButton("pardon", name, running, log)
-      : actionButton("ban", name, running, log, " danger"));
+    // Bedrock servers have no ban list.
+    !sets.bans ? null
+      : sets.banned.has(lower)
+        ? actionButton("pardon", name, running, log)
+        : actionButton("ban", name, running, log, " danger"));
 }
 
 /* Add someone by name who may never have joined. */
-function addCard(running, log) {
-  const input = el("input", { id: "player-add-name", maxlength: "17", autocomplete: "off",
-    placeholder: "Alex", class: "mono" });
+// A Java name, or an Xbox gamertag (letters, numbers and single spaces).
+const NAME_PATTERNS = {
+  java: /^\.?[A-Za-z0-9_]{1,16}$/,
+  bedrock: /^[A-Za-z0-9](?:[A-Za-z0-9]| (?! )){0,19}$/,
+};
+
+function addCard(running, log, sets) {
+  const bedrock = sets.edition === "bedrock";
+  const input = el("input", { id: "player-add-name", maxlength: bedrock ? "20" : "17", autocomplete: "off",
+    placeholder: bedrock ? "Steve Gamer" : "Alex", class: "mono" });
   const button = (kind, extra = "") => el("button", {
     class: `btn${extra}`, type: "button", disabled: running ? false : "disabled",
     onclick: (e) => {
       const name = input.value.trim();
-      if (!/^\.?[A-Za-z0-9_]{1,16}$/.test(name)) { toast(t("players.bad_name"), "warn"); input.focus(); return; }
+      if (!NAME_PATTERNS[bedrock ? "bedrock" : "java"].test(name) || name.endsWith(" ")) {
+        toast(t(bedrock ? "players.bad_gamertag" : "players.bad_name"), "warn");
+        input.focus();
+        return;
+      }
       act(kind, name, e.currentTarget, log);
     },
   }, t(ACTION_WORDS[kind]));
   return card(t("players.add_title"),
     el("div", { class: "field" }, el("label", { for: "player-add-name" }, t("players.add_name")), input,
       el("div", { class: "hint" }, t("players.add_hint"))),
-    el("div", { class: "btn-row" }, button("whitelist_add", " primary"), button("op"), button("ban", " danger")));
+    el("div", { class: "btn-row" }, button("whitelist_add", " primary"), button("op"),
+      sets.bans ? button("ban", " danger") : null),
+    bedrock ? el("p", { class: "hint" }, t("players.bedrock_op_online")) : null);
 }
 
 /* One of Minecraft's lists, read from its file. */
@@ -168,16 +185,19 @@ function listCard(titleKey, list, removeKind, running, log, emptyKey, columns = 
   if (!list.players.length) return card(t(titleKey), emptyState(t(emptyKey)));
   const headers = [t("players.col_player"), ...(columns ? columns.headers : []), ""];
   return card(t(titleKey), table(headers, list.players.map((p) => [
-    el("span", {}, p.name),
+    p.name ? el("span", {}, p.name) : el("span", { class: "mono hint", title: t("players.xuid_only") }, p.uuid || "—"),
     ...(columns ? columns.cells(p) : []),
-    actionButton(removeKind, p.name, running, log),
+    p.name ? actionButton(removeKind, p.name, running, log) : null,
   ])), technical() ? el("p", { class: "hint mono" }, t("players.from_file", { file: list.file })) : null);
 }
 
 renderers.players = (page) => loadInto(page, async () => {
   const data = await api("/players");
   const running = data.running;
-  const sets = { whitelist: names(data.lists.whitelist), ops: names(data.lists.ops), banned: names(data.lists.banned) };
+  const sets = {
+    whitelist: names(data.lists.whitelist), ops: names(data.lists.ops), banned: names(data.lists.banned),
+    bans: data.bans !== false, edition: data.edition,
+  };
   const log = el("ul", { class: "action-lines", "aria-live": "polite" },
     (data.actions || []).map(actionLine));
   const logCard = card(t("players.recent_actions"), log);
@@ -196,7 +216,7 @@ renderers.players = (page) => loadInto(page, async () => {
             fmt.duration(p.session_seconds),
             rowButtons(p.username, sets, running, log, true)]))
       : emptyState(t("players.nobody"))));
-  holder.append(addCard(running, log));
+  holder.append(addCard(running, log, sets));
   const online = new Set(data.online.map((p) => p.username));
   holder.append(card(t("players.everyone"),
     data.known.length

@@ -1,0 +1,29 @@
+# Bedrock Dedicated Server console lines, copied verbatim from public bug
+# reports where people pasted their server's output (only the lines the
+# agent reads are kept). The parser tests read this file, so the patterns are
+# checked against what the real server printed, not against what we assume.
+#
+# Format used since about 1.16 (timestamps with milliseconds, "Version:"):
+#   https://github.com/itzg/docker-minecraft-bedrock-server/issues/544
+#   (Bedrock Dedicated Server 1.21.95.1, July 2025)
+[2025-07-15 16:33:49:805 INFO] Starting Server
+[2025-07-15 16:33:49:806 INFO] Version: 1.21.95.1
+[2025-07-15 16:33:55:857 INFO] IPv4 supported, port: 19132: Used for gameplay and LAN discovery
+[2025-07-15 16:33:55:857 INFO] IPv6 supported, port: 19135: Used for gameplay
+[2025-07-15 16:33:55:972 INFO] Server started.
+[2025-07-15 16:36:04:302 INFO] Player connected: fooBarBazz, xuid: 2533274474361790
+#
+# The older format (no milliseconds, "Version" without a colon):
+#   https://github.com/itzg/docker-minecraft-bedrock-server/issues/55
+#   (Bedrock Dedicated Server 1.14.60.5, May 2020)
+# The message text is verbatim. The report showed the first line's
+# timestamp; the others reuse it, since only the message is parsed.
+[2020-05-14 16:27:38 INFO] Version 1.14.60.5
+[2020-05-14 16:27:38 INFO] Level Name: Bedrock level
+[2020-05-14 16:27:38 INFO] IPv4 supported, port: 19132
+[2020-05-14 16:27:38 INFO] Player disconnected: mjwrazor, xuid: 2535409695687979
+#
+# Not captured from a real server yet (hand-check in phase8/hand-checks.md):
+# the "save query" answer, the allowlist/op/kick answers and the stop lines.
+# The fake server (fake_bedrock_server.py) prints them as Mojang's
+# bedrock_server_how_to.html and community reports describe them.

@@ -73,9 +73,9 @@ class DuplicateError(RuntimeError):
     """The server can't be duplicated as asked. Written for people."""
 
 
-def world_folders(directory: Path) -> set[str]:
+def world_folders(directory: Path, server_type: Any = None) -> set[str]:
     """The folders that make up the world (see properties.world_folders)."""
-    return properties.world_folders(directory)
+    return properties.world_folders(directory, server_type)
 
 
 def files_to_copy(ctx: ServerContext, world: str) -> list[tuple[Path, str, int]]:
@@ -89,7 +89,7 @@ def walk_source(ctx: ServerContext, world: str) -> tuple[list[tuple[Path, str, i
     source = ctx.config.server_dir
     skip_top = set(LEFT_BEHIND)
     if world == "fresh":
-        skip_top |= world_folders(source)
+        skip_top |= world_folders(source, ctx.config.server_type)
     # The app's own folders, when someone keeps them inside the server
     # folder (backups, the data folder), stay behind too.
     inside = [
@@ -376,7 +376,7 @@ def suggestion(core: AgentCore, ctx: ServerContext) -> dict[str, Any]:
         "directory": str(folder),
         "running": ctx.server.running,
         "crossplay": bool(ctx.config.server.crossplay),
-        "world_folders": sorted(world_folders(ctx.config.server_dir))
+        "world_folders": sorted(world_folders(ctx.config.server_dir, ctx.config.server_type))
         if ctx.config.server_dir.is_dir()
         else [],
     }

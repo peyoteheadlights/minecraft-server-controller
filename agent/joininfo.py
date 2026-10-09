@@ -9,6 +9,9 @@ Only addresses the agent actually read from this PC are shown:
     server.properties sets, else Minecraft's own default, saying which
   * Bedrock players (with crossplay on): the same home and Tailscale
     addresses, with the UDP port Geyser was set up with
+  * a Bedrock server: only the Bedrock address, with its own UDP port.
+    Xbox, PlayStation and Switch can't run Tailscale, so the card says
+    consoles can't join that way
 
 Whether the server can be reached from the internet is never guessed: this
 app doesn't test it and doesn't open router ports, so it is reported as
@@ -103,6 +106,24 @@ def join_info(ctx: ServerContext) -> dict[str, Any]:
     port = ctx.core.ports.port_of(ctx)
     tailscale = tailscale_address()
     local = local_addresses()
+    if ctx.config.server_type.edition == "bedrock":
+        return {
+            "java": None,
+            "bedrock": {
+                "port": port.port,
+                "port_source": port.source,
+                "protocol": "udp",
+                "default_port": port.port == ctx.config.server_type.default_port,
+                "ready": ctx.server.state.value == "ONLINE",
+                "address": tailscale["address"],
+                "local": local,
+                "tailscale": tailscale,
+                "consoles_note": True,
+                "own_server": True,
+            },
+            "internet": {"known": False, "reason": "not_tested"},
+            "running": ctx.server.running,
+        }
     bedrock = None
     status = crossplay.status(ctx)
     if status.get("enabled"):

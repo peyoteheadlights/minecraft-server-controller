@@ -33,8 +33,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import __version__, startup_diag
-from .api.errors import register_error_handlers
+from . import __version__, requestid, startup_diag
+from .api.errors import error_response, register_error_handlers
 from .api.routes import router
 from .api.ws import ws_router
 from .config import Config
@@ -244,15 +244,32 @@ def create_app(config: Config, data_move: MoveResult | None = None) -> FastAPI:
                         )
         return response
 
+    @app.middleware("http")
+    async def request_ids(request: Request, call_next):
+        """Added last, so it runs first: every other middleware, route and
+        log line sees the ID (agent/requestid.py)."""
+        rid = requestid.accept(request.headers.get(requestid.HEADER))
+        request.state.request_id = rid
+        requestid.current.set(rid)
+        response = await call_next(request)
+        response.headers[requestid.HEADER] = rid
+        return response
+
     @app.exception_handler(Exception)
-    async def unhandled(request: Request, exc: Exception):  # pragma: no cover
+    async def unhandled(request: Request, exc: Exception):
         # The stack trace goes to the log file, never to the browser.
-        log.exception("unhandled error on %s %s", request.method, request.url.path)
-        return JSONResponse(
-            status_code=500,
-            content={
-                "detail": "The agent hit an unexpected error. "
-                "Check mcsc-data/logs/agent-errors.log."
+        rid = getattr(request.state, "request_id", None)
+        token = requestid.current.set(rid)
+        try:
+            log.exception("unhandled error on %s %s", request.method, request.url.path)
+        finally:
+            requestid.current.reset(token)
+        return error_response(
+            request,
+            500,
+            {
+                "detail": "The agent hit an unexpected error. Use Get help in App settings "
+                "and quote the error number."
             },
         )
 

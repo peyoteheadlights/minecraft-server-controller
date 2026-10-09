@@ -76,8 +76,9 @@ def problems(tag: str) -> list[str]:
         )
     if not signing.has_key():
         found.append(
-            "agent/signing.py has no update-signing public key: "
-            "run python scripts/make_update_key.py (docs/releases.md)."
+            "agent/signing.py has no update-signing public key. On your PC, "
+            "double-click make-update-key.cmd in the project folder, commit the "
+            "agent/signing.py change it makes, then tag again (docs/releases.md)."
         )
     return found
 

@@ -292,7 +292,12 @@ def status(ctx: ServerContext) -> dict[str, Any]:
         "available": server_type.crossplay,
         "unavailable_reason": None
         if server_type.crossplay
-        else f"GeyserMC publishes no build for {server_type.name} servers.",
+        else (
+            "This is a Bedrock server, so Bedrock players join it directly. Crossplay "
+            "is for letting them join a Java server."
+            if server_type.edition == "bedrock"
+            else f"GeyserMC publishes no build for {server_type.name} servers."
+        ),
         "enabled": on,
         "port": port,
         "protocol": "udp",

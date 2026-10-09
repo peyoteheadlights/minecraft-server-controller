@@ -120,7 +120,7 @@ def interpreter_problems(executable: str | None = None) -> list[str]:
     except ImportError as exc:
         problems.append(
             f"This interpreter is missing the agent's packages ({exc}). Run "
-            f'"{exe}" -m pip install -r requirements.txt, then enable again.'
+            f'"{exe}" -m pip install --require-hashes -r requirements.lock, then enable again.'
         )
     return problems
 

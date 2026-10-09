@@ -79,6 +79,11 @@ ALLOWED_HOSTS = frozenset(
         "github.com",
         "objects.githubusercontent.com",
         "release-assets.githubusercontent.com",
+        # Bedrock Dedicated Server: Mojang's download links service and the
+        # zip files it points to. Only the paths in SHARED_HOST_PATHS.
+        "net-secondary.web.minecraft-services.net",
+        "www.minecraft.net",
+        "minecraft.azureedge.net",
     }
 )
 
@@ -89,6 +94,13 @@ REPO = "peyoteheadlights/minecraft-server-controller"
 GITHUB_PATHS = {
     "api.github.com": (f"/repos/{REPO}/releases",),
     "github.com": (f"/{REPO}/releases/download/", "/adoptium/"),
+}
+# The same for Mojang's Bedrock hosts, which also serve web pages and other
+# files: only the links list and the Bedrock server zips.
+BEDROCK_PATHS = {
+    "net-secondary.web.minecraft-services.net": ("/api/v1.0/download/links",),
+    "www.minecraft.net": ("/bedrockdedicatedserver/",),
+    "minecraft.azureedge.net": ("/bin-win/", "/bin-linux/"),
 }
 
 MAX_LIST_BYTES = 20 * 1024 * 1024  # a version list or API answer
@@ -172,6 +184,12 @@ def check_url(url: str) -> str:
     if prefixes is not None and not any(parsed.path.startswith(p) for p in prefixes):
         raise DownloadError(
             "Only this app's own releases and Temurin's files can be downloaded from GitHub."
+        )
+    prefixes = BEDROCK_PATHS.get(host)
+    if prefixes is not None and not any(parsed.path.startswith(p) for p in prefixes):
+        raise DownloadError(
+            "Only the Bedrock server download list and its server files can be "
+            f"downloaded from {host}."
         )
     return url
 

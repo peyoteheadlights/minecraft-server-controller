@@ -4,6 +4,7 @@
    never before. The Console page stays for commands and raw output. */
 
 import { api } from "../api.js";
+import { serverRow } from "../servers.js";
 import { renderers, state } from "../state.js";
 import { t } from "../strings.js";
 import { $, el, emptyState, fmt, toast } from "../ui.js";
@@ -89,6 +90,12 @@ renderers.chat = (page) => {
   const button = el("button", { id: "chat-send", class: "btn primary small", type: "button",
     disabled: running ? false : true, onclick: () => send(input, button) }, t("chat.send"));
 
+  // Bedrock's console doesn't print chat, so only what is sent from here
+  // shows; the page says so rather than looking empty.
+  const caps = (serverRow() || {}).capabilities || {};
+  if (caps.reads_chat === false) {
+    page.append(el("div", { class: "banner" }, el("div", { class: "grow" }, t("chat.not_read"))));
+  }
   page.append(
     el("div", { class: "chat" }, wrap,
       el("div", { class: "chat-foot" },

@@ -95,6 +95,7 @@ export function pageEntry(key) {
    "Mods" on Fabric, Quilt, Forge and NeoForge, "Plugins" on Paper and
    Purpur. Vanilla takes neither, so the page is not offered at all. */
 export function contentPage(row) {
+  if (row && row.capabilities && row.capabilities.addons) return "page.addons";
   const kind = row && row.content;
   if (!kind) return null;
   return kind === "plugins" ? "page.plugins" : "page.mods";

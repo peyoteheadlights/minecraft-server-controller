@@ -11,8 +11,14 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from .. import requestid
+from ..addons import AddonError
+from ..backups.hold import HoldError
 from ..backups.manager import BackupError
 from ..config import ConfigError
 from ..core import UnknownServer
@@ -36,6 +42,7 @@ from ..scheduler.scheduler import ScheduleError
 from ..security.auth import AuthError
 from ..security.paths import PathSafetyError
 from ..servertypes import UnknownServerType
+from ..servertypes.bedrock import BedrockError
 from ..servertypes.install import InstallError
 from ..servertypes.versions import VersionError
 from ..transfer import TransferError
@@ -73,13 +80,39 @@ ERROR_STATUS: dict[type[Exception], int] = {
     WorldImportError: 400,
     MemoryLimitError: 400,
     TransferError: 400,
+    AddonError: 400,
+    BedrockError: 400,
+    HoldError: 409,  # the running server didn't get its files ready to copy
 }
 DOMAIN_ERRORS: tuple[type[Exception], ...] = tuple(ERROR_STATUS)
 
 
+def error_response(
+    request: Request, status: int, content: dict, headers: dict[str, str] | None = None
+) -> JSONResponse:
+    """A JSON error answer carrying this request's ID (agent/requestid.py)."""
+    rid = getattr(request.state, "request_id", None) or requestid.current.get()
+    if rid:
+        content = {**content, "request_id": rid}
+        headers = {**(headers or {}), requestid.HEADER: rid}
+    return JSONResponse(status_code=status, content=content, headers=headers)
+
+
+async def _http_handler(request: Request, exc: Exception) -> JSONResponse:
+    assert isinstance(exc, StarletteHTTPException)
+    return error_response(
+        request, exc.status_code, {"detail": exc.detail}, getattr(exc, "headers", None)
+    )
+
+
+async def _validation_handler(request: Request, exc: Exception) -> JSONResponse:
+    assert isinstance(exc, RequestValidationError)
+    return error_response(request, 422, {"detail": jsonable_encoder(exc.errors())})
+
+
 def _status_handler(status: int):
     async def handler(request: Request, exc: Exception) -> JSONResponse:
-        return JSONResponse(status_code=status, content={"detail": str(exc)})
+        return error_response(request, status, {"detail": str(exc)})
 
     return handler
 
@@ -87,18 +120,20 @@ def _status_handler(status: int):
 async def _auth_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, AuthError)
     headers = {"Retry-After": str(exc.retry_after)} if exc.retry_after else None
-    return JSONResponse(status_code=exc.status, content={"detail": exc.message}, headers=headers)
+    return error_response(request, exc.status, {"detail": exc.message}, headers)
 
 
 async def _form_handler(request: Request, exc: Exception) -> JSONResponse:
     """A form with several refused values: each one's reason, by key."""
     assert isinstance(exc, FormError)
-    return JSONResponse(status_code=400, content={"detail": str(exc), "problems": exc.problems})
+    return error_response(request, 400, {"detail": str(exc), "problems": exc.problems})
 
 
 def register_error_handlers(app: FastAPI) -> None:
     for exc_type, status in ERROR_STATUS.items():
         app.add_exception_handler(exc_type, _status_handler(status))
+    app.add_exception_handler(StarletteHTTPException, _http_handler)
+    app.add_exception_handler(RequestValidationError, _validation_handler)
     app.add_exception_handler(FormError, _form_handler)
     app.add_exception_handler(AuthError, _auth_handler)
 

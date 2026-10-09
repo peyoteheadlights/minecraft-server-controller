@@ -11,6 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from agent import servertypes
 from agent.core import AgentCore
 from agent.minecraft import commands, playeractions
 from agent.minecraft.playeractions import PlayerActionError, build_command
@@ -218,6 +219,7 @@ def test_players_lists_say_when_minecraft_hasnt_written_them(multi_client):
 # ------------------------------------------------------------ answers
 class _Server:
     running = True
+    config = SimpleNamespace(server_type=servertypes.get("fabric"))
 
     state = SimpleNamespace(value="ONLINE")
 

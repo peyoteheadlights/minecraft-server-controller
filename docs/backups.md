@@ -31,6 +31,17 @@ While the server is running the agent sends `save-all flush`, waits, then
 saving with `save-on` — even if the zip fails. `session.lock`, which the JVM
 holds open on Windows, is skipped. Symlinks are never followed.
 
+A running **Bedrock** server can't pause saving that way. Instead the agent
+sends `save hold`, asks `save query` until the server answers "Data saved.
+Files are now ready to be copied." with its list of files and lengths, copies
+each listed file cut to its listed length (a path outside `worlds/` stops the
+copy), copies the world's other small files beside the database whole
+(`world_behavior_packs.json`, `world_resource_packs.json`, `levelname.txt`)
+in case the list leaves them out, and then always sends `save resume`, even
+when the copy failed. A world name with a comma in it is read correctly. A
+stopped Bedrock server's files are copied directly. Both are verified like
+any other backup.
+
 Before starting, it checks there is enough free space and refuses with a clear
 message rather than filling your disk.
 

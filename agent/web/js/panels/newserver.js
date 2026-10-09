@@ -2,6 +2,10 @@
    which Minecraft version, then its name, color and memory, and Minecraft's
    own rules.
 
+   Bedrock skips the comparison table (there is one kind of Bedrock server)
+   and goes straight to the version, name, color and Mojang's EULA and
+   Privacy Policy. It has no memory setting.
+
    The comparison table is built from what each type says about itself
    (/api/server-types), so it cannot drift from what the app actually does.
    It describes; it never claims a number nobody measured. */
@@ -135,6 +139,8 @@ export function newServerPanel() {
 
   /* Steps 3 and 4 appear once a type is chosen, so the page is one thing
      at a time rather than a wall of fields. */
+  const isBedrock = () => Boolean(chosen.type && chosen.type.edition === "bedrock");
+
   async function chooseType(type) {
     chosen.type = type;
     chosen.minecraft = null;
@@ -154,6 +160,8 @@ export function newServerPanel() {
     }
     const javaBox = el("div", {});
     versionBox.replaceChildren(card(t("new.step_version"),
+      payload.latest_only ? el("p", { class: "hint mt-0" }, t("new.bedrock_versions")) : null,
+      payload.source_problem ? problem(payload.source_problem) : null,
       versionPicker(payload, (minecraft, loader, entry) => {
         chosen.minecraft = minecraft;
         chosen.loader = loader;
@@ -176,7 +184,41 @@ export function newServerPanel() {
           t("new.java_get")))));
   }
 
+  /* Bedrock: Mojang's EULA and Privacy Policy, one tick for both. Nothing
+     is downloaded until it is ticked. */
+  function bedrockRules() {
+    const terms = options.bedrock || {};
+    const link = (href, text) => el("a", { href, target: "_blank", rel: "noopener noreferrer" },
+      text, icon("chevron"));
+    return card(t("new.step_rules"),
+      el("p", { class: "hint mt-0" }, t("new.bedrock_terms_intro")),
+      el("p", { class: "mt-0 link-row" },
+        link(terms.eula_url, t("new.eula_link")),
+        link(terms.privacy_url, t("new.privacy_link"))),
+      el("label", { class: "switch" }, eula, el("span", {}, t("new.bedrock_tick"))),
+      el("div", { class: "btn-row mt-12" },
+        el("button", { class: "btn primary", type: "button", id: "new-create" }, t("new.create")),
+        el("span", { class: "hint" }, t("new.create_hint"))));
+  }
+
+  function bedrockDetails() {
+    const port = options.bedrock && options.bedrock.port;
+    return el("div", { class: "stack" },
+      card(t("new.step_details"),
+        el("div", { class: "grid cols-2" },
+          el("div", { class: "field" }, el("label", { for: "new-name" }, t("add.name")), name),
+          el("div", { class: "field" },
+            el("label", { for: "new-folder" }, t("new.folder")), folder,
+            el("div", { class: "hint" }, t("new.folder_hint")))),
+        el("div", { class: "field" }, el("span", { class: "field-label" }, t("serverset.color")), swatches()),
+        el("div", { class: "hint" }, known(port)
+          ? t("new.bedrock_port_hint", { port })
+          : t("new.bedrock_no_port"))),
+      bedrockRules());
+  }
+
   function detailStep(type) {
+    if (type.edition === "bedrock") return bedrockDetails();
     memory.value = options.memory_mb;
     const javaProblem = options.java && !known(options.java.version_major);
     return el("div", { class: "stack" },
@@ -217,7 +259,11 @@ export function newServerPanel() {
       (name.value.trim() ? folder : name).focus();
       return;
     }
-    if (!eula.checked) { toast(t("new.need_eula"), "warn"); eula.focus(); return; }
+    if (!eula.checked) {
+      toast(t(isBedrock() ? "new.need_bedrock_terms" : "new.need_eula"), "warn");
+      eula.focus();
+      return;
+    }
     await busy(button, t("new.creating"), async () => {
       try {
         const result = await api("/new-server", {
@@ -228,7 +274,7 @@ export function newServerPanel() {
             type: chosen.type.id,
             minecraft_version: chosen.minecraft,
             loader_version: chosen.loader,
-            memory_mb: Number(memory.value) || null,
+            memory_mb: isBedrock() ? null : Number(memory.value) || null,
             color: chosen.color,
             eula_accepted: true,
           },
@@ -261,15 +307,37 @@ export function newServerPanel() {
         el("span", { class: "choice-text" },
           el("strong", {}, t("new.java")),
           el("span", { class: "hint" }, t("new.java_hint")))),
-      el("label", { class: "choice is-disabled" },
-        el("input", { type: "radio", name: "new-edition", value: "bedrock", disabled: true }),
+      el("label", { class: "choice" },
+        el("input", { type: "radio", name: "new-edition", value: "bedrock" }),
         el("span", { class: "choice-text" },
           el("strong", {}, t("new.bedrock")),
-          el("span", { class: "hint" }, t("new.bedrock_later")))));
+          el("span", { class: "hint" }, t("new.bedrock_hint")))));
+
+    // The table compares the Java kinds; Bedrock has one kind of server,
+    // so choosing Bedrock skips it.
+    const javaTypes = options.types.filter((type) => type.edition !== "bedrock");
+    const bedrockType = options.types.find((type) => type.edition === "bedrock");
+    edition.addEventListener("change", (event) => {
+      if (event.target.name !== "new-edition") return;
+      const bedrock = event.target.value === "bedrock";
+      typeBox.hidden = bedrock;
+      if (bedrock && bedrockType) {
+        chooseType(bedrockType);
+      } else {
+        chosen.type = null;
+        chosen.minecraft = null;
+        versionBox.replaceChildren();
+        detailBox.replaceChildren();
+        typeBox.querySelectorAll("button[data-type]").forEach((button) => {
+          button.classList.remove("primary");
+          button.textContent = t("new.choose");
+        });
+      }
+    });
 
     typeBox.replaceChildren(card(t("new.step_kind"),
       el("p", { class: "hint mt-0" }, t("new.kind_hint")),
-      comparison(options.types, options.recommended, chooseType),
+      comparison(javaTypes, options.recommended, chooseType),
       el("p", { class: "hint" },
         t("new.rec_why", { name: (options.types.find((x) => x.id === options.recommended) || {}).name || "" }))));
 

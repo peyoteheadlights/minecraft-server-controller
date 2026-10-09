@@ -121,8 +121,17 @@ def write_env_value(path: Path, key: str, value: str) -> None:
             break
     else:
         lines.append(f"{key}={value}")
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    _restrict(path)
+    # Written beside it, locked down, then swapped in, so a crash or a full
+    # disk mid-write never leaves a cut-off .env (it holds the password
+    # hash), and the file is never readable by others, even for a moment.
+    temp = path.with_name(f".{path.name}.part")
+    temp.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    try:
+        _restrict(temp)
+    except LockDownError as exc:
+        temp.unlink(missing_ok=True)
+        raise LockDownError(path, exc.problem) from None
+    os.replace(temp, path)
 
 
 class LockDownError(RuntimeError):
@@ -211,10 +220,15 @@ def step_venv(ctx: Context) -> Step:
 
 
 def step_dependencies(ctx: Context) -> Step:
+    import tomllib
     from importlib import metadata
 
     missing, old = [], []
-    for raw in (ctx.root / "requirements.txt").read_text(encoding="utf-8").splitlines():
+    pyproject = ctx.root / "pyproject.toml"
+    if not pyproject.is_file():
+        return ctx.add(Step("Dependencies", "SKIP", "pyproject.toml isn't in this folder"))
+    project = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    for raw in project["project"]["dependencies"]:
         line = raw.split("#", 1)[0].strip()
         if not line:
             continue
@@ -249,7 +263,8 @@ def step_dependencies(ctx: Context) -> Step:
                 "Dependencies",
                 "FAIL",
                 detail,
-                "Run setup.ps1, or: .venv\\Scripts\\python -m pip install -r requirements.txt",
+                "Run setup.ps1, or: .venv\\Scripts\\python -m pip install --require-hashes "
+                "-r requirements.lock",
             )
         )
     return ctx.add(Step("Dependencies", "OK", "all requirements installed"))

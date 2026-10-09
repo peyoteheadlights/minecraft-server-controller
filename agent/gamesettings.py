@@ -34,14 +34,24 @@ if TYPE_CHECKING:
 def port_problem(ctx: ServerContext, port: int) -> str | None:
     """Why this server can't use ``port``, or None. Another server on the
     list using it, or another program holding it now, both count."""
-    owner = ctx.core.ports.used(exclude=ctx.server_id).get(("tcp", int(port)))
+    protocol = ctx.config.server_type.game_protocol
+    owner = ctx.core.ports.used(exclude=ctx.server_id).get((protocol, int(port)))
     if owner:
         return (
             f"The server '{ctx.core.servers[owner].name}' already uses port {port}. "
             "Pick another one."
         )
+    if ctx.config.server_type.edition == "bedrock":
+        # A Bedrock server also listens on server-portv6, which this page
+        # doesn't change; the two can't be the same port.
+        from .ports import bedrock_v6_port
+
+        if int(port) == bedrock_v6_port(ctx.config.server_dir).port:
+            return (
+                f"This server already uses port {port} for IPv6 (server-portv6). Pick another one."
+            )
     current = ctx.core.ports.port_of(ctx).port
-    if int(port) != current and not is_free(int(port), "tcp"):
+    if int(port) != current and not is_free(int(port), protocol):
         return f"Another program on this PC is using port {port}. Pick another one."
     return None
 
@@ -67,7 +77,7 @@ def waiting_for_restart(ctx: ServerContext, modified_at: float | None) -> bool:
 
 def view(ctx: ServerContext) -> dict[str, Any]:
     directory = ctx.config.server_dir
-    data = properties.form_view(directory)
+    data = properties.form_view(directory, ctx.config.server_type)
     return {
         **data,
         "running": ctx.server.running,
@@ -85,8 +95,10 @@ async def save(
     Technical mode (``raw_text``). Returns what changed and the undo."""
     directory = ctx.config.server_dir
     path = directory / properties.FILENAME
+    server_type = ctx.config.server_type
+    known = properties.fields_for(server_type.dialect)
     if raw_text is not None:
-        edited = properties.check_raw_text(raw_text)
+        edited = properties.check_raw_text(raw_text, server_type.dialect)
         before = properties.PropertiesFile.read(path).values() if path.is_file() else {}
         after = edited.values()
         port = after.get("server-port")
@@ -96,14 +108,12 @@ async def save(
                 raise properties.FormError({"server-port": problem})
         seed_before = (before.get("level-seed") or "").strip()
         seed_after = (after.get("level-seed") or "").strip()
-        if seed_after != seed_before and properties.world_exists(directory, before):
+        if seed_after != seed_before and properties.world_exists(directory, before, server_type):
             raise properties.FormError(
                 {"level-seed": "The world already exists, so its seed can't change."}
             )
         changed = {
-            key: value
-            for key, value in after.items()
-            if before.get(key) != value and key in properties.FIELDS_BY_KEY
+            key: value for key, value in after.items() if before.get(key) != value and key in known
         }
         others = sorted(
             key for key in set(after) | set(before) if before.get(key) != after.get(key)
@@ -113,7 +123,7 @@ async def save(
             return {"changed": {}, "nothing_changed": True, **_after(ctx)}
     else:
         edited, changed = properties.apply_form(
-            directory, updates or {}, lambda port: port_problem(ctx, port)
+            directory, updates or {}, lambda port: port_problem(ctx, port), server_type
         )
         others = sorted(changed)
         if not changed:

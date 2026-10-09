@@ -4,7 +4,9 @@ Run your Minecraft server on your own Windows PC, and look after it from
 your phone or any computer. Start and stop it, see who's playing, keep
 backups, add mods, and get told when something goes wrong.
 
-It works with Vanilla, Fabric, Quilt, Forge, NeoForge, Paper and Purpur.
+It works with Vanilla, Fabric, Quilt, Forge, NeoForge, Paper and Purpur, and
+with Bedrock (Mojang's Bedrock Dedicated Server, for phones, tablets and
+consoles).
 Only your own devices can reach it: it uses [Tailscale](https://tailscale.com),
 a free private network, and HTTPS.
 
@@ -24,7 +26,11 @@ a free private network, and HTTPS.
 - **Add mods** from Modrinth, with the mods they need, checked before
   they're installed.
 - **Make new servers** of any kind and version, change versions, and let
-  Bedrock players join.
+  Bedrock players join a Java server.
+- **Run a Bedrock server** too: it gets its own tab, its own Add-ons page
+  for .mcpack and .mcaddon files, .mcworld import and download, and backups
+  taken the way Bedrock needs while it runs. Controls that only make sense
+  for Java (memory, game speed, crossplay, bans) say so instead.
 - **Give friends their own sign-in** as helpers: they can start the server
   and look after players, but can't change how it's set up.
 - **Get alerts** on your phone, Discord or email.
@@ -108,6 +114,10 @@ the PC itself, never over the network.
   passwords, keys or worlds, and shows its file list before saving.
 - [docs/troubleshooting.md](docs/troubleshooting.md) covers the common
   problems.
+- If the dashboard shows an **Error number**, mention it: the same number
+  is in the Get help file, next to what went wrong.
+- Found a security problem? Please report it privately, as
+  [SECURITY.md](SECURITY.md) explains.
 
 ## For developers
 

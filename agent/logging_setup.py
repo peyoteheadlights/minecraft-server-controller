@@ -11,6 +11,8 @@ import logging.handlers
 import sys
 from pathlib import Path
 
+from .requestid import RequestIdFilter
+
 _CONFIGURED = False
 
 
@@ -24,12 +26,14 @@ def setup_logging(log_dir: Path, level: str = "INFO", console: bool = True) -> l
 
     root.setLevel(getattr(logging, level.upper(), logging.INFO))
     fmt = logging.Formatter(
-        "%(asctime)s [%(levelname)-7s] %(name)s: %(message)s", "%Y-%m-%d %H:%M:%S"
+        "%(asctime)s [%(levelname)-7s] %(name)s: %(message)s%(request_tag)s", "%Y-%m-%d %H:%M:%S"
     )
+    tag = RequestIdFilter()
     file_handler = logging.handlers.RotatingFileHandler(
         log_dir / "agent.log", maxBytes=5 * 1024 * 1024, backupCount=7, encoding="utf-8"
     )
     file_handler.setFormatter(fmt)
+    file_handler.addFilter(tag)
     root.addHandler(file_handler)
 
     err_handler = logging.handlers.RotatingFileHandler(
@@ -37,11 +41,13 @@ def setup_logging(log_dir: Path, level: str = "INFO", console: bool = True) -> l
     )
     err_handler.setLevel(logging.WARNING)
     err_handler.setFormatter(fmt)
+    err_handler.addFilter(tag)
     root.addHandler(err_handler)
 
     if console:
         stream = logging.StreamHandler(sys.stdout)
         stream.setFormatter(fmt)
+        stream.addFilter(tag)
         root.addHandler(stream)
 
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)

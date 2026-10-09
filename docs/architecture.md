@@ -153,6 +153,24 @@ nothing outside it asks `if type == "fabric"`:
 - `create.py` — a brand-new server: check the folder, check Java, write
   `server.properties` and `eula.txt`, install, register. It is never started
   for you.
+- `bedrock.py` — Bedrock Dedicated Server (Phase 8). Mojang's download links
+  service names only the newest zip and no checksum, so each download is
+  recorded as unverified with its SHA-256, and every zip is kept in the data
+  folder's `bedrock-versions/` so older versions and roll backs work. Nothing
+  is downloaded before Mojang's EULA and Privacy Policy are accepted. An
+  update replaces only Mojang's files: worlds, `server.properties`,
+  `allowlist.json`, `permissions.json` and added packs stay.
+
+The Bedrock type's capabilities do the rest of the work: `dialect: "bedrock"`
+picks its console patterns (`console.bedrock_signals`), its player commands
+(`allowlist`, `permission`, players by xuid) and its `server.properties`
+keys; `backup_method: "save_hold"` makes backups use `save hold` /
+`save query` / `save resume` (`agent/backups/hold.py`); `ping: "raknet"`
+makes the reachability check a RakNet unconnected ping over UDP
+(`agent/minecraft/raknet.py`); `takes_memory_limit`, `reports_speed`,
+`crossplay`, `bans` and `reads_chat` are false, and the pages say "not
+applicable" for each. `can_change_to` refuses Java ↔ Bedrock. Its add-ons
+are packs (`agent/addons.py`), not mods.
 
 `agent/crossplay.py` sits beside them: Geyser and Floodgate installed into
 the server's own add-on folder with `auth-type: floodgate`, a UDP port from

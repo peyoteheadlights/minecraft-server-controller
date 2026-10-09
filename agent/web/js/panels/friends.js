@@ -35,7 +35,37 @@ function withPort(host, port) {
   return `${host}:${port}`;
 }
 
+/* A Bedrock server: Bedrock players type an address and a port in two
+   separate boxes, so they are shown apart. Consoles can't run Tailscale. */
+function bedrockServerCard(info) {
+  const b = info.bedrock;
+  const home = (b.local || []).filter((a) => technical() || !a.virtual);
+  const homeRows = home.length
+    ? home.map((a) => addressRow(a.address,
+        technical() || home.length > 1 ? t("join.adapter", { adapter: a.adapter }) : null))
+    : [el("p", { class: "unknown-note" }, t("join.no_local"))];
+  const ts = b.tailscale || {};
+  const tsRows = [];
+  if (ts.address) {
+    tsRows.push(addressRow(ts.address));
+    if (!ts.verified) tsRows.push(el("p", { class: "hint" }, t("join.ts_unconfirmed")));
+    else if (ts.connected === false) tsRows.push(el("p", { class: "hint" }, t("join.ts_off")));
+  } else {
+    tsRows.push(el("p", { class: "unknown-note" }, t("join.no_tailscale")));
+  }
+  return el("div", { class: "join-card" },
+    el("div", { class: "columns" },
+      block("join.home", "join.home_hint", ...homeRows),
+      block("join.tailscale", "join.bedrock_tailscale_hint", ...tsRows)),
+    el("p", { class: "hint" },
+      t("join.bedrock_server_port", { port: b.port, source: b.port_source }),
+      b.default_port ? ` ${t("join.default_port")}` : ""),
+    el("p", { class: "hint" }, t("join.consoles")),
+    el("p", { class: "hint" }, t("join.internet")));
+}
+
 export function friendsCard(info) {
+  if (!info.java && info.bedrock && info.bedrock.own_server) return bedrockServerCard(info);
   const java = info.java;
   const port = java.port;
   const home = java.local.filter((a) => technical() || !a.virtual);

@@ -102,7 +102,7 @@ class BackupManager:
             # The world as server.properties names it. The list says
             # "world", but a server whose level-name is "survival" keeps its
             # world in survival/, and a backup without it holds no world.
-            for folder in sorted(world_folders(self.config.server_dir)):
+            for folder in sorted(world_folders(self.config.server_dir, self.config.server_type)):
                 if folder not in includes:
                     includes.append(folder)
         base = self.config.server_dir
@@ -143,8 +143,10 @@ class BackupManager:
         return files
 
     def _zip_sync(
-        self, target: Path, files: list[Path], base: Path, progress=None
+        self, target: Path, files: list[Path], base: Path, progress=None, extra=None
     ) -> tuple[int, int]:
+        """Write the archive. ``extra`` is (file, name in the archive) pairs
+        held outside ``base``: a Bedrock world copied while the server ran."""
         compression = (
             zipfile.ZIP_DEFLATED
             if self.config.backups.compression != "store"
@@ -155,6 +157,14 @@ class BackupManager:
             for full in files:
                 try:
                     zf.write(full, full.relative_to(base))
+                    written += 1
+                except (OSError, ValueError) as exc:
+                    log.warning("skipping %s: %s", full, exc)
+                if progress:
+                    progress(1)
+            for full, arcname in extra or []:
+                try:
+                    zf.write(full, arcname)
                     written += 1
                 except (OSError, ValueError) as exc:
                     log.warning("skipping %s: %s", full, exc)
@@ -219,15 +229,45 @@ class BackupManager:
                 f"about {estimated / 1024**3:.1f} GB of source data"
             )
 
+        # What the backup holds, recorded by top-level name (a Bedrock
+        # world copied under hold still counts as "worlds").
+        included = ",".join(p.name for p in sources)
         self._running = True
         started = time.time()
         await self.bus.publish(Event(type="backup_started", message=f"Backup started: {base_name}"))
         saving_disabled = False
+        staging: Path | None = None
+        extra: list[tuple[Path, str]] = []
         try:
             # Only a backup holding folders (the world) needs Minecraft to
             # flush and pause saving; a copy of one settings file doesn't.
             touches_world = any(source.is_dir() for source in sources)
-            if touches_world and self.server.running and self.server.state.value == "ONLINE":
+            online = self.server.running and self.server.state.value == "ONLINE"
+            root = self.config.server_type.world_root
+            if (
+                touches_world
+                and online
+                and self.config.server_type.backup_method == "save_hold"
+                and root
+                and (self.config.server_dir / root) in sources
+            ):
+                # Bedrock: the world is copied while the server holds its
+                # saves (agent/backups/hold.py); the rest is copied as is.
+                import tempfile
+
+                from . import hold
+
+                if job:
+                    job.step("Asking the server to hold its world still")
+                staging = Path(tempfile.mkdtemp(prefix="mcsc-hold-", dir=self.directory))
+                worlds = self.config.server_dir / root
+                try:
+                    copied = await hold.copy_world(self.server, worlds, staging)
+                except hold.HoldError as exc:
+                    raise BackupError(str(exc)) from exc
+                extra = [(staging / rel, f"{root}/{rel}") for rel in copied]
+                sources = [s for s in sources if s != worlds]
+            elif touches_world and online:
                 try:
                     await self.server.send_command("save-all flush", internal=True)
                     await asyncio.sleep(3)
@@ -239,13 +279,14 @@ class BackupManager:
 
             members = await asyncio.to_thread(self._collect, sources)
             if job:
-                job.step("Writing the backup", total=len(members), unit="files")
+                job.step("Writing the backup", total=len(members) + len(extra), unit="files")
             files, size = await asyncio.to_thread(
                 self._zip_sync,
                 target,
                 members,
                 self.config.server_dir,
                 job.advance if job else None,
+                extra,
             )
             if job:
                 job.step("Checking the backup")
@@ -261,7 +302,7 @@ class BackupManager:
                     "kind": kind,
                     "created_at": time.time(),
                     "size_bytes": 0,
-                    "includes": ",".join(p.name for p in sources),
+                    "includes": included,
                     "sha256": None,
                     "status": "failed",
                     "note": str(exc)[:400],
@@ -278,6 +319,8 @@ class BackupManager:
             raise BackupError(str(exc)) from exc
         finally:
             self._running = False
+            if staging is not None:
+                shutil.rmtree(staging, ignore_errors=True)
             if saving_disabled:
                 try:
                     await self.server.send_command("save-on", internal=True)
@@ -298,7 +341,7 @@ class BackupManager:
                 "kind": kind,
                 "created_at": time.time(),
                 "size_bytes": size,
-                "includes": ",".join(p.name for p in sources),
+                "includes": included,
                 "sha256": digest,
                 "status": "ok" if verification["ok"] else "unverified",
                 "note": note

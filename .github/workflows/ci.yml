@@ -48,6 +48,24 @@ jobs:
       - name: mypy
         run: python -m mypy
 
+  audit:
+    name: Known security problems in dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version-file: .python-version
+      - run: python -m pip install --require-hashes -r requirements-dev.lock
+      # Checks every pinned version in the lock files against the Python
+      # Packaging Advisory Database. Nothing is installed or changed.
+      # (requirements-dev.lock holds everything in requirements.lock.)
+      - name: pip-audit, the app and its test tools
+        run: python -m pip_audit --strict --disable-pip --require-hashes -r requirements-dev.lock
+      - name: pip-audit, the installer build tools
+        run: python -m pip_audit --strict --disable-pip --require-hashes -r requirements-build.lock
+
   unit-tests:
     name: Unit tests (${{ matrix.os }}, Python ${{ matrix.python }})
     runs-on: ${{ matrix.os }}
@@ -69,7 +87,12 @@ jobs:
       - name: Libraries the setup window's tests need to draw off-screen
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libegl1 libxkbcommon0
-      - run: python -m pytest -q
+      - name: Tests, with the coverage number on one run
+        if: matrix.os == 'ubuntu-latest' && matrix.python == 'bundled'
+        run: python -m pytest -q --cov=agent --cov=installer --cov-report=term:skip-covered
+      - name: Tests
+        if: matrix.os != 'ubuntu-latest' || matrix.python != 'bundled'
+        run: python -m pytest -q
 
   ui-check:
     name: Dashboard in a real browser

@@ -25,7 +25,12 @@ async def players(principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depe
         "max_players": ctx.config.server.max_players,
         # Who is on the whitelist, an operator or banned, from Minecraft's
         # own files. null with a reason when a file isn't there yet.
-        "lists": playeractions.lists(ctx.config.server_dir),
+        "lists": playeractions.lists(
+            ctx.config.server_dir, ctx.config.server_type.dialect, ctx.players.names_by_id()
+        ),
+        # Bedrock servers have no ban list; the page hides ban and unban.
+        "bans": ctx.config.server_type.bans,
+        "edition": ctx.config.server_type.edition,
         "running": ctx.server.running and ctx.server.state.value == "ONLINE",
         "actions": [a.to_dict() for a in ctx.player_actions.recent()[:10]],
     }

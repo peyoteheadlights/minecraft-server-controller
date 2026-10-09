@@ -204,7 +204,8 @@ class MetricsMonitor:
         """
         base = self.config.server_dir
         worlds = 0
-        for name in ("world", "world_nether", "world_the_end"):
+        root = self.config.server_type.world_root
+        for name in (root,) if root else ("world", "world_nether", "world_the_end"):
             worlds += directory_size(base / name)
         logs = directory_size(base / "logs")
         mods = directory_size(self.config.mods_dir)
@@ -228,6 +229,11 @@ class MetricsMonitor:
     # ------------------------------------------------------------------
     def port_listening(self, port: int | None = None, host: str = "127.0.0.1") -> bool:
         port = port or int(self.server.detected_port or self.config.server.port)
+        if self.config.server_type.ping == "raknet":
+            # Bedrock listens on UDP: asked with RakNet's unconnected ping.
+            from ..minecraft import raknet
+
+            return raknet.ping(host, port) is not None
         try:
             with socket.create_connection((host, port), timeout=1.5):
                 return True
@@ -275,7 +281,12 @@ class MetricsMonitor:
             health.minecraft_ram(snap, self.config.server.jvm_args),
             health.disk(snap, th),
             health.tailscale(self.tailscale_status()),
-            health.port(port, state, self.port_listening(port) if state == "ONLINE" else None),
+            health.port(
+                port,
+                state,
+                self.port_listening(port) if state == "ONLINE" else None,
+                self.config.server_type.ping,
+            ),
         ]
         if self.config.tls_enabled:
             checks.append(

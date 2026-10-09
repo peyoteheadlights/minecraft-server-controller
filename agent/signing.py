@@ -19,7 +19,7 @@ app below, so an update is installed only when:
   the expected setup file name;
 * the downloaded setup file's SHA-256 (and size) match the release file.
 
-Until the owner has made a key (``python scripts/make_update_key.py``), the
+Until the owner has made a key (``make-update-key.cmd``), the
 public key is empty and the app installs no update by itself: it says so
 and links the release page instead.
 """
@@ -39,8 +39,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 PRODUCT = "Minecraft Server Controller"
 
 # The public half of the owner's release signing key (32 bytes, base64).
-# Written by scripts/make_update_key.py. Empty: updates are never installed
-# by the app itself.
+# Written by make-update-key.cmd (scripts/make_update_key.py). Empty:
+# updates are never installed by the app itself.
 UPDATE_PUBLIC_KEY = ""
 
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")

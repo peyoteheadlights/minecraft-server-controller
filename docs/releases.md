@@ -10,38 +10,46 @@ releases, and only what this key signed.
 
 The app checks every update it installs against an Ed25519 public key built
 into it (`agent/signing.py`). The private half signs each release. Make the
-pair once, on your own PC, before the first release:
+pair once, on your own PC, before the first release.
 
-```powershell
-python scripts/make_update_key.py
-```
+**The easy way**: install the GitHub CLI (`winget install --id GitHub.cli`),
+sign in once (`gh auth login`), then double-click **`make-update-key.cmd`**
+in the project folder. It:
 
-It prints the private key once and writes nothing private to disk. Save it
-in two places:
+- makes the key pair;
+- saves the private half as the repository secret `MCSC_UPDATE_SIGNING_KEY`
+  (with `gh secret set`, through stdin; it is never written to a file);
+- writes the public half into `agent/signing.py`;
+- offers to show the private key once, so you can keep a copy in a
+  password manager. If you skip that and GitHub ever loses the secret, run
+  it again to make a new key (installed copies then need the new version
+  installed by hand once).
 
-1. **GitHub**: the repository's Settings > Secrets and variables > Actions >
-   New repository secret. Name `MCSC_UPDATE_SIGNING_KEY`, value the printed
-   line. Only the release workflow reads it.
-2. **Offline**, somewhere only you can open (a password manager). If GitHub
-   ever loses the secret, this is the only copy; without it, installed
-   copies can't update themselves until the new version is installed by
-   hand.
+If a key already exists (in `agent/signing.py` or as the GitHub secret), it
+stops unless you type `REPLACE`.
 
-3. **Optional, recommended**: Settings > Environments > `release` (the
-   first release run makes it) > Deployment branches and tags > Selected,
-   add the tag rule `v*`. Then only a version tag's run can use the key.
-   You can also move the secret there (Environment secrets) and delete the
-   repository one.
+**By hand**: `python scripts/make_update_key.py` prints the private key
+once and writes the public key. Paste the key into the repository's
+Settings > Secrets and variables > Actions > New repository secret, name
+`MCSC_UPDATE_SIGNING_KEY`, and into your password manager.
+
+**Optional, recommended**: Settings > Environments > `release` (the first
+release run makes it) > Deployment branches and tags > Selected, add the
+tag rule `v*`. Then only a version tag's run can use the key. (If you also
+move the secret into that environment, `make-update-key.cmd` can't see it
+there: delete the environment copy before making a new key with it.)
 
 Then commit the change it made to `agent/signing.py` (the public key). A
 copy built without a public key never installs updates by itself, and the
-release workflow refuses to run.
+release workflow refuses to run: it says to double-click
+`make-update-key.cmd`.
 
 Never paste the private key into an issue, a chat, a commit or a log.
 
-**If it leaks or is lost**: `python scripts/make_update_key.py --replace`,
-replace the GitHub secret, release, and tell people to install that release
-by hand once ([security](security.md#the-signing-key)).
+**If it leaks or is lost**: double-click `make-update-key.cmd` and type
+`REPLACE` (it replaces the GitHub secret too), commit, release, and tell
+people to install that release by hand once
+([security](security.md#the-signing-key)).
 
 ## Every release
 

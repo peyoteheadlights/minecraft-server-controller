@@ -18,6 +18,9 @@ at `/api/version` and only goes up for those changes.
   so in a Get help file).
 - A short SECURITY.md says how to report a security problem
   privately.
+- For whoever publishes releases: double-click `make-update-key.cmd` to make
+  the update-signing key. It saves the private half as the GitHub secret
+  and writes the public half into the app, and asks before replacing a key.
 - **Bedrock servers.** Pick Bedrock in the "+" tab to run Mojang's Bedrock
   Dedicated Server for friends on phones, tablets and consoles. It gets its
   own tab (marked "Bedrock"), and:

@@ -243,8 +243,9 @@ Playwright and what they pull in) ever runs while the key is loaded
 (`tests/test_release.py` checks this). `docs/releases.md` has how to make it.
 
 **If the private key leaks** (or is lost): make a new pair with
-`python scripts/make_update_key.py --replace`, which writes the new public
-key into `agent/signing.py`; put the new private key in the GitHub secret;
+`make-update-key.cmd` (type `REPLACE` when it asks), which puts the new
+private key in the GitHub secret and writes the new public key into
+`agent/signing.py`; commit that;
 release a new version and tell people to **install that one by hand** from
 the release page, because copies with the old key will refuse anything
 signed with the new one (that is the point). Delete the old secret. Until

@@ -33,7 +33,9 @@ def sign_setup(setup: Path, private_key: str) -> tuple[Path, Path]:
     version = match.group(1)
     if signing.public_key_of(private_key) != signing.UPDATE_PUBLIC_KEY:
         raise SystemExit(
-            "MCSC_UPDATE_SIGNING_KEY isn't the key built into agent/signing.py, so it wasn't used."
+            "::error::MCSC_UPDATE_SIGNING_KEY isn't the key built into agent/signing.py, "
+            "so it wasn't used. Commit the agent/signing.py change make-update-key.cmd "
+            "made, or run make-update-key.cmd again (docs/releases.md)."
         )
     digest = hashlib.sha256(setup.read_bytes()).hexdigest()
     document = signing.release_document(
@@ -53,7 +55,10 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     key = os.environ.get("MCSC_UPDATE_SIGNING_KEY", "").strip()
     if not key:
-        print("MCSC_UPDATE_SIGNING_KEY isn't set (see docs/releases.md).")
+        print(
+            "::error::The GitHub secret MCSC_UPDATE_SIGNING_KEY isn't set. On your PC, "
+            "double-click make-update-key.cmd in the project folder (docs/releases.md)."
+        )
         return 1
     out, sig = sign_setup(Path(args[0]), key)
     print(f"signed: {out.name} and {sig.name}")

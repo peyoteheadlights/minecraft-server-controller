@@ -10,11 +10,12 @@ from ... import joininfo
 from ...security.auth import Principal
 from ...security.permissions import SERVER_VIEW, require
 from ..deps import get_server
+from ..responses import JoinInfo
 
 router = APIRouter()
 
 
-@router.get("/join")
+@router.get("/join", response_model=JoinInfo)
 async def how_to_join(
     principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):

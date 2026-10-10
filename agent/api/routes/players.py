@@ -8,7 +8,7 @@ from ...minecraft import playeractions
 from ...security.auth import Principal
 from ...security.permissions import PLAYERS_MANAGE, PLAYERS_OP, SERVER_VIEW, check, require
 from ..deps import audit, get_server
-from ..responses import Players
+from ..responses import PlayerActionResult, PlayerActionStatus, Players
 from .models import PlayerActionRequest
 
 router = APIRouter()
@@ -50,7 +50,7 @@ async def player_sessions(
     return {"sessions": ctx.players.sessions(username or None, max(1, min(limit, 500)))}
 
 
-@router.post("/players/actions")
+@router.post("/players/actions", response_model=PlayerActionResult)
 async def player_action(
     payload: PlayerActionRequest,
     request: Request,
@@ -68,7 +68,7 @@ async def player_action(
     return {"result": "SENT", "action": pending.to_dict()}
 
 
-@router.get("/players/actions/{action_id}")
+@router.get("/players/actions/{action_id}", response_model=PlayerActionStatus)
 async def player_action_status(
     action_id: str,
     principal: Principal = Depends(require(SERVER_VIEW)),

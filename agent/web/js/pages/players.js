@@ -10,7 +10,7 @@ import { api, serverPath } from "../api.js";
 import { render } from "../nav.js";
 import { can, renderers, state } from "../state.js";
 import { t, technical } from "../strings.js";
-import { busy, card, confirmDialog, el, emptyState, fmt, loadInto, table, toast } from "../ui.js";
+import { busy, card, confirmDialog, el, emptyState, fmt, known, loadInto, table, toast } from "../ui.js";
 
 const POLL_MS = 1000;
 const POLL_FOR_MS = 22000;
@@ -212,7 +212,13 @@ renderers.players = (page) => loadInto(page, async () => {
   if (!running) holder.append(el("div", { class: "banner", role: "status" }, t("players.start_first")));
   holder.append(logCard);
   const uuid = technical();
-  holder.append(card(t("players.online", { count: data.online.length, max: data.max_players }),
+  // The count is null until the agent has read the list; a missing number
+  // shows as Unknown, never as the length of a list that may be stale.
+  const unknown = t("value.unknown");
+  holder.append(card(t("players.online", {
+    count: known(data.online_count) ? data.online_count : unknown,
+    max: known(data.max_players) ? data.max_players : unknown,
+  }),
     data.online.length
       ? table([t("players.col_player"), ...(uuid ? [t("players.col_uuid")] : []), t("players.col_session"), ""],
           data.online.map((p) => [

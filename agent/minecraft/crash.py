@@ -174,14 +174,10 @@ class CrashReporter:
                     "restarted": 0,
                 },
             )
+            # The event history gets this crash from the "server_crashed"
+            # event the server publishes with this context, so it is not
+            # written here as well (that showed every crash twice).
             context["id"] = crash_row
-            self.db.add_event(
-                self.server.server_id,
-                "server_crashed",
-                f"Crash: {analysis.category} ({analysis.confidence})",
-                level="error",
-                data={"crash_id": crash_row, "category": analysis.category},
-            )
         except Exception:  # pragma: no cover
             log.exception("could not store crash record")
         return context

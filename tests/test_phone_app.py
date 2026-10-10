@@ -331,6 +331,34 @@ def test_signing_out_forgets_the_phone(multi_client, owner, google, how):
     assert sends(google["calls"]) == []
 
 
+def test_a_phone_whose_sign_in_expired_isnt_woken(multi_client, google):
+    import time
+
+    phone = multi_client.post(
+        "/api/auth/login",
+        json={"username": "admin", "password": "correct horse battery", "device": "Pixel"},
+    ).json()
+    register_phone(multi_client, headers={"Authorization": f"Bearer {phone['token']}"})
+    core = multi_client.app.state.core
+    # Expired sessions stay in the table until the next sign-in clears them.
+    core.db.execute(
+        "UPDATE sessions SET expires_at = ? WHERE token_hash IN (SELECT session FROM app_phones)",
+        (time.time() - 60,),
+    )
+    google["calls"].clear()
+    send(core, crash())
+    assert sends(google["calls"]) == []
+
+
+def test_the_test_alert_wakes_app_phones_too(multi_client, google):
+    register_phone(multi_client)
+    google["calls"].clear()
+    result = multi_client.post("/api/push/test").json()
+    # No browser signed up for Web Push, but the app's phone was woken.
+    assert result["app_sent"] is True and result["sent"] is True
+    assert len(sends(google["calls"])) == 1
+
+
 def test_removing_a_helper_forgets_their_phone(multi_client, owner, google):
     helper = add_helper(multi_client, owner)
     multi_client.headers.pop("Authorization")

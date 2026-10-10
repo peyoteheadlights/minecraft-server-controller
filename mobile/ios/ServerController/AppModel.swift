@@ -226,6 +226,9 @@ final class AppModel {
     }
 
     private func clearSignedIn() {
+        // The widget stops showing servers at once, as the app does.
+        store.widgetSnapshot = nil
+        WidgetCenter.shared.reloadAllTimelines()
         signedIn = false
         locked = false
         me = nil

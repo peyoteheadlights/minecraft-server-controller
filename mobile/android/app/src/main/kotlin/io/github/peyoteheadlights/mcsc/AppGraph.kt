@@ -64,6 +64,7 @@ class AppGraph(private val context: Context) {
         prefs.user = null
         prefs.lockAlerts = false
         alerts.write(AlertState())
+        widget.write(null)
         ShortcutManagerCompat.removeAllDynamicShortcuts(context)
     }
 

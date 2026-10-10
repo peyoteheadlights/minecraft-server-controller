@@ -66,7 +66,9 @@ struct ServersProvider: TimelineProvider {
 
     static func entry(at date: Date) -> ServersEntry {
         let store = SharedStore()
-        return ServersEntry(date: date, paired: store.pairing != nil, snapshot: store.widgetSnapshot)
+        // Signed out (here or on the PC): nothing from before is shown.
+        let signedIn = store.pairing != nil && TokenStore.read() != nil
+        return ServersEntry(date: date, paired: signedIn, snapshot: store.widgetSnapshot)
     }
 }
 

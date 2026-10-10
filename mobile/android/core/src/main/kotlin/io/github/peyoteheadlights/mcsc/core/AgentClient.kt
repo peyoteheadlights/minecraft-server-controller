@@ -28,6 +28,9 @@ sealed class AgentException(val key: String, message: String? = null) : Exceptio
     /** The PC presented a different certificate from the one paired with. */
     class CertificateChanged(val presented: String?) : AgentException("mobile.error.certificate_changed")
 
+    /** The PC's own certificate (the one paired with) has expired. */
+    class CertificateExpired(val presented: String?) : AgentException("mobile.error.certificate_expired")
+
     /** A typed address whose certificate the phone doesn't trust. */
     class CertificateNotTrusted(val presented: String?) : AgentException("mobile.error.certificate_untrusted")
 
@@ -204,6 +207,7 @@ class AgentClient(
         while (cause != null) {
             when (cause) {
                 is CertificateMismatchException -> return AgentException.CertificateChanged(cause.presented)
+                is PinnedCertificateExpiredException -> return AgentException.CertificateExpired(cause.presented)
                 is CertificateNotTrustedException -> return AgentException.CertificateNotTrusted(cause.presented)
             }
             cause = cause.cause

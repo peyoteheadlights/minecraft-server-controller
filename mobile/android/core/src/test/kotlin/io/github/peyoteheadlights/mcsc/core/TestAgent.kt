@@ -9,10 +9,17 @@ import okhttp3.tls.HeldCertificate
 
 /** A pretend agent on https://localhost with its own self-signed certificate,
  * like the one installer/make_certs.py makes. */
-class TestAgent(names: List<String> = listOf("localhost")) : AutoCloseable {
+class TestAgent(names: List<String> = listOf("localhost"), expired: Boolean = false) : AutoCloseable {
     val certificate: HeldCertificate = HeldCertificate.Builder()
         .commonName("Minecraft Server Controller")
         .apply { names.forEach { addSubjectAlternativeName(it) } }
+        .apply {
+            if (expired) {
+                val day = 86_400_000L
+                val now = System.currentTimeMillis()
+                validityInterval(now - 400 * day, now - day)
+            }
+        }
         .build()
     val server = MockWebServer()
     val fingerprint: String = certificateFingerprint(certificate.certificate)

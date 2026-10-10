@@ -6699,6 +6699,10 @@
   "Your PC showed a different certificate from the one this phone knows. Don't sign in. If you made a new certificate on the PC, scan the code again.",
   "Certificate SHA-256 doesn't match the pinned fingerprint."
  ],
+ "mobile.error.certificate_expired": [
+  "Your PC's certificate has expired. Make a new one on the PC, then scan the code again.",
+  "Pinned certificate is outside its validity period. Renew it, then rescan."
+ ],
  "mobile.error.certificate_untrusted": [
   "This phone doesn't recognise the PC's certificate.",
   "Certificate not trusted by the system store."
@@ -6733,7 +6737,7 @@
  ],
  "mobile.widget.not_paired": [
   "Open the app to connect your PC.",
-  "Not paired."
+  "Not paired or not signed in."
  ],
  "mobile.widget.unreachable": [
   "Couldn't reach your PC",

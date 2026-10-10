@@ -263,7 +263,15 @@ def forget(db, token: str) -> None:
 
 
 def phones(db) -> list[dict[str, Any]]:
-    return db.query("SELECT token, user, platform, label FROM app_phones ORDER BY created_at")
+    """The phones to wake: only those whose sign-in is still current. An
+    expired sign-in's row stays until the next sign-in clears it out, and
+    its phone must not be woken in the meantime."""
+    return db.query(
+        "SELECT p.token, p.user, p.platform, p.label FROM app_phones p "
+        "JOIN sessions s ON s.token_hash = p.session "
+        "WHERE s.expires_at > ? ORDER BY p.created_at",
+        (time.time(),),
+    )
 
 
 def count(db) -> int:

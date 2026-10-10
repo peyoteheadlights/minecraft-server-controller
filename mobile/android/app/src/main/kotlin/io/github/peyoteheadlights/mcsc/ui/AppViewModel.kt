@@ -122,6 +122,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     init {
         viewModelScope.launch {
             graph.signedOut.collect {
+                // The widget stops showing servers at once, not at its next refresh.
+                Widgets.refresh(getApplication())
                 stopLive()
                 me = null
                 lockAlerts = false

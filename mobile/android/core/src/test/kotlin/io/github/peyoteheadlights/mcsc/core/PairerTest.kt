@@ -40,6 +40,19 @@ class PairerTest {
     }
 
     @Test
+    fun `an expired certificate from the code is said to be expired, not someone else's`() = runBlocking {
+        TestAgent(expired = true).use { agent ->
+            agent.server.enqueue(agent.health())
+            val result = pairer().check(agent.pairing())
+            assertTrue(result.toString(), result is PairResult.Refused)
+            val problem = (result as PairResult.Refused).problem
+            assertTrue(problem.toString(), problem is AgentException.CertificateExpired)
+            assertEquals("mobile.error.certificate_expired", problem.key)
+            assertEquals(0, agent.server.requestCount)
+        }
+    }
+
+    @Test
     fun `a typed address with a certificate the phone trusts pairs and pins it`() = runBlocking {
         TestAgent().use { agent ->
             agent.server.enqueue(agent.health())

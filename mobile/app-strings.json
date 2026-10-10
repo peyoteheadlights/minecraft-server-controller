@@ -135,6 +135,7 @@
 
   "mobile.error.unreachable": ["Can't reach your PC. It may be asleep or off, or this phone may not be on Tailscale.", "No response from the agent."],
   "mobile.error.certificate_changed": ["Your PC showed a different certificate from the one this phone knows. Don't sign in. If you made a new certificate on the PC, scan the code again.", "Certificate SHA-256 doesn't match the pinned fingerprint."],
+  "mobile.error.certificate_expired": ["Your PC's certificate has expired. Make a new one on the PC, then scan the code again.", "Pinned certificate is outside its validity period. Renew it, then rescan."],
   "mobile.error.certificate_untrusted": ["This phone doesn't recognise the PC's certificate.", "Certificate not trusted by the system store."],
   "mobile.error.not_agent": ["Something answered at that address, but not Server Controller. Check the address and port.", "The response wasn't from the agent."],
   "mobile.error.sign_in": ["{reason}", "{reason}"],
@@ -144,7 +145,7 @@
 
   "mobile.widget.name": ["Servers", "Server status"],
   "mobile.widget.description": ["See whether your servers are running and who's playing.", "State and player count per server."],
-  "mobile.widget.not_paired": ["Open the app to connect your PC.", "Not paired."],
+  "mobile.widget.not_paired": ["Open the app to connect your PC.", "Not paired or not signed in."],
   "mobile.widget.unreachable": ["Couldn't reach your PC", "Agent unreachable"],
   "mobile.widget.checked": ["Checked {when}", "Checked {when}"],
 

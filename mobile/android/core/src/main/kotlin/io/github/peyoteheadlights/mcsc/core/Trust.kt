@@ -21,6 +21,10 @@ fun certificateFingerprint(certificate: X509Certificate): String =
 class CertificateMismatchException(val presented: String) :
     CertificateException("The PC's certificate doesn't match the pairing code.")
 
+/** The pinned certificate, but its dates have run out (or not begun). */
+class PinnedCertificateExpiredException(val presented: String, cause: Throwable?) :
+    CertificateException("The PC's certificate has expired.", cause)
+
 /** No pin matched and the phone doesn't trust the certificate either. */
 class CertificateNotTrustedException(val presented: String, cause: Throwable?) :
     CertificateException("The PC's certificate isn't trusted.", cause)
@@ -52,7 +56,12 @@ class PinnedTrust(
         val presented = certificateFingerprint(leaf)
         lastPresented = presented
         if (pin != null && presented == pin) {
-            leaf.checkValidity()
+            try {
+                leaf.checkValidity()
+            } catch (e: CertificateException) {
+                // Said as such, not as "not this app's agent".
+                throw PinnedCertificateExpiredException(presented, e)
+            }
             return
         }
         if (strict && pin != null) throw CertificateMismatchException(presented)

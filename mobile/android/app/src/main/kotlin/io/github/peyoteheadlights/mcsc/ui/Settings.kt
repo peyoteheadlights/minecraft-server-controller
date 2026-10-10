@@ -92,6 +92,7 @@ fun SettingsScreen(vm: AppViewModel, onAbout: () -> Unit) {
                     Item(t("mobile.settings.pc_address"), subtitle = vm.pairing?.let { "${it.host}:${it.port}" } ?: t("value.unknown"))
                     Item(t("mobile.settings.pc_version"), subtitle = vm.agentVersion ?: t("value.unknown"))
                     Item(t("mobile.settings.signed_in_as"), subtitle = vm.me?.user ?: vm.user ?: t("value.unknown"))
+                    Item(t("mobile.settings.rescan"), subtitle = t("mobile.settings.rescan_hint"), onClick = vm::rescan)
                     Item(t("mobile.settings.sign_out"), onClick = { asking = "sign_out" })
                     Item(t("mobile.settings.forget_pc"), onClick = { asking = "forget_pc" })
                 }

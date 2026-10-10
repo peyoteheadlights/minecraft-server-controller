@@ -1,5 +1,6 @@
 package io.github.peyoteheadlights.mcsc.ui
 
+import android.net.Uri
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Dns
@@ -18,6 +19,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -79,7 +81,27 @@ fun Main(vm: AppViewModel) {
             composable("servers") { ServersScreen(vm, onOpen = { nav.navigate("server/${android.net.Uri.encode(it)}") }) }
             composable("server/{id}") { back ->
                 val id = back.arguments?.getString("id").orEmpty()
-                ServerScreen(vm, id, onBack = { nav.popBackStack() })
+                ServerScreen(vm, id, onBack = { nav.popBackStack() }, onOpen = { page -> nav.navigate("server/${Uri.encode(id)}/$page") })
+            }
+            composable("server/{id}/console") { back ->
+                ConsoleScreen(vm, back.serverId(), onBack = { nav.popBackStack() })
+            }
+            composable("server/{id}/chat") { back ->
+                ChatScreen(vm, back.serverId(), onBack = { nav.popBackStack() })
+            }
+            composable("server/{id}/players") { back ->
+                PlayersScreen(vm, back.serverId(), onBack = { nav.popBackStack() })
+            }
+            composable("server/{id}/events") { back ->
+                EventsScreen(vm, back.serverId(), onBack = { nav.popBackStack() })
+            }
+            composable("server/{id}/crashes") { back ->
+                val id = back.serverId()
+                CrashesScreen(vm, id, onBack = { nav.popBackStack() }, onOpen = { crash -> nav.navigate("server/${Uri.encode(id)}/crashes/$crash") })
+            }
+            composable("server/{id}/crashes/{crash}") { back ->
+                val crash = back.arguments?.getString("crash")?.toLongOrNull() ?: return@composable
+                CrashScreen(vm, back.serverId(), crash, onBack = { nav.popBackStack() })
             }
             composable("alerts") {
                 NotificationsScreen(vm, onOpenServer = { nav.navigate("server/${android.net.Uri.encode(it)}") })
@@ -90,6 +112,8 @@ fun Main(vm: AppViewModel) {
         }
     }
 }
+
+private fun NavBackStackEntry.serverId(): String = arguments?.getString("id").orEmpty()
 
 private fun open(nav: NavHostController, route: String) {
     nav.navigate(route) {

@@ -24,6 +24,11 @@ data class Pairing(
 ) {
     val origin: String
         get() = "https://${if (host.contains(':')) "[$host]" else host}:$port"
+
+    /** The same address and port: a new code for this PC (a renewed
+     * certificate) may keep the sign-in. Anything else is another PC, and
+     * the sign-in is never sent there. */
+    fun samePc(other: Pairing): Boolean = host.equals(other.host, ignoreCase = true) && port == other.port
 }
 
 sealed class PairingProblem(val key: String) {

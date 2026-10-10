@@ -126,4 +126,90 @@ class AgentClientTest {
             assertTrue(body, body.contains("\"device\":\"Server Controller on Pixel 9\""))
         }
     }
+
+    @Test
+    fun `the server's pages read what the agent sends, missing stays missing`() = runBlocking {
+        TestAgent().use { agent ->
+            val c = client(agent)
+            agent.server.enqueue(agent.json("""{"online": [{"username": "Alex", "uuid": null, "session_started": null, "session_seconds": 0, "edition": null}],
+                "online_count": null, "verified": false, "source": null, "known": [{"username": "Alex", "first_seen": 1.0, "last_seen": null, "sessions": 2, "online": 1, "total_seconds_live": 60.5, "server_id": "s"}],
+                "lists": {"whitelist": {"players": null, "file": "whitelist.json", "reason": "Can't read it"}, "ops": {"players": [{"name": null, "uuid": "2535", "level": 4}], "file": null, "reason": null},
+                "banned": {"players": [], "file": "banned-players.json", "reason": null, "not_applicable": true}},
+                "bans": false, "edition": "bedrock", "running": true, "actions": []}"""))
+            val players = c.players("s")
+            assertNull(players.onlineCount)
+            assertNull(players.maxPlayers)
+            assertNull(players.online.single().sessionStarted)
+            assertNull(players.lists?.whitelist?.players)
+            assertEquals("Can't read it", players.lists?.whitelist?.reason)
+            assertNull(players.lists?.ops?.players?.single()?.name)
+            assertEquals(false, players.bans)
+            assertNull(players.known.single().lastSeen)
+
+            agent.server.enqueue(agent.json("""{"crashes": [{"id": 4, "server_id": "s", "ts": 5.0, "exit_code": null, "category": null, "confidence": null, "summary": null, "evidence": [], "report_path": null, "log_path": null, "context": {}, "restarted": 0}]}"""))
+            val crash = c.crashes("s").crashes.single()
+            assertNull(crash.exitCode)
+            assertEquals("Unknown", Display.exitCode(Strings(Shared.strings), crash.exitCode))
+
+            agent.server.enqueue(agent.json("""{"java": {"port": 25565, "port_source": "server.properties", "default_port": true, "local": [{"address": "192.168.1.5", "adapter": "Ethernet", "virtual": false}],
+                "tailscale": {"address": null, "dns_name": null, "connected": null, "verified": false, "source": null, "detail": null}}, "bedrock": null, "internet": {"known": false, "reason": "not_tested"}, "running": true}"""))
+            val join = c.join("s")
+            assertEquals(25565, join.java?.port)
+            assertNull(join.java?.tailscale?.address)
+            assertNull(join.bedrock)
+
+            agent.server.enqueue(agent.json("""{"items": [{"id": "backup_taken", "done": true, "page": "backups", "evidence_key": "backup_done", "evidence": {"name": "b1", "created_at": 9.0}},
+                {"id": "alerts_on", "done": false, "page": "app-settings", "evidence_key": "alerts_none", "evidence": {"channels": []}}], "done": 1, "total": 4, "show": true, "dismissed": false, "finished": false}"""))
+            val checklist = c.gettingStarted("s")
+            assertEquals(9.0, checklist.items.first().evidence?.createdAt)
+            assertTrue(checklist.show)
+
+            agent.server.enqueue(agent.json("""{"recommendations": [], "hidden": [{"id": "java", "title": "Update Java", "reason": "Old", "evidence": "17", "action": {"label": "Get Java", "url": "https://adoptium.net"}, "details": {"a": 1}, "dismissed": true}]}"""))
+            assertEquals("Update Java", c.recommendationAction("s", "java", "restore").hidden.single().title)
+            repeat(4) { agent.server.takeRequest() }
+            val rec = agent.server.takeRequest()
+            assertEquals("/api/servers/s/recommendations/java", rec.path)
+            assertEquals("""{"action":"restore"}""", rec.body.readUtf8())
+        }
+    }
+
+    @Test
+    fun `routes ask for the dashboard's amounts`() = runBlocking {
+        TestAgent().use { agent ->
+            val c = client(agent)
+            agent.server.enqueue(agent.json("""{"lines": [], "buffered": 0, "buffer_limit": 2000}"""))
+            agent.server.enqueue(agent.json("""{"messages": [], "running": false, "kept": 0}"""))
+            agent.server.enqueue(agent.json("""{"events": [{"id": 1, "server_id": "_agent", "ts": 1.0, "type": "auth_failure", "level": "warn", "message": "Failed sign-in", "data": "{\"source_ip\": \"1.2.3.4\"}"}]}"""))
+            agent.server.enqueue(agent.json("""{"ok": true}"""))
+            agent.server.enqueue(agent.json("""{"result": "SENT", "detail": "Sent", "message": "hi"}"""))
+            c.consoleLog("s")
+            c.chat("s")
+            assertEquals("Failed sign-in", c.events("s").events.single().message)
+            assertTrue(c.clearConsole("s").ok)
+            assertEquals("hi", c.sendChat("s", "hi").message)
+            assertEquals("/api/servers/s/logs?lines=500", agent.server.takeRequest().path)
+            assertEquals("/api/servers/s/chat?lines=200", agent.server.takeRequest().path)
+            assertEquals("/api/servers/s/events?limit=200", agent.server.takeRequest().path)
+            assertEquals("/api/servers/s/logs/clear", agent.server.takeRequest().path)
+            assertEquals("""{"message":"hi"}""", agent.server.takeRequest().body.readUtf8())
+        }
+    }
+
+    @Test
+    fun `a refusal whose detail isn't words gives the error number`() {
+        TestAgent().use { agent ->
+            agent.server.enqueue(agent.json("""{"detail": [{"loc": ["body", "name"], "msg": "too long"}]}""", code = 422))
+            val e = assertThrows(AgentException.Failed::class.java) {
+                runBlocking { client(agent).playerAction("s", PlayerActions.WHITELIST_ADD, "x".repeat(40), null, confirm = false) }
+            }
+            assertEquals(422, e.status)
+            assertNull(e.reason)
+            assertThrows(IllegalArgumentException::class.java) {
+                runBlocking { client(agent).playerAction("s", "run", "Alex", null, confirm = false) }
+            }
+            assertThrows(IllegalArgumentException::class.java) {
+                runBlocking { client(agent).recommendationAction("s", "java", "apply") }
+            }
+        }
+    }
 }

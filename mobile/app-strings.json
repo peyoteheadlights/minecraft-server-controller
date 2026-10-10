@@ -66,6 +66,19 @@
   "mobile.server.done_restart": ["Restarting.", "Restart requested."],
   "mobile.server.not_allowed": ["Your account can see this server but not start or stop it.", "This helper lacks server.control."],
 
+  "mobile.console.level_all": ["All", "All"],
+  "mobile.console.level_warnings": ["Warnings", "WARN"],
+  "mobile.console.level_errors": ["Errors", "ERROR"],
+  "mobile.console.jump": ["Jump to latest", "Scroll to latest"],
+  "mobile.console.owner_only": ["Only the PC's owner can send commands.", "Sending commands needs console.send (owner only)."],
+  "mobile.console.previous": ["Previous command", "Previous command"],
+  "mobile.console.invalid": ["That command can't be sent.", "Command rejected."],
+
+  "mobile.players.online_count": ["Online now ({count})", "Online now ({count})"],
+
+  "mobile.crash.log_tail": ["Last lines of the log", "Log tail"],
+  "mobile.crash.log_gone": ["The saved log isn't on the PC anymore.", "Saved log file no longer exists."],
+
   "mobile.alerts.title": ["Notifications", "Notifications"],
   "mobile.alerts.empty": ["Nothing yet. Alerts about your servers show up here.", "No alerts since pairing."],
   "mobile.alerts.empty_hint": ["The PC decides which alerts are sent, in the dashboard's Settings, under Alerts.", "Events and cooldowns are set in the dashboard (notifications.*)."],
@@ -100,6 +113,11 @@
   "mobile.settings.forget_pc": ["Forget this PC", "Unpair"],
   "mobile.settings.forget_pc_title": ["Forget this PC?", "Unpair this agent?"],
   "mobile.settings.forget_pc_body": ["The app signs out and forgets the address. Scan the code again to come back.", "Signs out and clears the pairing and pinned certificate."],
+  "mobile.settings.rescan": ["Scan the code again", "Rescan pairing code"],
+  "mobile.settings.rescan_hint": ["After your PC gets a new certificate. You stay signed in.", "After a certificate renewal. The sign-in is kept for the same address and port."],
+  "mobile.rescan.other_title": ["Switch to another PC?", "Pair with a different agent?"],
+  "mobile.rescan.other_body": ["This code is for {address}, not {current}. Switching signs this phone out of {current}.", "The code points to {address}, not {current}. Switching signs out of {current}; the sign-in is never sent to another address."],
+  "mobile.rescan.switch": ["Switch", "Switch"],
   "mobile.settings.help": ["Help & About", "Help & About"],
 
   "mobile.about.title": ["Help & About", "Help & About"],

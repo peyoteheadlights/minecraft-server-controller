@@ -77,8 +77,11 @@ data class ServerList(
 @Serializable
 data class OnlinePlayer(
     val username: String,
+    val uuid: String? = null,
     val edition: String? = null,
     @SerialName("session_seconds") val sessionSeconds: Double? = null,
+    /** Null when the join wasn't seen: then [sessionSeconds] is 0, not measured. */
+    @SerialName("session_started") val sessionStarted: Double? = null,
 )
 
 @Serializable
@@ -157,6 +160,11 @@ object States {
 
 /** Permission names (agent/security/permissions.py). */
 object Permissions {
+    const val SERVER_VIEW = "server.view"
     const val SERVER_CONTROL = "server.control"
+    const val CONSOLE_SEND = "console.send"
+    const val PLAYERS_MANAGE = "players.manage"
+    const val PLAYERS_OP = "players.op"
+    const val CHAT_SEND = "chat.send"
     const val SETTINGS_EDIT = "settings.edit"
 }

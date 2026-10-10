@@ -44,25 +44,41 @@ fun Onboarding(vm: AppViewModel) {
     when (val stage = vm.stage) {
         Stage.Welcome -> Welcome(vm)
         Stage.Scan -> {
-            BackHandler { vm.go(Stage.Welcome) }
+            BackHandler { vm.back() }
             ScanScreen(
                 onCode = { vm.submit(it, scanned = true) },
                 onType = { vm.go(Stage.Type()) },
-                onBack = { vm.go(Stage.Welcome) },
+                onBack = { vm.back() },
             )
         }
         is Stage.Type -> {
-            BackHandler { vm.go(Stage.Welcome) }
+            BackHandler { vm.back() }
             TypeAddress(vm, stage)
         }
         Stage.Checking -> Busy(t("mobile.pair.checking"))
         is Stage.Confirm -> {
-            BackHandler { vm.go(Stage.Welcome) }
+            BackHandler { vm.back() }
             ConfirmFingerprint(vm, stage)
         }
         is Stage.Problem -> {
-            BackHandler { vm.go(Stage.Welcome) }
+            BackHandler { vm.back() }
             Problem(vm, stage)
+        }
+        is Stage.Switch -> {
+            BackHandler { vm.back() }
+            Page {}
+            Confirm(
+                title = t("mobile.rescan.other_title"),
+                body = t(
+                    "mobile.rescan.other_body",
+                    "address" to "${stage.pairing.host}:${stage.pairing.port}",
+                    "current" to "${stage.current.host}:${stage.current.port}",
+                ),
+                confirm = t("mobile.rescan.switch"),
+                danger = true,
+                onConfirm = { vm.check(stage.pairing) },
+                onDismiss = { vm.back() },
+            )
         }
         is Stage.SignIn -> SignIn(vm, stage)
         Stage.Ready -> Unit
@@ -126,7 +142,7 @@ private fun Welcome(vm: AppViewModel) {
 @Composable
 private fun TypeAddress(vm: AppViewModel, stage: Stage.Type) {
     var text by rememberSaveable { mutableStateOf("") }
-    Page(t("mobile.type.title"), onBack = { vm.go(Stage.Welcome) }) {
+    Page(t("mobile.type.title"), onBack = { vm.back() }) {
         OutlinedTextField(
             value = text,
             onValueChange = { text = it },
@@ -162,7 +178,7 @@ fun Busy(text: String) {
 @Composable
 private fun ConfirmFingerprint(vm: AppViewModel, stage: Stage.Confirm) {
     var refused by rememberSaveable { mutableStateOf(false) }
-    Page(t("mobile.pair.confirm_title"), onBack = { vm.go(Stage.Welcome) }) {
+    Page(t("mobile.pair.confirm_title"), onBack = { vm.back() }) {
         Lead(t("mobile.pair.confirm_lead"))
         Card {
             Item(t("pair.fingerprint"))
@@ -190,7 +206,7 @@ private fun ConfirmFingerprint(vm: AppViewModel, stage: Stage.Confirm) {
 
 @Composable
 private fun Problem(vm: AppViewModel, stage: Stage.Problem) {
-    Page(onBack = { vm.go(Stage.Welcome) }) {
+    Page(onBack = { vm.back() }) {
         Text(stage.message.text(), style = MaterialTheme.typography.titleMedium, color = LocalColors.current.text)
         if (stage.message.key == "mobile.error.unreachable") Lead(t("mobile.help.unreachable_body"))
         if (stage.message.key == "mobile.error.certificate_changed") Lead(t("mobile.help.certificate_body"))

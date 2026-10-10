@@ -1,8 +1,10 @@
 package io.github.peyoteheadlights.mcsc.core
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PairingLinkTest {
@@ -55,6 +57,15 @@ class PairingLinkTest {
         }
         val e = assertThrows(PairingParseException::class.java) { PairingLink.parse("https://my-pc:8765/?pair=1") }
         assertEquals(PairingProblem.BadFingerprint, e.problem)
+    }
+
+    @Test
+    fun `a new code keeps the sign-in only for the same address and port`() {
+        val now = PairingLink.parse("https://my-pc.tail1234.ts.net:8765/?pair=1&fp=$fp")
+        val renewed = PairingLink.parse("https://My-PC.tail1234.ts.net:8765/?pair=1&fp=${"ab".repeat(32)}")
+        assertTrue(now.samePc(renewed))
+        assertFalse(now.samePc(PairingLink.parse("https://my-pc.tail1234.ts.net:9000/?pair=1&fp=$fp")))
+        assertFalse(now.samePc(PairingLink.parse("https://other-pc.tail1234.ts.net:8765/?pair=1&fp=$fp")))
     }
 
     @Test

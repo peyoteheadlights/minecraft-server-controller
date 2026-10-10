@@ -37,6 +37,9 @@ sealed interface Stage {
     data class Type(val problem: Message? = null) : Stage
     data object Checking : Stage
     data class Confirm(val pairing: Pairing, val fingerprint: String) : Stage
+
+    /** A rescanned code for another PC: switching signs out of [current]. */
+    data class Switch(val pairing: Pairing, val current: Pairing) : Stage
     data class Problem(val message: Message, val retry: Pairing? = null) : Stage
     data class SignIn(val problem: Message? = null, val busy: Boolean = false) : Stage
     data object Ready : Stage
@@ -109,6 +112,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** A server to open (from a shortcut, the widget or an alert). */
     var pendingServer: String? by mutableStateOf(null)
 
+    /** Scanning the code again from Settings, still signed in. */
+    var rescanning: Boolean by mutableStateOf(false)
+        private set
+
     val strings: Strings get() = graph.strings
     val shared get() = graph.shared
     val pairing: Pairing? get() = prefs.pairing
@@ -116,6 +123,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private var foreground = false
     private var watching: String? = null
+
+    /** The server screens open now, newest last; the same server can be
+     * open twice (its home and its Console) while one replaces the other. */
+    private val watchers = mutableListOf<String>()
+    private val pagesBy = mutableMapOf<String, ServerPages>()
+    private var feed: LiveFeed? = null
     private var liveJob: Job? = null
     private var refreshJob: Job? = null
 
@@ -127,6 +140,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 stopLive()
                 me = null
                 lockAlerts = false
+                pagesBy.clear()
                 stage = Stage.SignIn(Message("error.session_ended"))
             }
         }
@@ -149,7 +163,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             stage = Stage.Problem(Message("mobile.scan.not_ours"))
             return
         }
+        val current = prefs.pairing
+        if (rescanning && current != null && !current.samePc(pairing)) {
+            stage = Stage.Switch(pairing, current)
+            return
+        }
         check(pairing)
+    }
+
+    /** "Scan the code again" in Settings: for a renewed certificate. */
+    fun rescan() {
+        stopLive()
+        rescanning = true
+        stage = Stage.Scan
+    }
+
+    /** Back from a pairing screen: to the app when rescanning, else to the start. */
+    fun back() {
+        val signedIn = rescanning && prefs.pairing != null && graph.vault.token() != null
+        rescanning = false
+        stage = if (signedIn) Stage.Ready else Stage.Welcome
+        if (signedIn) afterSignIn()
     }
 
     fun check(pairing: Pairing) {
@@ -162,10 +196,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { handle(pairing, graph.pairer().confirm(pairing, fingerprint)) }
     }
 
-    private fun handle(tried: Pairing, result: PairResult) {
+    private suspend fun handle(tried: Pairing, result: PairResult) {
         if (result is PairResult.Paired) {
+            // A new code for the same PC (a renewed certificate) keeps the
+            // sign-in; for any other address it ends here, so it is never
+            // sent to another PC.
+            val before = prefs.pairing
+            if ((before == null || !before.samePc(result.pairing)) && graph.vault.token() != null) leaveOldPc()
             prefs.pairing = result.pairing
-            // A new code for the same PC (a renewed certificate) keeps the sign-in.
+            rescanning = false
             if (graph.vault.token() != null) {
                 stage = Stage.Ready
                 afterSignIn()
@@ -228,8 +267,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             me = null
             lockAlerts = false
             alerts = AlertState()
+            pagesBy.clear()
             stage = Stage.SignIn()
         }
+    }
+
+    /** Signs out of the paired PC before pairing with another one. */
+    private suspend fun leaveOldPc() {
+        val old = graph.client()
+        if (prefs.lockAlerts) runCatching { old?.forgetPhone() }
+        runCatching { old?.logout() }
+        Push.stop(getApplication())
+        graph.forgetSignIn()
+        Widgets.refresh(getApplication())
+        me = null
+        lockAlerts = false
+        alerts = AlertState()
+        servers = ServersUi()
+        server = emptyMap()
+        pagesBy.clear()
+        agentVersion = null
+        prefs.agentVersion = null
     }
 
     fun forgetPc() {
@@ -246,6 +304,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             alerts = AlertState()
             servers = ServersUi()
             server = emptyMap()
+            pagesBy.clear()
             agentVersion = null
             stage = Stage.Welcome
         }
@@ -301,12 +360,34 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun watch(serverId: String?) {
+    /** A screen of [serverId] opened: the live feed carries its console and chat. */
+    fun watch(serverId: String) {
+        watchers += serverId
+        follow(serverId)
+    }
+
+    /** That screen closed. */
+    fun unwatch(serverId: String) {
+        watchers.remove(serverId)
+        follow(watchers.lastOrNull())
+    }
+
+    private fun follow(serverId: String?) {
         if (watching == serverId) return
         watching = serverId
-        if (serverId != null) refreshServer(serverId)
-        if (foreground && liveJob != null) startLive()
+        // No server screen open: the feed can stay where it is.
+        if (serverId == null) return
+        refreshServer(serverId)
+        // Switch the open feed to it; reconnect only if it isn't open.
+        if (feed?.tail(serverId) != true && foreground && liveJob != null) startLive()
     }
+
+    /** What the Console, Chat, Players, Activity and Crashes screens show. */
+    fun pages(serverId: String): ServerPages = pagesBy.getOrPut(serverId) {
+        ServerPages(serverId, viewModelScope, { client() }, { prefs.lastProblem = it.key })
+    }
+
+    fun canDo(permission: String): Boolean = me?.can(permission) == true
 
     fun refreshServer(serverId: String) {
         val client = client() ?: return
@@ -382,13 +463,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         liveJob = viewModelScope.launch {
             var wait = 2_000L
             while (true) {
-                LiveFeed(client, graph.vault::token).connect(watching).collect { signal ->
+                val current = LiveFeed(client, graph.vault::token)
+                feed = current
+                current.connect(watching).collect { signal ->
                     when (signal) {
                         LiveSignal.Ready -> {
                             live = true
                             wait = 2_000L
                         }
-                        is LiveSignal.Changed -> soon(signal.type in shared.feed)
+                        is LiveSignal.Changed -> {
+                            soon(signal.type in shared.feed)
+                            changed(signal)
+                        }
+                        is LiveSignal.Console -> signal.serverId?.let { pagesBy[it] }?.onConsoleLine(signal.line)
+                        is LiveSignal.Chat -> signal.serverId?.let { pagesBy[it] }?.onChat(signal.message)
+                        is LiveSignal.ConsoleTail -> pagesBy[signal.serverId]?.onConsoleTail(signal.lines)
                         is LiveSignal.Closed -> {
                             live = false
                             // A 401 here signs the app out; anything else, try again.
@@ -409,7 +498,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private fun stopLive() {
         liveJob?.cancel()
         liveJob = null
+        feed = null
         live = false
+    }
+
+    /** An event for the Activity screens, and a fresh read of what it changed. */
+    private fun changed(signal: LiveSignal.Changed) {
+        val row = signal.event
+        if (row != null) pagesBy.values.forEach { it.onEvent(row) }
+        val pages = signal.serverId?.let { pagesBy[it] } ?: return
+        when (signal.type) {
+            "player_joined", "player_left", "player_action" -> if (pages.players.loaded) pages.loadPlayers()
+            "server_crashed" -> if (pages.crashes.loaded) pages.loadCrashes()
+        }
     }
 
     /** Many events can come at once (a server starting): read once after. */

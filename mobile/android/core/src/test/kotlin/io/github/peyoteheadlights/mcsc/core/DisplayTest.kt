@@ -1,6 +1,7 @@
 package io.github.peyoteheadlights.mcsc.core
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -43,5 +44,40 @@ class DisplayTest {
             assertEquals(busy, emptyList<QuickAction>(), Display.actions(busy, true))
         }
         assertEquals(emptyList<QuickAction>(), Display.actions("OFFLINE", canControl = false))
+    }
+
+    @Test
+    fun `values the agent didn't give read Unknown`() {
+        assertEquals("Players not known", Display.onlineNow(s, null, 20))
+        assertEquals("Online now (3 of 20)", Display.onlineNow(s, 3, 20))
+        assertEquals("Online now (3)", Display.onlineNow(s, 3, null))
+        assertEquals("Unknown", Display.exitCode(s, null))
+        assertEquals("1", Display.exitCode(s, 1))
+        assertEquals("Unknown", Display.playingFor(s, OnlinePlayer("Alex", sessionSeconds = 0.0)))
+        assertEquals("5m", Display.playingFor(s, OnlinePlayer("Alex", sessionSeconds = 300.0, sessionStarted = 1.0)))
+        assertEquals("Unknown", s.t(Display.actionState("something_new").key))
+        assertEquals("Not sure", s.t(Display.confidence(null).key))
+    }
+
+    @Test
+    fun `crash causes and confidence read as in the dashboard`() {
+        assertEquals("Not known", Display.cause(s, null))
+        assertEquals("Not known", Display.cause(s, "Unknown"))
+        assertEquals("The server ran out of memory", Display.cause(s, "OutOfMemoryError"))
+        assertEquals("SomethingNew", Display.cause(s, "SomethingNew"))
+        assertEquals(Tone.DANGER, Display.confidence("confirmed").tone)
+        assertEquals("Likely", s.t(Display.confidence("likely").key))
+        val technical = Strings(Shared.strings).also { it.technical = true }
+        assertEquals("OutOfMemoryError", Display.cause(technical, "OutOfMemoryError"))
+    }
+
+    @Test
+    fun `activity and clock`() {
+        assertEquals(Tone.DANGER, Display.eventTone("error"))
+        assertEquals(Tone.NEUTRAL, Display.eventTone(null))
+        assertTrue(Display.worthShowing("server_started", technical = false))
+        assertFalse(Display.worthShowing("state", technical = false))
+        assertTrue(Display.worthShowing("state", technical = true))
+        assertEquals("22:13:20", Display.clock(1_700_000_000.0, java.time.ZoneOffset.UTC))
     }
 }

@@ -142,6 +142,89 @@ class AgentClient(
     suspend fun version(): VersionInfo = get("/api/version", VersionInfo.serializer())
 
     // ------------------------------------------------------------------
+    // One server's screens. Every route is the dashboard's own, with its
+    // permissions; the agent refuses whatever the account may not do.
+
+    /** The newest [lines] console lines (the agent keeps up to 500 here). */
+    suspend fun consoleLog(serverId: String, lines: Int = 500): ConsoleLog =
+        get("${server(serverId)}/logs?lines=${lines.coerceIn(1, 500)}", ConsoleLog.serializer())
+
+    /** Empties the agent's console view; Minecraft's log files stay. */
+    suspend fun clearConsole(serverId: String): Ok =
+        call(post("${server(serverId)}/logs/clear", JsonObject(emptyMap())), Ok.serializer())
+
+    /** Whether a command can be sent, and why it would need asking first. */
+    suspend fun checkCommand(serverId: String, command: String): CommandCheck =
+        get("${server(serverId)}/server/command/check?command=${path(command)}", CommandCheck.serializer())
+
+    /** Writes one line to Minecraft's console (never a shell). [confirm]
+     * only after the person said yes to the danger the check named. */
+    suspend fun sendCommand(serverId: String, command: String, confirm: Boolean): CommandSent {
+        val body = buildJsonObject {
+            put("command", command)
+            put("confirm", confirm)
+        }
+        return call(post("${server(serverId)}/server/command", body), CommandSent.serializer())
+    }
+
+    suspend fun chat(serverId: String, lines: Int = 200): ChatLog =
+        get("${server(serverId)}/chat?lines=${lines.coerceIn(1, 400)}", ChatLog.serializer())
+
+    /** Says [message] in the game as Server. It shows in the chat when the
+     * console prints it back, so the app never adds it itself. */
+    suspend fun sendChat(serverId: String, message: String): ChatSent =
+        call(post("${server(serverId)}/chat", buildJsonObject { put("message", message) }), ChatSent.serializer())
+
+    suspend fun players(serverId: String): PlayersPage = get("${server(serverId)}/players", PlayersPage.serializer())
+
+    /** One of the player buttons. [confirm] is for kick and ban, after asking. */
+    suspend fun playerAction(serverId: String, action: String, name: String, reason: String?, confirm: Boolean): PlayerActionResult {
+        require(action in PlayerActions.ALL) { "Not a player action: $action" }
+        val body = buildJsonObject {
+            put("action", action)
+            put("name", name)
+            put("reason", reason?.takeIf { it.isNotBlank() })
+            put("confirm", confirm)
+        }
+        return call(post("${server(serverId)}/players/actions", body), PlayerActionResult.serializer())
+    }
+
+    suspend fun playerActionStatus(serverId: String, actionId: String): PlayerActionStatus =
+        get("${server(serverId)}/players/actions/${path(actionId)}", PlayerActionStatus.serializer())
+
+    /** This server's events and the PC's own, newest first. */
+    suspend fun events(serverId: String, limit: Int = 200): EventList =
+        get("${server(serverId)}/events?limit=${limit.coerceIn(1, 500)}", EventList.serializer())
+
+    suspend fun crashes(serverId: String, limit: Int = 50): CrashList =
+        get("${server(serverId)}/crashes?limit=${limit.coerceIn(1, 200)}", CrashList.serializer())
+
+    suspend fun crash(serverId: String, crashId: Long): Crash = get("${server(serverId)}/crashes/$crashId", Crash.serializer())
+
+    suspend fun recommendations(serverId: String): Recommendations =
+        get("${server(serverId)}/recommendations", Recommendations.serializer())
+
+    /** snooze, dismiss or restore; the answer is the new list. */
+    suspend fun recommendationAction(serverId: String, recId: String, action: String): Recommendations {
+        require(action in REC_ACTIONS) { "Not a suggestion action: $action" }
+        return call(
+            post("${server(serverId)}/recommendations/${path(recId)}", buildJsonObject { put("action", action) }),
+            Recommendations.serializer(),
+        )
+    }
+
+    suspend fun gettingStarted(serverId: String): Checklist =
+        get("${server(serverId)}/getting-started", Checklist.serializer())
+
+    suspend fun hideGettingStarted(serverId: String): Checklist =
+        call(post("${server(serverId)}/getting-started/dismiss", JsonObject(emptyMap())), Checklist.serializer())
+
+    /** How friends join. Can take a few seconds: the PC asks Tailscale. */
+    suspend fun join(serverId: String): JoinInfo = get("${server(serverId)}/join", JoinInfo.serializer())
+
+    // ------------------------------------------------------------------
+    private fun server(id: String) = "/api/servers/${path(id)}"
+
     private fun path(id: String) = java.net.URLEncoder.encode(id, "UTF-8").replace("+", "%20")
 
     private fun request(path: String): Request.Builder =
@@ -218,5 +301,6 @@ class AgentClient(
 
     companion object {
         val QUICK_ACTIONS = listOf("start", "stop", "restart")
+        val REC_ACTIONS = listOf("snooze", "dismiss", "restore")
     }
 }

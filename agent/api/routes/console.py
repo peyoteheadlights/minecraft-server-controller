@@ -7,6 +7,7 @@ import time
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 
+from ...events import OWNER_ONLY_EVENTS
 from ...security.auth import Principal
 from ...security.permissions import CONSOLE_SEND, SERVER_VIEW, require
 from ..deps import audit, get_server
@@ -67,7 +68,10 @@ async def events(
 ):
     limit = max(1, min(int(limit), 500))
     await ctx.core.events.flush()
-    return {"events": ctx.db.recent_events(ctx.server.server_id, limit)}
+    rows = ctx.db.recent_events(ctx.server.server_id, limit)
+    if not principal.is_owner:
+        rows = [row for row in rows if row.get("type") not in OWNER_ONLY_EVENTS]
+    return {"events": rows}
 
 
 @router.get("/crashes", response_model=CrashList)

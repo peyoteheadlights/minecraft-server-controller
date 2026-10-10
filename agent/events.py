@@ -23,6 +23,13 @@ log = logging.getLogger(__name__)
 # Server ids cannot start with "_", so this never collides with one.
 AGENT_SCOPE = "_agent"
 
+# Events about the PC's own security: who failed to sign in and from where,
+# the certificate, new helper accounts. Only the owner sees them, in the
+# event history and on the live feed, as with the alerts about the PC.
+OWNER_ONLY_EVENTS = frozenset(
+    {"auth_failure", "certificate_expiring", "certificate_problem", "helper_added"}
+)
+
 
 @dataclass
 class Event:

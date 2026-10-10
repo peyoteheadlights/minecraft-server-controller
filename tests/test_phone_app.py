@@ -502,3 +502,15 @@ def test_both_apps_carry_the_shared_version_and_name():
     assert spec["settings"]["base"]["MARKETING_VERSION"] == version["app_version"]
     app = spec["targets"]["ServerController"]["info"]["properties"]
     assert app["CFBundleDisplayName"] == strings["mobile.app_name"][0]
+
+
+def test_every_android_xml_file_is_well_formed():
+    # Android's resource merger rejects what a browser forgives, such as "--"
+    # inside a comment; CI's Android build would stop at the first one.
+    import xml.etree.ElementTree as ET
+
+    app = ROOT / "mobile" / "android" / "app" / "src" / "main"
+    files = sorted(app.rglob("*.xml"))
+    assert files
+    for path in files:
+        ET.parse(path)

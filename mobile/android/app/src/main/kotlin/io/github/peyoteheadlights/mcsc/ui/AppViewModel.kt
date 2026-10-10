@@ -511,6 +511,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             "player_joined", "player_left", "player_action" -> if (pages.players.loaded) pages.loadPlayers()
             "server_crashed" -> if (pages.crashes.loaded) pages.loadCrashes()
         }
+        // Started or stopped: Players and Chat say whether their buttons
+        // work now, so they read it again rather than keep the old answer.
+        if (signal.type == "state") {
+            if (pages.players.loaded) pages.loadPlayers()
+            if (pages.chat.loaded) pages.loadChat()
+        }
     }
 
     /** Many events can come at once (a server starting): read once after. */

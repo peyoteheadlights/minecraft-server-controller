@@ -455,6 +455,15 @@ final class AppModel {
             if pages.crashes.value != nil {
                 Task { await pages.loadCrashes() }
             }
+        case "state":
+            // Started or stopped: Players and Chat say whether their buttons
+            // work now, so they read it again rather than keep the old answer.
+            if pages.players.value != nil {
+                Task { await pages.loadPlayers() }
+            }
+            if pages.chat.value != nil {
+                Task { await pages.loadChat() }
+            }
         default:
             break
         }

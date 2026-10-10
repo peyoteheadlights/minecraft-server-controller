@@ -67,6 +67,7 @@ class LiveFeedTest {
                         webSocket.send("""{"type": "ready", "server_id": "survival", "servers": [], "console": [$line]}""")
                         webSocket.send("""{"type": "event", "event": {"type": "console", "message": "x", "level": "info", "data": $line, "ts": 1, "server_id": "survival"}}""")
                         webSocket.send("""{"type": "event", "event": {"type": "chat", "message": "hi", "level": "info", "data": {"seq": 3, "ts": 2.0, "kind": "player", "name": "Alex", "text": "hi"}, "ts": 2, "server_id": "survival"}}""")
+                        webSocket.send("""{"type": "event", "event": {"type": "metrics", "message": "", "level": "info", "data": {"cpu": 3}, "ts": 3, "server_id": "survival"}}""")
                         webSocket.send("""{"type": "event", "event": {"type": "player_joined", "message": "Alex joined", "level": "success", "data": {"username": "Alex"}, "ts": 3.5, "server_id": "survival"}}""")
                     } else {
                         webSocket.send("""{"type": "console_tail", "server_id": "creative", "lines": []}""")
@@ -82,9 +83,9 @@ class LiveFeedTest {
             assertFalse(feed.tail("creative"))
             val signals = mutableListOf<LiveSignal>()
             withTimeout(10_000) {
-                feed.connect("survival").take(6).collect {
+                feed.connect("survival").take(7).collect {
                     signals += it
-                    if (it is LiveSignal.Changed) assertTrue(feed.tail("creative", lines = 900))
+                    if (it is LiveSignal.Changed && it.type == "player_joined") assertTrue(feed.tail("creative", lines = 900))
                 }
             }
             val warn = ConsoleLine(7, 1700000000.5, "[10:00:00] [Server thread/WARN]: Can't keep up!", "WARN", "stdout")
@@ -94,6 +95,8 @@ class LiveFeedTest {
                     LiveSignal.ConsoleTail("survival", listOf(warn)),
                     LiveSignal.Console("survival", warn),
                     LiveSignal.Chat("survival", ChatMessage(3, 2.0, "player", "Alex", "hi")),
+                    // A reading, not history: it refreshes, but is no line for Activity.
+                    LiveSignal.Changed("survival", "metrics", null),
                     LiveSignal.Changed("survival", "player_joined", EventRow(serverId = "survival", ts = 3.5, type = "player_joined", level = "success", message = "Alex joined")),
                     LiveSignal.ConsoleTail("creative", emptyList()),
                 ),

@@ -54,6 +54,11 @@ final class LiveFeedTests: XCTestCase {
                 .activity(EventRow(serverId: "survival", ts: 3.5, type: "player_joined", level: "success", message: "Alex joined")),
             ]
         )
+        // A reading the agent doesn't keep refreshes, but is no line for Activity.
+        XCTAssertEqual(
+            LiveFeed.signals(from: "{\"type\": \"event\", \"event\": {\"type\": \"metrics\", \"message\": \"\", \"level\": \"info\", \"data\": {\"cpu\": 3}, \"ts\": 3, \"server_id\": \"survival\"}}"),
+            [.changed(serverId: "survival", type: "metrics")]
+        )
         XCTAssertEqual(
             LiveFeed.signals(from: "{\"type\": \"console_tail\", \"server_id\": \"creative\", \"lines\": []}"),
             [.consoleTail(serverId: "creative", lines: [])]

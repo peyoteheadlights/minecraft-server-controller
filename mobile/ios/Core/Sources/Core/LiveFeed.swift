@@ -7,7 +7,8 @@ public enum LiveSignal: Equatable, Sendable {
     /// Something happened on `serverId` (nil: the PC itself). `type` is the
     /// agent's event type ("state", "player_joined", ...).
     case changed(serverId: String?, type: String)
-    /// The same event as a line for the Activity screen (its data is never kept).
+    /// The same event as a line for the Activity screen (its data is never
+    /// kept); not sent for an event the agent doesn't keep (`LiveFeed.notStored`).
     case activity(EventRow)
     /// A new console line of the watched server.
     case console(serverId: String?, line: ConsoleLine)
@@ -99,6 +100,9 @@ public final class LiveFeed: @unchecked Sendable {
                     level: event["level"] as? String ?? "info",
                     message: event["message"] as? String ?? ""
                 )
+                // A reading the agent doesn't keep ("metrics" every few
+                // seconds) refreshes, but is no line for the Activity screen.
+                if notStored.contains(kind) { return [.changed(serverId: server, type: kind)] }
                 return [.changed(serverId: server, type: kind), .activity(row)]
             }
         case "error":
@@ -107,6 +111,10 @@ public final class LiveFeed: @unchecked Sendable {
             return []
         }
     }
+
+    /// Events the agent doesn't keep in its history (_persist_event in
+    /// agent/core.py), so they are not lines for the Activity screen.
+    public static let notStored: Set<String> = ["console", "metrics", "job", "chat"]
 
     private static func decode<T: Decodable>(_ type: T.Type, _ object: Any?) -> T? {
         guard let object = object as? [String: Any],

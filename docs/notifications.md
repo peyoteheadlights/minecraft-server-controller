@@ -97,6 +97,42 @@ Phone alerts need the dashboard to be reachable over HTTPS, which it is over
 Tailscale (see `docs/tailscale.md`). A browser will not register the service
 worker over plain HTTP on anything but `localhost`.
 
+## The phone app
+
+The Android and iPhone apps (`mobile/`) have a **Notifications** tab with
+the alerts the PC sent since the phone signed in: the same alerts as above,
+kept by the agent (its newest 200) whether or not any channel is turned on.
+A helper sees only the alerts about servers they may use; alerts about the
+PC itself (failed sign-ins, the certificate, the PC's memory) are the
+owner's.
+
+**Lock-screen alerts in the Android app** go through Google's Firebase Cloud
+Messaging (FCM), sent by the agent itself; nothing else sits in between.
+The message carries no words, only the alert's number, and the phone reads
+the alert from the PC over Tailscale. Setting it up is free:
+
+1. In the [Firebase console](https://console.firebase.google.com/), make a
+   project (Google Analytics: off), then add an Android app with the package
+   name `io.github.peyoteheadlights.mcsc`. Download its
+   `google-services.json`; it is for building the app (see
+   `mobile/README.md`), not for the PC.
+2. Still in the console, **Project settings → Service accounts → Generate
+   new private key**. Keep the downloaded file safe: it can send messages
+   to every phone of this project.
+3. On the PC, from the app's folder:
+   `python -m installer.setup_phone_alerts C:\path\to\key.json`.
+   It checks the key and copies it into the data folder
+   (`phone-alerts\fcm-service-account.json`), readable only by this account
+   and administrators. Then delete the downloaded copy. It never goes in
+   the repository or `.env`. `--remove` takes it out again.
+4. Restart the agent. In the app, **Settings → Lock-screen alerts**.
+
+A phone's push address is forgotten whenever its sign-in ends: signing out
+in the app, **Sign out** on the dashboard's Security page, removing a
+helper, or the sign-in expiring. Up to 20 phones can have one. The iPhone
+app gets lock-screen alerts once the app is set up with Apple's push
+service; until then its Notifications tab works the same.
+
 ## Choosing events
 
 Settings has a checkbox per event: server started/stopped/crashed/restarted/

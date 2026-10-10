@@ -8,12 +8,13 @@ from ...minecraft.chat import say
 from ...security.auth import Principal
 from ...security.permissions import CHAT_SEND, SERVER_VIEW, require
 from ..deps import audit, get_server
+from ..responses import ChatLog, ChatSent
 from .models import ChatRequest
 
 router = APIRouter()
 
 
-@router.get("/chat")
+@router.get("/chat", response_model=ChatLog)
 async def chat_log(
     lines: int = 100, principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):
@@ -26,7 +27,7 @@ async def chat_log(
     }
 
 
-@router.post("/chat")
+@router.post("/chat", response_model=ChatSent)
 async def send_chat(
     payload: ChatRequest,
     request: Request,

@@ -30,7 +30,7 @@ async def list_recommendations(
     return recommendations.visible(ctx.db, await _found(ctx))
 
 
-@router.post("/recommendations/{rec_id}")
+@router.post("/recommendations/{rec_id}", response_model=Recommendations)
 async def act_on_recommendation(
     rec_id: str,
     payload: RecommendationActionRequest,

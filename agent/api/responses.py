@@ -99,13 +99,235 @@ class ServerAction(Open):
     startup_confirmed: bool | None = None
 
 
+# ------------------------------------------------------------ console and chat
+class ConsoleLine(Open):
+    seq: int = Field(description="Counts up per line; starts at 1 again when the agent restarts")
+    ts: float
+    raw: str = Field(description="The line exactly as the server printed it")
+    level: str = Field(description="INFO, WARN, ERROR, DEBUG, FATAL or TRACE")
+    thread: str = Field(description="The thread the line names; empty when it names none")
+    message: str
+    source: str = Field(description="stdout, agent, or command for a command sent from here")
+
+
+class ConsoleLog(Open):
+    lines: list[ConsoleLine]
+    buffered: int = Field(description="How many lines the agent holds now")
+    buffer_limit: int = Field(description="The most lines it keeps")
+
+
+class CommandCheck(Open):
+    valid: bool = Field(description="Whether the command may be sent at all")
+    error: str | None = Field(None, description="Why it can't be sent; null when it can")
+    danger_reason: str | None = Field(
+        None, description="Why it needs confirming first; null when it doesn't"
+    )
+
+
+class CommandSent(Open):
+    result: str = Field(description="SENT: written to the console, not yet answered")
+    detail: str
+    command: str
+    name: str = Field(description="The command's first word")
+    dangerous: bool
+    danger_reason: str | None = None
+
+
+class ChatMessage(Open):
+    seq: int = Field(description="Counts up per message; separate from the console's")
+    ts: float
+    kind: str = Field(description="player, server or action")
+    name: str | None = Field(None, description="Who said it; null for the server")
+    text: str
+
+
+class ChatLog(Open):
+    messages: list[ChatMessage]
+    running: bool = Field(description="Whether a message can be sent now")
+    kept: int = Field(description="How many messages the agent holds")
+
+
+class ChatSent(Open):
+    result: str = Field(description="SENT: it appears in the chat once the server prints it")
+    detail: str
+    message: str = Field(description="The text that was sent, trimmed")
+
+
 # ------------------------------------------------------------ players, backups, alerts, jobs
+class PlayerAction(Open):
+    """A whitelist, op, kick, ban or unban sent to the server, and whether
+    its console has confirmed it."""
+
+    id: str
+    kind: str = Field(description="whitelist_add, whitelist_remove, op, deop, kick, ban or pardon")
+    name: str
+    command: str
+    sent_at: float
+    state: str = Field(description="sent, done, unchanged, failed or no_answer")
+    message: str | None = Field(None, description="The console line that answered")
+    answered_at: float | None = None
+
+
+class PlayerActionResult(Open):
+    result: str = Field(description="SENT; the action's state says when it is confirmed")
+    action: PlayerAction
+
+
+class PlayerActionStatus(Open):
+    action: PlayerAction
+
+
+class OnlinePlayer(Open):
+    username: str
+    uuid: str | None = None
+    session_started: float | None = None
+    total_seconds: float = Field(description="Time played before this session")
+    sessions: int
+    first_seen: float | None = None
+    last_seen: float | None = None
+    edition: str | None = Field(None, description="java or bedrock; null when it can't be told")
+    session_seconds: float = Field(description="0 when the session's start isn't known")
+
+
+class KnownPlayer(OnlinePlayer):
+    server_id: str
+    online: int = Field(description="1 while the agent counts them as online")
+    total_seconds_live: float = Field(description="Total time played, this session included")
+
+
+class PlayerList(Open):
+    players: list[dict[str, Any]] | None = Field(
+        None, description="null when the file isn't there or can't be read; reason says why"
+    )
+    file: str | None = None
+    reason: str | None = None
+    not_applicable: bool | None = Field(None, description="true for a list this edition lacks")
+
+
+class PlayerLists(Open):
+    whitelist: PlayerList
+    ops: PlayerList
+    banned: PlayerList
+
+
 class Players(Open):
-    online: list[Any]
-    online_count: int | None = None
+    online: list[OnlinePlayer]
+    online_count: int | None = Field(None, description="null until the list has been read")
     verified: bool | None = None
+    source: str | None = Field(None, description="How the online list was learned")
+    known: list[KnownPlayer] = Field(description="Everyone seen, last seen first")
     max_players: int | None = None
+    lists: PlayerLists = Field(description="From Minecraft's own files")
+    bans: bool = Field(description="false where the server has no ban list")
+    edition: str = Field(description="java or bedrock")
     running: bool | None = None
+    actions: list[PlayerAction] = Field(description="The latest sent, newest first")
+
+
+# ------------------------------------------------------------ history
+class EventRow(Open):
+    id: int
+    server_id: str = Field(description="The server, or _agent for the agent's own events")
+    ts: float
+    type: str
+    level: str = Field(description="info, success, warn or error")
+    message: str
+    data: str | None = Field(None, description="JSON text, not an object; null when none")
+
+
+class EventList(Open):
+    events: list[EventRow] = Field(description="Newest first")
+
+
+class Crash(Open):
+    id: int
+    server_id: str
+    ts: float
+    exit_code: int | None = Field(None, description="null when it isn't known")
+    category: str | None = None
+    confidence: str | None = Field(None, description="confirmed, likely, possible or unknown")
+    summary: str | None = None
+    evidence: list[str] = Field(description="The log lines the cause was read from")
+    report_path: str | None = None
+    log_path: str | None = None
+    context: dict[str, Any] = Field(description="What was known when it crashed")
+    restarted: int = Field(description="1 once it was started again after the crash")
+
+
+class CrashList(Open):
+    crashes: list[Crash] = Field(description="Newest first")
+
+
+class CrashDetail(Crash):
+    log_tail: list[str] | None = Field(
+        None, description="The saved log's last lines; null when the file is gone"
+    )
+
+
+# ------------------------------------------------------------ the Overview's cards
+class ChecklistItem(Open):
+    id: str
+    done: bool = Field(description="Ticked from what was measured, never from a click")
+    page: str = Field(description="The dashboard page that does it")
+    evidence_key: str
+    evidence: dict[str, Any]
+
+
+class Checklist(Open):
+    items: list[ChecklistItem]
+    done: int
+    total: int
+    show: bool
+    dismissed: bool
+    finished: bool
+
+
+class JoinAddress(Open):
+    address: str
+    adapter: str
+    virtual: bool = Field(description="A virtual adapter, like a VPN or a virtual machine's")
+
+
+class TailscaleAddress(Open):
+    address: str | None = None
+    dns_name: str | None = None
+    connected: bool | None = Field(None, description="null when it couldn't be read")
+    verified: bool
+    source: str | None = None
+    detail: str | None = None
+
+
+class JavaJoin(Open):
+    port: int
+    port_source: str = Field(description="Where the port number was read, in words")
+    default_port: bool
+    local: list[JoinAddress]
+    tailscale: TailscaleAddress
+
+
+class BedrockJoin(Open):
+    port: int | None = Field(None, description="null when it isn't set up yet")
+    port_source: str | None = None
+    protocol: str
+    default_port: bool | None = None
+    ready: bool | None = None
+    address: str | None = Field(None, description="The Tailscale address; null when unknown")
+    local: list[JoinAddress]
+    tailscale: TailscaleAddress | None = None
+    consoles_note: bool | None = None
+    own_server: bool | None = Field(None, description="true for a Bedrock server of its own")
+
+
+class InternetReach(Open):
+    known: bool = Field(description="Always false: reaching it from the internet isn't tested")
+    reason: str | None = None
+
+
+class JoinInfo(Open):
+    java: JavaJoin | None = Field(None, description="null for a Bedrock server")
+    bedrock: BedrockJoin | None = Field(None, description="null when Bedrock players can't join")
+    internet: InternetReach
+    running: bool
 
 
 class Backup(Open):
@@ -145,6 +367,24 @@ class Recommendations(Open):
 
 
 # ------------------------------------------------------------ the agent itself
+class LoginResult(Open):
+    token: str = Field(description="Send as 'Authorization: Bearer <token>'")
+    user: str
+    expires_at: float
+    role: str = Field(description="owner or helper")
+    remember: bool
+
+
+class Me(Open):
+    user: str
+    kind: str
+    expires_at: float | None = None
+    role: str = Field(description="owner or helper")
+    servers: list[str] | None = Field(None, description="A helper's servers; null for the owner")
+    permissions: list[str]
+    preferences: dict[str, Any]
+
+
 class Health(Open):
     ok: bool
     auth_configured: bool | None = None
@@ -165,6 +405,30 @@ class PairingCode(Open):
     url: str | None = Field(None, description="What the code holds; no password or token")
     qr: list[str] | None = Field(None, description="QR rows, 1 = dark square, no border")
     reason: str | None = None
+
+
+class AppAlert(Open):
+    id: int
+    ts: float
+    server_id: str | None = None
+    event: str
+    title: str
+    body: str
+    page: str = Field(description="The dashboard page the alert opens")
+    url: str = Field(description="Its link, like /#survival/crashes")
+
+
+class AppAlerts(Open):
+    alerts: list[AppAlert]
+    latest: int = Field(description="Ask with after=latest next time")
+    more: bool = Field(False, description="More alerts are waiting after latest")
+    enabled: bool = Field(description="Whether Web Push phone alerts are also turned on")
+
+
+class AppPhone(Open):
+    configured: bool = Field(description="Whether this PC has a Firebase key to send with")
+    registered: bool = Field(description="Whether this sign-in has a push address")
+    phone: dict[str, Any] | None = None
 
 
 class Release(Open):

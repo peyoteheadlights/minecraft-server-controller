@@ -1,0 +1,20 @@
+{
+ "server_started": "feed.server_started",
+ "server_stopped": "feed.server_stopped",
+ "server_crashed": "feed.server_crashed",
+ "server_restarted": "feed.server_restarted",
+ "server_recovered": "feed.server_recovered",
+ "crash_loop": "feed.crash_loop",
+ "player_joined": "feed.player_joined",
+ "player_left": "feed.player_left",
+ "backup_completed": "feed.backup_completed",
+ "backup_failed": "feed.backup_failed",
+ "low_tps": "feed.low_tps",
+ "high_mspt": "feed.high_mspt",
+ "high_ram": "feed.high_ram",
+ "high_cpu": "feed.high_cpu",
+ "low_disk": "feed.low_disk",
+ "auth_failure": "feed.auth_failure",
+ "agent_started": "feed.agent_started",
+ "agent_stopping": "feed.agent_stopping"
+}

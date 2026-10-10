@@ -20,7 +20,7 @@ from ...security.permissions import (
 )
 from ..deps import audit, get_server
 from ..errors import audit_failure
-from ..responses import ServerAction, ServerStatus
+from ..responses import CommandCheck, CommandSent, ServerAction, ServerStatus
 from .models import CommandRequest, StopRequest, TpsCommandRequest
 
 router = APIRouter()
@@ -187,7 +187,7 @@ async def clear_crash_block(
     return {"ok": True, "auto_restart_blocked": ctx.server.auto_restart_blocked}
 
 
-@router.post("/server/command")
+@router.post("/server/command", response_model=CommandSent)
 async def server_command(
     payload: CommandRequest,
     request: Request,
@@ -205,7 +205,7 @@ async def server_command(
     }
 
 
-@router.get("/server/command/check")
+@router.get("/server/command/check", response_model=CommandCheck)
 async def check_command(command: str, principal: Principal = Depends(require(CONSOLE_SEND))):
     """Ask whether a command needs confirmation, before sending it."""
     from ...minecraft.commands import describe_danger

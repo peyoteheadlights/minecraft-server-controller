@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security problem
+    url: https://github.com/peyoteheadlights/minecraft-server-controller/blob/main/SECURITY.md
+    about: Privately, not as a public issue.

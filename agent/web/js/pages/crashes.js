@@ -2,7 +2,7 @@ import { api } from "../api.js";
 import { getHelp } from "./app-settings.js";
 import { CAUSES, can, renderers } from "../state.js";
 import { t, technical } from "../strings.js";
-import { advanced, card, confirmDialog, detailRows, el, emptyState, fmt, loadInto, table } from "../ui.js";
+import { advanced, card, confirmDialog, detailRows, el, emptyState, fmt, known, loadInto, table } from "../ui.js";
 
 const CONFIDENCE = { confirmed: ["error", "crashes.conf_confirmed"], likely: ["warn", "crashes.conf_likely"],
   possible: ["off", "crashes.conf_possible"], unknown: ["off", "crashes.conf_unknown"] };
@@ -37,7 +37,8 @@ renderers.crashes = (page) => loadInto(page, async () => {
       t("crashes.col_confidence"), ""],
     data.crashes.map((crash) => [
       fmt.time(crash.ts),
-      ...(code ? [el("span", { class: "mono" }, String(crash.exit_code))] : []),
+      ...(code ? [known(crash.exit_code) ? el("span", { class: "mono" }, String(crash.exit_code))
+        : el("span", { class: "unknown-note" }, t("value.unknown"))] : []),
       causeText(crash.category),
       confidenceTag(crash.confidence),
       el("button", { class: "btn small", type: "button", onclick: () => showCrash(crash.id) }, t("crashes.details")),
@@ -51,7 +52,7 @@ export async function showCrash(id) {
   const evidence = el("div", { class: "console-wrap compact" },
     (crash.evidence || []).map((line) => el("div", { class: "console-line ERROR" }, line)));
   const details = detailRows([
-    [t("crashes.f_code"), String(crash.exit_code), true],
+    [t("crashes.f_code"), known(crash.exit_code) ? String(crash.exit_code) : null, true],
     [t("crashes.f_minecraft"), context.minecraft_version || null],
     [t("crashes.f_loader"), context.fabric_loader || null],
     [t("crashes.f_java"), context.java_version || null],

@@ -1,7 +1,9 @@
 """Several servers in one agent: config, isolation, API, live updates."""
 
 import asyncio
+import json
 import sqlite3
+import time
 
 import pytest
 import yaml
@@ -186,7 +188,8 @@ async def test_a_crash_on_one_server_does_not_restart_the_other(tmp_path):
         assert b.server.state is ServerState.ONLINE
         crashes = [e for e in seen if e.type == "server_crashed"]
         assert crashes and all(e.server_id == "survival" for e in crashes)
-        # Recorded against the right server.
+        # Recorded against the right server (events are written in batches).
+        await core.events.flush()
         rows = core.db.query("SELECT DISTINCT server_id FROM events WHERE type='server_crashed'")
         assert [r["server_id"] for r in rows] == ["survival"]
     finally:
@@ -429,6 +432,81 @@ def test_websocket_ready_lists_servers_and_tags_events(multi_client):
             ready = ws.receive_json()
         assert ready["server_id"] == "creative"
         assert [s["id"] for s in ready["servers"]] == ["survival", "creative"]
+
+
+def wait_for_state(client, server_id, state, timeout=15.0):
+    for _ in range(int(timeout / 0.1)):
+        if client.get(f"/api/servers/{server_id}/status").json()["state"] == state:
+            return True
+        time.sleep(0.1)
+    return False
+
+
+def test_a_tail_message_switches_the_console_the_live_connection_carries(multi_client):
+    """What the phone app does on opening Console or Chat for another server:
+    the answer is that server's console, and from then on its console lines
+    arrive while the server watched before sends none."""
+    token = multi_client.headers["Authorization"].split()[1]
+    try:
+        with multi_client.websocket_connect("/ws") as ws:
+            ws.send_json({"type": "auth", "token": token, "server_id": "survival"})
+            ready = ws.receive_json()
+            while ready.get("type") != "ready":
+                ready = ws.receive_json()
+            assert ready["server_id"] == "survival"
+            ws.send_json({"type": "tail", "server_id": "creative", "lines": 50})
+            message = ws.receive_json()
+            while message["type"] != "console_tail":
+                message = ws.receive_json()
+            assert message["server_id"] == "creative"
+            assert isinstance(message["lines"], list)
+
+            # Survival runs first, so any console line of it that got through
+            # would be queued before creative's.
+            assert multi_client.post("/api/servers/survival/server/start").status_code == 200
+            assert wait_for_state(multi_client, "survival", "ONLINE")
+            assert multi_client.post("/api/servers/creative/server/start").status_code == 200
+            seen = []
+            for _ in range(400):
+                message = ws.receive_json()
+                if message["type"] != "event":
+                    continue
+                event = message["event"]
+                seen.append(event)
+                if event["type"] == "console" and "Done (" in event["message"]:
+                    break
+            else:
+                raise AssertionError("creative's console never came")
+            console = [e for e in seen if e["type"] == "console"]
+            assert console and {e["server_id"] for e in console} == {"creative"}
+            assert all({"seq", "raw", "level", "source"} <= set(e["data"]) for e in console)
+            # Other events of the server watched before still arrive.
+            assert any(e["server_id"] == "survival" and e["type"] != "console" for e in seen)
+    finally:
+        multi_client.post("/api/servers/survival/server/stop")
+        multi_client.post("/api/servers/creative/server/stop")
+
+
+def test_a_crash_is_recorded_once_in_the_event_history(multi_client):
+    assert multi_client.post("/api/servers/survival/server/start").status_code == 200
+    assert wait_for_state(multi_client, "survival", "ONLINE")
+    assert multi_client.post("/api/servers/survival/server/command", json={"command": "crash"})
+    assert wait_for_state(multi_client, "survival", "CRASHED")
+
+    def crashes():
+        events = multi_client.get("/api/servers/survival/events?limit=500").json()["events"]
+        return [e for e in events if e["type"] == "server_crashed"]
+
+    for _ in range(100):
+        if crashes():
+            break
+        time.sleep(0.1)
+    time.sleep(1.0)  # the second copy, if any, was written right after the first
+    recorded = crashes()
+    assert len(recorded) == 1, recorded
+    # The one kept is the event the server published, which links to the record.
+    crash_id = multi_client.get("/api/servers/survival/crashes").json()["crashes"][0]["id"]
+    assert json.loads(recorded[0]["data"])["id"] == crash_id
 
 
 def test_saving_keeps_the_config_as_you_wrote_it(config):

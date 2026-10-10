@@ -212,6 +212,13 @@ class PushUnsubscribeRequest(BaseModel):
     endpoint: str = Field(max_length=1000)
 
 
+class AppPhoneRequest(BaseModel):
+    # The phone's registration token on Google's push service (FCM).
+    token: str = Field(min_length=20, max_length=4096, pattern=r"^[A-Za-z0-9_:\-]+$")
+    platform: Literal["android", "ios"]
+    label: str = Field(default="", max_length=80)
+
+
 class AccountCreateRequest(BaseModel):
     username: str = Field(min_length=2, max_length=32)
     password: str = Field(min_length=1, max_length=256)

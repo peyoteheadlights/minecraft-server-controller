@@ -10,11 +10,12 @@ from fastapi.responses import PlainTextResponse
 from ...security.auth import Principal
 from ...security.permissions import CONSOLE_SEND, SERVER_VIEW, require
 from ..deps import audit, get_server
+from ..responses import ConsoleLog, CrashDetail, CrashList, EventList, Ok
 
 router = APIRouter()
 
 
-@router.get("/logs")
+@router.get("/logs", response_model=ConsoleLog)
 async def logs(
     lines: int = 100,
     since: int = 0,
@@ -50,7 +51,7 @@ async def download_logs(
     )
 
 
-@router.post("/logs/clear")
+@router.post("/logs/clear", response_model=Ok)
 async def clear_console(
     request: Request, principal: Principal = Depends(require(CONSOLE_SEND)), ctx=Depends(get_server)
 ):
@@ -60,7 +61,7 @@ async def clear_console(
     return {"ok": True}
 
 
-@router.get("/events")
+@router.get("/events", response_model=EventList)
 async def events(
     limit: int = 100, principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):
@@ -69,14 +70,14 @@ async def events(
     return {"events": ctx.db.recent_events(ctx.server.server_id, limit)}
 
 
-@router.get("/crashes")
+@router.get("/crashes", response_model=CrashList)
 async def crashes(
     limit: int = 50, principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):
     return {"crashes": ctx.crashes.list_crashes(max(1, min(limit, 200)))}
 
 
-@router.get("/crashes/{crash_id}")
+@router.get("/crashes/{crash_id}", response_model=CrashDetail)
 async def crash_detail(
     crash_id: int, principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):

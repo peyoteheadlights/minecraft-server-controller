@@ -1,0 +1,30 @@
+name: Suggest a feature
+description: An idea for the dashboard, the phone app or anything else.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. **Everything here is public**: never paste a password, a sign-in code or your PC's address.
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like?
+      description: What you'd like to do, and what it would help with.
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where?
+      options:
+        - Dashboard
+        - Android app
+        - iPhone app
+        - Setup or updates on the PC
+        - Something else
+  - type: textarea
+    id: today
+    attributes:
+      label: How do you do it today?
+      description: Optional. A workaround you use now, if any.

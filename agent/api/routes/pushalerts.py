@@ -84,6 +84,17 @@ async def test_push(
         message="Test alert from Minecraft Server Control",
         data={"startup_seconds": 0.0},
     )
-    sent = await core.notifier.send_push(event, title=PUSH_TEST_TITLE)
-    audit(core, request, "push_test", detail=str(sent))
-    return {"channel": "push", "sent": sent, "phones": push.listed(core.db)}
+    # The phone app reads alerts from the agent, so it gets the test too,
+    # and phones with lock-screen alerts on are woken for it.
+    alert_id = core.notifier.record_app_alert(event, title=PUSH_TEST_TITLE)
+    app_sent = bool(alert_id) and await core.notifier.wake_phones(event, alert_id)
+    web_sent = await core.notifier.send_push(event, title=PUSH_TEST_TITLE)
+    sent = web_sent or app_sent
+    audit(core, request, "push_test", detail=f"web={web_sent} app={app_sent}")
+    return {
+        "channel": "push",
+        "sent": sent,
+        "for_app": bool(alert_id),
+        "app_sent": app_sent,
+        "phones": push.listed(core.db),
+    }

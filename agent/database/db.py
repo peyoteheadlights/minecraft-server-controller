@@ -295,6 +295,43 @@ MIGRATIONS: list[tuple[int, str]] = [
         ALTER TABLE sessions ADD COLUMN remember INTEGER NOT NULL DEFAULT 0;
         """,
     ),
+    (
+        10,
+        # Alerts the phone app's Notifications tab reads from the agent
+        # (Phase 9), since the app has no Google or Apple push. Only the
+        # newest few hundred are kept.
+        """
+        CREATE TABLE app_alerts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts REAL NOT NULL,
+            server_id TEXT,
+            event TEXT NOT NULL,
+            title TEXT NOT NULL,
+            body TEXT NOT NULL,
+            page TEXT NOT NULL,
+            url TEXT NOT NULL
+        );
+        """,
+    ),
+    (
+        11,
+        # Phones the app registered for lock-screen alerts through Google's
+        # push service (agent/notifications/fcm.py). Each belongs to one
+        # sign-in and goes when that sign-in ends.
+        """
+        CREATE TABLE app_phones (
+            token TEXT PRIMARY KEY,
+            session TEXT NOT NULL REFERENCES sessions(token_hash) ON DELETE CASCADE,
+            user TEXT NOT NULL,
+            platform TEXT NOT NULL,
+            label TEXT,
+            created_at REAL NOT NULL,
+            last_sent REAL,
+            last_result TEXT
+        );
+        CREATE INDEX app_phones_session ON app_phones(session);
+        """,
+    ),
 ]
 
 

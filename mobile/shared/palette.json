@@ -1,0 +1,62 @@
+[
+ {
+  "id": "blue",
+  "name": "Blue",
+  "hex": "#1967D4"
+ },
+ {
+  "id": "orange",
+  "name": "Orange",
+  "hex": "#F87906"
+ },
+ {
+  "id": "green",
+  "name": "Green",
+  "hex": "#30C067"
+ },
+ {
+  "id": "crimson",
+  "name": "Crimson",
+  "hex": "#D7213E"
+ },
+ {
+  "id": "violet",
+  "name": "Violet",
+  "hex": "#B78AF6"
+ },
+ {
+  "id": "amber",
+  "name": "Amber",
+  "hex": "#F7E10D"
+ },
+ {
+  "id": "teal",
+  "name": "Teal",
+  "hex": "#0D4B48"
+ },
+ {
+  "id": "magenta",
+  "name": "Magenta",
+  "hex": "#A61888"
+ },
+ {
+  "id": "cyan",
+  "name": "Cyan",
+  "hex": "#54E7F0"
+ },
+ {
+  "id": "olive",
+  "name": "Olive",
+  "hex": "#4F610A"
+ },
+ {
+  "id": "rose",
+  "name": "Rose",
+  "hex": "#FCA1B1"
+ },
+ {
+  "id": "indigo",
+  "name": "Indigo",
+  "hex": "#18185F"
+ }
+]

@@ -51,3 +51,18 @@ htmlcov/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Phone apps (mobile/). Signing keys and Firebase files come from CI secrets
+# or stay on the PC that builds; they are never committed.
+.gradle/
+.kotlin/
+local.properties
+mobile/android/app/google-services.json
+GoogleService-Info.plist
+*.jks
+*.keystore
+*.mobileprovision
+mobile/ios/*.xcodeproj/
+xcuserdata/
+DerivedData/
+.build/

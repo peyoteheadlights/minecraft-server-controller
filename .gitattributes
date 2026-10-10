@@ -4,3 +4,6 @@
 *.sh  text eol=lf
 *.png binary
 *.jpg binary
+*.bat text eol=crlf
+gradlew text eol=lf
+*.jar binary

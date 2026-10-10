@@ -1,0 +1,37 @@
+# Every agent route the phone apps call (their screens, the widget, the
+# alert check, lock-screen alerts). tests/test_phone_app.py fails if one of
+# these disappears or loses its typed answer, so the agent stays compatible
+# with the apps already on people's phones. Add a route here when an app
+# starts calling it. The live feed (/ws) the apps also use is covered by
+# tests/test_api.py and tests/test_reliability.py.
+GET /api/health
+POST /api/auth/login
+POST /api/auth/logout
+GET /api/auth/me
+GET /api/servers
+GET /api/servers/{server_id}/status
+POST /api/servers/{server_id}/server/start
+POST /api/servers/{server_id}/server/stop
+POST /api/servers/{server_id}/server/restart
+GET /api/servers/{server_id}/logs
+POST /api/servers/{server_id}/logs/clear
+GET /api/servers/{server_id}/server/command/check
+POST /api/servers/{server_id}/server/command
+GET /api/servers/{server_id}/chat
+POST /api/servers/{server_id}/chat
+GET /api/servers/{server_id}/players
+POST /api/servers/{server_id}/players/actions
+GET /api/servers/{server_id}/players/actions/{action_id}
+GET /api/servers/{server_id}/events
+GET /api/servers/{server_id}/crashes
+GET /api/servers/{server_id}/crashes/{crash_id}
+GET /api/servers/{server_id}/recommendations
+POST /api/servers/{server_id}/recommendations/{rec_id}
+GET /api/servers/{server_id}/getting-started
+POST /api/servers/{server_id}/getting-started/dismiss
+GET /api/servers/{server_id}/join
+GET /api/alerts
+GET /api/app/phone
+PUT /api/app/phone
+DELETE /api/app/phone
+GET /api/version

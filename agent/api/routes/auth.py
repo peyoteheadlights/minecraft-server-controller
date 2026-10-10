@@ -11,7 +11,7 @@ from ... import API_VERSION
 from ...security.auth import AccountError, Principal
 from ...security.permissions import ACCOUNT, permissions_for, require
 from ..deps import audit, client_ip, get_core
-from ..responses import DeviceList, Health, Ok
+from ..responses import DeviceList, Health, LoginResult, Me, Ok
 from .models import LoginRequest, PasswordChangeRequest, PreferencesRequest
 
 router = APIRouter()
@@ -29,7 +29,7 @@ async def health(core=Depends(get_core)):
     }
 
 
-@router.post("/auth/login")
+@router.post("/auth/login", response_model=LoginResult)
 async def login(payload: LoginRequest, request: Request, core=Depends(get_core)):
     return core.auth.login(
         payload.username,
@@ -40,7 +40,7 @@ async def login(payload: LoginRequest, request: Request, core=Depends(get_core))
     )
 
 
-@router.post("/auth/logout")
+@router.post("/auth/logout", response_model=Ok)
 async def logout(principal: Principal = Depends(require(ACCOUNT)), core=Depends(get_core)):
     core.auth.logout(principal)
     return {"ok": True}
@@ -75,7 +75,7 @@ async def sign_out_device(
     return {"ok": True}
 
 
-@router.get("/auth/me")
+@router.get("/auth/me", response_model=Me)
 async def me(principal: Principal = Depends(require(ACCOUNT)), core=Depends(get_core)):
     return {
         **principal.to_dict(),

@@ -20,6 +20,7 @@ from ...security.permissions import (
 )
 from ..deps import audit, get_server
 from ..errors import audit_failure
+from ..responses import Checklist
 from .models import WorldFolderRequest, WorldImportRequest, WorldUndoRequest
 
 CHUNK = 1024 * 1024
@@ -53,7 +54,7 @@ async def world_undo(
     return {"ok": True, **result}
 
 
-@router.get("/getting-started")
+@router.get("/getting-started", response_model=Checklist)
 async def getting_started(
     principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):
@@ -61,7 +62,7 @@ async def getting_started(
     return checklist.status(ctx)
 
 
-@router.post("/getting-started/dismiss")
+@router.post("/getting-started/dismiss", response_model=Checklist)
 async def dismiss_getting_started(
     request: Request,
     principal: Principal = Depends(require(SETTINGS_EDIT)),

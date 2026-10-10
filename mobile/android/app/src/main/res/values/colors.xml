@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The sheet and accent colors from the dashboard's light theme. -->
+    <color name="sheet">#F7F7F9</color>
+    <color name="accent">#0066CC</color>
+    <color name="icon_background">#2B2B30</color>
+</resources>

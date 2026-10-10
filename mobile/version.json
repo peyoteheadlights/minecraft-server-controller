@@ -1,0 +1,4 @@
+{
+ "app_version": "0.1.0",
+ "agent_api": {"min": 1, "max": 1}
+}

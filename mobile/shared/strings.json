@@ -1,0 +1,6858 @@
+{
+ "app.name": [
+  "Minecraft Server Control",
+  "Minecraft Server Control"
+ ],
+ "login.username": [
+  "Username",
+  "Username"
+ ],
+ "login.password": [
+  "Password",
+  "Password"
+ ],
+ "login.sign_in": [
+  "Sign in",
+  "Sign in"
+ ],
+ "login.signing_in": [
+  "Signing in…",
+  "Signing in…"
+ ],
+ "login.remember": [
+  "Keep me signed in on this device",
+  "Keep me signed in on this device"
+ ],
+ "login.device_name": [
+  "{browser} on {system}",
+  "{browser} on {system}"
+ ],
+ "login.browser": [
+  "Browser",
+  "Browser"
+ ],
+ "update.title": [
+  "This app's version",
+  "App version and updates"
+ ],
+ "update.current": [
+  "You have version {version}.",
+  "Running {version}."
+ ],
+ "update.up_to_date": [
+  "Version {version} is the newest.",
+  "{version} is the latest release."
+ ],
+ "update.available": [
+  "Version {version} is out",
+  "Version {version} is available"
+ ],
+ "update.whats_new": [
+  "What's new",
+  "Release notes"
+ ],
+ "update.check_now": [
+  "Check now",
+  "Check now"
+ ],
+ "update.checking": [
+  "Checking…",
+  "Checking…"
+ ],
+ "update.checked": [
+  "Checked {when}",
+  "Last checked {when}"
+ ],
+ "update.checks_daily": [
+  "It checks once a day.",
+  "Checks GitHub releases daily (updates.check)."
+ ],
+ "update.checks_off": [
+  "Daily checks are off.",
+  "updates.check is off."
+ ],
+ "update.check_failed": [
+  "Couldn't check: {reason}",
+  "Check failed: {reason}"
+ ],
+ "update.release_page": [
+  "Open the release page",
+  "Release page on GitHub"
+ ],
+ "update.install": [
+  "Update now",
+  "Install update"
+ ],
+ "update.install_anyway": [
+  "Update anyway",
+  "Install anyway"
+ ],
+ "update.installing": [
+  "Starting…",
+  "Starting…"
+ ],
+ "update.started": [
+  "The update is starting. The dashboard is back in a minute or two.",
+  "Update handed to the installer. The agent restarts; reconnecting automatically."
+ ],
+ "update.confirm_title": [
+  "Update to version {version}?",
+  "Install {version}?"
+ ],
+ "update.confirm_body": [
+  "Your settings and database are saved first. Running servers are stopped and started again. If the new version doesn't start, the old one is put back by itself.",
+  "config.yaml, .env and the database are backed up first; servers are stopped and restarted; a failed start rolls back automatically."
+ ],
+ "update.confirm_players": [
+  "{count} people are playing right now and will be disconnected.",
+  "{count} players online will be disconnected."
+ ],
+ "update.confirm_players_unknown": [
+  "It couldn't tell whether anyone is playing.",
+  "Player count unknown."
+ ],
+ "update.last_ok": [
+  "Updated to version {version}.",
+  "Last update to {version} succeeded."
+ ],
+ "update.last_failed": [
+  "The update to version {version} didn't work.",
+  "Update to {version} failed."
+ ],
+ "update.rolled_back": [
+  "The previous version was put back.",
+  "Rolled back to the previous version."
+ ],
+ "update.not_rolled_back": [
+  "The previous version couldn't be put back by itself. Run the setup from the Start menu.",
+  "Rollback incomplete; run setup from the Start menu to repair."
+ ],
+ "pair.title": [
+  "Open on your phone",
+  "Phone pairing code"
+ ],
+ "pair.scan": [
+  "Scan this with your phone's camera, or type:",
+  "Scan, or open:"
+ ],
+ "pair.not_ready": [
+  "The code for your phone isn't ready yet.",
+  "No pairing code."
+ ],
+ "pair.no_secret": [
+  "The code holds this PC's address and how to recognise it. No password.",
+  "Contains address, port, certificate SHA-256 and API version; no credentials."
+ ],
+ "pair.app": [
+  "Using the phone app? Scan this from the app's first screen.",
+  "Phone app: scan from its pairing screen; it pins the fingerprint."
+ ],
+ "pair.rescan": [
+  "If the app's certificate is renewed, scan the code again.",
+  "A new certificate means a new fingerprint: phones must rescan."
+ ],
+ "pair.qr_label": [
+  "Code for your phone",
+  "Pairing QR code"
+ ],
+ "pair.fingerprint": [
+  "Certificate fingerprint",
+  "Certificate SHA-256"
+ ],
+ "pair.api": [
+  "API version",
+  "API version"
+ ],
+ "pair.link": [
+  "Link",
+  "Pairing link"
+ ],
+ "oldcopy.title": [
+  "Your old copy",
+  "Old setup.ps1 copy"
+ ],
+ "oldcopy.body": [
+  "Your old copy at {path} is no longer used. Remove it?",
+  "The setup.ps1 copy at {path} is no longer used. Remove it?"
+ ],
+ "oldcopy.keeps": [
+  "Only the app's own files go. Backups, server folders and anything else in that folder stay.",
+  "Removes only the app's own files; backups, server folders and unknown files are kept."
+ ],
+ "oldcopy.cant": [
+  "It can't be removed from here:",
+  "Not removable:"
+ ],
+ "oldcopy.remove": [
+  "Remove it",
+  "Remove"
+ ],
+ "oldcopy.removing": [
+  "Removing…",
+  "Removing…"
+ ],
+ "oldcopy.not_now": [
+  "Not now",
+  "Dismiss"
+ ],
+ "oldcopy.confirm_title": [
+  "Remove the old copy?",
+  "Remove the old copy?"
+ ],
+ "oldcopy.confirm_body": [
+  "The app's own files in {path} are deleted. Your backups and server folders are not touched.",
+  "Deletes the app's files under {path}; backups and server folders are kept."
+ ],
+ "oldcopy.removed": [
+  "The old copy was removed.",
+  "Old copy removed."
+ ],
+ "oldcopy.removed_kept": [
+  "The old copy was removed. {count} other things in that folder were kept.",
+  "Old copy removed; {count} other items kept."
+ ],
+ "page.servers": [
+  "All servers",
+  "All servers"
+ ],
+ "page.add_server": [
+  "Add server",
+  "Add a server"
+ ],
+ "page.overview": [
+  "Overview",
+  "Overview"
+ ],
+ "page.players": [
+  "Players",
+  "Players"
+ ],
+ "page.backups": [
+  "Backups",
+  "Backups"
+ ],
+ "page.mods": [
+  "Mods",
+  "Mods"
+ ],
+ "page.plugins": [
+  "Plugins",
+  "Plugins"
+ ],
+ "page.addons": [
+  "Add-ons",
+  "Add-ons"
+ ],
+ "addons.col_pack": [
+  "Pack",
+  "Pack"
+ ],
+ "addons.col_kind": [
+  "Kind",
+  "Type"
+ ],
+ "addons.col_version": [
+  "Version",
+  "Version"
+ ],
+ "addons.col_world": [
+  "In the world",
+  "world_*_packs.json"
+ ],
+ "addons.kind_behavior": [
+  "Behavior pack",
+  "Behavior pack"
+ ],
+ "addons.kind_resource": [
+  "Resource pack",
+  "Resource pack"
+ ],
+ "addons.on": [
+  "On",
+  "Enabled"
+ ],
+ "addons.off": [
+  "Off",
+  "Disabled"
+ ],
+ "addons.turn_on": [
+  "Turn on",
+  "Enable"
+ ],
+ "addons.turn_off": [
+  "Turn off",
+  "Disable"
+ ],
+ "addons.turned_on": [
+  "{name} is on.",
+  "{name} enabled."
+ ],
+ "addons.turned_off": [
+  "{name} is off.",
+  "{name} disabled."
+ ],
+ "addons.remove": [
+  "Remove",
+  "Remove"
+ ],
+ "addons.remove_title": [
+  "Remove {name}?",
+  "Remove {name}?"
+ ],
+ "addons.remove_body": [
+  "It's turned off and moved out of the server folder, into this app's data folder, so it can be put back by hand.",
+  "Disabled, then moved to <data folder>/removed-addons."
+ ],
+ "addons.removed": [
+  "{name} was removed.",
+  "{name} removed."
+ ],
+ "addons.restart": [
+  "The server is running. Restart it for this to take effect.",
+  "Takes effect on the next start."
+ ],
+ "addons.installed.one": [
+  "{count} add-on",
+  "{count} pack"
+ ],
+ "addons.installed.other": [
+  "{count} add-ons",
+  "{count} packs"
+ ],
+ "addons.none": [
+  "No add-ons yet",
+  "No user packs"
+ ],
+ "addons.none_hint": [
+  "Add a .mcpack or .mcaddon below. Mojang's own packs aren't listed here.",
+  "Upload a .mcpack/.mcaddon/.mctemplate. Mojang's shipped packs are excluded."
+ ],
+ "addons.add_title": [
+  "Add an add-on",
+  "Upload a pack"
+ ],
+ "addons.add_lead": [
+  "Choose a .mcpack, .mcaddon or .mctemplate file. Each pack is checked before it's installed, then turned on in this server's world.",
+  "Each manifest.json is validated (UUID, version, module types) and every path is zip-slip checked before install."
+ ],
+ "addons.drop": [
+  "Drop a .mcpack or .mcaddon here",
+  "Drop .mcpack / .mcaddon / .mctemplate here"
+ ],
+ "addons.choose": [
+  "Choose a file",
+  "Upload pack"
+ ],
+ "addons.installing": [
+  "Installing…",
+  "Installing…"
+ ],
+ "addons.installed_done": [
+  "Installed {name}.",
+  "Installed {name}."
+ ],
+ "addons.running": [
+  "The server is running. Add-ons can be changed now and take effect after a restart.",
+  "Changes apply at the next start."
+ ],
+ "addons.no_world": [
+  "This server hasn't made its world yet. Start it once, then packs can be turned on.",
+  "World folder not created yet; enable packs after the first start."
+ ],
+ "page.schedules": [
+  "Schedules",
+  "Schedules"
+ ],
+ "page.performance": [
+  "Performance",
+  "Performance"
+ ],
+ "page.console": [
+  "Console",
+  "Console"
+ ],
+ "page.events": [
+  "Events",
+  "Events"
+ ],
+ "page.crashes": [
+  "Crashes",
+  "Crashes"
+ ],
+ "page.server_settings": [
+  "Server settings",
+  "Server settings"
+ ],
+ "page.app_settings": [
+  "App settings",
+  "Agent settings"
+ ],
+ "page.security": [
+  "Security",
+  "Security"
+ ],
+ "nav.server_pages": [
+  "Server pages",
+  "Pages for this server"
+ ],
+ "nav.app_pages": [
+  "App pages",
+  "Pages for this app"
+ ],
+ "nav.group_live": [
+  "Live",
+  "Live"
+ ],
+ "nav.group_manage": [
+  "Manage",
+  "Manage"
+ ],
+ "nav.group_history": [
+  "History",
+  "History"
+ ],
+ "tabs.label": [
+  "Servers",
+  "Servers"
+ ],
+ "tabs.crashed": [
+  "crashed",
+  "crashed"
+ ],
+ "tabs.bedrock": [
+  "Bedrock",
+  "Bedrock"
+ ],
+ "state.online": [
+  "Online",
+  "Online"
+ ],
+ "state.offline": [
+  "Offline",
+  "Offline"
+ ],
+ "state.starting": [
+  "Starting…",
+  "Starting…"
+ ],
+ "state.stopping": [
+  "Stopping…",
+  "Stopping…"
+ ],
+ "state.restarting": [
+  "Restarting…",
+  "Restarting…"
+ ],
+ "state.crashed": [
+  "Crashed",
+  "Crashed"
+ ],
+ "state.unknown": [
+  "Unknown",
+  "Unknown"
+ ],
+ "head.app": [
+  "Settings",
+  "Settings"
+ ],
+ "head.players.one": [
+  "{count} player online",
+  "{count} player online"
+ ],
+ "head.players.other": [
+  "{count} players online",
+  "{count} players online"
+ ],
+ "action.start": [
+  "Start",
+  "Start"
+ ],
+ "action.stop": [
+  "Stop",
+  "Stop"
+ ],
+ "action.restart": [
+  "Restart",
+  "Restart"
+ ],
+ "action.restart_now": [
+  "Restart now",
+  "Restart now"
+ ],
+ "action.starting": [
+  "Starting…",
+  "Starting…"
+ ],
+ "action.stopping": [
+  "Stopping…",
+  "Stopping…"
+ ],
+ "action.restarting": [
+  "Restarting…",
+  "Restarting…"
+ ],
+ "action.cancel": [
+  "Cancel",
+  "Cancel"
+ ],
+ "action.cancelling": [
+  "Cancelling…",
+  "Cancelling…"
+ ],
+ "action.confirm": [
+  "Confirm",
+  "Confirm"
+ ],
+ "action.close": [
+  "Close",
+  "Close"
+ ],
+ "action.save": [
+  "Save",
+  "Save"
+ ],
+ "action.saving": [
+  "Saving…",
+  "Saving…"
+ ],
+ "action.sign_out": [
+  "Sign out",
+  "Sign out"
+ ],
+ "action.back_up_now": [
+  "Back up now",
+  "Back up now"
+ ],
+ "action.view_details": [
+  "View details",
+  "View details"
+ ],
+ "action.show_details": [
+  "Show details",
+  "Show raw details"
+ ],
+ "advanced.show_technical": [
+  "Show technical details",
+  "Show technical details"
+ ],
+ "action.what_happened": [
+  "What happened?",
+  "What happened?"
+ ],
+ "action.restart_requested": [
+  "Restarting. Watch the status.",
+  "Restart requested; not yet verified. Watch the status for ONLINE."
+ ],
+ "confirm.stop_title": [
+  "Stop the server?",
+  "Stop the server?"
+ ],
+ "confirm.stop_body": [
+  "Players are disconnected. The world saves first.",
+  "Players are disconnected. The server runs save-all and stop, then the process is waited for."
+ ],
+ "confirm.restart_title": [
+  "Restart the server?",
+  "Restart the server?"
+ ],
+ "confirm.restart_body": [
+  "Players are disconnected for a minute or two. The world saves first.",
+  "Players are disconnected. The server is stopped cleanly (save-all, stop) and started again."
+ ],
+ "error.unreachable": [
+  "Can't reach the PC. Check it's on and online.",
+  "The agent did not answer. Check the PC is on and Tailscale is connected."
+ ],
+ "error.session_ended": [
+  "You were signed out. Please sign in again.",
+  "Your session ended. Please sign in again."
+ ],
+ "error.number": [
+  "{message} Error number: {id}",
+  "{message} (request {id})"
+ ],
+ "error.request_failed": [
+  "Something went wrong (code {status}).",
+  "Request failed (HTTP {status})."
+ ],
+ "value.unknown": [
+  "Unknown",
+  "Unknown"
+ ],
+ "value.yes": [
+  "Yes",
+  "Yes"
+ ],
+ "value.no": [
+  "No",
+  "No"
+ ],
+ "time.days_hours": [
+  "{d}d {h}h",
+  "{d}d {h}h"
+ ],
+ "time.hours_minutes": [
+  "{h}h {m}m",
+  "{h}h {m}m"
+ ],
+ "time.minutes": [
+  "{m}m",
+  "{m}m"
+ ],
+ "time.seconds": [
+  "{s}s",
+  "{s}s"
+ ],
+ "time.ago": [
+  "{duration} ago",
+  "{duration} ago"
+ ],
+ "time.in": [
+  "in {duration}",
+  "in {duration}"
+ ],
+ "time.never": [
+  "Never",
+  "Never"
+ ],
+ "status.loading": [
+  "Loading…",
+  "Loading…"
+ ],
+ "jobs.working": [
+  "working",
+  "working"
+ ],
+ "jobs.running.one": [
+  "{count} task running",
+  "{count} job running"
+ ],
+ "jobs.running.other": [
+  "{count} tasks running",
+  "{count} jobs running"
+ ],
+ "live.connected": [
+  "Live",
+  "Live"
+ ],
+ "live.reconnecting": [
+  "Reconnecting…",
+  "Reconnecting…"
+ ],
+ "live.connected_title": [
+  "Updates show as they happen.",
+  "WebSocket connected: events arrive live."
+ ],
+ "live.reconnecting_title": [
+  "Lost the PC. Trying again.",
+  "WebSocket disconnected; reconnecting with backoff."
+ ],
+ "live.connected_announce": [
+  "Live updates on.",
+  "Live updates connected."
+ ],
+ "live.lost_announce": [
+  "Live updates lost. Reconnecting.",
+  "Live updates lost. Reconnecting."
+ ],
+ "live.state_announce": [
+  "Server is now {state}.",
+  "Server is now {state}."
+ ],
+ "event.server_started": [
+  "The server started.",
+  "The server started."
+ ],
+ "event.server_stopped": [
+  "The server stopped.",
+  "The server stopped."
+ ],
+ "event.server_crashed": [
+  "The server crashed.",
+  "The server crashed."
+ ],
+ "event.server_crashed_code": [
+  "The server crashed (code {code}).",
+  "The server crashed (exit code {code})."
+ ],
+ "event.crash_loop": [
+  "The server keeps crashing. Auto restarts are paused.",
+  "Crash loop detected: automatic restarts are paused."
+ ],
+ "event.server_recovered": [
+  "The server is back after a crash.",
+  "The server is back online after a crash."
+ ],
+ "event.other_crashed": [
+  "{name} crashed.",
+  "{name} crashed."
+ ],
+ "event.other_crash_loop": [
+  "{name} keeps crashing. Auto restarts are paused.",
+  "{name}: crash loop detected, automatic restarts paused."
+ ],
+ "event.show_server": [
+  "Show {name}",
+  "Show {name}"
+ ],
+ "hero.up_for": [
+  "Up for {duration}",
+  "Up {duration}"
+ ],
+ "hero.version": [
+  "Minecraft {mc}",
+  "Minecraft {mc}"
+ ],
+ "hero.version_loader": [
+  "Minecraft {mc} with Fabric {loader}",
+  "Minecraft {mc}, Fabric Loader {loader}"
+ ],
+ "hero.so_far": [
+  "({s} seconds so far)",
+  "({s}s elapsed)"
+ ],
+ "hero.stopping": [
+  "Stopping. Saving the world.",
+  "Stopping. The world is being saved."
+ ],
+ "hero.restarting": [
+  "Restarting.",
+  "Restarting."
+ ],
+ "hero.crashed": [
+  "The server crashed.",
+  "The server crashed."
+ ],
+ "hero.exit_code": [
+  "Exit code {code}.",
+  "Exit code {code}."
+ ],
+ "hero.cause": [
+  "Cause: {cause}.",
+  "Cause: {cause}."
+ ],
+ "hero.likely_cause": [
+  "Probably because {cause}.",
+  "Likely cause: {cause}."
+ ],
+ "hero.possible_cause": [
+  "Maybe because {cause}.",
+  "Possible cause: {cause}."
+ ],
+ "hero.cause_unknown": [
+  "The log doesn't show the cause.",
+  "Cause not identified from the crash report or log."
+ ],
+ "hero.reading_crash": [
+  "Reading the crash log…",
+  "Analysing the crash report…"
+ ],
+ "hero.restart_paused": [
+  "Auto restarts are paused.",
+  "Auto-restart is blocked."
+ ],
+ "hero.restart_cancelled": [
+  "Auto restart cancelled.",
+  "Pending auto-restart was cancelled."
+ ],
+ "hero.restarting_in": [
+  "Restarting in {s} seconds.",
+  "Auto-restart in {s}s."
+ ],
+ "hero.starting_now": [
+  "Restarting now.",
+  "Auto-restart firing now."
+ ],
+ "hero.force_stopped": [
+  "Forced to stop: it didn't stop in time.",
+  "Force-killed after the stop timeout."
+ ],
+ "hero.stopped": [
+  "Stopped.",
+  "Stopped."
+ ],
+ "hero.not_running": [
+  "Not running.",
+  "Not running."
+ ],
+ "hero.last_run": [
+  "Last ran {versions}.",
+  "Last run: {versions}."
+ ],
+ "hero.unknown": [
+  "State not known yet.",
+  "State UNKNOWN: no status reading yet."
+ ],
+ "starting.java": [
+  "Starting Java",
+  "Starting the JVM"
+ ],
+ "starting.mods": [
+  "Loading mods",
+  "Loading mods"
+ ],
+ "starting.server": [
+  "Starting server",
+  "Starting the Minecraft server"
+ ],
+ "starting.world": [
+  "Loading world",
+  "Preparing spawn area"
+ ],
+ "notice.maintenance": [
+  "Maintenance mode is on.",
+  "Maintenance mode is on."
+ ],
+ "notice.maintenance_detail": [
+  "Auto restarts and schedules are paused.",
+  "Auto-restart, crash recovery and scheduled tasks are suspended."
+ ],
+ "notice.turn_off": [
+  "Turn off",
+  "Turn off"
+ ],
+ "notice.turning_off": [
+  "Turning off…",
+  "Turning off…"
+ ],
+ "notice.restart_paused": [
+  "Auto restarts are paused.",
+  "Auto-restart is blocked."
+ ],
+ "notice.restart_paused_detail": [
+  "{reason}",
+  "{reason}"
+ ],
+ "notice.allow_restarts": [
+  "Allow restarts",
+  "Clear the block"
+ ],
+ "notice.allowing": [
+  "Allowing…",
+  "Allowing…"
+ ],
+ "notice.restarts_allowed": [
+  "Auto restarts are back on.",
+  "Auto-restart block cleared."
+ ],
+ "overview.stats_label": [
+  "At a glance",
+  "Server at a glance"
+ ],
+ "overview.players": [
+  "Players",
+  "Players"
+ ],
+ "overview.of_max": [
+  "of {max}",
+  "of {max}"
+ ],
+ "overview.players_waiting": [
+  "Waiting for first count",
+  "Waiting for the first list reading"
+ ],
+ "overview.speed": [
+  "Game speed",
+  "TPS"
+ ],
+ "overview.speed_unit": [
+  "of 20",
+  "/ 20"
+ ],
+ "overview.mspt_now": [
+  "{ms} ms per tick",
+  "{ms} ms per tick"
+ ],
+ "overview.via": [
+  "via {command}",
+  "via {command}"
+ ],
+ "overview.speed_detecting": [
+  "Finding how to read speed…",
+  "Detecting a TPS command…"
+ ],
+ "overview.speed_unavailable": [
+  "This server doesn't report speed",
+  "No TPS command works on this server"
+ ],
+ "overview.speed_off": [
+  "Speed readings off",
+  "TPS polling disabled"
+ ],
+ "overview.speed_waiting": [
+  "Waiting for first reading",
+  "Waiting for the first TPS reading"
+ ],
+ "overview.when_running": [
+  "Shown while running",
+  "Read while ONLINE"
+ ],
+ "overview.memory": [
+  "Memory used",
+  "Server memory (RSS)"
+ ],
+ "overview.of_limit": [
+  "of {limit} max",
+  "of {limit} -Xmx"
+ ],
+ "overview.not_measured": [
+  "Not measured yet",
+  "No reading yet"
+ ],
+ "overview.cpu": [
+  "CPU use",
+  "PC CPU"
+ ],
+ "overview.cpu_note": [
+  "Whole PC",
+  "All processes, all cores"
+ ],
+ "overview.last_backup": [
+  "Last backup",
+  "Last backup"
+ ],
+ "overview.next_task": [
+  "Next task",
+  "Next scheduled job"
+ ],
+ "overview.players_online": [
+  "Players online",
+  "Players online"
+ ],
+ "overview.nobody_online": [
+  "Nobody online.",
+  "Nobody is online."
+ ],
+ "overview.players_unknown": [
+  "Players not known",
+  "Player list not read"
+ ],
+ "overview.players_unknown_hint": [
+  "Shown once the server is running.",
+  "Read with the list command while ONLINE."
+ ],
+ "overview.online_for": [
+  "online {duration}",
+  "online {duration}"
+ ],
+ "overview.recommendations": [
+  "Suggestions",
+  "Recommendations"
+ ],
+ "overview.details": [
+  "Details",
+  "Details"
+ ],
+ "overview.minecraft": [
+  "Minecraft",
+  "Minecraft"
+ ],
+ "overview.loader": [
+  "Fabric Loader",
+  "Fabric Loader"
+ ],
+ "overview.java": [
+  "Java",
+  "Java"
+ ],
+ "overview.port": [
+  "Port",
+  "Port"
+ ],
+ "overview.mods": [
+  "Mods",
+  "Mods"
+ ],
+ "overview.disk_free": [
+  "Free space",
+  "Disk free"
+ ],
+ "overview.detected_on_start": [
+  "Found on start",
+  "Detected on next start"
+ ],
+ "overview.recent_console": [
+  "Recent console",
+  "Recent console output"
+ ],
+ "overview.open_console": [
+  "Open console",
+  "Open the console"
+ ],
+ "summary.last_hour": [
+  "Last hour:",
+  "Last hour:"
+ ],
+ "summary.speed": [
+  "average {avg}, lowest {low}",
+  "avg {avg} TPS, min {low}"
+ ],
+ "summary.samples": [
+  "{n} readings",
+  "{n} samples"
+ ],
+ "summary.not_yet": [
+  "No readings in the last hour.",
+  "No samples in the last hour."
+ ],
+ "summary.memory_trend": [
+  "from {from} to {to}",
+  "{from} → {to}"
+ ],
+ "summary.memory_peak": [
+  "peak {peak}",
+  "peak {peak}"
+ ],
+ "summary.limit": [
+  "{limit} max",
+  "limit {limit} (-Xmx)"
+ ],
+ "summary.no_limit": [
+  "No memory limit set.",
+  "No -Xmx set."
+ ],
+ "summary.cpu": [
+  "average {avg}%, peak {high}%",
+  "avg {avg}%, max {high}%"
+ ],
+ "summary.players_unknown": [
+  "Players not known yet.",
+  "Player list not read yet."
+ ],
+ "summary.nobody": [
+  "Nobody online.",
+  "Nobody is online."
+ ],
+ "backup.never": [
+  "No backups yet",
+  "No backups yet"
+ ],
+ "backup.never_hint": [
+  "Make one so you can undo mistakes.",
+  "No backup exists for this server."
+ ],
+ "backup.checked": [
+  "Checked",
+  "Verified"
+ ],
+ "backup.unchecked": [
+  "Not checked",
+  "Unverified"
+ ],
+ "backup.failed": [
+  "Failed",
+  "Failed"
+ ],
+ "backup.working": [
+  "Backing up…",
+  "Backing up…"
+ ],
+ "backup.done": [
+  "Backup saved: {name}",
+  "Backup created and verified: {name}"
+ ],
+ "schedule.nothing": [
+  "Nothing scheduled",
+  "Nothing scheduled"
+ ],
+ "schedule.add": [
+  "Add schedule",
+  "Add a schedule"
+ ],
+ "schedule.next": [
+  "{task} {when}",
+  "{task} {when}"
+ ],
+ "schedule.open": [
+  "All schedules",
+  "See all schedules"
+ ],
+ "task.start": [
+  "Start server",
+  "Start the server"
+ ],
+ "task.stop": [
+  "Stop server",
+  "Stop the server"
+ ],
+ "task.restart": [
+  "Restart server",
+  "Restart the server"
+ ],
+ "task.backup": [
+  "Back up",
+  "Back up"
+ ],
+ "task.log_cleanup": [
+  "Clear old logs",
+  "Log cleanup"
+ ],
+ "task.notify": [
+  "Send message",
+  "Notify"
+ ],
+ "task.maintenance_on": [
+  "Maintenance mode on",
+  "Turn on maintenance mode"
+ ],
+ "task.maintenance_off": [
+  "Maintenance mode off",
+  "Turn off maintenance mode"
+ ],
+ "rec.none": [
+  "No suggestions now.",
+  "No recommendations fire right now."
+ ],
+ "rec.snooze": [
+  "Not now",
+  "Not now"
+ ],
+ "rec.snooze_title": [
+  "Hide until something changes",
+  "Snooze until the evidence changes"
+ ],
+ "rec.dismiss": [
+  "Don't show again",
+  "Don't show again"
+ ],
+ "rec.dismiss_title": [
+  "Never show this here",
+  "Dismiss permanently for this server"
+ ],
+ "rec.show_again": [
+  "Show again",
+  "Show again"
+ ],
+ "rec.hidden.one": [
+  "{count} hidden suggestion",
+  "{count} hidden recommendation"
+ ],
+ "rec.hidden.other": [
+  "{count} hidden suggestions",
+  "{count} hidden recommendations"
+ ],
+ "cause.OutOfMemoryError": [
+  "the server ran out of memory",
+  "OutOfMemoryError: the Java heap ran out"
+ ],
+ "cause.JavaHeapError": [
+  "Java couldn't get the memory set for it",
+  "the JVM could not reserve the -Xmx heap"
+ ],
+ "cause.JavaVersionIncompatible": [
+  "the wrong Java version is installed",
+  "the Java version is incompatible with this Minecraft version"
+ ],
+ "cause.ModDependencyError": [
+  "a mod needs another mod, or a different version of it",
+  "a mod dependency is missing or out of range"
+ ],
+ "cause.MissingMod": [
+  "a needed mod isn't installed",
+  "a required mod is not installed"
+ ],
+ "cause.IncompatibleMod": [
+  "two mods don't work together",
+  "two installed mods don't work together"
+ ],
+ "cause.MixinError": [
+  "a mod failed to load into the game",
+  "a mixin failed to apply"
+ ],
+ "cause.FabricLoaderError": [
+  "Fabric failed to start",
+  "Fabric Loader refused to start"
+ ],
+ "cause.ClassNotFoundException": [
+  "a mod is for a different game version",
+  "ClassNotFoundException: a mod targets another game version"
+ ],
+ "cause.NoSuchMethodError": [
+  "mod versions don't match each other",
+  "NoSuchMethodError: mismatched mod versions"
+ ],
+ "cause.WorldChunkError": [
+  "world data couldn't be loaded or saved",
+  "chunk or region data could not be read or written"
+ ],
+ "cause.DiskStorageError": [
+  "the disk is full or can't be written to",
+  "the disk is full or can't be written to"
+ ],
+ "cause.PortInUse": [
+  "another program is using the server's port",
+  "the server port is already bound"
+ ],
+ "cause.EulaNotAccepted": [
+  "the Minecraft EULA isn't accepted",
+  "the Minecraft EULA has not been accepted"
+ ],
+ "cause.NetworkError": [
+  "a network error",
+  "a network error"
+ ],
+ "cause.ServerThreadCrash": [
+  "an error in the game loop",
+  "an exception on the main server thread"
+ ],
+ "servers.none": [
+  "No servers yet",
+  "No servers yet"
+ ],
+ "servers.none_hint": [
+  "Use the + tab to add a server.",
+  "Add one with the + tab or in config.yaml."
+ ],
+ "servers.players": [
+  "Players",
+  "Players"
+ ],
+ "servers.players_of": [
+  "{n} of {max}",
+  "{n} of {max}"
+ ],
+ "servers.uptime": [
+  "Up for",
+  "Uptime"
+ ],
+ "servers.not_running": [
+  "Not running",
+  "Not running"
+ ],
+ "servers.port": [
+  "Port",
+  "Port"
+ ],
+ "add.existing": [
+  "Add a server already on this PC",
+  "Add a server that's already on this PC"
+ ],
+ "add.existing_hint": [
+  "Pick the folder with the server's .jar and world.",
+  "The server directory: holds the server jar, server.properties and the world."
+ ],
+ "add.name": [
+  "Name",
+  "Name"
+ ],
+ "add.folder": [
+  "Folder",
+  "Server directory"
+ ],
+ "add.more_options": [
+  "More options",
+  "Advanced"
+ ],
+ "add.kind": [
+  "Kind of server",
+  "Server type"
+ ],
+ "add.kind_hint": [
+  "Which kind of server is already in this folder. If you're not sure, leave Fabric: once it starts, its console says which kind it is and the app tells you if they differ.",
+  "The type of the existing server. A mismatch with the console's loader line is reported once it starts."
+ ],
+ "add.jar": [
+  "Server file",
+  "Server jar"
+ ],
+ "add.jar_hint": [
+  "Leave blank to find it.",
+  "Leave empty to auto-detect the jar in the directory."
+ ],
+ "add.submit": [
+  "Add server",
+  "Add server"
+ ],
+ "add.adding": [
+  "Adding…",
+  "Adding…"
+ ],
+ "add.need_name_and_folder": [
+  "Enter a name and folder.",
+  "Give the server a name and a folder."
+ ],
+ "add.added": [
+  "{name} added.",
+  "{name} added."
+ ],
+ "add.color_used": [
+  "{color} (in use)",
+  "{color} (already used)"
+ ],
+ "color.blue": [
+  "Blue",
+  "Blue"
+ ],
+ "color.orange": [
+  "Orange",
+  "Orange"
+ ],
+ "color.green": [
+  "Green",
+  "Green"
+ ],
+ "color.crimson": [
+  "Crimson",
+  "Crimson"
+ ],
+ "color.violet": [
+  "Violet",
+  "Violet"
+ ],
+ "color.amber": [
+  "Amber",
+  "Amber"
+ ],
+ "color.teal": [
+  "Teal",
+  "Teal"
+ ],
+ "color.magenta": [
+  "Magenta",
+  "Magenta"
+ ],
+ "color.cyan": [
+  "Cyan",
+  "Cyan"
+ ],
+ "color.olive": [
+  "Olive",
+  "Olive"
+ ],
+ "color.rose": [
+  "Rose",
+  "Rose"
+ ],
+ "color.indigo": [
+  "Indigo",
+  "Indigo"
+ ],
+ "theme.system": [
+  "Match my device",
+  "System"
+ ],
+ "theme.light": [
+  "Light",
+  "Light"
+ ],
+ "theme.dark": [
+  "Dark",
+  "Dark"
+ ],
+ "theme.graphite": [
+  "Graphite",
+  "Graphite"
+ ],
+ "theme.contrast": [
+  "High contrast",
+  "High contrast"
+ ],
+ "mode.simple": [
+  "Simple",
+  "Simple"
+ ],
+ "mode.simple_hint": [
+  "Plain words. Extra details stay hidden.",
+  "Everyday words. Details stay tucked away until you open them."
+ ],
+ "mode.technical": [
+  "Technical",
+  "Technical"
+ ],
+ "mode.technical_hint": [
+  "Exact terms (TPS, MSPT, -Xmx), more numbers, and advanced sections open.",
+  "Exact terms (TPS, MSPT, -Xmx), more numbers, and advanced sections open."
+ ],
+ "appset.appearance": [
+  "Appearance",
+  "Appearance"
+ ],
+ "appset.theme": [
+  "Theme",
+  "Theme"
+ ],
+ "appset.detail": [
+  "Detail level",
+  "Display mode"
+ ],
+ "appset.mode": [
+  "Detail level",
+  "Display mode"
+ ],
+ "appset.alerts": [
+  "Alerts",
+  "Alerts"
+ ],
+ "appset.discord": [
+  "Discord",
+  "Discord"
+ ],
+ "appset.email": [
+  "Email",
+  "Email"
+ ],
+ "appset.discord_missing": [
+  "Add the Discord link to .env on the PC first.",
+  "Set DISCORD_WEBHOOK_URL in .env first."
+ ],
+ "appset.email_missing": [
+  "Add email details to .env on the PC first.",
+  "Set the SMTP_* values in .env first."
+ ],
+ "appset.send_test": [
+  "Send test",
+  "Send a test"
+ ],
+ "appset.sending": [
+  "Sending…",
+  "Sending…"
+ ],
+ "appset.test_sent": [
+  "Test sent.",
+  "Test sent."
+ ],
+ "appset.test_failed": [
+  "Test failed. Check .env.",
+  "Test failed. Check the .env settings and the agent log."
+ ],
+ "appset.alert_details": [
+  "When to alert",
+  "Thresholds and events"
+ ],
+ "appset.cpu_alert": [
+  "Alert when CPU use is above (%)",
+  "CPU alert threshold (%)"
+ ],
+ "appset.ram_alert": [
+  "Alert when PC memory is above (%)",
+  "RAM alert threshold (%)"
+ ],
+ "appset.disk_alert": [
+  "Alert when free space is below (GB)",
+  "Disk free threshold (GB)"
+ ],
+ "appset.tps_alert": [
+  "Alert when game speed is below (of 20)",
+  "TPS minimum"
+ ],
+ "appset.mspt_alert": [
+  "Alert when a tick takes over (ms)",
+  "MSPT maximum (ms)"
+ ],
+ "appset.repeat_alert": [
+  "Gap between repeat alerts (seconds)",
+  "Minimum interval between repeats (s)"
+ ],
+ "appset.which_events": [
+  "Alert me when",
+  "Events"
+ ],
+ "appset.save_alerts": [
+  "Save alerts",
+  "Save alert settings"
+ ],
+ "appset.secrets_note": [
+  "Links and passwords stay in .env on the PC, never here.",
+  "Secrets (webhook URL, SMTP password) are read from .env only and never sent to the browser."
+ ],
+ "appset.maintenance": [
+  "Maintenance mode",
+  "Maintenance mode"
+ ],
+ "appset.maintenance_label": [
+  "Pause auto restarts and schedules on all servers",
+  "Suspend auto-restart and schedules (all servers)"
+ ],
+ "appset.maintenance_on": [
+  "Maintenance mode is on.",
+  "Maintenance mode is on."
+ ],
+ "appset.maintenance_off": [
+  "Maintenance mode is off.",
+  "Maintenance mode is off."
+ ],
+ "appset.startup": [
+  "Start with Windows",
+  "Windows startup task"
+ ],
+ "appset.startup_hint": [
+  "Checks if this app starts when the PC turns on. It only checks.",
+  "Inspects the scheduled task (read-only)."
+ ],
+ "appset.startup_check": [
+  "Check now",
+  "Inspect"
+ ],
+ "appset.startup_asking": [
+  "Checking…",
+  "Inspecting…"
+ ],
+ "appset.check": [
+  "Check",
+  "Check"
+ ],
+ "appset.result": [
+  "Result",
+  "Result"
+ ],
+ "settings.saved": [
+  "Settings saved.",
+  "Settings saved."
+ ],
+ "settings.nothing_changed": [
+  "Nothing changed.",
+  "Nothing changed."
+ ],
+ "alert_event.server_started": [
+  "Server started",
+  "The server started"
+ ],
+ "alert_event.server_stopped": [
+  "Server stopped",
+  "The server stopped"
+ ],
+ "alert_event.server_crashed": [
+  "Server crashed",
+  "The server crashed"
+ ],
+ "alert_event.server_restarted": [
+  "Server restarted",
+  "The server restarted"
+ ],
+ "alert_event.server_recovered": [
+  "Server back after a crash",
+  "The server came back after a crash"
+ ],
+ "alert_event.player_joined": [
+  "Player joined",
+  "A player joined"
+ ],
+ "alert_event.player_left": [
+  "Player left",
+  "A player left"
+ ],
+ "alert_event.high_ram": [
+  "PC memory nearly full",
+  "High RAM"
+ ],
+ "alert_event.high_cpu": [
+  "CPU use high",
+  "High CPU"
+ ],
+ "alert_event.low_disk": [
+  "Low disk space",
+  "Low disk"
+ ],
+ "alert_event.low_tps": [
+  "Game running slowly",
+  "Low TPS"
+ ],
+ "alert_event.high_mspt": [
+  "Ticks taking too long",
+  "High MSPT"
+ ],
+ "alert_event.backup_completed": [
+  "Backup finished",
+  "A backup finished"
+ ],
+ "alert_event.backup_failed": [
+  "Backup failed",
+  "A backup failed"
+ ],
+ "alert_event.mod_installed": [
+  "Mod installed",
+  "A mod was installed"
+ ],
+ "alert_event.mod_removed": [
+  "Mod removed",
+  "A mod was removed"
+ ],
+ "alert_event.mod_updated": [
+  "Mod updated",
+  "A mod was updated"
+ ],
+ "alert_event.mod_dependency_problem": [
+  "Mod missing a needed mod",
+  "Mod dependency problem"
+ ],
+ "alert_event.auth_failure": [
+  "Failed sign-in",
+  "Authentication failure"
+ ],
+ "alert_event.maintenance_mode": [
+  "Maintenance mode on or off",
+  "Maintenance mode turned on or off"
+ ],
+ "alert_event.certificate_expiring": [
+  "HTTPS certificate expiring soon",
+  "TLS certificate expiring"
+ ],
+ "alert_event.servers_changed": [
+  "Server added or removed",
+  "A server was added or removed"
+ ],
+ "alert_event.cpu_cores_failed": [
+  "CPU core setting failed",
+  "CPU affinity could not be applied"
+ ],
+ "alert_event.game_settings_changed": [
+  "Game settings changed",
+  "server.properties changed"
+ ],
+ "alert_event.player_managed": [
+  "Player whitelisted, made operator, kicked or banned",
+  "Whitelist, op, kick or ban confirmed by the console"
+ ],
+ "alert_event.modpack_imported": [
+  "Modpack imported",
+  "Modpack (.mrpack) imported"
+ ],
+ "startup.registered_correctly": [
+  "Starts with Windows",
+  "Registered correctly"
+ ],
+ "startup.not_registered": [
+  "Doesn't start with Windows",
+  "Not registered"
+ ],
+ "startup.problems_found": [
+  "Set to start with Windows, but has a problem",
+  "Problems found"
+ ],
+ "startup.unsupported": [
+  "Windows only",
+  "Unsupported (not Windows)"
+ ],
+ "startup.registered": [
+  "Startup entry",
+  "Task registered"
+ ],
+ "startup.found": [
+  "Found",
+  "Found"
+ ],
+ "startup.not_found": [
+  "Not found",
+  "Not found"
+ ],
+ "startup.mode": [
+  "Starts when",
+  "Trigger"
+ ],
+ "startup.at_boot": [
+  "The PC turns on",
+  "At boot"
+ ],
+ "startup.at_logon": [
+  "You sign in to Windows",
+  "At logon"
+ ],
+ "startup.points_here": [
+  "Points to this app",
+  "Points to the current install"
+ ],
+ "startup.last_run": [
+  "Last ran",
+  "Last run time"
+ ],
+ "startup.last_start": [
+  "Last start",
+  "Last recorded startup"
+ ],
+ "startup.last_start_value": [
+  "{when} ({by})",
+  "{when} ({by})"
+ ],
+ "startup.none": [
+  "None",
+  "None recorded"
+ ],
+ "startup.initialised": [
+  "Started fully",
+  "Controller initialised"
+ ],
+ "startup.mechanism": [
+  "Method",
+  "Mechanism"
+ ],
+ "startup.command": [
+  "Command",
+  "Command"
+ ],
+ "startup.folder": [
+  "Folder",
+  "Working directory"
+ ],
+ "startup.last_result": [
+  "Last result",
+  "Last result"
+ ],
+ "serverset.identity": [
+  "Name and color",
+  "Name and color"
+ ],
+ "serverset.name": [
+  "Name",
+  "Name"
+ ],
+ "serverset.color": [
+  "Color",
+  "Color"
+ ],
+ "serverset.custom_color": [
+  "Any color",
+  "Custom color"
+ ],
+ "serverset.save_identity": [
+  "Save name and color",
+  "Save name and color"
+ ],
+ "serverset.folder": [
+  "Folder: {folder}",
+  "Directory: {folder}"
+ ],
+ "serverset.crashes": [
+  "When it crashes",
+  "Crash recovery"
+ ],
+ "serverset.auto_restart": [
+  "Restart after a crash",
+  "Auto-restart after a crash"
+ ],
+ "serverset.crash_details": [
+  "More options",
+  "Advanced"
+ ],
+ "serverset.restart_delay": [
+  "Wait before restart (seconds)",
+  "Restart delay (s)"
+ ],
+ "serverset.max_crashes": [
+  "Stop after this many crashes",
+  "Max crashes in window"
+ ],
+ "serverset.max_crashes_hint": [
+  "…within {minutes} minutes. Then auto restarts pause until you allow them.",
+  "Within {minutes} min; then auto-restart is blocked until cleared."
+ ],
+ "serverset.cpu": [
+  "CPU cores",
+  "CPU affinity"
+ ],
+ "serverset.cpu_unreadable": [
+  "Couldn't read this PC's cores.",
+  "Logical core count unavailable."
+ ],
+ "serverset.all_cores": [
+  "All cores ({count})",
+  "All logical cores ({count})"
+ ],
+ "serverset.core": [
+  "Core {n}",
+  "Core {n}"
+ ],
+ "serverset.core_shared": [
+  "also used by {names}",
+  "shared with {names}"
+ ],
+ "serverset.cores_now": [
+  "Using {cores} now.",
+  "Applied affinity: {cores}."
+ ],
+ "serverset.cores_unknown": [
+  "Cores in use now unknown: {reason}",
+  "Applied affinity unknown: {reason}"
+ ],
+ "serverset.every_core": [
+  "all cores",
+  "all cores"
+ ],
+ "serverset.half_cores": [
+  "Pick half",
+  "Select half"
+ ],
+ "serverset.pick_a_core": [
+  "Pick at least one core.",
+  "Pick at least one core."
+ ],
+ "serverset.cores_applied": [
+  "Saved and applied.",
+  "Saved and applied to the running process."
+ ],
+ "serverset.cores_next_start": [
+  "Saved. Used from the next start.",
+  "Saved; applied on next start."
+ ],
+ "serverset.cores_not_applied": [
+  "Saved, but not applied yet: {reason}",
+  "Saved; live apply failed: {reason}"
+ ],
+ "serverset.backups": [
+  "Backups",
+  "Backups"
+ ],
+ "serverset.keep_daily": [
+  "Daily backups to keep",
+  "keep_daily"
+ ],
+ "serverset.keep_weekly": [
+  "Weekly backups to keep",
+  "keep_weekly"
+ ],
+ "serverset.keep_monthly": [
+  "Monthly backups to keep",
+  "keep_monthly"
+ ],
+ "serverset.timing": [
+  "Start and stop limits",
+  "Timeouts"
+ ],
+ "serverset.start_timeout": [
+  "Stop trying to start after (seconds)",
+  "Start timeout (s)"
+ ],
+ "serverset.stop_timeout": [
+  "Force stop after (seconds)",
+  "Stop timeout (s)"
+ ],
+ "serverset.stop_timeout_hint": [
+  "If it hasn't stopped by then, it's forced to stop.",
+  "After this the process is killed."
+ ],
+ "serverset.remove": [
+  "Remove from list",
+  "Remove server"
+ ],
+ "serverset.remove_hint": [
+  "Removes it from the dashboard. Its folder, world and backups stay.",
+  "Unregisters the server. Files, worlds and backups are not touched."
+ ],
+ "serverset.remove_last": [
+  "The only server can't be removed.",
+  "The last server cannot be removed."
+ ],
+ "serverset.remove_button": [
+  "Remove from list",
+  "Remove"
+ ],
+ "serverset.remove_title": [
+  "Remove {name}?",
+  "Remove {name}?"
+ ],
+ "serverset.remove_body": [
+  "It leaves the dashboard. Nothing is deleted.",
+  "Unregisters the server; no files are deleted."
+ ],
+ "serverset.remove_confirm": [
+  "Remove",
+  "Remove"
+ ],
+ "serverset.removed": [
+  "{name} removed.",
+  "{name} removed from the list."
+ ],
+ "perf.range": [
+  "Time shown",
+  "Time shown"
+ ],
+ "perf.range_1": [
+  "1 hour",
+  "1h"
+ ],
+ "perf.range_6": [
+  "6 hours",
+  "6h"
+ ],
+ "perf.range_24": [
+  "1 day",
+  "24h"
+ ],
+ "perf.range_168": [
+  "1 week",
+  "7d"
+ ],
+ "perf.pc_cpu": [
+  "PC CPU use",
+  "PC CPU"
+ ],
+ "perf.pc_cpu_note": [
+  "All programs",
+  "All processes"
+ ],
+ "perf.server_cpu": [
+  "Server CPU use",
+  "Server CPU"
+ ],
+ "perf.server_cpu_note": [
+  "Share of the whole PC",
+  "Java process, % of all cores"
+ ],
+ "perf.server_cpu_all": [
+  "Can use all cores",
+  "Affinity: all cores"
+ ],
+ "perf.server_cpu_some": [
+  "Limited to {n} of {total} cores",
+  "Affinity: {n} of {total} cores"
+ ],
+ "perf.server_memory": [
+  "Server memory",
+  "Server memory (RSS)"
+ ],
+ "perf.of_limit": [
+  "of {limit} max",
+  "of {limit} -Xmx"
+ ],
+ "perf.not_running_note": [
+  "Shown while running",
+  "Read while running"
+ ],
+ "perf.pc_memory": [
+  "PC memory",
+  "PC RAM"
+ ],
+ "perf.pc_memory_note": [
+  "All programs",
+  "All processes"
+ ],
+ "perf.disk_free": [
+  "Free space",
+  "Disk free"
+ ],
+ "perf.on_server_drive": [
+  "On the server's drive",
+  "Server volume"
+ ],
+ "perf.unknown_because": [
+  "Unknown: {reason}",
+  "Unknown: {reason}"
+ ],
+ "perf.chart_cpu": [
+  "CPU use",
+  "CPU"
+ ],
+ "perf.chart_memory": [
+  "Server memory",
+  "Server memory (RSS)"
+ ],
+ "perf.chart_speed": [
+  "Game speed",
+  "TPS"
+ ],
+ "perf.chart_players": [
+  "Players",
+  "Players"
+ ],
+ "perf.chart_mspt": [
+  "Time per tick",
+  "MSPT"
+ ],
+ "perf.chart_pc_memory": [
+  "PC memory",
+  "PC RAM used"
+ ],
+ "perf.speed_unit": [
+  "of 20",
+  "ticks/s"
+ ],
+ "perf.players_unit": [
+  "players",
+  "players"
+ ],
+ "perf.limit": [
+  "Limit {limit}",
+  "-Xmx {limit}"
+ ],
+ "perf.mspt_budget": [
+  "50 ms: max per tick",
+  "50 ms budget"
+ ],
+ "perf.memory_empty": [
+  "Shown while running.",
+  "No samples: the server was not running."
+ ],
+ "perf.speed_not_bedrock": [
+  "Not available for Bedrock servers: they have no command that reports their speed.",
+  "Not applicable: BDS exposes no TPS/MSPT command."
+ ],
+ "perf.speed_empty": [
+  "No speed readings in this time.",
+  "No TPS samples in this range."
+ ],
+ "perf.players_empty": [
+  "No player counts in this time.",
+  "No player samples in this range."
+ ],
+ "perf.storage": [
+  "Disk use",
+  "Storage"
+ ],
+ "perf.storage_what": [
+  "What",
+  "What"
+ ],
+ "perf.storage_size": [
+  "Size",
+  "Size"
+ ],
+ "perf.storage_worlds": [
+  "Worlds",
+  "Worlds"
+ ],
+ "perf.storage_backups": [
+  "Backups",
+  "Backups"
+ ],
+ "perf.storage_mods": [
+  "Mods",
+  "Mods"
+ ],
+ "perf.storage_logs": [
+  "Logs",
+  "Logs"
+ ],
+ "perf.storage_other": [
+  "Other",
+  "Other"
+ ],
+ "perf.storage_free": [
+  "Free on drive",
+  "Free on volume"
+ ],
+ "perf.network": [
+  "Network",
+  "Network"
+ ],
+ "perf.net_in": [
+  "Received",
+  "Received"
+ ],
+ "perf.net_out": [
+  "Sent",
+  "Sent"
+ ],
+ "perf.speed_readings": [
+  "How speed is read",
+  "TPS source"
+ ],
+ "perf.health": [
+  "Health checks",
+  "Health checks"
+ ],
+ "health.all_ok": [
+  "All checks passed",
+  "ALL CHECKS VERIFIED"
+ ],
+ "health.partial": [
+  "Some checks couldn't run",
+  "PARTIALLY VERIFIED"
+ ],
+ "health.attention": [
+  "Needs attention",
+  "ATTENTION NEEDED"
+ ],
+ "health.limit": [
+  "limit {limit}",
+  "limit {limit}"
+ ],
+ "chart.no_samples": [
+  "No data for this time.",
+  "No samples in this range."
+ ],
+ "chart.aria": [
+  "{title}: latest {latest}, lowest {low}, highest {high}. Use the arrow keys to read each point.",
+  "{title}: latest {latest}, lowest {low}, highest {high}. Use the arrow keys to read each point."
+ ],
+ "tps.load_failed": [
+  "Couldn't read the speed settings: {error}",
+  "TPS status unavailable: {error}"
+ ],
+ "tps.status": [
+  "Status",
+  "Status"
+ ],
+ "tps.command": [
+  "Command",
+  "Command"
+ ],
+ "tps.detection": [
+  "Chosen",
+  "Detection"
+ ],
+ "tps.last_reading": [
+  "Last reading",
+  "Last reading"
+ ],
+ "tps.none_yet": [
+  "None yet",
+  "None yet"
+ ],
+ "tps.none": [
+  "None",
+  "None"
+ ],
+ "tps.manual": [
+  "Chosen by you",
+  "Manual"
+ ],
+ "tps.off": [
+  "Off",
+  "Disabled"
+ ],
+ "tps.auto": [
+  "Automatic",
+  "Auto-detected"
+ ],
+ "tps.auto_remembered": [
+  "Automatic (saved)",
+  "Auto (remembered)"
+ ],
+ "tps.manual_silent": [
+  "None: readings off",
+  "None (polling off)"
+ ],
+ "tps.state_active": [
+  "Working",
+  "Active"
+ ],
+ "tps.state_detecting": [
+  "Finding out…",
+  "Detecting…"
+ ],
+ "tps.state_unavailable": [
+  "Not available",
+  "Unavailable"
+ ],
+ "tps.state_disabled": [
+  "Off",
+  "Disabled"
+ ],
+ "tps.state_idle": [
+  "Waiting for server",
+  "Idle"
+ ],
+ "tps.configure": [
+  "Set up",
+  "Configure"
+ ],
+ "tps.change": [
+  "Change",
+  "Change command"
+ ],
+ "tps.detect_again": [
+  "Find again",
+  "Re-detect"
+ ],
+ "tps.detecting": [
+  "Finding…",
+  "Detecting…"
+ ],
+ "tps.needs_online": [
+  "Start the server first",
+  "Requires ONLINE"
+ ],
+ "tps.dialog_title": [
+  "How to read game speed",
+  "TPS command"
+ ],
+ "tps.dialog_body": [
+  "Minecraft doesn't share its speed. Pick how to ask, or let the app find out.",
+  "Command sent through the console to read TPS. Auto tries the known ones in order."
+ ],
+ "tps.opt_auto": [
+  "Find out automatically",
+  "Auto-detect"
+ ],
+ "tps.opt_tick": [
+  "Built in (Minecraft 1.20.3+)",
+  "tick query (vanilla 1.20.3+)"
+ ],
+ "tps.opt_carpet": [
+  "Carpet mod",
+  "tps (Carpet)"
+ ],
+ "tps.opt_spark": [
+  "Spark mod",
+  "spark tps"
+ ],
+ "tps.opt_custom": [
+  "Something else…",
+  "Custom…"
+ ],
+ "tps.opt_off": [
+  "Don't read speed",
+  "Off"
+ ],
+ "tps.custom_placeholder": [
+  "command",
+  "command"
+ ],
+ "tps.custom_label": [
+  "Your command",
+  "Custom command"
+ ],
+ "tps.saved_auto": [
+  "It will find out automatically.",
+  "Set to auto-detect."
+ ],
+ "tps.saved_off": [
+  "Speed readings off.",
+  "TPS polling disabled."
+ ],
+ "tps.saved_command": [
+  "Speed read with {command}.",
+  "TPS command set: {command}"
+ ],
+ "console.empty": [
+  "Nothing here yet",
+  "No output yet"
+ ],
+ "console.empty_hint": [
+  "Server messages show here while it runs.",
+  "Server stdout appears here while running."
+ ],
+ "console.no_match": [
+  "No matches",
+  "Nothing matches"
+ ],
+ "console.no_match_hint": [
+  "No lines contain “{filter}”.",
+  "No lines contain “{filter}”."
+ ],
+ "console.filter": [
+  "Filter",
+  "Filter"
+ ],
+ "console.filter_label": [
+  "Show lines containing",
+  "Filter lines"
+ ],
+ "console.follow": [
+  "Follow",
+  "Auto-scroll"
+ ],
+ "console.follow_title": [
+  "Show newest lines",
+  "Scroll to new output"
+ ],
+ "console.pause": [
+  "Pause",
+  "Pause"
+ ],
+ "console.pause_title": [
+  "Stop new lines for now",
+  "Freeze the view; output keeps buffering"
+ ],
+ "console.toggle_on": [
+  "{label} on",
+  "{label} on"
+ ],
+ "console.toggle_off": [
+  "{label} off",
+  "{label} off"
+ ],
+ "console.copy": [
+  "Copy",
+  "Copy"
+ ],
+ "console.copy_title": [
+  "Copy shown lines",
+  "Copy visible lines"
+ ],
+ "console.copied": [
+  "Copied.",
+  "Copied."
+ ],
+ "console.copy_unavailable": [
+  "This browser blocked copying.",
+  "Clipboard unavailable."
+ ],
+ "console.download": [
+  "Download",
+  "Download"
+ ],
+ "console.download_title": [
+  "Save shown lines as a file",
+  "Download visible lines as .log"
+ ],
+ "console.clear": [
+  "Clear",
+  "Clear"
+ ],
+ "console.clear_title": [
+  "Clear this view (log file stays)",
+  "Clear the buffer; latest.log is untouched"
+ ],
+ "console.clearing": [
+  "Clearing…",
+  "Clearing…"
+ ],
+ "console.cleared": [
+  "Console cleared.",
+  "Console cleared."
+ ],
+ "console.output_label": [
+  "Server console output",
+  "Server console output"
+ ],
+ "console.command_placeholder": [
+  "Command, e.g. say hello",
+  "Command (without /)"
+ ],
+ "console.command_label": [
+  "Command",
+  "Command to send"
+ ],
+ "console.send": [
+  "Send",
+  "Send"
+ ],
+ "console.sending": [
+  "Sending…",
+  "Sending…"
+ ],
+ "console.run_title": [
+  "Run {command}?",
+  "Run {command}?"
+ ],
+ "console.run": [
+  "Run",
+  "Run"
+ ],
+ "console.hint": [
+  "Commands go to Minecraft only, never Windows. Risky ones ask first.",
+  "Sent to the server's console only, never to Windows. Commands that affect players ask for confirmation."
+ ],
+ "console.load_more": [
+  "Show older lines",
+  "Load more"
+ ],
+ "mods.running_notice": [
+  "The server is {state}. Stop it to change mods.",
+  "Server is {state}: mod changes need it stopped."
+ ],
+ "mods.stop_first": [
+  "Stop the server to change mods.",
+  "Stop the server before changing mods."
+ ],
+ "mods.stop_first_short": [
+  "Stop server first",
+  "Stop the server first"
+ ],
+ "mods.status_ok": [
+  "Working",
+  "OK"
+ ],
+ "mods.status_warn": [
+  "Check",
+  "Warning"
+ ],
+ "mods.status_error": [
+  "Problem",
+  "Problem"
+ ],
+ "mods.status_off": [
+  "Off",
+  "Disabled"
+ ],
+ "mods.col_mod": [
+  "Mod",
+  "Mod"
+ ],
+ "mods.col_version": [
+  "Version",
+  "Version"
+ ],
+ "mods.col_minecraft": [
+  "Minecraft",
+  "Minecraft"
+ ],
+ "mods.col_status": [
+  "Status",
+  "Status"
+ ],
+ "mods.col_downloads": [
+  "Downloads",
+  "Downloads"
+ ],
+ "mods.col_when": [
+  "When",
+  "When"
+ ],
+ "mods.col_who": [
+  "Who",
+  "Who"
+ ],
+ "mods.col_action": [
+  "Action",
+  "Action"
+ ],
+ "mods.col_change": [
+  "Change",
+  "Change"
+ ],
+ "mods.col_result": [
+  "Result",
+  "Result"
+ ],
+ "mods.col_saved": [
+  "Saved",
+  "Saved"
+ ],
+ "mods.update_to": [
+  "Update: {version}",
+  "Update: {version}"
+ ],
+ "mods.update": [
+  "Update",
+  "Update"
+ ],
+ "mods.turn_off": [
+  "Turn off",
+  "Disable"
+ ],
+ "mods.turn_on": [
+  "Turn on",
+  "Enable"
+ ],
+ "mods.turned_off": [
+  "{name} turned off.",
+  "{name} disabled."
+ ],
+ "mods.turned_on": [
+  "{name} turned on.",
+  "{name} enabled."
+ ],
+ "mods.history": [
+  "Versions",
+  "Versions"
+ ],
+ "mods.remove": [
+  "Remove",
+  "Remove"
+ ],
+ "mods.none": [
+  "No mods",
+  "No mods installed"
+ ],
+ "mods.none_hint": [
+  "Search below to add some.",
+  "Search Modrinth below, or put .jar files in the mods folder."
+ ],
+ "mods.add": [
+  "Add mods",
+  "Add mods"
+ ],
+ "mods.search": [
+  "Search",
+  "Search"
+ ],
+ "mods.searching": [
+  "Searching…",
+  "Searching…"
+ ],
+ "mods.search_placeholder": [
+  "Search mods",
+  "Search Modrinth"
+ ],
+ "mods.search_label": [
+  "Search mods",
+  "Search Modrinth"
+ ],
+ "mods.search_hint": [
+  "Showing Fabric mods for Minecraft {version}.",
+  "Results are filtered to Fabric, game version {version}."
+ ],
+ "mods.nothing_found": [
+  "Nothing found.",
+  "Nothing found."
+ ],
+ "mods.install": [
+  "Install",
+  "Install"
+ ],
+ "mods.about_checks": [
+  "How mods are checked",
+  "About the checks"
+ ],
+ "mods.limits": [
+  "Limits: {limits}",
+  "Limitations: {limits}"
+ ],
+ "mods.change_history": [
+  "Changes",
+  "Change history"
+ ],
+ "mods.no_history": [
+  "No changes yet.",
+  "No history."
+ ],
+ "mods.no_build": [
+  "No version of this mod fits this server.",
+  "No compatible version found."
+ ],
+ "mods.install_title": [
+  "Install mod?",
+  "Install this mod?"
+ ],
+ "mods.install_what": [
+  "{name} {version}",
+  "{name} {version}"
+ ],
+ "mods.install_size": [
+  "Size: {size}",
+  "Size: {size}"
+ ],
+ "mods.install_minecraft": [
+  "For Minecraft {versions}",
+  "Game versions: {versions}"
+ ],
+ "mods.install_file": [
+  "File: {file}",
+  "File: {file}"
+ ],
+ "mods.install_side": [
+  "Server side: {side}",
+  "Server side: {side}"
+ ],
+ "mods.install_licence": [
+  "Licence: {licence}",
+  "Licence: {licence}"
+ ],
+ "mods.install_checked": [
+  "The download is checked first.",
+  "The SHA-512 from Modrinth is verified before the file is placed."
+ ],
+ "mods.install_confirm": [
+  "Install",
+  "Install"
+ ],
+ "mods.installed_toast": [
+  "{name} {version} installed. Loads at next start.",
+  "Installed {name} {version}. Loaded by Minecraft: not verified until the server starts."
+ ],
+ "mods.deps_missing": [
+  "This mod needs others. See the list at the top.",
+  "Required dependencies are still missing."
+ ],
+ "mods.update_title": [
+  "Update {name}?",
+  "Update {name}?"
+ ],
+ "mods.update_archived": [
+  "The old version is kept so you can go back.",
+  "The current file is archived and can be rolled back."
+ ],
+ "mods.updated_toast": [
+  "Updated to {version}. Loads at next start.",
+  "Updated to {version}; loaded on next start."
+ ],
+ "mods.remove_title": [
+  "Remove {name}?",
+  "Remove {name}?"
+ ],
+ "mods.needed_by": [
+  "{name} needs it ({requires})",
+  "{name} requires it ({requires})"
+ ],
+ "mods.not_needed": [
+  "No other mod needs it.",
+  "No installed mod depends on it."
+ ],
+ "mods.remove_kept": [
+  "A copy is kept so you can put it back.",
+  "The file is archived, not deleted."
+ ],
+ "mods.removed_toast": [
+  "{name} removed.",
+  "{name} removed."
+ ],
+ "mods.versions_title": [
+  "Versions of {name}",
+  "Archived versions: {name}"
+ ],
+ "mods.current": [
+  "In use",
+  "Current"
+ ],
+ "mods.file_missing": [
+  "File missing",
+  "File missing"
+ ],
+ "mods.rollback": [
+  "Use this version",
+  "Roll back"
+ ],
+ "mods.rollback_title": [
+  "Use {version}?",
+  "Roll back to {version}?"
+ ],
+ "mods.rollback_body": [
+  "The current version is kept too.",
+  "The current file is archived first."
+ ],
+ "mods.rolled_back": [
+  "Now on {version}.",
+  "Rolled back to {version}."
+ ],
+ "mods.no_versions": [
+  "No saved versions.",
+  "No archived versions."
+ ],
+ "mods.installed.one": [
+  "{count} mod installed",
+  "{count} mod installed"
+ ],
+ "mods.installed.other": [
+  "{count} mods installed",
+  "{count} mods installed"
+ ],
+ "mods.problems.one": [
+  "{count} mod problem",
+  "{count} mod problem"
+ ],
+ "mods.problems.other": [
+  "{count} mod problems",
+  "{count} mod problems"
+ ],
+ "mods.install_deps.one": [
+  "Also install the {count} needed mod",
+  "Also install {count} required dependency"
+ ],
+ "mods.install_deps.other": [
+  "Also install the {count} needed mods",
+  "Also install {count} required dependencies"
+ ],
+ "deps.checking": [
+  "Checking mod needs…",
+  "Resolving dependencies…"
+ ],
+ "deps.check_failed": [
+  "Couldn't check mod needs.",
+  "Dependency check failed."
+ ],
+ "deps.two_names": [
+  "{a} and {b}",
+  "{a} and {b}"
+ ],
+ "deps.many_names": [
+  "{a}, {b} and {n} more",
+  "{a}, {b} and {n} more"
+ ],
+ "deps.status_missing": [
+  "Missing",
+  "Missing"
+ ],
+ "deps.status_incompatible": [
+  "Wrong version",
+  "Wrong version"
+ ],
+ "deps.status_disabled": [
+  "Turned off",
+  "Disabled"
+ ],
+ "deps.status_platform_incompatible": [
+  "Won't work here",
+  "Incompatible"
+ ],
+ "deps.status_unverified": [
+  "Not checked",
+  "Not checked"
+ ],
+ "deps.status_satisfied": [
+  "Installed",
+  "Installed"
+ ],
+ "deps.status_platform_ok": [
+  "OK",
+  "OK"
+ ],
+ "deps.optional": [
+  "Optional",
+  "Optional"
+ ],
+ "deps.required_by": [
+  "Needed by {names}.",
+  "Required by {names}."
+ ],
+ "deps.recommended_by": [
+  "Suggested by {names}.",
+  "Recommended by {names}."
+ ],
+ "deps.version": [
+  "Version: {range}.",
+  "Range: {range}."
+ ],
+ "deps.installed_version": [
+  "Installed: {version}.",
+  "Installed: {version}."
+ ],
+ "deps.not_on_modrinth": [
+  "Not on Modrinth. May need adding by hand.",
+  "Not on Modrinth; install manually."
+ ],
+ "deps.view_on_modrinth": [
+  "View on Modrinth",
+  "View on Modrinth"
+ ],
+ "deps.all_ok": [
+  "Every mod has what it needs.",
+  "All declared dependencies are installed."
+ ],
+ "deps.problems": [
+  "Some mods are missing needed mods",
+  "Dependency problems"
+ ],
+ "deps.install_missing": [
+  "Install missing ({n})",
+  "Install missing dependencies ({n})"
+ ],
+ "deps.title": [
+  "Required mods",
+  "Dependencies"
+ ],
+ "deps.optional_title": [
+  "Optional mods ({n})",
+  "Optional dependencies ({n})"
+ ],
+ "deps.optional_hint": [
+  "Not needed, but can add features.",
+  "Not required; some features may depend on them."
+ ],
+ "deps.plan_intro": [
+  "These download from Modrinth and are checked first:",
+  "Downloaded from Modrinth and verified against published hashes:"
+ ],
+ "deps.needed_by": [
+  "Needed by {names}.",
+  "Required by {names}."
+ ],
+ "deps.range_unchecked": [
+  "Couldn't confirm this version fits.",
+  "Range not verifiable against this version."
+ ],
+ "deps.nothing_automatic": [
+  "Nothing can be installed automatically.",
+  "Nothing resolvable automatically."
+ ],
+ "deps.not_automatic": [
+  "Not installed automatically:",
+  "Not resolvable automatically:"
+ ],
+ "deps.already_installed": [
+  "Already installed: {names}.",
+  "Already installed: {names}."
+ ],
+ "deps.plan_safety": [
+  "Your mods aren't replaced. Each install can be undone.",
+  "Existing mods are not replaced. Each download is archived and can be rolled back."
+ ],
+ "deps.planning": [
+  "Checking…",
+  "Checking…"
+ ],
+ "deps.installing": [
+  "Installing…",
+  "Installing…"
+ ],
+ "deps.plan_failed": [
+  "Couldn't plan the install. {error}",
+  "Planning failed: {error}"
+ ],
+ "deps.nothing_title": [
+  "Nothing to install automatically",
+  "Nothing to install automatically"
+ ],
+ "deps.install_confirm": [
+  "Install {n}",
+  "Install {n}"
+ ],
+ "deps.installed_toast": [
+  "Installed {names}. They load at next start.",
+  "Installed {names}. Loaded by Minecraft: not verified until the server starts."
+ ],
+ "deps.failed_toast": [
+  "{name} couldn't be installed. {error}",
+  "{name} failed: {error}"
+ ],
+ "deps.still_missing": [
+  "Still missing: {names}.",
+  "Still missing: {names}."
+ ],
+ "deps.install_failed": [
+  "Couldn't install them. {error}",
+  "Install failed: {error}"
+ ],
+ "deps.missing.one": [
+  "{count} needed mod is missing",
+  "{count} missing dependency"
+ ],
+ "deps.missing.other": [
+  "{count} needed mods are missing",
+  "{count} missing dependencies"
+ ],
+ "deps.install_title.one": [
+  "Install {count} mod?",
+  "Install {count} mod?"
+ ],
+ "deps.install_title.other": [
+  "Install {count} mods?",
+  "Install {count} mods?"
+ ],
+ "backups.last_change": [
+  "Last change",
+  "Last change"
+ ],
+ "backups.last_change_body": [
+  "{title}, {when}. Undo restores the copy {backup} made just before.",
+  "{title}, {when}. Undo restores the safety copy {backup} taken just before it."
+ ],
+ "backups.undo_change": [
+  "Undo change",
+  "Undo this change"
+ ],
+ "backups.started": [
+  "Backing up. Big worlds take longer.",
+  "Backup started. Large worlds take a while."
+ ],
+ "backups.verified_toast": [
+  "Backup saved and checked: {name} ({entries} files)",
+  "Backup verified: {name} ({entries} entries)"
+ ],
+ "backups.save_world": [
+  "Save world",
+  "Run save-all"
+ ],
+ "backups.save_sent": [
+  "Saving world.",
+  "save-all flush sent"
+ ],
+ "backups.worlds": [
+  "Worlds",
+  "Worlds"
+ ],
+ "backups.col_world": [
+  "World",
+  "World"
+ ],
+ "backups.col_size": [
+  "Size",
+  "Size"
+ ],
+ "backups.col_modified": [
+  "Last changed",
+  "Last modified"
+ ],
+ "backups.col_last_backup": [
+  "Last backup",
+  "Last backup"
+ ],
+ "backups.col_name": [
+  "Name",
+  "Name"
+ ],
+ "backups.col_type": [
+  "Type",
+  "Type"
+ ],
+ "backups.col_created": [
+  "Made",
+  "Created"
+ ],
+ "backups.world_missing": [
+  "Missing",
+  "not present"
+ ],
+ "backups.list": [
+  "Backups",
+  "Backups"
+ ],
+ "backups.keeping": [
+  "Old backups delete automatically. Kept: last {daily} days, {weekly} weeks, {monthly} months.",
+  "Retention: {daily} daily, {weekly} weekly, {monthly} monthly."
+ ],
+ "backups.kind_manual": [
+  "Manual",
+  "manual"
+ ],
+ "backups.kind_scheduled": [
+  "Scheduled",
+  "scheduled"
+ ],
+ "backups.kind_safety": [
+  "Safety copy",
+  "safety"
+ ],
+ "backups.verify": [
+  "Check",
+  "Verify"
+ ],
+ "backups.checking": [
+  "Checking…",
+  "Verifying…"
+ ],
+ "backups.verify_ok": [
+  "Backup is complete and OK.",
+  "Backup verified: archive and checksum are intact"
+ ],
+ "backups.verify_failed": [
+  "Backup is damaged: {reason}",
+  "Verify failed: {reason}"
+ ],
+ "backups.download": [
+  "Download",
+  "Download"
+ ],
+ "backups.restore": [
+  "Restore",
+  "Restore"
+ ],
+ "backups.delete": [
+  "Delete",
+  "Delete"
+ ],
+ "backups.delete_title": [
+  "Delete {name}?",
+  "Delete {name}?"
+ ],
+ "backups.delete_body": [
+  "This backup is deleted for good.",
+  "The archive file is deleted from disk. This cannot be undone."
+ ],
+ "backups.delete_confirm": [
+  "Delete",
+  "Delete backup"
+ ],
+ "backups.deleted": [
+  "Backup deleted",
+  "Backup deleted"
+ ],
+ "backups.none": [
+  "No backups yet",
+  "No backups yet"
+ ],
+ "backups.none_hint": [
+  "Make one so you can undo mistakes.",
+  "Create one with Back up now or a schedule."
+ ],
+ "backups.preparing": [
+  "Preparing download…",
+  "Preparing download…"
+ ],
+ "backups.download_failed": [
+  "Download failed",
+  "Download failed"
+ ],
+ "backups.restore_title": [
+  "Restore backup?",
+  "Restore this backup?"
+ ],
+ "backups.restore_question": [
+  "Restore {name} from {when}?",
+  "Restore {name} from {when}?"
+ ],
+ "backups.start_after": [
+  "Start the server after",
+  "Start the server when the restore finishes"
+ ],
+ "backups.restore_confirm": [
+  "Check and restore",
+  "Verify and restore"
+ ],
+ "backups.restoring": [
+  "Restoring. Stopping the server first.",
+  "Restoring. The server will stop first."
+ ],
+ "backups.restored": [
+  "{name} restored. The old world was saved as {safety}.",
+  "Restored {name}. Safety copy: {safety}"
+ ],
+ "backups.restore_job": [
+  "Restoring {name}",
+  "Restoring {name}"
+ ],
+ "backups.undo": [
+  "Undo",
+  "Undo"
+ ],
+ "backups.undo_title": [
+  "Undo change?",
+  "Undo this change?"
+ ],
+ "backups.undo_body": [
+  "{title} will be undone by restoring {backup}. The server stops first, and a new safety copy is made.",
+  "{title} will be undone by restoring {backup}. The server stops first, and a new safety copy is taken, so this can be undone too."
+ ],
+ "backups.undoing": [
+  "Undoing. Stopping the server first.",
+  "Undoing. The server will stop first."
+ ],
+ "backups.undone": [
+  "Undone. {name} is back.",
+  "Undone: {name} is back."
+ ],
+ "players.online": [
+  "Online now ({count} of {max})",
+  "Online now ({count}/{max})"
+ ],
+ "players.col_player": [
+  "Player",
+  "Player"
+ ],
+ "players.col_uuid": [
+  "UUID",
+  "UUID"
+ ],
+ "players.col_session": [
+  "Playing for",
+  "This session"
+ ],
+ "players.col_first": [
+  "First seen",
+  "First seen"
+ ],
+ "players.col_last": [
+  "Last seen",
+  "Last seen"
+ ],
+ "players.col_sessions": [
+  "Times joined",
+  "Sessions"
+ ],
+ "players.col_total": [
+  "Total time",
+  "Total playtime"
+ ],
+ "players.nobody": [
+  "Nobody is online",
+  "Nobody is online"
+ ],
+ "players.everyone": [
+  "Everyone seen",
+  "Everyone seen on this server"
+ ],
+ "players.none": [
+  "No players yet",
+  "No players recorded yet"
+ ],
+ "players.none_hint": [
+  "Players show here after they join.",
+  "Populated from join/leave log lines."
+ ],
+ "players.no_ip": [
+  "IP addresses are never saved.",
+  "Player IP addresses are deliberately not recorded."
+ ],
+ "schedules.add": [
+  "Add schedule",
+  "Add a schedule"
+ ],
+ "schedules.name": [
+  "Name",
+  "Name"
+ ],
+ "schedules.name_placeholder": [
+  "Nightly backup",
+  "Nightly backup"
+ ],
+ "schedules.task": [
+  "What to do",
+  "Task"
+ ],
+ "schedules.repeat": [
+  "Repeat",
+  "Repeat"
+ ],
+ "schedules.when": [
+  "When",
+  "When"
+ ],
+ "schedules.kind_daily": [
+  "Every day",
+  "daily"
+ ],
+ "schedules.kind_weekly": [
+  "Every week",
+  "weekly"
+ ],
+ "schedules.kind_interval": [
+  "Every few hours",
+  "interval"
+ ],
+ "schedules.when_placeholder": [
+  "23:00 / sun 04:00 / 6h",
+  "23:00 / sun 04:00 / 6h"
+ ],
+ "schedules.when_hint": [
+  "Daily: a time like 23:00. Weekly: a day and time like sun 04:00. Every few hours: a gap like 6h.",
+  "daily: HH:MM. weekly: ddd HH:MM. interval: Nh or Nm."
+ ],
+ "schedules.create": [
+  "Create",
+  "Create schedule"
+ ],
+ "schedules.created": [
+  "Schedule created",
+  "Schedule created"
+ ],
+ "schedules.list": [
+  "Schedules",
+  "Schedules"
+ ],
+ "schedules.col_name": [
+  "Name",
+  "Name"
+ ],
+ "schedules.col_task": [
+  "Task",
+  "Task"
+ ],
+ "schedules.col_when": [
+  "When",
+  "When"
+ ],
+ "schedules.col_next": [
+  "Next run",
+  "Next run"
+ ],
+ "schedules.col_result": [
+  "Last run",
+  "Last result"
+ ],
+ "schedules.every_daily": [
+  "Every day at {expr}",
+  "daily {expr}"
+ ],
+ "schedules.every_weekly": [
+  "Every week, {expr}",
+  "weekly {expr}"
+ ],
+ "schedules.every_interval": [
+  "Every {expr}",
+  "interval {expr}"
+ ],
+ "schedules.off": [
+  "Off",
+  "disabled"
+ ],
+ "schedules.turn_off": [
+  "Turn off",
+  "Disable"
+ ],
+ "schedules.turn_on": [
+  "Turn on",
+  "Enable"
+ ],
+ "schedules.run_now": [
+  "Run now",
+  "Run now"
+ ],
+ "schedules.delete": [
+  "Delete",
+  "Delete"
+ ],
+ "schedules.delete_title": [
+  "Delete {name}?",
+  "Delete the schedule {name}?"
+ ],
+ "schedules.delete_body": [
+  "It won't run again. Its backups are kept.",
+  "The schedule is removed. Its past results and backups are kept."
+ ],
+ "schedules.deleted": [
+  "Schedule deleted",
+  "Schedule deleted"
+ ],
+ "schedules.none": [
+  "No schedules",
+  "No schedules"
+ ],
+ "schedules.none_hint": [
+  "Add one above to back up or restart automatically.",
+  "Nothing is scheduled."
+ ],
+ "events.title": [
+  "Recent events",
+  "Recent events"
+ ],
+ "events.none": [
+  "No events yet",
+  "No events recorded"
+ ],
+ "crashes.title": [
+  "Crash history",
+  "Crash history"
+ ],
+ "crashes.none": [
+  "No crashes.",
+  "No crashes recorded."
+ ],
+ "crashes.col_when": [
+  "When",
+  "When"
+ ],
+ "crashes.col_code": [
+  "Exit code",
+  "Exit code"
+ ],
+ "crashes.col_cause": [
+  "Likely cause",
+  "Likely cause"
+ ],
+ "crashes.col_confidence": [
+  "How sure",
+  "Confidence"
+ ],
+ "crashes.details": [
+  "Details",
+  "Details"
+ ],
+ "crashes.conf_confirmed": [
+  "Certain",
+  "confirmed"
+ ],
+ "crashes.conf_likely": [
+  "Likely",
+  "likely"
+ ],
+ "crashes.conf_possible": [
+  "Possible",
+  "possible"
+ ],
+ "crashes.conf_unknown": [
+  "Not sure",
+  "unknown"
+ ],
+ "crashes.cause_unknown": [
+  "Not known",
+  "Unknown"
+ ],
+ "crashes.dialog_title": [
+  "Crash on {when}",
+  "Crash on {when}"
+ ],
+ "crashes.suspect_mods": [
+  "Mods named in the log: ",
+  "Installed mods mentioned in the log: "
+ ],
+ "crashes.suspect_hint": [
+  " (being named isn't proof)",
+  " - appearing in a stack trace is not evidence of causing the crash"
+ ],
+ "crashes.evidence": [
+  "Lines from the log",
+  "Evidence"
+ ],
+ "crashes.context": [
+  "More about the crash",
+  "Context"
+ ],
+ "crashes.f_code": [
+  "Exit code",
+  "Exit code"
+ ],
+ "crashes.f_minecraft": [
+  "Minecraft",
+  "Minecraft"
+ ],
+ "crashes.f_loader": [
+  "Fabric loader",
+  "Fabric loader"
+ ],
+ "crashes.f_java": [
+  "Java",
+  "Java"
+ ],
+ "crashes.f_players": [
+  "Players online",
+  "Players online"
+ ],
+ "crashes.f_report": [
+  "Crash report",
+  "Crash report"
+ ],
+ "crashes.f_log": [
+  "Saved log",
+  "Saved log"
+ ],
+ "crashes.no_players": [
+  "Nobody",
+  "none"
+ ],
+ "crashes.no_report": [
+  "None written",
+  "none written by Minecraft"
+ ],
+ "crashes.rule_match": [
+  "A best guess from the log, not a certainty. Check the lines above first.",
+  "This is a rule match on the log text, not a certainty. Check the evidence before acting."
+ ],
+ "security.agent": [
+  "This app",
+  "Agent"
+ ],
+ "security.connected": [
+  "Connected",
+  "Connected"
+ ],
+ "security.agent_note": [
+  "This page is connected to it",
+  "this dashboard is talking to it"
+ ],
+ "security.https": [
+  "Secure connection",
+  "HTTPS"
+ ],
+ "security.https_off": [
+  "Off",
+  "disabled"
+ ],
+ "security.https_off_note": [
+  "Only this PC can connect",
+  "plain HTTP - loopback only"
+ ],
+ "security.cert_loaded": [
+  "On",
+  "certificate loaded"
+ ],
+ "security.issued_by": [
+  "Issued by {issuer}",
+  "Issued by {issuer}"
+ ],
+ "security.unknown_issuer": [
+  "an unknown issuer",
+  "unknown issuer"
+ ],
+ "security.cert_unreadable": [
+  "Couldn't read the certificate",
+  "the certificate could not be read"
+ ],
+ "security.expiry": [
+  "Certificate expires",
+  "Certificate expiry"
+ ],
+ "security.expiry_unreadable": [
+  "Couldn't read",
+  "could not be read from the certificate file"
+ ],
+ "security.days_left": [
+  "days left",
+  "days remaining"
+ ],
+ "add.ways": [
+  "How to add a server",
+  "How to add a server"
+ ],
+ "add.way_new": [
+  "New server",
+  "New server"
+ ],
+ "add.way_have": [
+  "Server I already have",
+  "Existing server folder"
+ ],
+ "new.step_edition": [
+  "Which Minecraft?",
+  "Which edition?"
+ ],
+ "new.edition": [
+  "Which Minecraft",
+  "Edition"
+ ],
+ "new.java": [
+  "Java Edition",
+  "Java Edition"
+ ],
+ "new.java_hint": [
+  "The PC version, bought from Minecraft.net. Mods and plugins work here.",
+  "The JVM editions. Mods, plugins and Modrinth apply to these."
+ ],
+ "new.bedrock": [
+  "Bedrock Edition",
+  "Bedrock Edition"
+ ],
+ "new.bedrock_hint": [
+  "Phones, tablets, consoles and Windows Bedrock. Uses Bedrock add-ons, not mods.",
+  "Mojang's Bedrock Dedicated Server. Behavior and resource packs; no mods, plugins or Modrinth."
+ ],
+ "new.bedrock_versions": [
+  "Mojang only offers the newest Bedrock version. Older versions are only available if this app downloaded and kept them before.",
+  "Mojang's links service lists only the latest build. Older builds are offered only from copies this app kept."
+ ],
+ "new.bedrock_terms_intro": [
+  "Mojang asks you to agree to Minecraft's rules and its Privacy Policy before the Bedrock server is downloaded. Read them, then tick the box. Nobody can do this for you.",
+  "The Bedrock server is downloaded only after you accept the Minecraft EULA and Privacy Policy. Who accepted and when is recorded."
+ ],
+ "new.privacy_link": [
+  "Read the Privacy Policy",
+  "Open the Microsoft Privacy Policy"
+ ],
+ "new.bedrock_tick": [
+  "I agree to Minecraft's rules and the Privacy Policy",
+  "I accept the Minecraft EULA and the Privacy Policy"
+ ],
+ "new.need_bedrock_terms": [
+  "Tick the box to agree to Minecraft's rules and the Privacy Policy.",
+  "The EULA and Privacy Policy have to be accepted first."
+ ],
+ "new.bedrock_port_hint": [
+  "Port {port} is free, so players will join on it. Bedrock uses UDP, and the next port is kept for IPv6.",
+  "UDP {port} (IPv4) and the next port (IPv6) are free and will be written to server.properties."
+ ],
+ "new.bedrock_no_port": [
+  "No free port was found near 19132. Free one up, then try again.",
+  "No free UDP port pair near 19132."
+ ],
+ "new.step_kind": [
+  "Which kind of server?",
+  "Which server type?"
+ ],
+ "new.kind_hint": [
+  "They all run Minecraft. What differs is what you can add to them.",
+  "All of these are Java servers. They differ in loader, add-on format and version source."
+ ],
+ "new.recommended": [
+  "Recommended",
+  "Recommended"
+ ],
+ "new.rec_why": [
+  "{name} is the one to pick if you are not sure: it is quick to set up, and most mods on Modrinth are made for it.",
+  "{name} is the default: fast loader, broadest Modrinth coverage, Geyser support."
+ ],
+ "new.col_kind": [
+  "Kind",
+  "Type"
+ ],
+ "new.col_best_for": [
+  "Best for",
+  "Best for"
+ ],
+ "new.col_content": [
+  "You can add",
+  "Add-ons"
+ ],
+ "new.col_modrinth": [
+  "Install from Modrinth",
+  "Modrinth"
+ ],
+ "new.col_crossplay": [
+  "Bedrock players can join",
+  "Geyser crossplay"
+ ],
+ "new.col_ease": [
+  "How easy",
+  "Setup difficulty"
+ ],
+ "new.col_loader": [
+  "Loader",
+  "Loader"
+ ],
+ "new.col_metadata": [
+  "Add-on file",
+  "Metadata file"
+ ],
+ "new.col_source": [
+  "Versions from",
+  "Version source"
+ ],
+ "new.col_choose": [
+  "Pick",
+  "Pick"
+ ],
+ "new.choose": [
+  "Choose",
+  "Choose"
+ ],
+ "new.chosen": [
+  "Chosen",
+  "Chosen"
+ ],
+ "new.content_mods": [
+  "Mods",
+  "Mods"
+ ],
+ "new.content_plugins": [
+  "Plugins",
+  "Plugins"
+ ],
+ "new.content_none": [
+  "Nothing",
+  "None"
+ ],
+ "new.ease_easy": [
+  "Easy",
+  "Easy"
+ ],
+ "new.ease_medium": [
+  "Some setup",
+  "Moderate"
+ ],
+ "new.ease_advanced": [
+  "Fiddly",
+  "Advanced"
+ ],
+ "new.step_version": [
+  "Which Minecraft version?",
+  "Which Minecraft version?"
+ ],
+ "new.version": [
+  "Minecraft version",
+  "Minecraft version"
+ ],
+ "new.version_hint": [
+  "From {source}. The newest finished version is picked for you.",
+  "From {source}. Latest stable is preselected."
+ ],
+ "new.show_snapshots": [
+  "Show unfinished versions",
+  "Show snapshots"
+ ],
+ "new.snapshot_option": [
+  "{version} (unfinished)",
+  "{version} (snapshot)"
+ ],
+ "new.loader_choice": [
+  "Loader version",
+  "Loader version"
+ ],
+ "new.loader_version": [
+  "{loader} version",
+  "{loader} version"
+ ],
+ "new.loader_hint": [
+  "The newest one is picked. Change it only if a mod needs an older one.",
+  "Latest is preselected; pin an older build only when a mod requires it."
+ ],
+ "new.step_details": [
+  "Name it and pick a folder",
+  "Name, folder, color and memory"
+ ],
+ "new.folder": [
+  "Folder on this PC",
+  "Server folder"
+ ],
+ "new.folder_hint": [
+  "A new or empty folder. The server's files go here.",
+  "Must be new or empty; the parent folder has to exist."
+ ],
+ "new.memory": [
+  "Memory for this server",
+  "Heap size (-Xmx), MB"
+ ],
+ "new.port_hint": [
+  "Port {port} is free, so this server will use it.",
+  "Port {port} is free and will be written to server.properties."
+ ],
+ "new.step_rules": [
+  "Minecraft's rules",
+  "Minecraft EULA"
+ ],
+ "new.eula_intro": [
+  "Mojang asks every server owner to agree to Minecraft's rules. Read them, then tick the box. Nobody can do this for you.",
+  "Mojang requires the EULA to be accepted before a server will start. eula.txt stays eula=false until you tick this."
+ ],
+ "new.eula_link": [
+  "Read Minecraft's rules",
+  "Open the Minecraft EULA"
+ ],
+ "new.eula_tick": [
+  "I agree to Minecraft's rules",
+  "I accept the Minecraft EULA"
+ ],
+ "new.java_unknown": [
+  "Java couldn't be found on this PC, so a Minecraft server can't run yet.",
+  "No Java runtime was detected, so the server cannot start."
+ ],
+ "new.java_old": [
+  "Minecraft {version} needs Java {need} or newer, and this PC has Java {have}. Install a newer Java first, then create the server.",
+  "Minecraft {version} requires Java {need}+; detected Java {have}."
+ ],
+ "new.java_get": [
+  "Get Java",
+  "Download Java (Temurin)"
+ ],
+ "new.create": [
+  "Create server",
+  "Create server"
+ ],
+ "new.create_hint": [
+  "It is downloaded and set up, not started.",
+  "Downloads and installs; the process is not started."
+ ],
+ "new.creating": [
+  "Creating…",
+  "Creating…"
+ ],
+ "new.created": [
+  "{name} is ready. Press Start when you want to play.",
+  "{name} created. Start it to confirm its version."
+ ],
+ "new.need_version": [
+  "Pick a kind of server and a version first.",
+  "Pick a type and a version first."
+ ],
+ "new.need_eula": [
+  "Tick the box to agree to Minecraft's rules.",
+  "The EULA has to be accepted first."
+ ],
+ "new.unverified": [
+  "This download had no checksum published, so it could not be checked. It is recorded as unchecked.",
+  "No published checksum for this artifact, so it is recorded as unverified."
+ ],
+ "types.vanilla.best": [
+  "Playing Minecraft exactly as Mojang made it, with nothing added.",
+  "Mojang's own server, unmodified."
+ ],
+ "types.fabric.best": [
+  "Most mods, with a quick start-up. The usual choice.",
+  "Broad mod coverage, fast loader, light footprint."
+ ],
+ "types.quilt.best": [
+  "Fabric mods plus Quilt's own. A smaller community.",
+  "Fabric-compatible loader with its own extensions; smaller ecosystem."
+ ],
+ "types.forge.best": [
+  "Big older modpacks that were only ever made for Forge.",
+  "Long-standing mod ecosystem; many 1.12 to 1.20 packs are Forge-only."
+ ],
+ "types.neoforge.best": [
+  "Newer Forge-style mods, for Minecraft 1.20.2 and up.",
+  "The Forge fork used from 1.20.2 onward."
+ ],
+ "types.bedrock.best": [
+  "Friends on phones, tablets, Xbox, PlayStation and Switch, with Bedrock add-ons.",
+  "Mojang's Bedrock Dedicated Server: Bedrock clients only, behavior and resource packs."
+ ],
+ "types.paper.best": [
+  "Plugins, more players at once, and no mods needed on anyone's PC.",
+  "Bukkit plugin API with heavy server-side optimisation; clients need nothing."
+ ],
+ "types.purpur.best": [
+  "Paper's plugins plus a lot of settings to fiddle with.",
+  "Paper fork adding extensive gameplay configuration."
+ ],
+ "version.title": [
+  "Kind and version",
+  "Server type and version"
+ ],
+ "version.kind": [
+  "Kind of server",
+  "Type"
+ ],
+ "version.minecraft": [
+  "Minecraft version",
+  "Minecraft version"
+ ],
+ "version.seen_in": [
+  "Seen in",
+  "Reported by"
+ ],
+ "version.not_seen_yet": [
+  "The version is only known once this server starts and its own console says it.",
+  "The version comes from the console; it stays unknown until the server reports it."
+ ],
+ "version.type_disagrees": [
+  "The console says this is {console}, but it is set up as {set}. Nothing was changed.",
+  "The console reported {console}; the configured type is {set}. Not changed automatically."
+ ],
+ "version.pending": [
+  "Set up as {version}, waiting for the server to confirm it.",
+  "Installed {version}; awaiting console confirmation."
+ ],
+ "version.pending_note": [
+  "Start the server and its console will say which version it really is.",
+  "The version is only recorded once the console prints it."
+ ],
+ "version.eula_needed": [
+  "This server won't start until Minecraft's rules are agreed to.",
+  "The server refuses to start: eula.txt says eula=false."
+ ],
+ "version.eula_accept": [
+  "Agree to the rules",
+  "Accept the EULA"
+ ],
+ "version.accepting": [
+  "Saving…",
+  "Writing eula.txt…"
+ ],
+ "version.eula_done": [
+  "Saved. The server can start now.",
+  "eula.txt updated."
+ ],
+ "version.change_opener": [
+  "Change the kind or version",
+  "Change type or version"
+ ],
+ "version.change_kind": [
+  "Change to",
+  "Change type to"
+ ],
+ "version.change_to": [
+  "Version",
+  "Minecraft version"
+ ],
+ "version.loader_pick": [
+  "Loader version",
+  "Loader version"
+ ],
+ "version.check": [
+  "Check first",
+  "Run preflight"
+ ],
+ "version.checking": [
+  "Checking…",
+  "Checking…"
+ ],
+ "version.only_java": [
+  "A Java server can't become a Bedrock server. For Bedrock, create a new server with the + tab.",
+  "Java to Bedrock isn't a type change; create a new Bedrock server instead."
+ ],
+ "version.only_bedrock": [
+  "A Bedrock server can't become a Java server. For Java, create a new server with the + tab.",
+  "Bedrock to Java isn't a type change; create a new Java server instead."
+ ],
+ "version.check_first": [
+  "Press Check first, so you can see what will happen.",
+  "Run the preflight first."
+ ],
+ "version.change": [
+  "Make the change",
+  "Apply the change"
+ ],
+ "version.changing": [
+  "Changing…",
+  "Changing…"
+ ],
+ "version.changed": [
+  "Set up as {version}. Start the server and its console will confirm it.",
+  "Installed {version}; pending console confirmation."
+ ],
+ "version.now": [
+  "Now",
+  "Current"
+ ],
+ "version.after": [
+  "After the change",
+  "Target"
+ ],
+ "version.java_needed": [
+  "Java needed",
+  "Java required"
+ ],
+ "version.java_here": [
+  "Java on this PC",
+  "Detected Java"
+ ],
+ "version.java_unknown": [
+  "Java couldn't be checked on this PC, so whether it will run is not known.",
+  "Java could not be detected, so compatibility is unknown."
+ ],
+ "version.downgrade": [
+  "This is an older version than the one running now. A world saved by a newer Minecraft can break when an older one opens it. The backup is your way back.",
+  "This is a downgrade. World data written by a newer version may be corrupted by an older one. The safety backup is the way back."
+ ],
+ "version.type_change": [
+  "This changes the server from {from} to {to}. They use different add-ons, so add-ons that do not fit are moved aside.",
+  "Type change {from} to {to}. Incompatible add-ons are moved to the trash folder, not deleted."
+ ],
+ "version.type_change_gentle": [
+  "These kinds use the same world files, so your world carries over.",
+  "These types share world format; the world carries over."
+ ],
+ "version.crossplay_lost": [
+  "Bedrock players can't join this kind of server, so crossplay stops working.",
+  "GeyserMC publishes no build for the target type, so crossplay stops working."
+ ],
+ "version.moved_aside": [
+  "{count} add-ons don't fit the new kind of server and will be moved aside.",
+  "{count} add-ons do not match the target loader and will be moved aside."
+ ],
+ "version.moved_aside_note": [
+  "They go to the mod trash, where you can put them back. Nothing is deleted.",
+  "They go to the trash folder and can be restored. Nothing is deleted."
+ ],
+ "version.unknown_support": [
+  "{count} add-ons don't say which Minecraft version they need, so whether they will work is not known.",
+  "{count} add-ons declare no Minecraft range, so compatibility is unknown."
+ ],
+ "version.unknown_support_note": [
+  "Check them after the server starts.",
+  "Verify after the server comes up."
+ ],
+ "version.not_supporting": [
+  "{count} add-ons say they don't work with Minecraft {version}. The server may not start until they are updated or taken out.",
+  "{count} add-ons declare a Minecraft range that excludes {version}."
+ ],
+ "version.not_supporting_note": [
+  "After the change, look for newer versions of them on the Mods page.",
+  "Update or disable them after the change."
+ ],
+ "version.crossplay_off": [
+  "Bedrock players were switched off, because Geyser is built for one kind of server. Turn it on again in Bedrock players to get the right one.",
+  "Crossplay disabled: the Geyser/Floodgate builds were for the previous type. Re-enable to install the matching builds."
+ ],
+ "version.updates_check": [
+  "Look for add-on updates for {version}",
+  "Check Modrinth for {version} builds"
+ ],
+ "version.updates_checking": [
+  "Looking…",
+  "Checking Modrinth…"
+ ],
+ "version.updates_found": [
+  "Modrinth has newer versions of {count} add-ons for {version}. Nothing has been downloaded.",
+  "{count} updates available for {version}; none downloaded yet."
+ ],
+ "version.updates_none": [
+  "Modrinth has no newer versions for {version} of the add-ons here.",
+  "No Modrinth updates for {version}."
+ ],
+ "version.updates_open": [
+  "Open the add-ons page to update them",
+  "Open the add-ons page"
+ ],
+ "version.backup_first": [
+  "The server is stopped and a backup is taken and checked before anything changes.",
+  "The server is stopped, and a verified backup is taken before the change."
+ ],
+ "version.confirm_title": [
+  "Change to {name}?",
+  "Change to {name}?"
+ ],
+ "version.confirm_body": [
+  "The server stops, a backup is taken, and the old files are kept so you can go back in one step.",
+  "The server is stopped, a verified backup is taken, and the previous software is kept for a roll back."
+ ],
+ "version.confirm_button": [
+  "Make the change",
+  "Apply"
+ ],
+ "version.back": [
+  "Go back a version",
+  "Roll back"
+ ],
+ "version.back_title": [
+  "Put the previous version back?",
+  "Roll back to the previous version?"
+ ],
+ "version.back_body": [
+  "The files from before the last change go back in place. Your world is not touched.",
+  "The previous server software is restored. World data is untouched."
+ ],
+ "version.back_button": [
+  "Put it back",
+  "Roll back"
+ ],
+ "version.going_back": [
+  "Putting it back…",
+  "Rolling back…"
+ ],
+ "version.went_back": [
+  "The previous version is back. Start the server to confirm it.",
+  "Previous software restored; pending console confirmation."
+ ],
+ "version.last_change": [
+  "Last changed to {what} on {when}.",
+  "Last changed to {what} at {when}."
+ ],
+ "cross.title": [
+  "Bedrock players",
+  "Bedrock crossplay (Geyser)"
+ ],
+ "cross.what": [
+  "Let people on phones, tablets and Windows Bedrock join this Java server. It adds Geyser and Floodgate to the server's files, so they need no Java account.",
+  "Installs Geyser and Floodgate into the server's add-on folder, with auth-type: floodgate so Bedrock clients need no Java account."
+ ],
+ "cross.not_for_type": [
+  "Bedrock players can't join this kind of server.",
+  "GeyserMC publishes no build for this server type."
+ ],
+ "cross.switch_type": [
+  "Fabric, NeoForge, Paper and Purpur can do this.",
+  "Fabric, NeoForge, Paper and Purpur are supported."
+ ],
+ "cross.port": [
+  "Port for Bedrock players",
+  "Bedrock port (UDP)"
+ ],
+ "cross.port_hint": [
+  "Bedrock uses its own port, separate from the Java one. 19132 is the usual one.",
+  "Bedrock listens on UDP, separate from the Java TCP port. 19132 is the default."
+ ],
+ "cross.turn_on": [
+  "Let Bedrock players join",
+  "Enable crossplay"
+ ],
+ "cross.turn_off": [
+  "Stop Bedrock players joining",
+  "Disable crossplay"
+ ],
+ "cross.turning_on": [
+  "Setting up…",
+  "Installing…"
+ ],
+ "cross.turning_off": [
+  "Turning off…",
+  "Disabling…"
+ ],
+ "cross.stopped_first": [
+  "The server has to be stopped for this.",
+  "Requires the server to be stopped."
+ ],
+ "cross.on_title": [
+  "Let Bedrock players join?",
+  "Enable Bedrock crossplay?"
+ ],
+ "cross.on_body": [
+  "Geyser and Floodgate are downloaded into this server's files and set to use port {port}. The server has to be stopped.",
+  "Geyser and Floodgate are installed into the add-on folder and configured on UDP port {port}. The server must be stopped."
+ ],
+ "cross.on_button": [
+  "Set it up",
+  "Enable"
+ ],
+ "cross.on_done": [
+  "Bedrock players can join once the server starts again.",
+  "Crossplay enabled; takes effect on the next start."
+ ],
+ "cross.off_done": [
+  "Geyser is switched off. Its files were moved aside, not deleted.",
+  "Crossplay disabled; both jars moved aside, not deleted."
+ ],
+ "cross.address": [
+  "Address for Bedrock players",
+  "Bedrock address"
+ ],
+ "cross.ready": [
+  "Ready",
+  "Ready"
+ ],
+ "cross.ready_yes": [
+  "Yes, both files are in place",
+  "Yes: both jars present"
+ ],
+ "cross.files_missing": [
+  "Not yet: a file is missing",
+  "No: a jar is missing"
+ ],
+ "cross.names": [
+  "Bedrock names",
+  "Bedrock usernames"
+ ],
+ "cross.names_value": [
+  "They show with a \"{prefix}\" in front, exactly as the server prints them.",
+  "Prefixed with \"{prefix}\" by Floodgate, shown exactly as printed."
+ ],
+ "cross.needs_mod": [
+  "Geyser needs the {mod} mod on this server. Add it from the Mods page, or Geyser won't load.",
+  "Geyser and Floodgate depend on {mod}, which is not installed."
+ ],
+ "cross.differences": [
+  "What is different for them",
+  "Known differences"
+ ],
+ "page.game_settings": [
+  "Game settings",
+  "Game settings"
+ ],
+ "add.way_modpack": [
+  "From a modpack",
+  "From a modpack (.mrpack)"
+ ],
+ "game.title": [
+  "Game settings",
+  "server.properties"
+ ],
+ "game.intro": [
+  "What this server's settings file says now. Only the settings you change are rewritten.",
+  "Values read from server.properties. Only changed keys are rewritten; comments and unknown keys are preserved."
+ ],
+ "game.no_file": [
+  "This server has no settings file yet. Minecraft writes one the first time it starts; anything you save here goes into it.",
+  "server.properties does not exist yet. Minecraft creates it on first start; saved keys are written to a new file."
+ ],
+ "game.group_play": [
+  "How the game plays",
+  "Gameplay"
+ ],
+ "game.group_who": [
+  "Who can join",
+  "Access"
+ ],
+ "game.group_world": [
+  "World and connection",
+  "World and network"
+ ],
+ "game.difficulty": [
+  "Difficulty",
+  "Difficulty"
+ ],
+ "game.difficulty_hint": [
+  "How dangerous mobs are and how fast hunger drops.",
+  "Mob damage, spawning and hunger."
+ ],
+ "game.gamemode": [
+  "Game mode for new players",
+  "Default game mode"
+ ],
+ "game.gamemode_hint": [
+  "Players who already joined keep their own mode.",
+  "Applies to players joining for the first time."
+ ],
+ "game.max_players": [
+  "Most players at once",
+  "Max players"
+ ],
+ "game.max_players_hint": [
+  "More players need more memory.",
+  "Player slot limit."
+ ],
+ "game.seed": [
+  "World seed",
+  "Level seed"
+ ],
+ "game.seed_hint": [
+  "Decides how a new world looks. Leave empty for a random one.",
+  "Seed for world generation. Empty means random."
+ ],
+ "game.seed_locked": [
+  "The world already exists, so its seed can't change.",
+  "Read-only: the world exists (level.dat present)."
+ ],
+ "game.whitelist": [
+  "Whitelist",
+  "White-list"
+ ],
+ "game.whitelist_hint": [
+  "When on, only players on the whitelist can join. Add them on the Players page.",
+  "Only whitelisted players may join. Manage the list on the Players page."
+ ],
+ "game.on": [
+  "On",
+  "Enabled"
+ ],
+ "game.off": [
+  "Off",
+  "Disabled"
+ ],
+ "game.allowlist_hint": [
+  "When on, only players on the allowlist can join. Add them on the Players page.",
+  "allow-list: only players in allowlist.json may join."
+ ],
+ "game.cheats": [
+  "Cheats",
+  "allow-cheats"
+ ],
+ "game.cheats_hint": [
+  "When on, operators can use commands like /give and /time.",
+  "Enables cheat commands for operators."
+ ],
+ "game.server_name": [
+  "Server name",
+  "server-name"
+ ],
+ "game.server_name_hint": [
+  "The name players see in their server list.",
+  "Shown in the client's server list and the RakNet pong."
+ ],
+ "game.pvp": [
+  "Players can hurt each other",
+  "PvP"
+ ],
+ "game.pvp_hint": [
+  "Turn off so players can't attack each other.",
+  "Player-versus-player damage."
+ ],
+ "game.view_distance": [
+  "View distance",
+  "View distance (chunks)"
+ ],
+ "game.view_distance_hint": [
+  "How far players can see, in chunks. Lower is faster.",
+  "Chunk radius sent to clients, 3 to 32. Lower reduces load."
+ ],
+ "game.motd": [
+  "Server description",
+  "MOTD"
+ ],
+ "game.motd_hint": [
+  "Shown under the server's name in the Minecraft server list.",
+  "Message of the day shown in the multiplayer list."
+ ],
+ "game.port": [
+  "Port",
+  "Server port (TCP)"
+ ],
+ "game.port_hint": [
+  "The number friends add after the address. Checked against your other servers.",
+  "Checked against other servers and for being free on this PC."
+ ],
+ "game.peaceful": [
+  "Peaceful",
+  "Peaceful"
+ ],
+ "game.easy": [
+  "Easy",
+  "Easy"
+ ],
+ "game.normal": [
+  "Normal",
+  "Normal"
+ ],
+ "game.hard": [
+  "Hard",
+  "Hard"
+ ],
+ "game.survival": [
+  "Survival",
+  "Survival"
+ ],
+ "game.creative": [
+  "Creative",
+  "Creative"
+ ],
+ "game.adventure": [
+  "Adventure",
+  "Adventure"
+ ],
+ "game.spectator": [
+  "Spectator",
+  "Spectator"
+ ],
+ "game.not_set": [
+  "Not in the file, so Minecraft uses {value}.",
+  "Not set; Minecraft's default is {value}."
+ ],
+ "game.blank": [
+  "empty",
+  "an empty value"
+ ],
+ "game.file_problem": [
+  "The file has a value Minecraft won't accept here: {problem}",
+  "Invalid value in the file: {problem}"
+ ],
+ "game.save": [
+  "Save",
+  "Save"
+ ],
+ "game.copy_kept": [
+  "A copy of the old file is kept. Undo it from Backups.",
+  "A safety backup of the old file is taken; undo from Backups."
+ ],
+ "game.saved": [
+  "Saved. The server uses them next time it starts.",
+  "Saved. Read on next start."
+ ],
+ "game.saved_running": [
+  "Saved. Restart the server to use them.",
+  "Saved. Takes effect after a restart."
+ ],
+ "game.fix_marked": [
+  "Some values can't be used. Fix the ones marked.",
+  "Some values were rejected. See the fields marked."
+ ],
+ "game.after_restart": [
+  "The server is running. Changes take effect after a restart.",
+  "Running: changes take effect after a restart."
+ ],
+ "game.restart_needed": [
+  "Changes are waiting for a restart. The server still uses the old settings.",
+  "server.properties changed after this start; restart to apply it."
+ ],
+ "game.raw_title": [
+  "Every setting, as text",
+  "server.properties (raw)"
+ ],
+ "game.raw_hint": [
+  "For settings this page doesn't show. One setting per line, like name=value. {file}",
+  "Edit any key. Known keys are still validated. {file}"
+ ],
+ "game.raw_label": [
+  "The whole settings file",
+  "server.properties contents"
+ ],
+ "game.save_raw": [
+  "Save file",
+  "Save file"
+ ],
+ "players.recent_actions": [
+  "Sent to the server",
+  "Recent player commands"
+ ],
+ "players.state_sent": [
+  "Sent",
+  "Sent"
+ ],
+ "players.state_done": [
+  "Done",
+  "Confirmed"
+ ],
+ "players.state_unchanged": [
+  "Nothing to change",
+  "No change"
+ ],
+ "players.state_failed": [
+  "Didn't work",
+  "Failed"
+ ],
+ "players.state_no_answer": [
+  "Sent, not confirmed",
+  "No console confirmation"
+ ],
+ "players.do_whitelist_add": [
+  "Add to whitelist",
+  "whitelist add"
+ ],
+ "players.do_whitelist_remove": [
+  "Remove from whitelist",
+  "whitelist remove"
+ ],
+ "players.do_op": [
+  "Make operator",
+  "op"
+ ],
+ "players.do_deop": [
+  "Remove operator",
+  "deop"
+ ],
+ "players.do_kick": [
+  "Kick",
+  "kick"
+ ],
+ "players.do_ban": [
+  "Ban",
+  "ban"
+ ],
+ "players.do_pardon": [
+  "Unban",
+  "pardon"
+ ],
+ "players.sending": [
+  "Sending…",
+  "Sending…"
+ ],
+ "players.kick_title": [
+  "Kick {name}?",
+  "Kick {name}?"
+ ],
+ "players.kick_body": [
+  "{name} is disconnected now. They can join again.",
+  "Disconnects {name}. They can reconnect."
+ ],
+ "players.ban_title": [
+  "Ban {name}?",
+  "Ban {name}?"
+ ],
+ "players.ban_body": [
+  "{name} is disconnected and can't join again until unbanned.",
+  "Adds {name} to banned-players.json and disconnects them."
+ ],
+ "players.reason": [
+  "Reason (shown to them, optional)",
+  "Reason (optional)"
+ ],
+ "players.start_first": [
+  "Start the server to use these buttons. Minecraft only takes these changes while it's running.",
+  "The buttons send console commands, so the server must be ONLINE."
+ ],
+ "players.add_title": [
+  "Add a player by name",
+  "Player by name"
+ ],
+ "players.add_name": [
+  "Minecraft name",
+  "Username"
+ ],
+ "players.add_hint": [
+  "For someone who hasn't joined yet, like a friend you want on the whitelist.",
+  "Works for players who have never joined."
+ ],
+ "players.bad_gamertag": [
+  "That isn't a gamertag. Use letters, numbers and single spaces.",
+  "Invalid gamertag: letters, digits and single spaces, up to 20."
+ ],
+ "players.bedrock_op_online": [
+  "On Bedrock, a player has to be online to be made an operator.",
+  "BDS op/deop target online players only."
+ ],
+ "players.xuid_only": [
+  "This app hasn't seen this player join yet, so only their Xbox number is known.",
+  "xuid only; no join seen to map it to a gamertag."
+ ],
+ "players.bad_name": [
+  "That isn't a Minecraft name. Use up to 16 letters, numbers or _.",
+  "Invalid username: 1-16 of A-Z, 0-9, _."
+ ],
+ "players.tag_whitelisted": [
+  "Whitelisted",
+  "Whitelisted"
+ ],
+ "players.tag_op": [
+  "Operator",
+  "Op"
+ ],
+ "players.tag_banned": [
+  "Banned",
+  "Banned"
+ ],
+ "players.whitelist": [
+  "Whitelist",
+  "Whitelist"
+ ],
+ "players.whitelist_empty": [
+  "Nobody on the whitelist",
+  "whitelist.json is empty"
+ ],
+ "players.ops": [
+  "Operators",
+  "Operators"
+ ],
+ "players.ops_empty": [
+  "No operators",
+  "ops.json is empty"
+ ],
+ "players.banned": [
+  "Banned players",
+  "Banned players"
+ ],
+ "players.banned_empty": [
+  "Nobody is banned",
+  "banned-players.json is empty"
+ ],
+ "players.col_reason": [
+  "Reason",
+  "Reason"
+ ],
+ "players.from_file": [
+  "From {file}",
+  "Read from {file}"
+ ],
+ "players.whitelist_note": [
+  "These lists come from Minecraft's own files. Turn the whitelist on in Game settings.",
+  "Lists are read from Minecraft's JSON files. Enable white-list in Game settings."
+ ],
+ "join.title": [
+  "How friends join",
+  "How friends join"
+ ],
+ "join.home": [
+  "On your home network",
+  "Local network"
+ ],
+ "join.home_hint": [
+  "For friends on the same Wi-Fi or router as this PC.",
+  "This PC's private IPv4 addresses."
+ ],
+ "join.tailscale": [
+  "On Tailscale",
+  "Tailscale"
+ ],
+ "join.tailscale_hint": [
+  "For friends you've shared this PC with on Tailscale.",
+  "This PC's tailnet address."
+ ],
+ "join.no_local": [
+  "No home network address was found on this PC.",
+  "No private IPv4 address on an active adapter."
+ ],
+ "join.no_tailscale": [
+  "This PC's Tailscale address couldn't be read.",
+  "Tailscale address not available."
+ ],
+ "join.ts_unconfirmed": [
+  "Tailscale's connection couldn't be confirmed, so this may not work yet.",
+  "Address seen on an interface; connection not verified."
+ ],
+ "join.ts_off": [
+  "Tailscale says it isn't connected right now.",
+  "Tailscale backend is not Running."
+ ],
+ "join.adapter": [
+  "on {adapter}",
+  "adapter {adapter}"
+ ],
+ "join.port": [
+  "Port {port}, from {source}.",
+  "Port {port} (source: {source})."
+ ],
+ "join.default_port": [
+  "It's Minecraft's usual port, so the address alone also works.",
+  "Default port; clients may omit it."
+ ],
+ "join.bedrock": [
+  "Bedrock players",
+  "Bedrock players (Geyser)"
+ ],
+ "join.bedrock_hint": [
+  "In Bedrock, add a server with this address and port.",
+  "Address and UDP port for Bedrock clients."
+ ],
+ "join.bedrock_port": [
+  "Port {port}",
+  "UDP port {port}"
+ ],
+ "join.no_bedrock_port": [
+  "The Bedrock port isn't set up yet. Turn crossplay off and on again in Server settings.",
+  "No Bedrock UDP port configured; re-enable crossplay."
+ ],
+ "join.bedrock_server_port": [
+  "Port: {port} (UDP, from {source}). In Minecraft, add a server and type the address and this port in their own boxes.",
+  "UDP {port} ({source}). Bedrock clients enter address and port separately."
+ ],
+ "join.bedrock_tailscale_hint": [
+  "For friends on phones, tablets or Windows PCs with Tailscale.",
+  "Tailscale address; works for Bedrock on phones, tablets and Windows."
+ ],
+ "join.consoles": [
+  "Xbox, PlayStation and Switch can't join over Tailscale.",
+  "Consoles cannot reach a tailnet address."
+ ],
+ "join.internet": [
+  "From the internet: not known. This app doesn't test it, and it doesn't open ports on your router.",
+  "Internet reachability: unknown (not tested; no router ports are opened)."
+ ],
+ "join.copy": [
+  "Copy",
+  "Copy"
+ ],
+ "join.copy_label": [
+  "Copy {text}",
+  "Copy {text}"
+ ],
+ "join.copied": [
+  "Copied {text}",
+  "Copied {text}"
+ ],
+ "join.copy_failed": [
+  "Couldn't copy. Select the address and copy it yourself.",
+  "Clipboard write failed; copy it manually."
+ ],
+ "dup.title": [
+  "Duplicate this server",
+  "Duplicate server"
+ ],
+ "dup.intro": [
+  "Makes a new server with the same software, mods, settings files and game settings. It gets its own port and color.",
+  "Copies software, add-ons, config and server.properties into a new server with a free port and the next color."
+ ],
+ "dup.name": [
+  "New server's name",
+  "Name"
+ ],
+ "dup.folder": [
+  "New server's folder",
+  "Folder"
+ ],
+ "dup.folder_hint": [
+  "An empty or new folder.",
+  "Must be empty or not exist yet."
+ ],
+ "dup.world": [
+  "World",
+  "World"
+ ],
+ "dup.world_copy": [
+  "Copy the world",
+  "Copy the world"
+ ],
+ "dup.world_copy_hint": [
+  "The new server starts with everything built so far.",
+  "World folders are copied."
+ ],
+ "dup.world_fresh": [
+  "Start a fresh world",
+  "Fresh world"
+ ],
+ "dup.world_fresh_hint": [
+  "Minecraft makes a new world, with a new seed, on its first start.",
+  "World folders are skipped; level-seed is cleared."
+ ],
+ "dup.running": [
+  "The server can keep running. Saving pauses while the files are copied.",
+  "Uses save-off for the copy; save-on afterwards."
+ ],
+ "dup.crossplay": [
+  "Bedrock players get their own port on the new server too.",
+  "A free Bedrock UDP port is assigned to the copy."
+ ],
+ "dup.button": [
+  "Duplicate",
+  "Duplicate"
+ ],
+ "dup.starting": [
+  "Starting…",
+  "Starting…"
+ ],
+ "dup.started": [
+  "Copying into {name}. Its tab appears when the copy is checked.",
+  "Duplicate job started for {name}."
+ ],
+ "dup.after": [
+  "The new server isn't started.",
+  "The copy is not started."
+ ],
+ "pack.new_title": [
+  "New server from a modpack",
+  "New server from .mrpack"
+ ],
+ "pack.new_intro": [
+  "Choose a Modrinth modpack file (.mrpack). You see what's in it before anything is downloaded.",
+  "Upload a .mrpack; its index is shown before anything is downloaded."
+ ],
+ "pack.into_title": [
+  "Import a modpack",
+  "Import .mrpack"
+ ],
+ "pack.into_intro": [
+  "Sets this server up the way a Modrinth modpack (.mrpack) says. You see what's in it first.",
+  "Applies a .mrpack to this server; the index is shown first."
+ ],
+ "pack.choose": [
+  "Modpack file",
+  "Modpack file (.mrpack)"
+ ],
+ "pack.reading": [
+  "Reading the pack…",
+  "Reading modrinth.index.json…"
+ ],
+ "pack.name": [
+  "Modpack",
+  "Pack"
+ ],
+ "pack.minecraft": [
+  "Minecraft",
+  "Minecraft"
+ ],
+ "pack.loader": [
+  "Server type",
+  "Loader"
+ ],
+ "pack.files": [
+  "To download",
+  "Downloads"
+ ],
+ "pack.files_value": [
+  "{count} files, {size}",
+  "{count} files, {size}"
+ ],
+ "pack.extras": [
+  "Other files",
+  "Overrides"
+ ],
+ "pack.extras_value": [
+  "{count} files, {size}",
+  "{count} files, {size}"
+ ],
+ "pack.cant_import": [
+  "This pack can't be imported:",
+  "Import blocked:"
+ ],
+ "pack.client_only": [
+  "Skipped, only for the game itself: {names}",
+  "Skipped (env.server unsupported): {names}"
+ ],
+ "pack.skipped_extras": [
+  "Skipped, not needed on a server: {names}",
+  "Skipped overrides (client-only or executable): {names}"
+ ],
+ "pack.all_files": [
+  "Every file in the pack ({count})",
+  "All index entries ({count})"
+ ],
+ "pack.col_file": [
+  "File",
+  "File"
+ ],
+ "pack.col_size": [
+  "Size",
+  "Size"
+ ],
+ "pack.col_what": [
+  "What happens",
+  "Status"
+ ],
+ "pack.status_download": [
+  "Downloaded and checked",
+  "Download, SHA-512 verified"
+ ],
+ "pack.status_client": [
+  "Skipped: game only",
+  "Skipped: client-only"
+ ],
+ "pack.status_refused": [
+  "Can't be used",
+  "Refused"
+ ],
+ "pack.folder": [
+  "Folder for the new server",
+  "Folder"
+ ],
+ "pack.folder_hint": [
+  "An empty or new folder.",
+  "Must be empty or not exist yet."
+ ],
+ "pack.eula": [
+  "I accept Minecraft's rules (the EULA).",
+  "I accept the Minecraft EULA."
+ ],
+ "pack.eula_link": [
+  "Read them",
+  "EULA"
+ ],
+ "pack.need_eula": [
+  "Tick the box to accept Minecraft's rules first.",
+  "Accept the EULA first."
+ ],
+ "pack.create": [
+  "Create server",
+  "Create server"
+ ],
+ "pack.creating": [
+  "Setting up…",
+  "Installing…"
+ ],
+ "pack.create_hint": [
+  "The new server isn't started.",
+  "Not started afterwards."
+ ],
+ "pack.created": [
+  "{name} is ready. Press Start to try it.",
+  "{name} created; not started."
+ ],
+ "pack.import": [
+  "Import",
+  "Import"
+ ],
+ "pack.importing": [
+  "Importing…",
+  "Importing…"
+ ],
+ "pack.import_title": [
+  "Import {name}?",
+  "Import {name}?"
+ ],
+ "pack.step_stop": [
+  "The server is stopped.",
+  "Stop the server."
+ ],
+ "pack.step_backup": [
+  "A backup is taken and checked first. If anything fails, it is put back.",
+  "Take and verify a safety backup; restore it on failure."
+ ],
+ "pack.step_version": [
+  "The server is set up as {type} {version} first.",
+  "Change type/version to {type} {version}."
+ ],
+ "pack.step_aside": [
+  "Its current mods are moved aside, not deleted.",
+  "Move current add-ons to the trash folder."
+ ],
+ "pack.step_files": [
+  "{count} files are downloaded and checked.",
+  "Download and verify {count} files."
+ ],
+ "pack.into_hint": [
+  "The server is stopped and backed up first. You can undo it from Backups.",
+  "Runs through the safe-change routine; undo from Backups."
+ ],
+ "pack.version_change": [
+  "This pack needs {type} {version}, so the server's software changes too.",
+  "Pack requires {type} {version}; a version change runs first."
+ ],
+ "pack.imported": [
+  "Imported {name}. Start the server to try it.",
+  "{name} imported."
+ ],
+ "pack.cancel": [
+  "Cancel",
+  "Discard upload"
+ ],
+ "players.bedrock": [
+  "Bedrock",
+  "Bedrock"
+ ],
+ "players.bedrock_hint": [
+  "This player came in from Bedrock, as the server reported.",
+  "Edition reported by Floodgate's username prefix."
+ ],
+ "security.tailscale": [
+  "Tailscale",
+  "Tailscale"
+ ],
+ "security.ts_connected": [
+  "Connected",
+  "Connected"
+ ],
+ "security.ts_disconnected": [
+  "Not connected",
+  "Not connected"
+ ],
+ "security.auth": [
+  "Sign-in",
+  "Authentication"
+ ],
+ "security.auth_on": [
+  "Required",
+  "enabled"
+ ],
+ "security.auth_off": [
+  "NOT SET",
+  "NOT SET"
+ ],
+ "security.auth_note": [
+  "Sign-ins last {hours} hours",
+  "sessions last {hours}h"
+ ],
+ "security.failed": [
+  "Failed sign-ins",
+  "Failed sign-ins"
+ ],
+ "security.failed_note": [
+  "last 24 hours",
+  "in the last 24 hours"
+ ],
+ "security.covers": [
+  "Certificate matches this address",
+  "Certificate covers"
+ ],
+ "security.covers_note": [
+  "checked against {host}",
+  "checked against {host}"
+ ],
+ "security.covers_unset": [
+  "No address set to check",
+  "tls.hostname is not configured, so this cannot be checked"
+ ],
+ "security.key_match": [
+  "Key matches certificate",
+  "Key matches certificate"
+ ],
+ "security.key_note": [
+  "The private key stays on the PC",
+  "compared as public keys; the private key is never exposed"
+ ],
+ "security.sessions": [
+  "Signed in now ({count})",
+  "Active sessions ({count})"
+ ],
+ "security.col_user": [
+  "User",
+  "User"
+ ],
+ "security.col_signed_in": [
+  "Signed in",
+  "Signed in"
+ ],
+ "security.col_last_used": [
+  "Last used",
+  "Last used"
+ ],
+ "security.col_from": [
+  "From",
+  "Source IP"
+ ],
+ "security.col_device": [
+  "Device",
+  "Device"
+ ],
+ "security.no_sessions": [
+  "Nobody signed in",
+  "No active sessions"
+ ],
+ "security.device_unknown": [
+  "Unknown device",
+  "Unnamed session"
+ ],
+ "security.this_device": [
+  "This device",
+  "This session"
+ ],
+ "security.kept": [
+  "Kept signed in",
+  "Remembered"
+ ],
+ "security.kept_note": [
+  "A device kept signed in stays signed in until you sign it out here, or until it isn't used for {days} days.",
+  "Remembered sessions last {days} days from their last use (security.remember_days); revoke them here."
+ ],
+ "security.device_out": [
+  "Sign out",
+  "Revoke"
+ ],
+ "security.device_out_title": [
+  "Sign out {device}?",
+  "Revoke the session on {device}?"
+ ],
+ "security.device_out_body": [
+  "It has to sign in again with the password.",
+  "Its token stops working at once."
+ ],
+ "security.device_out_done": [
+  "Signed out",
+  "Session revoked"
+ ],
+ "security.fingerprint": [
+  "Certificate fingerprint",
+  "Certificate SHA-256"
+ ],
+ "security.fingerprint_sha": [
+  "SHA-256",
+  "SHA-256"
+ ],
+ "security.rotate": [
+  "New sign-in key",
+  "Rotate my token"
+ ],
+ "security.rotated": [
+  "You have a new sign-in key",
+  "This session's token was rotated"
+ ],
+ "security.revoke": [
+  "Sign everyone out",
+  "Revoke all sessions"
+ ],
+ "security.revoke_title": [
+  "Sign everyone out?",
+  "Sign every session out?"
+ ],
+ "security.revoke_body": [
+  "Everyone is signed out, you too.",
+  "All sessions, including this one, are revoked. You will sign in again."
+ ],
+ "security.audit": [
+  "Who did what",
+  "Audit log"
+ ],
+ "security.col_when": [
+  "When",
+  "When"
+ ],
+ "security.col_action": [
+  "Action",
+  "Action"
+ ],
+ "security.col_target": [
+  "Target",
+  "Target"
+ ],
+ "security.col_result": [
+  "Result",
+  "Result"
+ ],
+ "security.audit_none": [
+  "Nothing logged yet",
+  "Nothing logged yet"
+ ],
+ "security.result_ok": [
+  "Done",
+  "ok"
+ ],
+ "security.bind": [
+  "The app listens on {address}. Keep it on your Tailscale network only. Don't open it on your router.",
+  "The agent is bound to {address}. Keep that address private to your tailnet; do not port-forward it."
+ ],
+ "page.chat": [
+  "Chat",
+  "Chat"
+ ],
+ "page.world": [
+  "Restore world",
+  "Restore world"
+ ],
+ "hero.slept": [
+  "Stopped because nobody was playing.",
+  "Stopped by auto-sleep: nobody online."
+ ],
+ "overview.activity": [
+  "What happened",
+  "Activity"
+ ],
+ "overview.activity_none": [
+  "Nothing has happened yet.",
+  "No events recorded yet."
+ ],
+ "overview.open_events": [
+  "See all",
+  "Open events"
+ ],
+ "start.title": [
+  "Getting started",
+  "Getting started"
+ ],
+ "start.lead": [
+  "Four things worth doing once. Each one ticks itself off when it is really done.",
+  "Four setup steps. Each is ticked from measured state, not from a click."
+ ],
+ "start.progress": [
+  "{done} of {total} done",
+  "{done} of {total} done"
+ ],
+ "start.hide": [
+  "Hide",
+  "Dismiss"
+ ],
+ "start.done": [
+  "Done",
+  "Done"
+ ],
+ "start.server_ready": [
+  "Set up your server",
+  "Set up the server"
+ ],
+ "start.server_ready_action": [
+  "Open settings",
+  "Open settings"
+ ],
+ "start.ready": [
+  "The server files are in place.",
+  "Launch files found in the server folder."
+ ],
+ "start.not_ready": [
+  "No server software in this folder yet.",
+  "No jar or start file in the server folder."
+ ],
+ "start.backup_taken": [
+  "Take a backup",
+  "Take a backup"
+ ],
+ "start.backup_taken_action": [
+  "Back up",
+  "Back up"
+ ],
+ "start.backup_done": [
+  "Last checked backup {when}.",
+  "Newest verified backup {when}."
+ ],
+ "start.backup_none": [
+  "No checked backup yet.",
+  "No verified backup recorded."
+ ],
+ "start.friend_joined": [
+  "Invite a friend",
+  "Invite a player"
+ ],
+ "start.friend_joined_action": [
+  "Show address",
+  "Show address"
+ ],
+ "start.friend_done": [
+  "{name} has played here.",
+  "{name} joined at least once."
+ ],
+ "start.friend_none": [
+  "Nobody has joined yet.",
+  "No player session recorded."
+ ],
+ "start.alerts_on": [
+  "Turn on alerts",
+  "Turn on alerts"
+ ],
+ "start.alerts_on_action": [
+  "Open alerts",
+  "Open alerts"
+ ],
+ "start.alerts_done": [
+  "Alerts are on.",
+  "At least one alert channel is on."
+ ],
+ "start.alerts_none": [
+  "No alerts are on yet.",
+  "No alert channel is on."
+ ],
+ "chat.server": [
+  "Server",
+  "Server"
+ ],
+ "chat.empty": [
+  "No chat yet",
+  "No chat lines yet"
+ ],
+ "chat.empty_hint": [
+  "Anything players say in the game shows up here.",
+  "Chat is read from the server console as it prints."
+ ],
+ "chat.log_label": [
+  "In-game chat",
+  "In-game chat"
+ ],
+ "chat.placeholder": [
+  "Message to players",
+  "Message to players"
+ ],
+ "chat.input_label": [
+  "Message to send as Server",
+  "Message sent with the say command"
+ ],
+ "chat.not_read": [
+  "Bedrock servers don't show players' chat to this app, so their messages can't appear here. Messages you send still reach everyone.",
+  "BDS does not print chat to stdout; only outgoing say messages are shown."
+ ],
+ "chat.send": [
+  "Send",
+  "Send"
+ ],
+ "chat.as_server": [
+  "As Server",
+  "say"
+ ],
+ "chat.hint": [
+  "Players see your message as Server.",
+  "Sent with say; it appears once the console prints it."
+ ],
+ "chat.offline": [
+  "Start the server to chat.",
+  "The server has to be online to send chat."
+ ],
+ "world.title": [
+  "Go back in time",
+  "Restore the world"
+ ],
+ "world.lead": [
+  "Put the world back to how it was at a point in time.",
+  "Restore a verified backup that holds the world folders."
+ ],
+ "world.none": [
+  "No points to go back to",
+  "No world backup to restore"
+ ],
+ "world.none_hint": [
+  "A backup of the world is needed first.",
+  "No checked backup holding a world folder exists yet."
+ ],
+ "world.open_backups": [
+  "Open backups",
+  "Open backups"
+ ],
+ "world.today_at": [
+  "Today, {time}",
+  "Today, {time}"
+ ],
+ "world.yesterday_at": [
+  "Yesterday, {time}",
+  "Yesterday, {time}"
+ ],
+ "world.day_at": [
+  "{day}, {time}",
+  "{day}, {time}"
+ ],
+ "world.date_at": [
+  "{date}, {time}",
+  "{date}, {time}"
+ ],
+ "world.since": [
+  "{duration} ago",
+  "{duration} ago"
+ ],
+ "world.play_unknown": [
+  "play since then not known",
+  "play since then not recorded"
+ ],
+ "world.no_play": [
+  "no play since then",
+  "no sessions since then"
+ ],
+ "world.play_lost": [
+  "about {duration} of play would be lost",
+  "{duration} with players online would be lost"
+ ],
+ "world.go_back": [
+  "Go back to this",
+  "Restore this"
+ ],
+ "world.not_offered": [
+  "Not checked, so not offered",
+  "Unverified, so not offered"
+ ],
+ "world.tag_safety": [
+  "Safety copy",
+  "Safety copy"
+ ],
+ "world.confirm_title": [
+  "Go back to {when}?",
+  "Restore the world to {when}?"
+ ],
+ "world.confirm_body": [
+  "The world as it is now is replaced. Mods and settings stay as they are. {loss}",
+  "The current world folders are replaced; mods, config and server.properties are left as they are. {loss}"
+ ],
+ "world.confirm_safety": [
+  "A backup of the world as it is now is taken first, so this can be undone.",
+  "A verified safety backup is taken first; undo it from Backups."
+ ],
+ "world.confirm_action": [
+  "Go back",
+  "Restore"
+ ],
+ "world.working": [
+  "Going back…",
+  "Restoring…"
+ ],
+ "world.done": [
+  "The world was put back.",
+  "The world was restored and checked."
+ ],
+ "world.done_with_undo": [
+  "The world was put back. Undo it from Backups ({name}).",
+  "Restored. The safety backup {name} undoes it."
+ ],
+ "world.stop_first": [
+  "Stop the server first. The world can only be put back while it is off.",
+  "The server has to be stopped: a running server holds the world open."
+ ],
+ "world.open_overview": [
+  "Open overview",
+  "Open overview"
+ ],
+ "world.busy": [
+  "Wait for {job} to finish first.",
+  "Blocked: {job} holds this server."
+ ],
+ "world.footer": [
+  "Every point here is a backup this app checked.",
+  "Each point is a verified backup holding the world folders."
+ ],
+ "serverset.sleep": [
+  "Sleep when empty",
+  "Auto-sleep"
+ ],
+ "serverset.sleep_label": [
+  "Stop the server when nobody is playing",
+  "Stop the server when the player count is a verified zero"
+ ],
+ "serverset.sleep_minutes": [
+  "Wait this many minutes",
+  "Empty minutes before stopping"
+ ],
+ "serverset.sleep_minutes_hint": [
+  "Players get a warning in the game a minute before.",
+  "A say warning goes out 60 seconds before the stop."
+ ],
+ "serverset.sleep_off": [
+  "Off. The server keeps running when empty.",
+  "Off."
+ ],
+ "serverset.sleep_unknown_players": [
+  "Waiting: who is online isn't known yet, so nothing is stopped.",
+  "Player count unverified, so no stop is possible."
+ ],
+ "serverset.sleep_players": [
+  "{count} playing now.",
+  "{count} online now."
+ ],
+ "serverset.sleep_countdown": [
+  "Empty. Stopping in {duration}.",
+  "Empty. Stop due in {duration}."
+ ],
+ "serverset.sleep_no_answer": [
+  "The server didn't answer the player list, so it won't be stopped. A plugin may have replaced the list command.",
+  "No reply to \"list\", so no stop is possible (a plugin may override the command)."
+ ],
+ "serverset.sleep_waiting": [
+  "Empty. The countdown starts on the next check.",
+  "Empty. The countdown starts at the next check."
+ ],
+ "serverset.sleep_restart_note": [
+  "It does not start again by itself: start it here or on a schedule.",
+  "No automatic start follows: start it here or with a schedule."
+ ],
+ "serverset.keep_label": [
+  "How many backups to keep",
+  "Backup retention"
+ ],
+ "appset.phone": [
+  "Phone alerts",
+  "Phone alerts (Web Push)"
+ ],
+ "push.no_phones": [
+  "No phone is signed up yet.",
+  "No push subscription recorded."
+ ],
+ "push.last_sent": [
+  "last alert {when}",
+  "last send {when}"
+ ],
+ "push.not_sent_yet": [
+  "no alert sent yet",
+  "no send recorded"
+ ],
+ "push.turn_on_here": [
+  "Turn on for this phone",
+  "Subscribe this browser"
+ ],
+ "push.turn_off_here": [
+  "Turn off for this phone",
+  "Unsubscribe this browser"
+ ],
+ "push.turning_on": [
+  "Turning on…",
+  "Subscribing…"
+ ],
+ "push.turning_off": [
+  "Turning off…",
+  "Unsubscribing…"
+ ],
+ "push.on_here": [
+  "Alerts are on for this phone.",
+  "This browser is subscribed."
+ ],
+ "push.off_here": [
+  "Alerts are off for this phone.",
+  "This browser is unsubscribed."
+ ],
+ "push.unsupported": [
+  "This browser can't get phone alerts here. The dashboard has to open with https://, and on an iPhone from the home screen.",
+  "This browser has no Push API, or the page is not on a secure origin."
+ ],
+ "push.blocked": [
+  "This phone refused notifications. Allow them in the browser's settings.",
+  "Notification permission was not granted."
+ ],
+ "push.not_set_up": [
+  "Phone alerts aren't set up yet. On the PC, run setup again: {command}",
+  "No VAPID keys configured. On the PC, run: {command}"
+ ],
+ "push.iphone": [
+  "On an iPhone, add the dashboard to your home screen first, then turn this on.",
+  "iOS only allows Web Push from a home-screen (standalone) install."
+ ],
+ "push.test_failed": [
+  "The test couldn't be sent to any phone.",
+  "No push service accepted the test."
+ ],
+ "push.remove": [
+  "Remove",
+  "Remove"
+ ],
+ "push.removing": [
+  "Removing…",
+  "Removing…"
+ ],
+ "push.removed": [
+  "Phone removed. It gets no more alerts.",
+  "Subscription removed."
+ ],
+ "help.what_is_this": [
+  "What is this?",
+  "What is this?"
+ ],
+ "help.learn_more": [
+  "Learn more",
+  "Learn more"
+ ],
+ "help.autosleep": [
+  "The server stops on its own once nobody has played for a while, so your PC isn't busy for nothing. It never starts again by itself.",
+  "Stops the server after the set minutes with a verified player count of zero. Recorded as a planned stop, never a crash. No automatic start follows."
+ ],
+ "help.phone_alerts": [
+  "Alerts go to your phone's lock screen, even when the dashboard is closed. Turn it on once on each phone.",
+  "Web Push (RFC 8291) to each subscribed browser, with the same events and cooldowns as Discord and email."
+ ],
+ "help.world_undo": [
+  "Puts the world back to how it was at a point in time, using a backup. What the world is like now is saved first.",
+  "Restores a verified backup of the world folders through the safe-change routine, after a safety backup."
+ ],
+ "help.keep_backups": [
+  "How many daily, weekly and monthly backups are kept. Older ones are deleted to save disk space.",
+  "Retention per kind. Anything outside these counts is pruned after a backup."
+ ],
+ "help.memory": [
+  "How much of your PC's memory the server may use. Too little causes crashes; leave a few GB for Windows.",
+  "Sets -Xmx for this server. Java also uses memory outside the heap, so the process is always larger."
+ ],
+ "feed.today": [
+  "Today",
+  "Today"
+ ],
+ "feed.yesterday": [
+  "Yesterday",
+  "Yesterday"
+ ],
+ "feed.server_started": [
+  "The server came online.",
+  "Server startup completed."
+ ],
+ "feed.server_stopped": [
+  "The server was stopped.",
+  "Server stopped."
+ ],
+ "feed.server_crashed": [
+  "The server crashed.",
+  "Server crashed."
+ ],
+ "feed.server_restarted": [
+  "The server restarted.",
+  "Server restarted."
+ ],
+ "feed.server_recovered": [
+  "The server came back by itself.",
+  "Server recovered after a crash."
+ ],
+ "feed.crash_loop": [
+  "It crashed too often, so automatic restarts stopped.",
+  "Crash loop: automatic restart disabled."
+ ],
+ "feed.player_joined": [
+  "{name} joined.",
+  "{name} joined."
+ ],
+ "feed.player_left": [
+  "{name} played for {duration}.",
+  "{name} left after {duration}."
+ ],
+ "feed.player_left_only": [
+  "{name} left.",
+  "{name} left."
+ ],
+ "feed.backup_completed": [
+  "A backup finished and was checked.",
+  "Backup completed and verified."
+ ],
+ "feed.backup_failed": [
+  "A backup failed.",
+  "Backup failed."
+ ],
+ "feed.low_tps": [
+  "The game ran slow.",
+  "TPS fell below the alert line."
+ ],
+ "feed.high_mspt": [
+  "The game fell behind.",
+  "MSPT rose above the alert line."
+ ],
+ "feed.high_ram": [
+  "The PC was low on memory.",
+  "RAM use passed the alert line."
+ ],
+ "feed.high_cpu": [
+  "The PC was very busy.",
+  "CPU use passed the alert line."
+ ],
+ "feed.low_disk": [
+  "The drive was running out of space.",
+  "Free disk space fell below the alert line."
+ ],
+ "feed.auth_failure": [
+  "Someone tried to sign in and failed.",
+  "Failed sign-in attempt."
+ ],
+ "feed.agent_started": [
+  "This app started.",
+  "Agent started."
+ ],
+ "feed.agent_stopping": [
+  "This app stopped.",
+  "Agent stopping."
+ ],
+ "alert_event.autosleep": [
+  "Server stopped because nobody was playing",
+  "Auto-sleep stopped a server"
+ ],
+ "alert_event.backup_copy_failed": [
+  "Backup's second copy failed",
+  "Off-PC backup copy failed"
+ ],
+ "alert_event.world_imported": [
+  "World imported",
+  "World imported over the server's world"
+ ],
+ "alert_event.helper_added": [
+  "Helper added",
+  "Helper account created"
+ ],
+ "alert_event.app_updates": [
+  "New version of this app, and how its update went",
+  "App update available, finished or failed"
+ ],
+ "alert_event.helper_removed": [
+  "Helper removed",
+  "Helper account deleted"
+ ],
+ "page.helpers": [
+  "Helpers",
+  "Helper accounts"
+ ],
+ "page.getting_started": [
+  "Getting started",
+  "Getting started"
+ ],
+ "start.guide": [
+  "Read the guide",
+  "Open the Getting started guide"
+ ],
+ "help.getting_started": [
+  "Getting started",
+  "Getting started"
+ ],
+ "help.offsite": [
+  "A second copy of each backup on another drive or a cloud folder, so a broken PC or drive doesn't take the backups with it.",
+  "Each verified backup is copied to the chosen folder and its SHA-256 checked after the copy. Retention removes copies too."
+ ],
+ "help.keep_awake": [
+  "While a server is running, Windows is asked not to sleep, so it doesn't stop for everyone playing.",
+  "Calls SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED) while any server runs. The lid, the power button and a low battery can still sleep the PC."
+ ],
+ "helpers.lead": [
+  "Give friends their own sign-in. They can run the server and look after players, but can't change how it's set up.",
+  "Helper accounts: own credentials, the Helper role, optionally limited to some servers. Every action is checked on the agent."
+ ],
+ "helpers.list": [
+  "Helpers",
+  "Helper accounts"
+ ],
+ "helpers.none": [
+  "No helpers yet",
+  "No helper accounts"
+ ],
+ "helpers.none_hint": [
+  "Add one below to let a friend start and stop the server.",
+  "Create one below."
+ ],
+ "helpers.col_name": [
+  "Name",
+  "Username"
+ ],
+ "helpers.col_servers": [
+  "Servers",
+  "Servers"
+ ],
+ "helpers.col_last": [
+  "Last sign-in",
+  "Last sign-in"
+ ],
+ "helpers.every_server": [
+  "Every server",
+  "All servers"
+ ],
+ "helpers.change_servers": [
+  "Servers",
+  "Change servers"
+ ],
+ "helpers.new_password": [
+  "New password",
+  "Reset password"
+ ],
+ "helpers.remove": [
+  "Remove",
+  "Delete"
+ ],
+ "helpers.owner_note": [
+  "You sign in as {owner}, the owner. Only the owner can change settings and manage helpers.",
+  "Owner account: {owner} (from .env). The owner holds every permission."
+ ],
+ "helpers.add": [
+  "Add a helper",
+  "Create a helper account"
+ ],
+ "helpers.username": [
+  "Name to sign in with",
+  "Username"
+ ],
+ "helpers.username_hint": [
+  "2 to 32 letters, numbers, dots, dashes or underscores.",
+  "2 to 32 characters: A-Z, a-z, 0-9, . _ -"
+ ],
+ "helpers.password": [
+  "Password",
+  "Password"
+ ],
+ "helpers.password_hint": [
+  "At least 10 characters. Give it to them yourself.",
+  "At least 10 characters. Stored as a PBKDF2 hash only."
+ ],
+ "helpers.adding": [
+  "Adding…",
+  "Creating…"
+ ],
+ "helpers.add_button": [
+  "Add helper",
+  "Create account"
+ ],
+ "helpers.added": [
+  "{name} can sign in now.",
+  "Helper {name} created."
+ ],
+ "helpers.pick_a_server": [
+  "Pick at least one server, or every server.",
+  "Select at least one server."
+ ],
+ "helpers.servers_title": [
+  "Which servers can {name} use?",
+  "Servers for {name}"
+ ],
+ "helpers.password_title": [
+  "New password for {name}",
+  "Reset {name}'s password"
+ ],
+ "helpers.password_body": [
+  "They're signed out everywhere and use the new password from now on.",
+  "All of their sessions end."
+ ],
+ "helpers.set_password": [
+  "Set password",
+  "Set password"
+ ],
+ "helpers.password_set": [
+  "{name} has a new password and was signed out.",
+  "Password reset; {name}'s sessions revoked."
+ ],
+ "helpers.remove_title": [
+  "Remove {name}?",
+  "Delete helper {name}?"
+ ],
+ "helpers.remove_body": [
+  "They're signed out at once and can't sign in again.",
+  "The account and all its sessions are deleted."
+ ],
+ "helpers.removed": [
+  "{name} was removed.",
+  "Helper {name} deleted."
+ ],
+ "helpers.what": [
+  "What helpers can do",
+  "Helper role"
+ ],
+ "helpers.can": [
+  "Can",
+  "Allowed"
+ ],
+ "helpers.cannot": [
+  "Can't",
+  "Refused (403)"
+ ],
+ "helpers.can_start": [
+  "Start, stop and restart",
+  "server.control"
+ ],
+ "helpers.can_players": [
+  "Whitelist, kick and ban players",
+  "players.manage"
+ ],
+ "helpers.can_chat": [
+  "Chat in the game",
+  "chat.send"
+ ],
+ "helpers.can_backup": [
+  "Take a backup",
+  "backups.create"
+ ],
+ "helpers.can_view": [
+  "See every page",
+  "server.view, settings.view, system.view"
+ ],
+ "helpers.cannot_settings": [
+  "Change settings",
+  "settings.edit"
+ ],
+ "helpers.cannot_backups": [
+  "Restore, download or delete backups",
+  "backups.restore, backups.download, backups.delete"
+ ],
+ "helpers.cannot_mods": [
+  "Install or remove mods, or change versions",
+  "mods.manage, servers.manage"
+ ],
+ "helpers.cannot_console": [
+  "Type console commands or make players operators",
+  "console.send, players.op"
+ ],
+ "helpers.cannot_users": [
+  "Manage helpers or see sign-ins",
+  "users.manage, security.view"
+ ],
+ "account.title": [
+  "Your account",
+  "Account"
+ ],
+ "account.owner": [
+  "You're signed in as {name}, the owner.",
+  "Signed in as {name} (owner, from .env)."
+ ],
+ "account.owner_reset": [
+  "Forgot the password? On the PC, open PowerShell in the app's folder and run:",
+  "The owner password is only reset on the PC, never over the network:"
+ ],
+ "account.helper": [
+  "You're signed in as {name}, a helper.",
+  "Signed in as {name} (helper)."
+ ],
+ "account.current": [
+  "Current password",
+  "Current password"
+ ],
+ "account.new": [
+  "New password",
+  "New password"
+ ],
+ "account.change": [
+  "Change password",
+  "Change password"
+ ],
+ "account.changed": [
+  "Password changed. Other devices were signed out.",
+  "Password changed; other sessions revoked."
+ ],
+ "awake.title": [
+  "Keep the PC awake",
+  "Sleep prevention"
+ ],
+ "awake.label": [
+  "Keep the PC awake while a server runs",
+  "SetThreadExecutionState while a server runs"
+ ],
+ "awake.active": [
+  "On now: {names} is running.",
+  "Active: ES_SYSTEM_REQUIRED held for {names}."
+ ],
+ "awake.idle": [
+  "No server is running, so Windows may sleep as usual.",
+  "Idle: no server running, request released."
+ ],
+ "awake.off_now": [
+  "Off. Windows may sleep while a server runs.",
+  "Disabled (power.keep_awake = false)."
+ ],
+ "awake.unsupported": [
+  "Only works on Windows.",
+  "Not available on this platform."
+ ],
+ "awake.turned_on": [
+  "The PC stays awake while a server runs.",
+  "Sleep prevention on."
+ ],
+ "awake.turned_off": [
+  "Windows may sleep again while a server runs.",
+  "Sleep prevention off."
+ ],
+ "awake.still_title": [
+  "Windows can still sleep:",
+  "Still able to sleep:"
+ ],
+ "awake.still_on_battery": [
+  "This PC is on battery. A low battery still puts it to sleep.",
+  "Running on battery (psutil): low-battery action still applies."
+ ],
+ "awake.still_lid_sleeps": [
+  "Closing the lid puts it to sleep. Change that in Windows' power settings.",
+  "Lid close action is sleep or hibernate in the active power plan."
+ ],
+ "awake.battery": [
+  "Battery {percent}%, {source}.",
+  "Battery {percent}% ({source})."
+ ],
+ "awake.plugged_in": [
+  "plugged in",
+  "AC"
+ ],
+ "awake.on_battery": [
+  "on battery",
+  "DC"
+ ],
+ "export.title": [
+  "Move to a new PC",
+  "Export everything"
+ ],
+ "export.lead": [
+  "Saves everything this app knows into one file. On the new PC, the installer's \"Import from another PC\" puts it all back.",
+  "One .zip with config.yaml, database rows and server folders. Import with python -m installer.import_from_pc."
+ ],
+ "export.always": [
+  "Settings, servers, mods and configs ({size})",
+  "Config, data and server folders without worlds ({size})"
+ ],
+ "export.worlds": [
+  "Worlds ({size})",
+  "World folders ({size})"
+ ],
+ "export.backups": [
+  "Backups ({size})",
+  "Backup archives ({size})"
+ ],
+ "export.secrets": [
+  "Passwords and keys, locked with a passphrase",
+  "Secrets (.env values, helper hashes, push subscriptions), AES-GCM with a scrypt key"
+ ],
+ "export.passphrase": [
+  "Passphrase",
+  "Passphrase"
+ ],
+ "export.passphrase_hint": [
+  "At least 10 characters. You'll need it on the new PC. It can't be recovered.",
+  "Min 10 characters. Not stored; needed to decrypt secrets.bin."
+ ],
+ "export.button": [
+  "Export everything",
+  "Export"
+ ],
+ "export.working": [
+  "Exporting…",
+  "Writing export…"
+ ],
+ "export.done": [
+  "Saved ({size}). Keep it somewhere safe.",
+  "Export written ({size})."
+ ],
+ "export.failed": [
+  "The export didn't finish.",
+  "The export job failed."
+ ],
+ "export.other_side": [
+  "Without passwords and keys, you choose a new password on the new PC and add helpers again.",
+  "Without secrets, run setup.ps1 on the new PC for a new owner password; helpers are recreated by hand."
+ ],
+ "gethelp.title": [
+  "Get help",
+  "Support bundle"
+ ],
+ "gethelp.lead": [
+  "Saves one file to send to whoever is helping you: this app's logs, the install logs and a fresh system check. No passwords or worlds.",
+  "Zip of agent logs, install/startup logs, the --check report and version info, with secrets redacted."
+ ],
+ "gethelp.button": [
+  "Get help file",
+  "Save support bundle"
+ ],
+ "gethelp.listing": [
+  "Checking…",
+  "Listing files…"
+ ],
+ "gethelp.confirm_title": [
+  "Save this help file?",
+  "Save support bundle?"
+ ],
+ "gethelp.confirm_body": [
+  "It holds exactly these files:",
+  "Contents:"
+ ],
+ "gethelp.made_now": [
+  "(made now)",
+  "(generated)"
+ ],
+ "gethelp.never": [
+  "Never included: passwords, keys, .env, the database, worlds and backups. Anything that looks like a password in a log is blanked.",
+  "Excluded: .env, config.yaml, the database, certificates, worlds, backups and Minecraft logs. Log lines are redacted."
+ ],
+ "gethelp.save": [
+  "Save file",
+  "Save"
+ ],
+ "gethelp.saved": [
+  "Help file saved.",
+  "Support bundle saved."
+ ],
+ "gethelp.crash_hint": [
+  "Send this to whoever is helping you.",
+  "Logs and --check report for support."
+ ],
+ "offline.title": [
+  "Can't reach your PC",
+  "Agent unreachable"
+ ],
+ "offline.lead": [
+  "The dashboard reconnects by itself when the PC answers again.",
+  "No response from /api/health. Retrying with backoff."
+ ],
+ "offline.reason_asleep": [
+  "The PC is asleep or turned off.",
+  "The host is asleep or powered off."
+ ],
+ "offline.reason_app": [
+  "The app on the PC isn't running.",
+  "The agent process isn't running."
+ ],
+ "offline.reason_network": [
+  "This device isn't on Tailscale, or the network is down.",
+  "No route to the host (Tailscale down or not connected)."
+ ],
+ "offline.next_try": [
+  "Trying again in {seconds} s",
+  "Next retry in {seconds} s"
+ ],
+ "offline.trying": [
+  "Trying now…",
+  "Retrying…"
+ ],
+ "offline.try_now": [
+  "Try now",
+  "Retry now"
+ ],
+ "folders.title": [
+  "Choose a folder",
+  "Choose a folder"
+ ],
+ "folders.choose": [
+  "Use this folder",
+  "Select"
+ ],
+ "folders.this_pc": [
+  "This PC",
+  "This PC"
+ ],
+ "folders.up": [
+  "Up one folder",
+  "Parent folder"
+ ],
+ "folders.home": [
+  "Your folder",
+  "Home"
+ ],
+ "folders.desktop": [
+  "Desktop",
+  "Desktop"
+ ],
+ "folders.onedrive": [
+  "OneDrive",
+  "OneDrive"
+ ],
+ "folders.google_drive": [
+  "Google Drive",
+  "Google Drive"
+ ],
+ "folders.dropbox": [
+  "Dropbox",
+  "Dropbox"
+ ],
+ "folders.saves": [
+  "Minecraft saves",
+  "Minecraft saves"
+ ],
+ "folders.drive": [
+  "Drive {name}",
+  "{name}"
+ ],
+ "folders.world": [
+  "World",
+  "level.dat"
+ ],
+ "folders.empty": [
+  "No folders in here.",
+  "No subfolders."
+ ],
+ "folders.truncated": [
+  "Only the first 500 folders are shown.",
+  "Listing truncated at 500 entries."
+ ],
+ "import.title": [
+  "Bring a world in",
+  "Import a world"
+ ],
+ "import.lead": [
+  "Use a world from single-player or another server. It's read and shown first; this server's world is backed up before it's replaced.",
+  "Zip or folder with level.dat. Zip-slip checked, then applied via the safe-change routine with a backup of the current world."
+ ],
+ "import.stop_first": [
+  "Stop the server first.",
+  "Stop the server first."
+ ],
+ "import.drop": [
+  "Drop a world .zip here",
+  "Drop a .zip with level.dat here"
+ ],
+ "import.drop_mcworld": [
+  "Drop a .mcworld here",
+  "Drop a .mcworld (or .mctemplate) here"
+ ],
+ "import.choose_mcworld": [
+  "Choose a .mcworld",
+  "Upload .mcworld"
+ ],
+ "import.lead_bedrock": [
+  "Use a Bedrock world saved as a .mcworld. It's read and shown first, then added to this server as its world; this server's worlds are backed up first.",
+  ".mcworld (zip with level.dat and db/). Installed into worlds/<name> and level-name is set; worlds/ and server.properties are backed up first."
+ ],
+ "import.newer": [
+  "This world was last saved by Minecraft {world}, which is newer than this server ({server}). An older server can't load it: update the server first.",
+  "World lastOpenedWithVersion {world} > server {server}; BDS will refuse to load it. Update the server first."
+ ],
+ "import.is_bedrock": [
+  "This is a Bedrock world. It can only go into a Bedrock server.",
+  "Bedrock world (LevelDB); not importable into a Java server."
+ ],
+ "import.is_java": [
+  "This is a Java world. It can only go into a Java server.",
+  "Java world (Anvil); not importable into a Bedrock server."
+ ],
+ "import.bedrock_level": [
+  "It goes into worlds/{name}, and the server will play it from its next start.",
+  "Installed as worlds/{name} and set as level-name."
+ ],
+ "import.choose_zip": [
+  "Choose a .zip",
+  "Upload .zip"
+ ],
+ "import.choose_folder": [
+  "Choose a folder",
+  "Pick a folder"
+ ],
+ "import.pick_title": [
+  "Choose the world's folder",
+  "Choose a folder with level.dat"
+ ],
+ "import.from_saves": [
+  "From single-player",
+  "From .minecraft/saves"
+ ],
+ "import.use": [
+  "Use",
+  "Use"
+ ],
+ "import.reading": [
+  "Reading…",
+  "Inspecting…"
+ ],
+ "import.name": [
+  "Name",
+  "LevelName"
+ ],
+ "import.version": [
+  "Last played on",
+  "Minecraft version"
+ ],
+ "import.size": [
+  "Size",
+  "Size"
+ ],
+ "import.size_value": [
+  "{size} in {files} files",
+  "{size}, {files} files"
+ ],
+ "import.last_played": [
+  "Last played",
+  "LastPlayed"
+ ],
+ "import.confirm_title": [
+  "Use \"{name}\" as this server's world?",
+  "Replace the world with {name}?"
+ ],
+ "import.confirm_body": [
+  "This server's world is backed up first, so you can undo this from Backups.",
+  "A verified backup of the current world folders is taken first; it is the undo."
+ ],
+ "import.confirm_action": [
+  "Replace world",
+  "Import"
+ ],
+ "import.read_problem": [
+  "Its level.dat couldn't be read fully ({problem}), so its name and version are Unknown.",
+  "level.dat parse error: {problem}"
+ ],
+ "import.working": [
+  "Importing the world…",
+  "Importing…"
+ ],
+ "import.done": [
+  "World imported.",
+  "World imported."
+ ],
+ "import.done_with_undo": [
+  "World imported. The old one is in Backups if you want it back.",
+  "World imported; undo restores the safety backup."
+ ],
+ "download.title": [
+  "Take the world home",
+  "Download the world"
+ ],
+ "download.lead_bedrock": [
+  "Saves this server's world as a .mcworld. Open it on a PC, phone or console with Bedrock to play it offline.",
+  ".mcworld (level.dat and db/ at the top), copied under save hold while the server runs."
+ ],
+ "download.lead": [
+  "Saves this server's world as a .zip you can put in single-player's saves folder.",
+  "Zip in single-player layout (DIM-1 and DIM1 inside the world folder), with saving paused while it packs."
+ ],
+ "download.button": [
+  "Download world",
+  "Download .zip"
+ ],
+ "download.packing": [
+  "Packing…",
+  "Packing…"
+ ],
+ "offsite.title": [
+  "Second copy off this PC",
+  "Off-PC backup copies"
+ ],
+ "offsite.lead": [
+  "Keep a copy of each backup on a USB drive or a cloud folder.",
+  "Copy each verified backup to another folder and check its hash."
+ ],
+ "offsite.off": [
+  "Off. Backups are only on this PC.",
+  "Not configured (backups.offsite_directory is empty)."
+ ],
+ "offsite.folder_ok": [
+  "New backups are also copied to {folder}.",
+  "Copying to {folder}."
+ ],
+ "offsite.folder_unavailable": [
+  "{folder} can't be reached: {reason}. Backups still work; their copies wait.",
+  "{folder} unavailable: {reason}. Local backups are unaffected."
+ ],
+ "offsite.choose": [
+  "Choose a folder",
+  "Choose folder"
+ ],
+ "offsite.change": [
+  "Change folder",
+  "Change folder"
+ ],
+ "offsite.turn_off": [
+  "Turn off",
+  "Disable"
+ ],
+ "offsite.pick_title": [
+  "Where should the second copies go?",
+  "Folder for off-PC copies"
+ ],
+ "offsite.saved": [
+  "New backups will be copied there. Copy older ones from the list.",
+  "Saved. Existing backups are not copied automatically."
+ ],
+ "offsite.turned_off": [
+  "Second copies are off.",
+  "Off-PC copies disabled."
+ ],
+ "offsite.col": [
+  "Second copy",
+  "Off-PC copy"
+ ],
+ "offsite.copied": [
+  "Copied and checked",
+  "Copied, SHA-256 matches"
+ ],
+ "offsite.failed": [
+  "Failed: {reason}",
+  "Failed: {reason}"
+ ],
+ "offsite.unreachable": [
+  "Can't check: {reason}",
+  "Unreachable: {reason}"
+ ],
+ "offsite.missing": [
+  "Copy is gone",
+  "Copy missing"
+ ],
+ "offsite.not_copied": [
+  "Not copied",
+  "None"
+ ],
+ "offsite.copy_now": [
+  "Copy",
+  "Copy now"
+ ],
+ "offsite.copying": [
+  "Copying…",
+  "Copying…"
+ ],
+ "offsite.copy_done": [
+  "Copied and checked.",
+  "Copied; hash verified."
+ ],
+ "offsite.copy_failed": [
+  "The copy failed: {reason}. The backup on this PC is fine.",
+  "Copy failed: {reason}. Local backup unaffected."
+ ],
+ "memory.title": [
+  "Memory",
+  "Memory (-Xmx)"
+ ],
+ "memory.label": [
+  "How much memory the server may use",
+  "Java heap limit for this server"
+ ],
+ "memory.pc_has": [
+  "This PC has {total} of memory.",
+  "Total RAM (psutil): {total}."
+ ],
+ "memory.pc_unknown": [
+  "This PC's memory couldn't be read, so the slider is off. Set it in Technical mode.",
+  "Total RAM unknown (psutil failed). The slider is disabled."
+ ],
+ "memory.not_bedrock": [
+  "Not available for Bedrock servers: Bedrock uses the memory it needs, and has no limit to set.",
+  "Not applicable: Bedrock Dedicated Server has no -Xmx or memory setting."
+ ],
+ "memory.not_used": [
+  "This kind of server sets its own memory.",
+  "This server type takes no -Xmx."
+ ],
+ "memory.now": [
+  "Now: up to {limit}. Changes apply on the next start.",
+  "Current -Xmx: {limit}. Applies on next start."
+ ],
+ "memory.unset": [
+  "No limit set, so Java picks one.",
+  "No -Xmx set: the JVM default applies."
+ ],
+ "memory.over_alone": [
+  "{total} is more than this PC has ({pc}). Windows may slow down or the server may crash.",
+  "-Xmx {total} exceeds total RAM {pc}."
+ ],
+ "memory.over_together": [
+  "With {names} running, servers may use {total}, more than this PC has ({pc}).",
+  "Running heaps with {names}: {total} > total RAM {pc}."
+ ],
+ "memory.save": [
+  "Save memory",
+  "Save -Xmx"
+ ],
+ "memory.saved": [
+  "Saved. Used from the next start.",
+  "-Xmx saved; applies on next start."
+ ],
+ "memory.saved_running": [
+  "Saved. Restart the server to use it.",
+  "-Xmx saved; restart to apply."
+ ],
+ "memory.raw_args": [
+  "Java options",
+  "JVM arguments"
+ ],
+ "memory.raw_hint": [
+  "Every option, on one line. The slider only changes -Xmx.",
+  "Space-separated. The slider replaces -Xmx only."
+ ],
+ "memory.save_raw": [
+  "Save options",
+  "Save JVM arguments"
+ ],
+ "guide.lead": [
+  "The few things to know, in order. Each button opens the page where it's done.",
+  "Setup steps, each linking to its page."
+ ],
+ "guide.start": [
+  "Start your server",
+  "Start the server"
+ ],
+ "guide.start_text": [
+  "Press Start on the Overview. The first start makes the world, so it takes a little longer.",
+  "Overview, Start. The first start generates the world."
+ ],
+ "guide.start_button": [
+  "Open Overview",
+  "Overview"
+ ],
+ "guide.friends": [
+  "Let friends join",
+  "Let players connect"
+ ],
+ "guide.friends_text": [
+  "The Overview's \"How friends join\" card shows the address to type in Minecraft, with a copy button.",
+  "The join card lists the reachable addresses and port."
+ ],
+ "guide.friends_button": [
+  "Show addresses",
+  "Join info"
+ ],
+ "guide.world": [
+  "Bring a world in",
+  "Import a world"
+ ],
+ "guide.world_text": [
+  "Use a single-player world on this server, or take this world home as a .zip.",
+  "Import a world zip or folder, or download this one."
+ ],
+ "guide.world_button": [
+  "Open World",
+  "World"
+ ],
+ "guide.backups": [
+  "Keep backups",
+  "Back up"
+ ],
+ "guide.backups_text": [
+  "Back up now, add a daily schedule, and keep a second copy on a USB drive or cloud folder.",
+  "Manual backup, a schedule, and off-PC copies."
+ ],
+ "guide.backups_button": [
+  "Open Backups",
+  "Backups"
+ ],
+ "guide.alerts": [
+  "Get alerts",
+  "Notifications"
+ ],
+ "guide.alerts_text": [
+  "Get told on your phone, Discord or email when the server crashes or the PC needs attention.",
+  "Push, Discord and email channels."
+ ],
+ "guide.alerts_button": [
+  "Open App settings",
+  "App settings"
+ ],
+ "guide.helpers": [
+  "Add helpers",
+  "Helper accounts"
+ ],
+ "guide.helpers_text": [
+  "Give a friend their own sign-in to start and stop the server without changing settings.",
+  "Accounts with the Helper role."
+ ],
+ "guide.helpers_button": [
+  "Open Helpers",
+  "Helpers"
+ ],
+ "guide.trouble": [
+  "If something goes wrong",
+  "Troubleshooting"
+ ],
+ "guide.trouble_text": [
+  "Crashes says what happened and why. \"Get help file\" saves logs to send to whoever helps you.",
+  "Crash analysis and the support bundle."
+ ],
+ "guide.trouble_button": [
+  "Open Crashes",
+  "Crashes"
+ ],
+ "guide.password": [
+  "Forgot the password?",
+  "Owner password reset"
+ ],
+ "guide.password_text": [
+  "On the PC, open PowerShell in the app's folder and run this. It asks for a new password and signs everyone out.",
+  "Local only. Asks twice, writes the hash to .env, revokes every session."
+ ],
+ "mobile.app_name": [
+  "Server Controller",
+  "Server Controller"
+ ],
+ "mobile.tab.servers": [
+  "Servers",
+  "Servers"
+ ],
+ "mobile.tab.notifications": [
+  "Notifications",
+  "Notifications"
+ ],
+ "mobile.tab.settings": [
+  "Settings",
+  "Settings"
+ ],
+ "mobile.welcome.title": [
+  "Control your Minecraft servers from your phone",
+  "Control your Minecraft servers from your phone"
+ ],
+ "mobile.welcome.lead": [
+  "Your phone talks straight to your PC over Tailscale. Nothing goes through anyone else's servers.",
+  "The app connects directly to the agent over your tailnet. No cloud relay."
+ ],
+ "mobile.welcome.need_tailscale": [
+  "First, put Tailscale on this phone and sign in with the same account as your PC.",
+  "Install Tailscale on this phone and join the same tailnet as the PC."
+ ],
+ "mobile.welcome.get_tailscale": [
+  "Get Tailscale",
+  "Get Tailscale"
+ ],
+ "mobile.welcome.have_tailscale": [
+  "Tailscale is on this phone",
+  "Tailscale is set up"
+ ],
+ "mobile.welcome.scan": [
+  "Scan the code",
+  "Scan pairing code"
+ ],
+ "mobile.welcome.scan_hint": [
+  "On your PC, open the dashboard's App settings and find Open on your phone.",
+  "Dashboard: Agent settings > Phone pairing code."
+ ],
+ "mobile.welcome.type": [
+  "Type the address instead",
+  "Enter address manually"
+ ],
+ "mobile.scan.title": [
+  "Scan the code",
+  "Scan pairing code"
+ ],
+ "mobile.scan.hint": [
+  "Point the camera at the code on your PC's screen.",
+  "Point the camera at the pairing QR code."
+ ],
+ "mobile.scan.no_camera": [
+  "This phone has no camera the app can use. Type the address instead.",
+  "No usable camera. Enter the address manually."
+ ],
+ "mobile.scan.camera_denied": [
+  "The app may not use the camera. Allow it in your phone's settings, or type the address instead.",
+  "Camera permission denied. Allow it in system settings or enter the address."
+ ],
+ "mobile.scan.open_settings": [
+  "Open phone settings",
+  "Open system settings"
+ ],
+ "mobile.scan.not_ours": [
+  "That code isn't from this app. Scan the one under Open on your phone in the dashboard's App settings.",
+  "Not a pairing code. Scan the one under Phone pairing code."
+ ],
+ "mobile.type.title": [
+  "Type your PC's address",
+  "Enter agent address"
+ ],
+ "mobile.type.label": [
+  "Address",
+  "Host[:port]"
+ ],
+ "mobile.type.hint": [
+  "Your PC's Tailscale name, like my-pc.tail1234.ts.net. The dashboard shows it in its address bar.",
+  "Tailscale MagicDNS name or 100.x address. Default port 8765."
+ ],
+ "mobile.type.go": [
+  "Connect",
+  "Connect"
+ ],
+ "mobile.pair.checking": [
+  "Checking your PC…",
+  "Checking /api/health…"
+ ],
+ "mobile.pair.error_not_address": [
+  "That isn't an address. Type something like my-pc.tail1234.ts.net.",
+  "Not a valid host or URL."
+ ],
+ "mobile.pair.error_not_https": [
+  "The app only connects with https, which keeps the connection private.",
+  "Only https:// is accepted."
+ ],
+ "mobile.pair.error_bad_code": [
+  "This code is damaged. Scan it again from the dashboard's App settings.",
+  "The pairing link's fingerprint is malformed. Rescan."
+ ],
+ "mobile.pair.too_old": [
+  "The app on your PC is too old for this phone app. Update it on the PC from Settings, then try again.",
+  "The agent's API version is older than this app supports. Update the agent."
+ ],
+ "mobile.pair.too_new": [
+  "The app on your PC is newer than this phone app. Update the phone app, then try again.",
+  "The agent's API version is newer than this app supports. Update the phone app."
+ ],
+ "mobile.pair.confirm_title": [
+  "Is this your PC?",
+  "Confirm certificate fingerprint"
+ ],
+ "mobile.pair.confirm_lead": [
+  "Your phone doesn't know this PC's certificate yet. Check that this matches Certificate fingerprint under Open on your phone in the dashboard's App settings.",
+  "The certificate isn't trusted by this phone. Compare the SHA-256 with the dashboard's pairing panel."
+ ],
+ "mobile.pair.confirm_yes": [
+  "They match",
+  "Fingerprints match"
+ ],
+ "mobile.pair.confirm_no": [
+  "They don't match",
+  "Mismatch"
+ ],
+ "mobile.pair.confirm_no_body": [
+  "Don't connect. Something between your phone and your PC may be pretending to be it. Scan the code on the PC instead.",
+  "Possible interception. Pair with the QR code instead."
+ ],
+ "mobile.pair.try_again": [
+  "Try again",
+  "Retry"
+ ],
+ "mobile.pair.start_over": [
+  "Start over",
+  "Start over"
+ ],
+ "mobile.signin.title": [
+  "Sign in",
+  "Sign in"
+ ],
+ "mobile.signin.lead": [
+  "Use the same username and password as the dashboard.",
+  "Same credentials as the dashboard."
+ ],
+ "mobile.signin.pc": [
+  "PC: {host}",
+  "Agent: {host}"
+ ],
+ "mobile.signin.stays": [
+  "You stay signed in on this phone, behind your phone's unlock. Sign it out any time from the dashboard's Security page.",
+  "A remembered session, stored in the phone's secure storage. Revocable under Security."
+ ],
+ "mobile.signin.device": [
+  "{app} on {model}",
+  "{app} on {model}"
+ ],
+ "mobile.lock.title": [
+  "Unlock to continue",
+  "Locked"
+ ],
+ "mobile.lock.reason": [
+  "Unlock to control your servers",
+  "Unlock Server Controller"
+ ],
+ "mobile.lock.unlock": [
+  "Unlock",
+  "Unlock"
+ ],
+ "mobile.lock.unavailable": [
+  "This phone has no screen lock set up, so the app can't lock itself. Set one up in your phone's settings.",
+  "No device credential is enrolled; app lock unavailable."
+ ],
+ "mobile.servers.title": [
+  "Servers",
+  "Servers"
+ ],
+ "mobile.servers.checked": [
+  "Checked {when}",
+  "Updated {when}"
+ ],
+ "mobile.servers.live": [
+  "Live",
+  "Live"
+ ],
+ "mobile.servers.none": [
+  "No servers yet. Add one in the dashboard on your PC.",
+  "No servers configured. Create one in the dashboard."
+ ],
+ "mobile.servers.helper_none": [
+  "The owner hasn't given your account any servers yet.",
+  "No servers are assigned to this helper account."
+ ],
+ "mobile.servers.more_on_pc": [
+  "More of what the dashboard does is coming to the app. Until then, use the dashboard on your PC.",
+  "Other pages are dashboard-only for now."
+ ],
+ "mobile.server.players_now": [
+  "Playing now",
+  "Online players"
+ ],
+ "mobile.server.nobody": [
+  "Nobody is playing.",
+  "No players online."
+ ],
+ "mobile.server.player_since": [
+  "Playing for {duration}",
+  "Session {duration}"
+ ],
+ "mobile.server.restart_pending": [
+  "It crashed and starts again by itself in a moment.",
+  "Crashed; automatic restart pending."
+ ],
+ "mobile.server.done_start": [
+  "Starting.",
+  "Start requested."
+ ],
+ "mobile.server.done_stop": [
+  "Stopping. The world is saving.",
+  "Stop requested."
+ ],
+ "mobile.server.done_restart": [
+  "Restarting.",
+  "Restart requested."
+ ],
+ "mobile.server.not_allowed": [
+  "Your account can see this server but not start or stop it.",
+  "This helper lacks server.control."
+ ],
+ "mobile.console.level_all": [
+  "All",
+  "All"
+ ],
+ "mobile.console.level_warnings": [
+  "Warnings",
+  "WARN"
+ ],
+ "mobile.console.level_errors": [
+  "Errors",
+  "ERROR"
+ ],
+ "mobile.console.jump": [
+  "Jump to latest",
+  "Scroll to latest"
+ ],
+ "mobile.console.owner_only": [
+  "Only the PC's owner can send commands.",
+  "Sending commands needs console.send (owner only)."
+ ],
+ "mobile.console.previous": [
+  "Previous command",
+  "Previous command"
+ ],
+ "mobile.console.invalid": [
+  "That command can't be sent.",
+  "Command rejected."
+ ],
+ "mobile.players.online_count": [
+  "Online now ({count})",
+  "Online now ({count})"
+ ],
+ "mobile.crash.log_tail": [
+  "Last lines of the log",
+  "Log tail"
+ ],
+ "mobile.crash.log_gone": [
+  "The saved log isn't on the PC anymore.",
+  "Saved log file no longer exists."
+ ],
+ "mobile.alerts.title": [
+  "Notifications",
+  "Notifications"
+ ],
+ "mobile.alerts.empty": [
+  "Nothing yet. Alerts about your servers show up here.",
+  "No alerts since pairing."
+ ],
+ "mobile.alerts.empty_hint": [
+  "The PC decides which alerts are sent, in the dashboard's Settings, under Alerts.",
+  "Events and cooldowns are set in the dashboard (notifications.*)."
+ ],
+ "mobile.alerts.mark_read": [
+  "Mark all as read",
+  "Mark all read"
+ ],
+ "mobile.alerts.pc": [
+  "Your PC",
+  "Agent"
+ ],
+ "mobile.alerts.new": [
+  "New alert",
+  "New alert"
+ ],
+ "mobile.alerts.open_to_read": [
+  "Open the app to read it.",
+  "Couldn't fetch it from the agent; open the app."
+ ],
+ "mobile.settings.title": [
+  "Settings",
+  "Settings"
+ ],
+ "mobile.settings.appearance": [
+  "Appearance",
+  "Appearance"
+ ],
+ "mobile.settings.theme": [
+  "Theme",
+  "Theme"
+ ],
+ "mobile.settings.words": [
+  "Words",
+  "Wording"
+ ],
+ "mobile.settings.unlock": [
+  "Unlock",
+  "App lock"
+ ],
+ "mobile.settings.unlock_on": [
+  "Ask for my fingerprint, face or PIN",
+  "Require device authentication"
+ ],
+ "mobile.settings.unlock_hint": [
+  "Asked when you open the app, and after a minute away from it.",
+  "On launch and after 60 s in the background."
+ ],
+ "mobile.settings.lock_alerts": [
+  "Lock-screen alerts",
+  "Push alerts (FCM)"
+ ],
+ "mobile.settings.lock_alerts_on": [
+  "Show alerts on this phone's lock screen",
+  "Receive push alerts"
+ ],
+ "mobile.settings.lock_alerts_hint": [
+  "Google only carries a nudge with no words in it. The phone then reads the alert from your PC.",
+  "Content-free FCM data messages; the text is fetched from the agent over Tailscale."
+ ],
+ "mobile.settings.lock_alerts_not_set_up": [
+  "Your PC isn't set up to send these yet. The owner can set it up on the PC; see Help.",
+  "The agent has no Firebase service account. See docs/notifications.md."
+ ],
+ "mobile.settings.lock_alerts_blocked": [
+  "Notifications are turned off for this app in your phone's settings.",
+  "Notification permission denied."
+ ],
+ "mobile.settings.lock_alerts_not_in_build": [
+  "This copy of the app was built without lock-screen alerts. The Notifications tab still works.",
+  "Built without google-services.json; FCM is off. The Notifications tab still works."
+ ],
+ "mobile.settings.lock_alerts_no_play": [
+  "This phone has no Google Play services, so lock-screen alerts can't reach it. The Notifications tab still works.",
+  "Google Play services unavailable; FCM cannot deliver."
+ ],
+ "mobile.settings.lock_alerts_ios_later": [
+  "Not on iPhone yet: these need Apple's push service, which isn't set up for this app yet. The Notifications tab catches up whenever you open the app.",
+  "Not available on iOS yet (requires APNs via FCM). The Notifications tab syncs from /api/alerts on launch and over the live feed."
+ ],
+ "mobile.settings.this_pc": [
+  "This PC",
+  "Agent"
+ ],
+ "mobile.settings.pc_address": [
+  "Address",
+  "Address"
+ ],
+ "mobile.settings.pc_version": [
+  "App on the PC",
+  "Agent version"
+ ],
+ "mobile.settings.pc_fingerprint": [
+  "Certificate fingerprint",
+  "Certificate SHA-256"
+ ],
+ "mobile.settings.signed_in_as": [
+  "Signed in as",
+  "Signed in as"
+ ],
+ "mobile.settings.sign_out": [
+  "Sign out",
+  "Sign out"
+ ],
+ "mobile.settings.sign_out_title": [
+  "Sign out of this phone?",
+  "Sign out?"
+ ],
+ "mobile.settings.sign_out_body": [
+  "You'll need your password to sign in again.",
+  "The session is revoked on the agent."
+ ],
+ "mobile.settings.forget_pc": [
+  "Forget this PC",
+  "Unpair"
+ ],
+ "mobile.settings.forget_pc_title": [
+  "Forget this PC?",
+  "Unpair this agent?"
+ ],
+ "mobile.settings.forget_pc_body": [
+  "The app signs out and forgets the address. Scan the code again to come back.",
+  "Signs out and clears the pairing and pinned certificate."
+ ],
+ "mobile.settings.rescan": [
+  "Scan the code again",
+  "Rescan pairing code"
+ ],
+ "mobile.settings.rescan_hint": [
+  "After your PC gets a new certificate. You stay signed in.",
+  "After a certificate renewal. The sign-in is kept for the same address and port."
+ ],
+ "mobile.rescan.other_title": [
+  "Switch to another PC?",
+  "Pair with a different agent?"
+ ],
+ "mobile.rescan.other_body": [
+  "This code is for {address}, not {current}. Switching signs this phone out of {current}.",
+  "The code points to {address}, not {current}. Switching signs out of {current}; the sign-in is never sent to another address."
+ ],
+ "mobile.rescan.switch": [
+  "Switch",
+  "Switch"
+ ],
+ "mobile.settings.help": [
+  "Help & About",
+  "Help & About"
+ ],
+ "mobile.about.title": [
+  "Help & About",
+  "Help & About"
+ ],
+ "mobile.about.help": [
+  "Help",
+  "Help"
+ ],
+ "mobile.about.whats_new": [
+  "What's new",
+  "Release notes"
+ ],
+ "mobile.about.privacy": [
+  "Privacy",
+  "Privacy"
+ ],
+ "mobile.about.licenses": [
+  "Open-source licenses",
+  "Third-party licenses"
+ ],
+ "mobile.about.licenses_lead": [
+  "The app is built with these free, open-source libraries.",
+  "Third-party libraries and their licenses."
+ ],
+ "mobile.about.licenses_body": [
+  "Server Controller is open source under the MIT license. The iPhone app is built only from its own code and Apple's frameworks, so there are no other licenses to list.",
+  "MIT License. No third-party dependencies: only the project's own code and Apple system frameworks."
+ ],
+ "mobile.about.report": [
+  "Report a problem",
+  "Report a bug"
+ ],
+ "mobile.about.suggest": [
+  "Suggest a feature",
+  "Request a feature"
+ ],
+ "mobile.about.forms_hint": [
+  "Opens a form on GitHub. Never paste a password or sign-in code there: anyone can read it.",
+  "Opens a public GitHub issue form. Never paste credentials or tokens."
+ ],
+ "mobile.about.copy_diagnostics": [
+  "Copy details for a problem report",
+  "Copy diagnostics"
+ ],
+ "mobile.about.copied": [
+  "Copied. It has no password, address or sign-in code in it.",
+  "Copied (no credentials, address or fingerprint)."
+ ],
+ "mobile.about.version": [
+  "Version {version}",
+  "Version {version}"
+ ],
+ "mobile.about.source": [
+  "Source code",
+  "Source code"
+ ],
+ "mobile.about.disclaimer": [
+  "NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.",
+  "NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT."
+ ],
+ "mobile.about.free": [
+  "Free, with every feature for everyone. No ads.",
+  "Free and open source (MIT). No ads, no tracking."
+ ],
+ "mobile.help.pairing_title": [
+  "Connecting your phone",
+  "Pairing"
+ ],
+ "mobile.help.pairing_body": [
+  "Put Tailscale on the phone and sign in with the same account as your PC. On the PC, open the dashboard's App settings and scan the code under Open on your phone with this app. The code holds the PC's address and how to recognise it; it has no password in it.",
+  "Both devices join the same tailnet. The pairing QR code carries host, port, certificate SHA-256 and API version, no credentials. The app pins that fingerprint."
+ ],
+ "mobile.help.unreachable_title": [
+  "When the app can't reach your PC",
+  "Agent unreachable"
+ ],
+ "mobile.help.unreachable_body": [
+  "The PC may be asleep or off, the app on the PC may not be running, or this phone may not be on Tailscale. Open Tailscale on the phone and check it says Connected.",
+  "Check the host is awake, the agent service is running and Tailscale is connected on the phone."
+ ],
+ "mobile.help.certificate_title": [
+  "When the app says the certificate changed",
+  "Certificate changed"
+ ],
+ "mobile.help.certificate_body": [
+  "The PC showed a different certificate from the one this phone knows. If you made a new one on the PC, scan the code again. If you didn't, don't sign in: something may be pretending to be your PC.",
+  "The presented certificate doesn't match the pinned SHA-256. Rescan after a certificate renewal; otherwise treat it as interception."
+ ],
+ "mobile.help.alerts_title": [
+  "Alerts on the lock screen",
+  "Push alerts"
+ ],
+ "mobile.help.alerts_body": [
+  "The owner sets this up once on the PC with a free Firebase key (see the guide on GitHub). Google only carries a nudge with no words in it; the phone then reads the alert from your PC over Tailscale.",
+  "The agent sends content-free FCM data messages with a service-account key; the app fetches /api/alerts. Setup: docs/notifications.md."
+ ],
+ "mobile.help.signout_title": [
+  "Signing a phone out",
+  "Revoking a phone"
+ ],
+ "mobile.help.signout_body": [
+  "Lost the phone? In the dashboard, open Security and sign it out. The app locks itself out the next time it talks to the PC, and stops getting alerts.",
+  "Revoke its session under Security. The next request gets 401 and the app clears its token; its push address is deleted with the session."
+ ],
+ "mobile.privacy.body": [
+  "The app talks only to your PC. It keeps your sign-in in the phone's secure storage and sends nothing to us, because there is no us: there is no account, no tracking and no analytics. Lock-screen alerts, if the owner turns them on, go through Google with no words in them. The full privacy policy is on GitHub.",
+  "No telemetry, analytics or third-party SDKs besides Firebase Cloud Messaging (only when push alerts are enabled; payloads carry an alert id only). The session token is stored with Android Keystore / iOS Keychain. Full policy: PRIVACY.md."
+ ],
+ "mobile.privacy.full": [
+  "Read the full privacy policy",
+  "PRIVACY.md"
+ ],
+ "mobile.error.unreachable": [
+  "Can't reach your PC. It may be asleep or off, or this phone may not be on Tailscale.",
+  "No response from the agent."
+ ],
+ "mobile.error.certificate_changed": [
+  "Your PC showed a different certificate from the one this phone knows. Don't sign in. If you made a new certificate on the PC, scan the code again.",
+  "Certificate SHA-256 doesn't match the pinned fingerprint."
+ ],
+ "mobile.error.certificate_expired": [
+  "Your PC's certificate has expired. Make a new one on the PC, then scan the code again.",
+  "Pinned certificate is outside its validity period. Renew it, then rescan."
+ ],
+ "mobile.error.certificate_untrusted": [
+  "This phone doesn't recognise the PC's certificate.",
+  "Certificate not trusted by the system store."
+ ],
+ "mobile.error.not_agent": [
+  "Something answered at that address, but not Server Controller. Check the address and port.",
+  "The response wasn't from the agent."
+ ],
+ "mobile.error.sign_in": [
+  "{reason}",
+  "{reason}"
+ ],
+ "mobile.error.not_allowed": [
+  "Your account isn't allowed to do that.",
+  "Forbidden (403)."
+ ],
+ "mobile.error.failed": [
+  "That didn't work: {reason}",
+  "Failed: {reason}"
+ ],
+ "mobile.error.failed_no_reason": [
+  "That didn't work. Error number {status}.",
+  "Failed ({status})."
+ ],
+ "mobile.widget.name": [
+  "Servers",
+  "Server status"
+ ],
+ "mobile.widget.description": [
+  "See whether your servers are running and who's playing.",
+  "State and player count per server."
+ ],
+ "mobile.widget.not_paired": [
+  "Open the app to connect your PC.",
+  "Not paired or not signed in."
+ ],
+ "mobile.widget.unreachable": [
+  "Couldn't reach your PC",
+  "Agent unreachable"
+ ],
+ "mobile.widget.checked": [
+  "Checked {when}",
+  "Checked {when}"
+ ],
+ "mobile.shortcut.confirm": [
+  "{action} {server}?",
+  "{action} {server}?"
+ ],
+ "mobile.thanks.title": [
+  "Say thanks",
+  "Tip jar"
+ ],
+ "mobile.thanks.ask": [
+  "Enjoying Server Controller? It's free and stays free. If it helps, you can say thanks with a small tip.",
+  "Free, with no paid features. Optional tips support development."
+ ],
+ "mobile.thanks.donate": [
+  "Donate",
+  "Donate"
+ ],
+ "mobile.thanks.no": [
+  "No thanks",
+  "No thanks"
+ ],
+ "mobile.thanks.unlocks_nothing": [
+  "A tip unlocks nothing: everyone gets every feature.",
+  "Tips unlock nothing."
+ ],
+ "mobile.thanks.done": [
+  "Thank you!",
+  "Thank you!"
+ ],
+ "mobile.thanks.idea": [
+  "Got an idea? Suggest a feature",
+  "Suggest a feature"
+ ],
+ "mobile.common.cancel": [
+  "Cancel",
+  "Cancel"
+ ],
+ "mobile.common.close": [
+  "Close",
+  "Close"
+ ],
+ "mobile.common.retry": [
+  "Try again",
+  "Retry"
+ ],
+ "mobile.common.loading": [
+  "Loading…",
+  "Loading…"
+ ]
+}

@@ -1,6 +1,6 @@
 """Minecraft Server Controller agent."""
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 
 # The version of the API that clients (the dashboard, and the phone app in
 # Phase 9) talk to. It is separate from the app's version and only goes up

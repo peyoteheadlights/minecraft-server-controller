@@ -1,0 +1,20 @@
+[
+  {"name": "Kotlin", "group": "org.jetbrains.kotlin", "license": "Apache License 2.0", "url": "https://github.com/JetBrains/kotlin/blob/master/license/LICENSE.txt"},
+  {"name": "kotlinx.coroutines", "group": "org.jetbrains.kotlinx", "license": "Apache License 2.0", "url": "https://github.com/Kotlin/kotlinx.coroutines/blob/master/LICENSE.txt"},
+  {"name": "kotlinx.serialization", "group": "org.jetbrains.kotlinx", "license": "Apache License 2.0", "url": "https://github.com/Kotlin/kotlinx.serialization/blob/master/LICENSE.txt"},
+  {"name": "OkHttp and Okio", "group": "com.squareup.okhttp3", "license": "Apache License 2.0", "url": "https://square.github.io/okhttp/#license"},
+  {"name": "Jetpack Compose", "group": "androidx.compose", "license": "Apache License 2.0", "url": "https://developer.android.com/license"},
+  {"name": "Compose Material 3 and icons", "group": "androidx.compose.material3", "license": "Apache License 2.0", "url": "https://developer.android.com/license"},
+  {"name": "AndroidX Activity", "group": "androidx.activity", "license": "Apache License 2.0", "url": "https://developer.android.com/license"},
+  {"name": "AndroidX Lifecycle", "group": "androidx.lifecycle", "license": "Apache License 2.0", "url": "https://developer.android.com/license"},
+  {"name": "AndroidX Navigation", "group": "androidx.navigation", "license": "Apache License 2.0", "url": "https://developer.android.com/license"},
+  {"name": "AndroidX Core", "group": "androidx.core", "license": "Apache License 2.0", "url": "https://developer.android.com/license"},
+  {"name": "AndroidX Biometric", "group": "androidx.biometric", "license": "Apache License 2.0", "url": "https://developer.android.com/license"},
+  {"name": "AndroidX Fragment", "group": "androidx.fragment", "license": "Apache License 2.0", "url": "https://developer.android.com/license"},
+  {"name": "CameraX", "group": "androidx.camera", "license": "Apache License 2.0", "url": "https://developer.android.com/license"},
+  {"name": "WorkManager", "group": "androidx.work", "license": "Apache License 2.0", "url": "https://developer.android.com/license"},
+  {"name": "Glance", "group": "androidx.glance", "license": "Apache License 2.0", "url": "https://developer.android.com/license"},
+  {"name": "AndroidX Browser", "group": "androidx.browser", "license": "Apache License 2.0", "url": "https://developer.android.com/license"},
+  {"name": "ML Kit barcode scanning", "group": "com.google.mlkit", "license": "ML Kit Terms of Service", "url": "https://developers.google.com/ml-kit/terms"},
+  {"name": "Firebase Cloud Messaging", "group": "com.google.firebase", "license": "Apache License 2.0", "url": "https://github.com/firebase/firebase-android-sdk/blob/main/LICENSE"}
+]

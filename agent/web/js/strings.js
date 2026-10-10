@@ -53,6 +53,7 @@ export const STRINGS = /* strings-table */ {
   "pair.scan": ["Scan this with your phone's camera, or type:", "Scan, or open:"],
   "pair.not_ready": ["The code for your phone isn't ready yet.", "No pairing code."],
   "pair.no_secret": ["The code holds this PC's address and how to recognise it. No password.", "Contains address, port, certificate SHA-256 and API version; no credentials."],
+  "pair.app": ["Using the phone app? Scan this from the app's first screen.", "Phone app: scan from its pairing screen; it pins the fingerprint."],
   "pair.rescan": ["If the app's certificate is renewed, scan the code again.", "A new certificate means a new fingerprint: phones must rescan."],
   "pair.qr_label": ["Code for your phone", "Pairing QR code"],
   "pair.fingerprint": ["Certificate fingerprint", "Certificate SHA-256"],

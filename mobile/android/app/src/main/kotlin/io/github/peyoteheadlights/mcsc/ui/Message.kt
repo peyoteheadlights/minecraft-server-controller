@@ -16,9 +16,12 @@ data class Message(val key: String, val values: Map<String, String> = emptyMap()
                 else Message(e.key, mapOf("reason" to e.reason))
             is AgentException.NotAllowed ->
                 if (e.reason.isBlank()) Message(e.key) else Message("mobile.error.sign_in", mapOf("reason" to e.reason))
-            is AgentException.Failed ->
-                if (e.reason.isNullOrBlank()) Message("mobile.error.failed_no_reason", mapOf("status" to e.status.toString()))
-                else Message(e.key, mapOf("reason" to e.reason))
+            is AgentException.Failed -> {
+                // Read once: a property from the core module can't be smart-cast.
+                val reason = e.reason
+                if (reason.isNullOrBlank()) Message("mobile.error.failed_no_reason", mapOf("status" to e.status.toString()))
+                else Message(e.key, mapOf("reason" to reason))
+            }
             else -> Message(e.key)
         }
     }

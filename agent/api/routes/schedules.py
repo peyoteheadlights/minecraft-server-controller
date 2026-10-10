@@ -8,19 +8,20 @@ from ...security.auth import Principal
 from ...security.permissions import SCHEDULES_MANAGE, SERVER_VIEW, require
 from ..deps import audit, get_server
 from ..errors import respond_as
+from ..responses import Ok, ScheduleList, ScheduleRan, ScheduleSaved
 from .models import ScheduleRequest
 
 router = APIRouter()
 
 
-@router.get("/schedules")
+@router.get("/schedules", response_model=ScheduleList)
 async def list_schedules(
     principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):
     return {"schedules": ctx.scheduler.list_schedules(), "tasks": list(ctx.scheduler.handlers)}
 
 
-@router.post("/schedules")
+@router.post("/schedules", response_model=ScheduleSaved)
 async def create_schedule(
     payload: ScheduleRequest,
     request: Request,
@@ -34,7 +35,7 @@ async def create_schedule(
     return {"ok": True, "schedule": row}
 
 
-@router.put("/schedules/{schedule_id}")
+@router.put("/schedules/{schedule_id}", response_model=ScheduleSaved)
 async def update_schedule(
     schedule_id: int,
     payload: ScheduleRequest,
@@ -55,7 +56,7 @@ async def update_schedule(
     return {"ok": True, "schedule": row}
 
 
-@router.delete("/schedules/{schedule_id}")
+@router.delete("/schedules/{schedule_id}", response_model=Ok)
 async def delete_schedule(
     schedule_id: int,
     request: Request,
@@ -68,7 +69,7 @@ async def delete_schedule(
     return {"ok": True}
 
 
-@router.post("/schedules/{schedule_id}/run")
+@router.post("/schedules/{schedule_id}/run", response_model=ScheduleRan)
 async def run_schedule(
     schedule_id: int,
     request: Request,

@@ -20,7 +20,7 @@ from ...security.permissions import (
 )
 from ..deps import audit, get_server
 from ..errors import audit_failure
-from ..responses import Checklist
+from ..responses import Checklist, Restored, WorldTimeline
 from .models import WorldFolderRequest, WorldImportRequest, WorldUndoRequest
 
 CHUNK = 1024 * 1024
@@ -28,14 +28,14 @@ CHUNK = 1024 * 1024
 router = APIRouter()
 
 
-@router.get("/world/timeline")
+@router.get("/world/timeline", response_model=WorldTimeline)
 async def world_timeline(
     principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):
     return worldundo.timeline(ctx)
 
 
-@router.post("/world/undo")
+@router.post("/world/undo", response_model=Restored)
 async def world_undo(
     payload: WorldUndoRequest,
     request: Request,

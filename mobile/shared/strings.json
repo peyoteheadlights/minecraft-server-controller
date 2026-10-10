@@ -6483,6 +6483,50 @@
   "The saved log isn't on the PC anymore.",
   "Saved log file no longer exists."
  ],
+ "mobile.backups.restored": [
+  "{name} restored.",
+  "Restored {name}."
+ ],
+ "mobile.backups.saved_file": [
+  "Saved {name}.",
+  "Saved {name}."
+ ],
+ "mobile.backups.save_failed": [
+  "The backup couldn't be saved on this phone: {reason}",
+  "Writing the file failed: {reason}"
+ ],
+ "mobile.backups.downloading": [
+  "Downloading {name}…",
+  "Downloading {name}…"
+ ],
+ "mobile.backups.restore_working": [
+  "Restoring…",
+  "Restoring…"
+ ],
+ "mobile.offsite.choose_on_pc": [
+  "Choose the folder in the dashboard on your PC.",
+  "Set the folder from the dashboard."
+ ],
+ "mobile.schedules.ran": [
+  "Ran {name}: {result}",
+  "{name}: {result}"
+ ],
+ "mobile.perf.now": [
+  "Now",
+  "Current"
+ ],
+ "mobile.perf.graphs": [
+  "Graphs",
+  "Graphs"
+ ],
+ "mobile.perf.touch": [
+  "Touch a graph to read a value.",
+  "Touch a graph to read a point."
+ ],
+ "mobile.perf.point": [
+  "{value} at {time}",
+  "{value} at {time}"
+ ],
  "mobile.alerts.title": [
   "Notifications",
   "Notifications"

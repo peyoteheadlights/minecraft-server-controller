@@ -30,6 +30,30 @@ POST /api/servers/{server_id}/recommendations/{rec_id}
 GET /api/servers/{server_id}/getting-started
 POST /api/servers/{server_id}/getting-started/dismiss
 GET /api/servers/{server_id}/join
+GET /api/servers/{server_id}/backups
+POST /api/servers/{server_id}/backups
+GET /api/servers/{server_id}/backups/{backup_id}/verify
+POST /api/servers/{server_id}/backups/{backup_id}/restore
+DELETE /api/servers/{server_id}/backups/{backup_id}
+POST /api/servers/{server_id}/backups/{backup_id}/copy
+GET /api/servers/{server_id}/backups/offsite
+PUT /api/servers/{server_id}/backups/offsite
+GET /api/servers/{server_id}/worlds
+POST /api/servers/{server_id}/worlds/save
+GET /api/servers/{server_id}/world/timeline
+POST /api/servers/{server_id}/world/undo
+GET /api/jobs
+POST /api/jobs/{job_id}/undo
+GET /api/servers/{server_id}/schedules
+POST /api/servers/{server_id}/schedules
+PUT /api/servers/{server_id}/schedules/{schedule_id}
+DELETE /api/servers/{server_id}/schedules/{schedule_id}
+POST /api/servers/{server_id}/schedules/{schedule_id}/run
+GET /api/servers/{server_id}/performance
+GET /api/servers/{server_id}/health/server
+# A backup's file is a zip, not JSON, so it has no typed answer; the apps
+# also download it from GET /api/servers/{server_id}/backups/{backup_id}/download
+# (tests/test_phone_world.py checks it stays).
 GET /api/alerts
 GET /api/app/phone
 PUT /api/app/phone

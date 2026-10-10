@@ -89,6 +89,10 @@ Phase 9.
   list turn Unknown when the PC doesn't answer).
 - The apps start, stop and restart servers through the same API routes and
   permissions as the dashboard; they can't run anything else on the PC.
+- A backup downloads only to a place the person picks, with the sign-in in
+  a header (never in the address). A restore always asks the agent first
+  what it would do, and the agent makes a backup of the world as it is now
+  before putting another back.
 - Certificate checks are never switched off. A pairing code names the PC's
   certificate and only that one is accepted; a typed address needs one the
   phone trusts, or the person compares fingerprints.

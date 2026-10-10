@@ -1,0 +1,49 @@
+name: Report a problem
+description: Something in the app, the dashboard or the phone app doesn't work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. **Everything here is public.** Never paste a password, a sign-in code, your `.env` file, a certificate or key, or your PC's address.
+
+        Found a security problem? Don't open an issue: follow [SECURITY.md](https://github.com/peyoteheadlights/minecraft-server-controller/blob/main/SECURITY.md) instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where?
+      options:
+        - Dashboard (in a browser)
+        - Android app
+        - iPhone app
+        - Setup or updates on the PC
+        - Something else
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: In the dashboard under Settings, or in the phone app under Settings, Help & About.
+      placeholder: "1.4.0"
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: |
+        In the phone app, "Copy details for a problem report" (Settings, Help & About) copies what helps, with no password, address or sign-in code in it. Check what you paste anyway.
+      render: text
+  - type: checkboxes
+    id: nothing-secret
+    attributes:
+      label: Before you send
+      options:
+        - label: There is no password, sign-in code, key or PC address in this report.
+          required: true

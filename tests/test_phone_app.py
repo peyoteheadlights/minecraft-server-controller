@@ -411,3 +411,94 @@ def test_a_bad_push_address_is_refused(multi_client):
         "/api/app/phone", json={"token": "x y", "platform": "android", "label": ""}
     )
     assert response.status_code == 422
+
+
+# ------------------------------------------------------------ the apps' files
+def test_android_names_match_the_shared_words():
+    """Android shows these few words before the app runs, from its own
+    resources; they must say what mobile/shared/strings.json says."""
+    import json
+    import re
+
+    strings = json.loads((ROOT / "mobile" / "shared" / "strings.json").read_text(encoding="utf-8"))
+    xml = (ROOT / "mobile/android/app/src/main/res/values/strings.xml").read_text(encoding="utf-8")
+    found = {
+        name: text.replace("\\'", "'")
+        for name, text in re.findall(r'<string name="([a-z_]+)">([^<]*)</string>', xml)
+    }
+    assert found == {
+        "app_name": strings["mobile.app_name"][0],
+        "widget_name": strings["mobile.widget.name"][0],
+        "widget_description": strings["mobile.widget.description"][0],
+    }
+
+
+def test_every_library_in_the_android_app_is_in_its_licenses_list():
+    import json
+    import re
+    import tomllib
+
+    android = ROOT / "mobile" / "android"
+    catalog = tomllib.loads((android / "gradle" / "libs.versions.toml").read_text(encoding="utf-8"))
+    modules = {
+        alias.replace("-", "."): spec["module"] for alias, spec in catalog["libraries"].items()
+    }
+    used = set()
+    for module in ("app", "core"):
+        build = (android / module / "build.gradle.kts").read_text(encoding="utf-8")
+        for alias in re.findall(
+            r"^\s*(?:implementation|api)\((?:platform\()?libs\.([\w.]+)", build, re.M
+        ):
+            used.add(modules[alias])
+    assert len(used) > 15
+    listed = json.loads(
+        (android / "app" / "src" / "main" / "assets" / "licenses.json").read_text(encoding="utf-8")
+    )
+    groups = [entry["group"] for entry in listed]
+    for module in used:
+        group = module.split(":")[0]
+        assert any(group == g or group.startswith(g + ".") for g in groups), module
+
+
+def test_no_signing_keys_or_firebase_files_are_committed():
+    import subprocess
+
+    tracked = subprocess.run(
+        ["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True
+    ).stdout.splitlines()
+    for name in tracked:
+        lowered = name.lower()
+        assert not lowered.endswith((".jks", ".keystore", ".p12", ".mobileprovision")), name
+        assert not lowered.endswith(("google-services.json", "googleservice-info.plist")), name
+
+
+def test_the_apps_words_and_colors_are_up_to_date():
+    """mobile/shared is generated from the dashboard's own files. After
+    changing strings.js, feed.js, styles.css, colors.js or the palette, run:
+    python mobile/tools/generate.py"""
+    import shutil
+    import subprocess
+    import sys
+
+    if shutil.which("node") is None:
+        pytest.skip("needs Node to run the dashboard's colors.js")
+    done = subprocess.run(
+        [sys.executable, str(ROOT / "mobile" / "tools" / "generate.py"), "--check"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert done.returncode == 0, done.stdout + done.stderr
+
+
+def test_both_apps_carry_the_shared_version_and_name():
+    import json
+
+    import yaml
+
+    version = json.loads((ROOT / "mobile" / "version.json").read_text(encoding="utf-8"))
+    strings = json.loads((ROOT / "mobile" / "shared" / "strings.json").read_text(encoding="utf-8"))
+    spec = yaml.safe_load((ROOT / "mobile" / "ios" / "project.yml").read_text(encoding="utf-8"))
+    assert spec["settings"]["base"]["MARKETING_VERSION"] == version["app_version"]
+    app = spec["targets"]["ServerController"]["info"]["properties"]
+    assert app["CFBundleDisplayName"] == strings["mobile.app_name"][0]

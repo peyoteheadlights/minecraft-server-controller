@@ -1,0 +1,102 @@
+name: Phone apps
+
+# The Android and iPhone apps (mobile/). Built and tested here; nothing is
+# signed or published by this workflow.
+on:
+  push:
+    paths:
+      - "mobile/**"
+      - "agent/web/js/strings.js"
+      - "agent/web/js/feed.js"
+      - "agent/web/js/colors.js"
+      - "agent/web/styles.css"
+      - "agent/colors.py"
+      - "agent/__init__.py"
+      - ".github/workflows/mobile.yml"
+  pull_request:
+    paths:
+      - "mobile/**"
+      - "agent/web/js/strings.js"
+      - "agent/web/js/feed.js"
+      - "agent/web/js/colors.js"
+      - "agent/web/styles.css"
+      - "agent/colors.py"
+      - "agent/__init__.py"
+      - ".github/workflows/mobile.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shared:
+    name: Words and colors match the dashboard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version-file: .python-version
+      - name: mobile/shared is up to date
+        run: python mobile/tools/generate.py --check
+
+  android:
+    name: Android app
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HAS_FIREBASE: ${{ secrets.GOOGLE_SERVICES_JSON != '' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Java 17
+        run: echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+      # Lock-screen alerts need the Firebase project's file; without the
+      # secret the app is built without them (mobile/README.md).
+      - name: Firebase file
+        if: env.HAS_FIREBASE == 'true'
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: printf '%s' "$GOOGLE_SERVICES_JSON" > mobile/android/app/google-services.json
+      - name: Test, build and lint
+        working-directory: mobile/android
+        run: ./gradlew --no-daemon --stacktrace :core:test :app:assembleDebug :app:lintDebug
+      - name: Keep the test and lint reports
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: android-reports
+          path: |
+            mobile/android/core/build/reports/
+            mobile/android/app/build/reports/
+          retention-days: 7
+      - name: Keep the test app
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: android-debug-apk
+          path: mobile/android/app/build/outputs/apk/debug/*.apk
+          retention-days: 14
+
+  ios:
+    name: iPhone app
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: XcodeGen
+        run: brew install xcodegen
+      - name: Core tests
+        run: swift test --package-path mobile/ios/Core
+      - name: Make the Xcode project
+        run: xcodegen generate --spec mobile/ios/project.yml
+      - name: Build for the simulator (unsigned)
+        run: >-
+          xcodebuild -project mobile/ios/ServerController.xcodeproj
+          -scheme ServerController
+          -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO
+          build

@@ -8,6 +8,35 @@ Changes a client (the dashboard, or the phone app) must know about are listed
 under **API**, with the API version they arrived in. The API version is shown
 at `/api/version` and only goes up for those changes.
 
+## 1.4.0
+
+- **Phone apps** for Android and iPhone, built natively for each (not the
+  dashboard in a frame). Scan the code in the dashboard's App settings with
+  the app's own camera view, sign in once, and the app stays signed in
+  behind your phone's unlock. In this first version: every server's state
+  and players, Start, Stop and Restart (Stop and Restart ask first), a
+  Notifications tab with the PC's alerts, a home-screen widget, and Help &
+  About in the app. The apps are being tested before they go into the
+  stores.
+- **Lock-screen alerts in the Android app**, through Google's Firebase
+  Cloud Messaging, sent by the agent itself with your own free Firebase
+  key (`docs/notifications.md`). Google only carries a nudge with an alert
+  number in it; the phone reads the alert from your PC.
+- The agent keeps its newest 200 alerts for the app's Notifications tab,
+  whether or not Discord, email or phone alerts are turned on.
+- PRIVACY.md says what the app and the phone apps contact, and when.
+- "Report a problem" and "Suggest a feature" on GitHub are forms now, with
+  a reminder never to paste a password.
+
+### API (version 1)
+
+- `GET /api/alerts` (the alerts since a given number, for the phone apps)
+  and `GET|PUT|DELETE /api/app/phone` (this sign-in's push address for
+  lock-screen alerts). Additive.
+- `POST /api/auth/login`, `POST /api/auth/logout` and `GET /api/auth/me`
+  now describe their answers in `/api/openapi.json`. Nothing changed in
+  what they answer.
+
 ## 1.3.0
 
 - Passwords are stored more strongly (600,000 rounds instead of 240,000).

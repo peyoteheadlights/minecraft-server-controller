@@ -126,6 +126,51 @@ object Display {
 
     fun worthShowing(type: String, technical: Boolean): Boolean = technical || type !in INTERNAL
 
+    /** "512 MB", "1.4 GB" (fmt.bytes); Unknown when it wasn't measured. */
+    fun bytes(strings: Strings, n: Long?): String {
+        if (n == null) return strings.t("value.unknown")
+        val units = listOf("B", "KB", "MB", "GB", "TB")
+        var value = n.toDouble()
+        var i = 0
+        while (value >= 1024 && i < units.size - 1) {
+            value /= 1024
+            i++
+        }
+        return "${fixed(value, if (value >= 100 || i == 0) 0 else 1)} ${units[i]}"
+    }
+
+    /** "12.3 GB", or Unknown. */
+    fun gb(strings: Strings, n: Double?): String = if (n == null) strings.t("value.unknown") else "${fixed(n, 1)} GB"
+
+    /** "42%", or Unknown. */
+    fun pct(strings: Strings, n: Double?): String = if (n == null) strings.t("value.unknown") else "${fixed(n, 0)}%"
+
+    /** "800 MB" or "2.5 GB"; null when it wasn't measured (fmt.memory). */
+    fun memory(mb: Double?): String? = when {
+        mb == null -> null
+        mb >= 1024 -> "${fixed(mb / 1024, 1)} GB"
+        else -> "${fixed(mb, 0)} MB"
+    }
+
+    /** A number with [places] decimals, the same in every language (the
+     * dashboard's toFixed). */
+    fun fixed(value: Double, places: Int): String = String.format(java.util.Locale.ROOT, "%.${places}f", value)
+
+    /** "Oct 10, 2026, 2:05 PM" in the phone's language and time zone
+     * (fmt.time); "Never" when there is no time. */
+    fun dateTime(
+        strings: Strings,
+        ts: Double?,
+        zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+        locale: java.util.Locale = java.util.Locale.getDefault(),
+    ): String {
+        if (ts == null || ts <= 0) return strings.t("time.never")
+        val format = java.time.format.DateTimeFormatter
+            .ofLocalizedDateTime(java.time.format.FormatStyle.MEDIUM, java.time.format.FormatStyle.SHORT)
+            .withLocale(locale)
+        return java.time.Instant.ofEpochMilli((ts * 1000).toLong()).atZone(zone).format(format)
+    }
+
     /** 24-hour "14:05:09" in the phone's time zone (fmt.clock). */
     fun clock(ts: Double, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): String =
         java.time.Instant.ofEpochMilli((ts * 1000).toLong()).atZone(zone).toLocalTime()

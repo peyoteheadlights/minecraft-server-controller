@@ -116,7 +116,7 @@ private fun LazyListScope.playersPage(
                     val state = Display.actionState(action.state)
                     Item(
                         t("players.do_${action.kind}") + " · " + action.name,
-                        subtitle = listOfNotNull(t(state.key), action.message).joinToString(" · "),
+                        subtitle = action.message,
                         trailing = { Text(t(state.key), color = LocalColors.current.tone(state.tone)) },
                     )
                 }

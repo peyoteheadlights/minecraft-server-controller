@@ -42,6 +42,9 @@ class ServerPages(
     private val client: () -> AgentClient?,
     private val noted: (AgentException) -> Unit,
 ) {
+    /** Backups, Restore world, Schedules and Performance. */
+    val world = WorldPages(serverId, scope, client, noted)
+
     // ------------------------------------------------------------ console
     var console: Read<List<ConsoleLine>> by mutableStateOf(Read())
         private set

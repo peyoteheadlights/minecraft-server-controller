@@ -92,6 +92,19 @@ fun Main(vm: AppViewModel) {
             composable("server/{id}/players") { back ->
                 PlayersScreen(vm, back.serverId(), onBack = { nav.popBackStack() })
             }
+            composable("server/{id}/performance") { back ->
+                PerformanceScreen(vm, back.serverId(), onBack = { nav.popBackStack() })
+            }
+            composable("server/{id}/backups") { back ->
+                val id = back.serverId()
+                BackupsScreen(vm, id, onBack = { nav.popBackStack() }, onRestoreWorld = { nav.navigate("server/${Uri.encode(id)}/world") })
+            }
+            composable("server/{id}/world") { back ->
+                WorldRestoreScreen(vm, back.serverId(), onBack = { nav.popBackStack() })
+            }
+            composable("server/{id}/schedules") { back ->
+                SchedulesScreen(vm, back.serverId(), onBack = { nav.popBackStack() })
+            }
             composable("server/{id}/events") { back ->
                 EventsScreen(vm, back.serverId(), onBack = { nav.popBackStack() })
             }

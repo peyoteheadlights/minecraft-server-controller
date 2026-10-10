@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only what Android itself shows before the app runs. Every other word is
+     in mobile/shared/strings.json; tests/test_phone_app.py keeps these the same. -->
+<resources>
+    <string name="app_name">Server Controller</string>
+    <string name="widget_name">Servers</string>
+    <string name="widget_description">See whether your servers are running and who\'s playing.</string>
+</resources>

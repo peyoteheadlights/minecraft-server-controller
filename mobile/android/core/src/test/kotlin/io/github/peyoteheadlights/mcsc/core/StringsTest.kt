@@ -13,10 +13,20 @@ class StringsTest {
         val roots = listOf(File("src/main"), File("../app/src/main")).filter { it.exists() }
         val used = roots.flatMap { root ->
             root.walk().filter { it.extension == "kt" }.flatMap { file -> keys.findAll(file.readText()).map { it.groupValues[1] } }
-        }.toSet()
+        }.filterNot { it.endsWith(".json") }.toSet()
         assertTrue(used.size > 20)
         val missing = used.filterNot { it in Shared.strings }
         assertEquals("missing from strings.json", emptyList<String>(), missing.sorted())
+    }
+
+    @Test
+    fun `keys the app builds from parts are in the table`() {
+        val built = listOf("start", "stop", "restart").flatMap { listOf("action.$it", "mobile.server.done_$it") } +
+            listOf("stop", "restart").flatMap { listOf("confirm.${it}_title", "confirm.${it}_body") } +
+            listOf("pairing", "unreachable", "certificate", "alerts", "signout")
+                .flatMap { listOf("mobile.help.${it}_title", "mobile.help.${it}_body") } +
+            listOf("system", "light", "dark", "graphite", "contrast").map { "theme.$it" }
+        assertEquals(emptyList<String>(), built.filterNot { it in Shared.strings })
     }
 
     @Test

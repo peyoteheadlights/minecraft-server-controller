@@ -17,7 +17,7 @@ dependencyResolutionManagement {
 rootProject.name = "server-controller"
 include(":core")
 // The Android app needs the Android SDK. Leave it out with
-// -PcoreOnly=true to build and test only core/ (as on a plain JVM).
+// -PcoreOnly=true to test only core/: ./gradlew -PcoreOnly=true :core:test
 if (providers.gradleProperty("coreOnly").orNull != "true") {
     include(":app")
 }

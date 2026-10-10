@@ -14,7 +14,7 @@ Writes into mobile/shared/ (never edit those by hand):
   theme.json         each theme's colors (agent/web/styles.css)
   palette.json       the twelve server colors (agent/colors.py)
   color-cases.json   what colors.js derives for each palette color in each
-                     theme, for the apps' tests (needs Node 22 or newer)
+                     theme, for the apps' tests (needs Node)
   version.json       the app's version and the agent API versions it works
                      with (mobile/version.json), plus the agent's own
 
@@ -26,6 +26,7 @@ from __future__ import annotations
 import ast
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -153,8 +154,11 @@ def color_cases(theme_data: dict, palette_data: list) -> list:
         }
         theme_file.write_text(json.dumps(flat), encoding="utf-8")
         palette_file.write_text(json.dumps(palette_data), encoding="utf-8")
+        colors_module = Path(folder) / "colors.mjs"
+        shutil.copyfile(ROOT / "agent" / "web" / "js" / "colors.js", colors_module)
+        script = MOBILE / "tools" / "color_cases.mjs"
         done = subprocess.run(
-            ["node", str(MOBILE / "tools" / "color_cases.mjs"), str(theme_file), str(palette_file)],
+            ["node", str(script), str(theme_file), str(palette_file), str(colors_module)],
             capture_output=True,
             text=True,
             check=False,

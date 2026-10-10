@@ -24,5 +24,5 @@ dependencies {
 
 // The tests read the shared files the dashboard generates (mobile/shared).
 tasks.test {
-    systemProperty("mcsc.shared", rootProject.file("../shared").absolutePath)
+    systemProperty("mcsc.shared", file("../../shared").absolutePath)
 }

@@ -6399,6 +6399,10 @@
   "Live",
   "Live"
  ],
+ "mobile.servers.none": [
+  "No servers yet. Add one in the dashboard on your PC.",
+  "No servers configured. Create one in the dashboard."
+ ],
  "mobile.servers.helper_none": [
   "The owner hasn't given your account any servers yet.",
   "No servers are assigned to this helper account."
@@ -6463,6 +6467,10 @@
   "New alert",
   "New alert"
  ],
+ "mobile.alerts.open_to_read": [
+  "Open the app to read it.",
+  "Couldn't fetch it from the agent; open the app."
+ ],
  "mobile.settings.title": [
   "Settings",
   "Settings"
@@ -6511,9 +6519,17 @@
   "Notifications are turned off for this app in your phone's settings.",
   "Notification permission denied."
  ],
+ "mobile.settings.lock_alerts_not_in_build": [
+  "This copy of the app was built without lock-screen alerts. The Notifications tab still works.",
+  "Built without google-services.json; FCM is off. The Notifications tab still works."
+ ],
  "mobile.settings.lock_alerts_no_play": [
   "This phone has no Google Play services, so lock-screen alerts can't reach it. The Notifications tab still works.",
   "Google Play services unavailable; FCM cannot deliver."
+ ],
+ "mobile.settings.lock_alerts_ios_later": [
+  "Not on iPhone yet: these need Apple's push service, which isn't set up for this app yet. The Notifications tab catches up whenever you open the app.",
+  "Not available on iOS yet (requires APNs via FCM). The Notifications tab syncs from /api/alerts on launch and over the live feed."
  ],
  "mobile.settings.this_pc": [
   "This PC",
@@ -6526,6 +6542,10 @@
  "mobile.settings.pc_version": [
   "App on the PC",
   "Agent version"
+ ],
+ "mobile.settings.pc_fingerprint": [
+  "Certificate fingerprint",
+  "Certificate SHA-256"
  ],
  "mobile.settings.signed_in_as": [
   "Signed in as",
@@ -6578,6 +6598,14 @@
  "mobile.about.licenses": [
   "Open-source licenses",
   "Third-party licenses"
+ ],
+ "mobile.about.licenses_lead": [
+  "The app is built with these free, open-source libraries.",
+  "Third-party libraries and their licenses."
+ ],
+ "mobile.about.licenses_body": [
+  "Server Controller is open source under the MIT license. The iPhone app is built only from its own code and Apple's frameworks, so there are no other licenses to list.",
+  "MIT License. No third-party dependencies: only the project's own code and Apple system frameworks."
  ],
  "mobile.about.report": [
   "Report a problem",

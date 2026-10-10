@@ -1,0 +1,128 @@
+# XcodeGen spec for the iPhone app. CI runs, from the repository root:
+#   xcodegen generate --spec mobile/ios/project.yml
+#   swift test --package-path mobile/ios/Core
+#   xcodebuild -project mobile/ios/ServerController.xcodeproj -scheme ServerController \
+#     -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+# Code signing is switched off from the command line only; signed TestFlight
+# builds set DEVELOPMENT_TEAM and the signing keys from CI secrets.
+name: ServerController
+options:
+  bundleIdPrefix: io.github.peyoteheadlights
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: ""
+    MARKETING_VERSION: 0.1.0
+    CURRENT_PROJECT_VERSION: 1
+    SWIFT_VERSION: "5.10"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    DEAD_CODE_STRIPPING: YES
+
+packages:
+  Core:
+    path: Core
+
+targets:
+  ServerController:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: ServerController
+      - path: SharedUI
+      - path: ../shared
+        type: folder
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.peyoteheadlights.mcsc
+        PRODUCT_NAME: ServerController
+    info:
+      path: Generated/ServerController-Info.plist
+      properties:
+        CFBundleDisplayName: Server Controller
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        ITSAppUsesNonExemptEncryption: false
+        NSCameraUsageDescription: Scan the pairing code shown in your dashboard.
+        NSFaceIDUsageDescription: Unlock Server Controller.
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        CFBundleURLTypes:
+          - CFBundleURLName: io.github.peyoteheadlights.mcsc
+            CFBundleTypeRole: Viewer
+            CFBundleURLSchemes:
+              - mcsc
+    entitlements:
+      path: Generated/ServerController.entitlements
+      properties:
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)io.github.peyoteheadlights.mcsc.shared
+        com.apple.security.application-groups:
+          - group.io.github.peyoteheadlights.mcsc
+    dependencies:
+      - package: Core
+        product: Core
+      - target: ServerControllerWidget
+        embed: true
+
+  ServerControllerWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: ServerControllerWidget
+      - path: SharedUI
+      - path: ../shared
+        type: folder
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.peyoteheadlights.mcsc.widget
+        PRODUCT_NAME: ServerControllerWidget
+        SKIP_INSTALL: YES
+    info:
+      path: Generated/ServerControllerWidget-Info.plist
+      properties:
+        CFBundleDisplayName: Server Controller
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Generated/ServerControllerWidget.entitlements
+      properties:
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)io.github.peyoteheadlights.mcsc.shared
+        com.apple.security.application-groups:
+          - group.io.github.peyoteheadlights.mcsc
+    dependencies:
+      - package: Core
+        product: Core
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+
+schemes:
+  ServerController:
+    build:
+      targets:
+        ServerController: all
+        ServerControllerWidget: all
+    run:
+      config: Debug
+    archive:
+      config: Release

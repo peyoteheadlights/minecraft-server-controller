@@ -1,0 +1,9 @@
+# Made by `xcodegen generate` from project.yml
+/ServerController.xcodeproj/
+/Generated/*
+!/Generated/.gitkeep
+# Swift Package Manager and Xcode output
+/Core/.build/
+/Core/.swiftpm/
+DerivedData/
+xcuserdata/

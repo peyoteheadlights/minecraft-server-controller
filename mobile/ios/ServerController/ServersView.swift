@@ -31,7 +31,7 @@ struct ServersListView: View {
                 }
                 Section {
                     ForEach(model.servers) { row in
-                        NavigationLink(value: row.id) {
+                        NavigationLink(value: ServerRoute.server(row.id)) {
                             ServerRowView(row: row, fresh: model.serversFresh)
                         }
                     }
@@ -45,8 +45,23 @@ struct ServersListView: View {
                 await model.refreshServers()
             }
             .navigationTitle(model.t("mobile.servers.title"))
-            .navigationDestination(for: String.self) { id in
-                ServerView(serverId: id)
+            .navigationDestination(for: ServerRoute.self) { route in
+                switch route {
+                case .server(let id):
+                    ServerView(serverId: id)
+                case .page(let id, .console):
+                    ConsoleView(serverId: id)
+                case .page(let id, .chat):
+                    ChatView(serverId: id)
+                case .page(let id, .players):
+                    PlayersView(serverId: id)
+                case .page(let id, .events):
+                    EventsView(serverId: id)
+                case .page(let id, .crashes):
+                    CrashesView(serverId: id)
+                case .crash(let id, let crashId):
+                    CrashView(serverId: id, crashId: crashId)
+                }
             }
         }
     }

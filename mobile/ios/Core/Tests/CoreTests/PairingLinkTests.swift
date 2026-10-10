@@ -63,4 +63,11 @@ final class PairingLinkTests: XCTestCase {
         XCTAssertNil(DeepLink.serverId(from: DeepLink.home))
         XCTAssertNil(DeepLink.serverId(from: try XCTUnwrap(URL(string: "https://server/x"))))
     }
+
+    func testANewCodeKeepsTheSignInOnlyForTheSameAddressAndPort() {
+        let current = Pairing(host: "my-pc.tail1234.ts.net", port: 9000, fingerprint: fp.lowercased())
+        XCTAssertTrue(current.samePc(Pairing(host: "MY-PC.tail1234.ts.net", port: 9000, fingerprint: String(repeating: "cd", count: 32))))
+        XCTAssertFalse(current.samePc(Pairing(host: "my-pc.tail1234.ts.net", port: 9001, fingerprint: nil)))
+        XCTAssertFalse(current.samePc(Pairing(host: "other-pc.tail1234.ts.net", port: 9000, fingerprint: nil)))
+    }
 }

@@ -7,6 +7,15 @@ public enum LiveSignal: Equatable, Sendable {
     /// Something happened on `serverId` (nil: the PC itself). `type` is the
     /// agent's event type ("state", "player_joined", ...).
     case changed(serverId: String?, type: String)
+    /// The same event as a line for the Activity screen (its data is never kept).
+    case activity(EventRow)
+    /// A new console line of the watched server.
+    case console(serverId: String?, line: ConsoleLine)
+    /// Someone said something in the watched server's game.
+    case chat(serverId: String?, message: ChatMessage)
+    /// The watched server's latest console lines, which replace what the
+    /// Console shows: on connecting, and after `LiveFeed.tail`.
+    case consoleTail(serverId: String, lines: [ConsoleLine])
     /// No sign-in to connect with.
     case signedOut
     /// The agent closed the feed: the sign-in ended, or the account may no
@@ -19,37 +28,96 @@ public enum LiveSignal: Equatable, Sendable {
 
 /// The agent's live stream (/ws, agent/api/ws.py), as the dashboard uses it:
 /// the token goes in the first message, never in the address, so it is
-/// never in a log. Console lines are ignored; the app has no console yet.
-public final class LiveFeed {
+/// never in a log. One feed watches one server's console and chat at a
+/// time: the one named on connecting, until `tail` names another.
+public final class LiveFeed: @unchecked Sendable {
     private let client: AgentClient
     private let token: () -> String?
+    private let lock = NSLock()
+    private var socket: URLSessionWebSocketTask?
 
     public init(client: AgentClient, token: @escaping () -> String?) {
         self.client = client
         self.token = token
     }
 
+    /// Watch `serverId`'s console and chat from now on; the agent answers
+    /// with its latest `lines` lines (`.consoleTail`). False when the feed
+    /// isn't connected: the next connect names the server instead.
+    @discardableResult
+    public func tail(serverId: String, lines: Int = 200) -> Bool {
+        lock.lock()
+        let open = socket
+        lock.unlock()
+        guard let open = open, open.state == .running else { return false }
+        let object: [String: Any] = ["type": "tail", "server_id": serverId, "lines": Swift.min(Swift.max(lines, 1), 500)]
+        guard let data = try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]),
+              let text = String(data: data, encoding: .utf8)
+        else { return false }
+        open.send(.string(text)) { _ in }
+        return true
+    }
+
     /// One message from the agent, as a signal; nil for anything the app
-    /// doesn't act on (pings, console lines, other kinds).
+    /// doesn't act on (pings, other kinds).
     public static func signal(from text: String) -> LiveSignal? {
+        signals(from: text).first
+    }
+
+    /// One message from the agent, as the signals it carries: "ready" also
+    /// brings the watched server's console, and an event also its line for
+    /// the Activity screen.
+    public static func signals(from text: String) -> [LiveSignal] {
         guard let data = text.data(using: .utf8),
               let message = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               let type = message["type"] as? String
-        else { return nil }
+        else { return [] }
         switch type {
         case "ready":
-            return .ready
+            guard let watched = message["server_id"] as? String else { return [.ready] }
+            return [.ready, .consoleTail(serverId: watched, lines: lines(message["console"]))]
+        case "console_tail":
+            guard let watched = message["server_id"] as? String else { return [] }
+            return [.consoleTail(serverId: watched, lines: lines(message["lines"]))]
         case "event":
             guard let event = message["event"] as? [String: Any],
                   let kind = event["type"] as? String
-            else { return nil }
-            if kind == "console" { return nil }
-            return .changed(serverId: event["server_id"] as? String, type: kind)
+            else { return [] }
+            let server = event["server_id"] as? String
+            switch kind {
+            case "console":
+                guard let line = decode(ConsoleLine.self, event["data"]) else { return [] }
+                return [.console(serverId: server, line: line)]
+            case "chat":
+                guard let said = decode(ChatMessage.self, event["data"]) else { return [] }
+                return [.chat(serverId: server, message: said)]
+            default:
+                let row = EventRow(
+                    serverId: server,
+                    ts: (event["ts"] as? NSNumber)?.doubleValue,
+                    type: kind,
+                    level: event["level"] as? String ?? "info",
+                    message: event["message"] as? String ?? ""
+                )
+                return [.changed(serverId: server, type: kind), .activity(row)]
+            }
         case "error":
-            return .closed(message: message["message"] as? String)
+            return [.closed(message: message["message"] as? String)]
         default:
-            return nil
+            return []
         }
+    }
+
+    private static func decode<T: Decodable>(_ type: T.Type, _ object: Any?) -> T? {
+        guard let object = object as? [String: Any],
+              let data = try? JSONSerialization.data(withJSONObject: object)
+        else { return nil }
+        return try? JSONDecoder().decode(type, from: data)
+    }
+
+    private static func lines(_ object: Any?) -> [ConsoleLine] {
+        guard let list = object as? [Any] else { return [] }
+        return list.compactMap { decode(ConsoleLine.self, $0) }
     }
 
     /// The first message: the sign-in, and which server's details to follow.
@@ -62,6 +130,12 @@ public final class LiveFeed {
               let text = String(data: data, encoding: .utf8)
         else { return "{}" }
         return text
+    }
+
+    private func remember(_ task: URLSessionWebSocketTask?) {
+        lock.lock()
+        socket = task
+        lock.unlock()
     }
 
     public func connect(serverId: String?) -> AsyncStream<LiveSignal> {
@@ -83,6 +157,7 @@ public final class LiveFeed {
                 return
             }
             let task = client.session.webSocketTask(with: url)
+            self.remember(task)
             task.resume()
             task.send(.string(LiveFeed.authMessage(token: current, serverId: serverId))) { _ in
                 // A failed send shows up as a failed receive below.
@@ -101,7 +176,7 @@ public final class LiveFeed {
                         @unknown default:
                             text = nil
                         }
-                        if let text = text, let signal = LiveFeed.signal(from: text) {
+                        for signal in text.map(LiveFeed.signals(from:)) ?? [] {
                             continuation.yield(signal)
                             if case .closed = signal {
                                 task.cancel(with: .normalClosure, reason: nil)
@@ -123,7 +198,8 @@ public final class LiveFeed {
             }
             receive()
 
-            continuation.onTermination = { _ in
+            continuation.onTermination = { [weak self] _ in
+                self?.remember(nil)
                 task.cancel(with: .normalClosure, reason: nil)
             }
         }

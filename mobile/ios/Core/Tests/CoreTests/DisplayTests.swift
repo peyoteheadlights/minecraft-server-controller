@@ -37,4 +37,39 @@ final class DisplayTests: XCTestCase {
         }
         XCTAssertEqual(Display.actions("OFFLINE", canControl: false), [])
     }
+
+    func testValuesTheAgentDidntGiveReadUnknown() {
+        XCTAssertEqual(Display.onlineNow(s, nil, 20), "Players not known")
+        XCTAssertEqual(Display.onlineNow(s, 3, 20), "Online now (3 of 20)")
+        XCTAssertEqual(Display.onlineNow(s, 3, nil), "Online now (3)")
+        XCTAssertEqual(Display.exitCode(s, nil), "Unknown")
+        XCTAssertEqual(Display.exitCode(s, 1), "1")
+        XCTAssertEqual(Display.playingFor(s, OnlinePlayer(username: "Alex", sessionSeconds: 0)), "Unknown")
+        XCTAssertEqual(Display.playingFor(s, OnlinePlayer(username: "Alex", sessionSeconds: 300, sessionStarted: 1)), "5m")
+        XCTAssertEqual(s.t(Display.actionState("something_new").key), "Unknown")
+        XCTAssertEqual(s.t(Display.confidence(nil).key), "Not sure")
+    }
+
+    func testCrashCausesAndConfidenceReadAsInTheDashboard() {
+        XCTAssertEqual(Display.cause(s, nil), "Not known")
+        XCTAssertEqual(Display.cause(s, "Unknown"), "Not known")
+        XCTAssertEqual(Display.cause(s, "OutOfMemoryError"), "The server ran out of memory")
+        XCTAssertEqual(Display.cause(s, "SomethingNew"), "SomethingNew")
+        XCTAssertEqual(Display.confidence("confirmed").tone, .danger)
+        XCTAssertEqual(s.t(Display.confidence("likely").key), "Likely")
+        let technical = Strings(Shared.strings)
+        technical.technical = true
+        XCTAssertEqual(Display.cause(technical, "OutOfMemoryError"), "OutOfMemoryError")
+    }
+
+    func testActivityAndClock() {
+        XCTAssertEqual(Display.eventTone("error"), .danger)
+        XCTAssertEqual(Display.eventTone(nil), .neutral)
+        XCTAssertTrue(Display.worthShowing("server_started", technical: false))
+        XCTAssertFalse(Display.worthShowing("state", technical: false))
+        XCTAssertTrue(Display.worthShowing("state", technical: true))
+        let utc = TimeZone(identifier: "UTC")!
+        XCTAssertEqual(Display.clock(1_700_000_000, zone: utc), "22:13:20")
+        XCTAssertEqual(Display.dateTime(1_700_000_000, zone: utc), "2023-11-14 22:13:20")
+    }
 }

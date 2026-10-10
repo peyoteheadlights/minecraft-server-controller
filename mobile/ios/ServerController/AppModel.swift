@@ -27,6 +27,12 @@ final class AppModel {
     @ObservationIgnored private var liveTask: Task<Void, Never>? = nil
     @ObservationIgnored private var refreshTask: Task<Void, Never>? = nil
     @ObservationIgnored private var backgroundedAt: Date? = nil
+    @ObservationIgnored private var feed: LiveFeed? = nil
+    /// The server screens open now, newest last; the same server can be
+    /// open twice (its home and its Console) while one replaces the other.
+    @ObservationIgnored private var watchers: [String] = []
+    @ObservationIgnored private var watching: String? = nil
+    @ObservationIgnored private var pagesById: [String: ServerPages] = [:]
 
     // Settings.
     var technical: Bool
@@ -56,7 +62,7 @@ final class AppModel {
 
     // Navigation.
     var tab: AppTab = .servers
-    var serversPath: [String] = []
+    var serversPath: [ServerRoute] = []
 
     init() {
         strings = Strings(Bundled.english)
@@ -136,6 +142,27 @@ final class AppModel {
 
     func makePairer() -> Pairer {
         Pairer(range: Bundled.apiRange, log: requestLog)
+    }
+
+    /// "Scan the code again" found the agent. A new code for the same PC
+    /// (a renewed certificate) keeps the sign-in; for any other address the
+    /// app signs out of this PC first, so the sign-in is never sent there.
+    func rescanned(_ next: Pairing) async {
+        if let current = pairing, current.samePc(next), signedIn {
+            store.pairing = next
+            pairing = next
+            client = makeClient(next)
+            stopLive()
+            startLive()
+            return
+        }
+        stopLive()
+        if let client = client, signedIn {
+            await client.logout()
+        }
+        TokenStore.delete()
+        clearSignedIn()
+        paired(next)
     }
 
     /// Checking found the agent: remember it and ask for the sign-in.
@@ -240,6 +267,7 @@ final class AppModel {
         serversPath = []
         tab = .servers
         live = false
+        pagesById = [:]
     }
 
     private func note(_ problem: AgentError) {
@@ -318,20 +346,80 @@ final class AppModel {
         }
     }
 
+    // MARK: - One server's screens
+
+    /// What the Console, Chat, Players, Activity and Crashes screens show.
+    func pages(_ serverId: String) -> ServerPages {
+        if let known = pagesById[serverId] { return known }
+        let made = ServerPages(
+            serverId: serverId,
+            client: { [weak self] in self?.client },
+            noted: { [weak self] problem in self?.note(problem) }
+        )
+        pagesById[serverId] = made
+        return made
+    }
+
+    func can(_ permission: String) -> Bool {
+        me?.can(permission) ?? false
+    }
+
+    /// A screen of `serverId` opened: the live feed carries its console and chat.
+    func watch(_ serverId: String) {
+        watchers.append(serverId)
+        follow(serverId)
+    }
+
+    /// That screen closed.
+    func unwatch(_ serverId: String) {
+        if let index = watchers.firstIndex(of: serverId) {
+            watchers.remove(at: index)
+        }
+        follow(watchers.last)
+    }
+
+    private func follow(_ serverId: String?) {
+        guard watching != serverId else { return }
+        watching = serverId
+        // No server screen open: the feed can stay where it is.
+        guard let serverId = serverId else { return }
+        // Switch the open feed to it; reconnect only if it isn't open.
+        if feed?.tail(serverId: serverId) != true && liveTask != nil {
+            startLive()
+        }
+    }
+
     // MARK: - Live feed
 
     func startLive() {
         guard let client = client, signedIn, !locked else { return }
         liveTask?.cancel()
         let feed = LiveFeed(client: client, token: { TokenStore.read() })
+        self.feed = feed
+        let watched = watching
         liveTask = Task { [weak self] in
-            for await signal in feed.connect(serverId: nil) {
+            for await signal in feed.connect(serverId: watched) {
                 guard let self = self else { return }
                 switch signal {
                 case .ready:
                     self.live = true
-                case .changed:
+                case .changed(let serverId, let type):
                     self.scheduleRefresh()
+                    self.changed(serverId, type)
+                case .activity(let row):
+                    for pages in self.pagesById.values {
+                        pages.onEvent(row)
+                    }
+                case .console(let serverId, let line):
+                    if let serverId = serverId {
+                        self.pagesById[serverId]?.onConsoleLine(line)
+                    }
+                case .chat(let serverId, let message):
+                    if let serverId = serverId {
+                        self.pagesById[serverId]?.onChat(message)
+                    }
+                case .consoleTail(let serverId, let lines):
+                    self.pagesById[serverId]?.onConsoleTail(lines)
                 case .closed:
                     self.live = false
                     // Ask who this is: a 401 there signs the app out.
@@ -351,7 +439,25 @@ final class AppModel {
     func stopLive() {
         liveTask?.cancel()
         liveTask = nil
+        feed = nil
         live = false
+    }
+
+    /// A fresh read of what an event changed, for screens that showed it.
+    private func changed(_ serverId: String?, _ type: String) {
+        guard let serverId = serverId, let pages = pagesById[serverId] else { return }
+        switch type {
+        case "player_joined", "player_left", "player_action":
+            if pages.players.value != nil {
+                Task { await pages.loadPlayers() }
+            }
+        case "server_crashed":
+            if pages.crashes.value != nil {
+                Task { await pages.loadCrashes() }
+            }
+        default:
+            break
+        }
     }
 
     /// Several events in a row (a server starting says a lot) read once.
@@ -418,7 +524,7 @@ final class AppModel {
         guard url.scheme?.lowercased() == DeepLink.scheme else { return }
         tab = .servers
         if let id = DeepLink.serverId(from: url) {
-            serversPath = [id]
+            serversPath = [.server(id)]
         } else {
             serversPath = []
         }
@@ -426,7 +532,7 @@ final class AppModel {
 
     func openServer(_ id: String) {
         tab = .servers
-        serversPath = [id]
+        serversPath = [.server(id)]
     }
 
     // MARK: - Diagnostics

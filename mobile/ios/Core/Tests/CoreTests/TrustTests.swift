@@ -56,6 +56,39 @@ final class TrustTests: XCTestCase {
         XCTAssertEqual(trust.decide(leafFingerprint: expected, systemTrusted: false), .accept)
     }
 
+    func testAnExpiredPinnedCertificateIsRefused() {
+        let trust = PinnedTrust(pin: expected, strict: false)
+        XCTAssertEqual(trust.decide(leafFingerprint: expected, systemTrusted: false, expired: true), .expired(presented: expected))
+        XCTAssertEqual(trust.decide(leafFingerprint: expected, systemTrusted: false, expired: false), .accept)
+        // Any other certificate is decided as before; the dates are in the phone's own check.
+        let other = String(repeating: "22", count: 32)
+        XCTAssertEqual(trust.decide(leafFingerprint: other, systemTrusted: true, expired: true), .accept)
+    }
+
+    func testTheCertificatesOwnDatesAreRead() throws {
+        // The test certificate is valid from 2026-10-09 to 2036-10-06.
+        let der = try XCTUnwrap(Data(base64Encoded: certificateBase64))
+        let certificate = try XCTUnwrap(SecCertificateCreateWithData(nil, der as CFData))
+        let year: (Int) -> Date = { y in
+            DateComponents(calendar: Calendar(identifier: .gregorian), timeZone: TimeZone(identifier: "UTC"), year: y, month: 6, day: 1).date!
+        }
+        XCTAssertFalse(PinnedTrust.outsideItsDates(certificate, at: year(2027)))
+        XCTAssertTrue(PinnedTrust.outsideItsDates(certificate, at: year(2039)))
+        XCTAssertTrue(PinnedTrust.outsideItsDates(certificate, at: year(2023)))
+    }
+
+    func testAnExpiredCertificateIsNamedAsSuch() {
+        let client = AgentClient(
+            pairing: Pairing(host: "localhost", port: 8765, fingerprint: expected),
+            token: { nil },
+            configuration: StubAgent.configuration()
+        )
+        XCTAssertEqual(AgentError.certificateExpired.key, "mobile.error.certificate_expired")
+        XCTAssertNotEqual(Strings(Shared.strings).t(AgentError.certificateExpired.key), "mobile.error.certificate_expired")
+        // Without a refusal recorded, a failed handshake is not called expired.
+        XCTAssertNotEqual(client.translateFailure(URLError(.serverCertificateHasBadDate)), .certificateExpired)
+    }
+
     func testARefusedCertificateIsToldApartFromNoAnswer() {
         let client = AgentClient(
             pairing: Pairing(host: "localhost", port: 8765, fingerprint: expected),

@@ -114,3 +114,101 @@ public enum Display {
         }
     }
 }
+
+// MARK: - One server's screens (mirrors Display.kt)
+
+extension Display {
+    /// "Online now (3 of 20)"; without "of" when the maximum isn't known,
+    /// and "Players not known" until the agent has established the list
+    /// (never the length of a list that may be old).
+    public static func onlineNow(_ strings: Strings, _ count: Int?, _ max: Int?) -> String {
+        guard let count = count else { return strings.t("overview.players_unknown") }
+        guard let max = max else { return strings.t("mobile.players.online_count", ["count": count]) }
+        return strings.t("players.online", ["count": count, "max": max])
+    }
+
+    /// How long someone has been playing; Unknown when the join wasn't
+    /// seen (the agent then says 0, which wasn't measured).
+    public static func playingFor(_ strings: Strings, _ player: OnlinePlayer) -> String {
+        guard player.sessionStarted != nil, let seconds = player.sessionSeconds else { return strings.t("value.unknown") }
+        return duration(strings, seconds)
+    }
+
+    /// A crash's exit code, or Unknown (never "nil").
+    public static func exitCode(_ strings: Strings, _ code: Int?) -> String {
+        code.map { String($0) } ?? strings.t("value.unknown")
+    }
+
+    /// The likely cause in words; the analyzer's own name in Technical
+    /// words or when the app has no words for it (causeText in crashes.js).
+    public static func cause(_ strings: Strings, _ category: String?) -> String {
+        guard let category = category, !category.isEmpty, category != "Unknown" else { return strings.t("crashes.cause_unknown") }
+        let key = "cause.\(category)"
+        if strings.technical || !strings.has(key) { return category }
+        let text = strings.t(key)
+        return text.prefix(1).uppercased() + text.dropFirst()
+    }
+
+    private static let CONFIDENCE: [String: StateWords] = [
+        "confirmed": StateWords(key: "crashes.conf_confirmed", tone: .danger),
+        "likely": StateWords(key: "crashes.conf_likely", tone: .warning),
+        "possible": StateWords(key: "crashes.conf_possible", tone: .neutral),
+    ]
+
+    public static func confidence(_ name: String?) -> StateWords {
+        name.flatMap { CONFIDENCE[$0] } ?? StateWords(key: "crashes.conf_unknown", tone: .neutral)
+    }
+
+    private static let ACTION_STATES: [String: StateWords] = [
+        PlayerActions.SENT: StateWords(key: "players.state_sent", tone: .warning, busy: true),
+        PlayerActions.DONE: StateWords(key: "players.state_done", tone: .success),
+        PlayerActions.UNCHANGED: StateWords(key: "players.state_unchanged", tone: .neutral),
+        PlayerActions.FAILED: StateWords(key: "players.state_failed", tone: .danger),
+        PlayerActions.NO_ANSWER: StateWords(key: "players.state_no_answer", tone: .warning),
+    ]
+
+    /// What became of a player button. "Sent, not confirmed" is said as
+    /// such; an unknown state reads Unknown, never "Done".
+    public static func actionState(_ state: String?) -> StateWords {
+        state.flatMap { ACTION_STATES[$0] } ?? StateWords(key: "value.unknown", tone: .neutral)
+    }
+
+    public static func eventTone(_ level: String?) -> Tone {
+        switch level {
+        case "error": return .danger
+        case "warn": return .warning
+        case "success": return .success
+        default: return .neutral
+        }
+    }
+
+    /// Events Simple words leave out (INTERNAL in agent/web/js/feed.js).
+    private static let INTERNAL: Set<String> = [
+        "state", "console", "metrics", "job", "chat", "plain", "text",
+        "server_start_requested", "server_stop_requested",
+        "backup_started", "restore_stopping", "backup_retention",
+        "tps_detection_started", "tps_command_detected", "tps_detection_failed",
+        "server_changed", "data_folder_moved", "data_folder_not_moved",
+    ]
+
+    public static func worthShowing(_ type: String, technical: Bool) -> Bool {
+        technical || !INTERNAL.contains(type)
+    }
+
+    /// 24-hour "14:05:09" in the phone's time zone (fmt.clock).
+    public static func clock(_ ts: Double, zone: TimeZone = .current) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = zone
+        let parts = calendar.dateComponents([.hour, .minute, .second], from: Date(timeIntervalSince1970: ts))
+        return String(format: "%02d:%02d:%02d", parts.hour ?? 0, parts.minute ?? 0, parts.second ?? 0)
+    }
+
+    /// "2026-10-10 14:05:09" in the phone's time zone.
+    public static func dateTime(_ ts: Double, zone: TimeZone = .current) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = zone
+        let parts = calendar.dateComponents([.year, .month, .day], from: Date(timeIntervalSince1970: ts))
+        let day = String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
+        return day + " " + clock(ts, zone: zone)
+    }
+}

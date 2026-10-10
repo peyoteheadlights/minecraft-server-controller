@@ -9,6 +9,8 @@ public enum AgentError: Error, Equatable, Sendable {
     case certificateChanged(presented: String?)
     /// A typed address whose certificate the phone doesn't trust.
     case certificateNotTrusted(presented: String?)
+    /// The pinned certificate is past its end date (or not valid yet).
+    case certificateExpired
     /// Something answered, but not this app's agent.
     case notAnAgent
     /// The sign-in ended (signed out on the PC, a helper removed, expired).
@@ -25,6 +27,7 @@ public enum AgentError: Error, Equatable, Sendable {
         case .unreachable: return "mobile.error.unreachable"
         case .certificateChanged: return "mobile.error.certificate_changed"
         case .certificateNotTrusted: return "mobile.error.certificate_untrusted"
+        case .certificateExpired: return "mobile.error.certificate_expired"
         case .notAnAgent: return "mobile.error.not_agent"
         case .signedOut: return "error.session_ended"
         case .signInRefused: return "mobile.error.sign_in"
@@ -202,7 +205,7 @@ public final class AgentClient: @unchecked Sendable {
         let label: String
     }
 
-    private static func encode<T: Encodable>(_ value: T) throws -> Data {
+    static func encode<T: Encodable>(_ value: T) throws -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         return try encoder.encode(value)
@@ -215,7 +218,7 @@ public final class AgentClient: @unchecked Sendable {
         return id.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
     }
 
-    private func call<T: Decodable>(
+    func call<T: Decodable>(
         _ method: String,
         _ path: String,
         body: Data? = nil,
@@ -312,6 +315,8 @@ public final class AgentClient: @unchecked Sendable {
                     return .certificateChanged(presented: presented)
                 case .notTrusted(let presented):
                     return .certificateNotTrusted(presented: presented)
+                case .expired:
+                    return .certificateExpired
                 case .accept:
                     break
                 }

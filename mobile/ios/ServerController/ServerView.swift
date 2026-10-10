@@ -21,6 +21,7 @@ struct ServerView: View {
 
     var body: some View {
         let palette = model.serverPalette(row?.color, colorScheme)
+        let pages = model.pages(serverId)
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header(palette)
@@ -32,10 +33,10 @@ struct ServerView: View {
                 }
                 actions(palette)
                 players(palette)
-                Text(model.t("mobile.servers.more_on_pc"))
-                    .font(.footnote)
-                    .foregroundStyle(palette.textSecondary)
-                    .padding(.horizontal, 4)
+                screens(palette)
+                JoinCard(pages: pages, palette: palette)
+                SuggestionsCard(pages: pages, palette: palette)
+                ChecklistCard(pages: pages, palette: palette)
             }
             .padding(16)
             .frame(maxWidth: 640)
@@ -47,10 +48,16 @@ struct ServerView: View {
         .toolbarBackground(palette.sheet, for: .navigationBar)
         .refreshable {
             await load()
+            await pages.loadCards()
         }
         .task(id: model.liveTick) {
             await load()
         }
+        .task(id: serverId) {
+            await pages.loadCards()
+        }
+        .onAppear { model.watch(serverId) }
+        .onDisappear { model.unwatch(serverId) }
         .alert(confirmTitle, isPresented: confirming, presenting: pending) { action in
             Button(model.t(action.labelKey), role: action.danger ? .destructive : nil) {
                 run(action)
@@ -173,7 +180,8 @@ struct ServerView: View {
                         Text(player.username)
                             .foregroundStyle(palette.textPrimary)
                         Spacer()
-                        if let seconds = player.sessionSeconds {
+                        // The agent says 0 when it didn't see the join: not measured.
+                        if player.sessionStarted != nil, let seconds = player.sessionSeconds {
                             Text(model.t("mobile.server.player_since", ["duration": Display.duration(model.strings, seconds)]))
                                 .font(.footnote)
                                 .foregroundStyle(palette.textSecondary)
@@ -182,6 +190,28 @@ struct ServerView: View {
                     .frame(minHeight: 44)
                     .accessibilityElement(children: .combine)
                 }
+            }
+        }
+    }
+
+    /// Console, Chat, Players, Activity and Crashes.
+    private func screens(_ palette: Palette) -> some View {
+        card(palette) {
+            ForEach(ServerPage.allCases, id: \.self) { page in
+                NavigationLink(value: ServerRoute.page(serverId, page)) {
+                    HStack {
+                        Text(model.t(page.titleKey))
+                            .foregroundStyle(palette.textPrimary)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(palette.textSecondary)
+                            .accessibilityHidden(true)
+                    }
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
         }
     }

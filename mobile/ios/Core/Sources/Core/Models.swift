@@ -200,16 +200,20 @@ public struct OnlinePlayer: Codable, Equatable, Sendable {
     public var username: String
     public var edition: String?
     public var sessionSeconds: Double?
+    /// Nil when the join wasn't seen: then `sessionSeconds` is 0, not measured.
+    public var sessionStarted: Double?
 
     enum CodingKeys: String, CodingKey {
         case username, edition
         case sessionSeconds = "session_seconds"
+        case sessionStarted = "session_started"
     }
 
-    public init(username: String, edition: String? = nil, sessionSeconds: Double? = nil) {
+    public init(username: String, edition: String? = nil, sessionSeconds: Double? = nil, sessionStarted: Double? = nil) {
         self.username = username
         self.edition = edition
         self.sessionSeconds = sessionSeconds
+        self.sessionStarted = sessionStarted
     }
 }
 
@@ -411,6 +415,11 @@ public enum States {
 
 /// Permission names (agent/security/permissions.py).
 public enum Permissions {
+    public static let SERVER_VIEW = "server.view"
     public static let SERVER_CONTROL = "server.control"
+    public static let CONSOLE_SEND = "console.send"
+    public static let PLAYERS_MANAGE = "players.manage"
+    public static let PLAYERS_OP = "players.op"
+    public static let CHAT_SEND = "chat.send"
     public static let SETTINGS_EDIT = "settings.edit"
 }

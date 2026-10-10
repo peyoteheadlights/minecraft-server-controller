@@ -28,6 +28,13 @@ public struct Pairing: Codable, Equatable, Hashable, Sendable {
         let shown = host.contains(":") ? "[\(host)]" : host
         return "https://\(shown):\(port)"
     }
+
+    /// The same address and port: a new code for this PC (a renewed
+    /// certificate) may keep the sign-in. Anything else is another PC, and
+    /// the sign-in is never sent there.
+    public func samePc(_ other: Pairing) -> Bool {
+        host.lowercased() == other.host.lowercased() && port == other.port
+    }
 }
 
 public enum PairingProblem: Equatable, Sendable {

@@ -25,6 +25,8 @@ public enum TrustDecision: Equatable, Sendable {
     case mismatch(presented: String)
     /// No pin matched and the phone doesn't trust the certificate either.
     case notTrusted(presented: String)
+    /// The pinned certificate, but past its end date (or not valid yet).
+    case expired(presented: String)
 }
 
 /// How the app checks the agent's certificate. Certificate checks are never
@@ -70,10 +72,15 @@ public final class PinnedTrust: NSObject, URLSessionDelegate, @unchecked Sendabl
     }
 
     /// The rule itself, apart from the TLS plumbing. `systemTrusted` is only
-    /// asked when the pin doesn't decide.
-    public func decide(leafFingerprint: String, systemTrusted: @autoclosure () -> Bool) -> TrustDecision {
+    /// asked when the pin doesn't decide; `expired` only when it does (the
+    /// phone's own check already includes the dates).
+    public func decide(
+        leafFingerprint: String,
+        systemTrusted: @autoclosure () -> Bool,
+        expired: @autoclosure () -> Bool = false
+    ) -> TrustDecision {
         if let pin = pin, leafFingerprint == pin {
-            return .accept
+            return expired() ? .expired(presented: leafFingerprint) : .accept
         }
         if strict, pin != nil {
             return .mismatch(presented: leafFingerprint)
@@ -109,7 +116,8 @@ public final class PinnedTrust: NSObject, URLSessionDelegate, @unchecked Sendabl
         let host = challenge.protectionSpace.host
         let decision = decide(
             leafFingerprint: fingerprint,
-            systemTrusted: PinnedTrust.systemTrusts(trust, host: host)
+            systemTrusted: PinnedTrust.systemTrusts(trust, host: host),
+            expired: PinnedTrust.outsideItsDates(leaf)
         )
         record(presented: fingerprint, decision: decision)
         if decision == .accept {
@@ -125,6 +133,30 @@ public final class PinnedTrust: NSObject, URLSessionDelegate, @unchecked Sendabl
         refusal = decision == .accept ? nil : decision
         lock.unlock()
     }
+
+    /// Whether `certificate` is past its end date or not valid yet at `date`:
+    /// Apple's own check, with the certificate as its only anchor, so no host
+    /// name or other issuer is asked about. Any other failure is not a date
+    /// problem and leaves the pin to decide, as before.
+    static func outsideItsDates(_ certificate: SecCertificate, at date: Date = Date()) -> Bool {
+        var made: SecTrust?
+        guard SecTrustCreateWithCertificates(certificate, SecPolicyCreateBasicX509(), &made) == errSecSuccess,
+              let trust = made
+        else { return false }
+        SecTrustSetAnchorCertificates(trust, [certificate] as CFArray)
+        SecTrustSetAnchorCertificatesOnly(trust, true)
+        SecTrustSetVerifyDate(trust, date as CFDate)
+        var error: CFError?
+        if SecTrustEvaluateWithError(trust, &error) { return false }
+        guard let error = error else { return false }
+        return DATE_ERRORS.contains(CFErrorGetCode(error))
+    }
+
+    /// errSecCertificateExpired and errSecCertificateNotValidYet, and the
+    /// older CSSM codes for the same two.
+    private static let DATE_ERRORS: Set<Int> = [
+        Int(errSecCertificateExpired), Int(errSecCertificateNotValidYet), -2_147_409_654, -2_147_409_653,
+    ]
 
     /// The phone's own trust store, with the normal TLS checks for `host`.
     static func systemTrusts(_ trust: SecTrust, host: String) -> Bool {

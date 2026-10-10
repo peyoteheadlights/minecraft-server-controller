@@ -27,7 +27,8 @@ sealed class LiveSignal {
 
     /** Something happened on [serverId] (null: the PC itself). [type] is
      * the agent's event type ("state", "player_joined", ...); [event] is
-     * the line for the Activity screen (its data is never kept). */
+     * the line for the Activity screen (its data is never kept), null for
+     * an event the agent doesn't keep in its history ([LiveFeed.NOT_STORED]). */
     data class Changed(val serverId: String?, val type: String, val event: EventRow? = null) : LiveSignal()
 
     /** A new console line of the watched server. */
@@ -117,7 +118,7 @@ class LiveFeed(private val client: AgentClient, private val token: () -> String?
                             when (type) {
                                 "console" -> decode(ConsoleLine.serializer(), data)?.let { trySend(LiveSignal.Console(server, it)) }
                                 "chat" -> decode(ChatMessage.serializer(), data)?.let { trySend(LiveSignal.Chat(server, it)) }
-                                else -> trySend(LiveSignal.Changed(server, type, row(event, type, server)))
+                                else -> trySend(LiveSignal.Changed(server, type, row(event, type, server).takeIf { type !in NOT_STORED }))
                             }
                         }
                         "error" -> {
@@ -154,6 +155,14 @@ class LiveFeed(private val client: AgentClient, private val token: () -> String?
 
     private fun lines(element: JsonElement?): List<ConsoleLine> =
         (element as? JsonArray)?.mapNotNull { decode(ConsoleLine.serializer(), it) }.orEmpty()
+
+    companion object {
+        /** Events the agent doesn't keep in its history (_persist_event in
+         * agent/core.py): live-only readings, not lines for the Activity
+         * screen. "metrics" comes every few seconds and would push the
+         * history off the screen. */
+        val NOT_STORED = setOf("console", "metrics", "job", "chat")
+    }
 
     /** The event as the Activity screen shows it: words, level and time only. */
     private fun row(event: JsonObject, type: String, server: String?): EventRow = EventRow(

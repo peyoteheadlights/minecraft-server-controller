@@ -23,7 +23,7 @@ enum ServerRoute: Hashable {
 
 /// A server's own screens, with the dashboard's titles for them.
 enum ServerPage: String, Hashable, CaseIterable {
-    case console, chat, players, events, crashes
+    case console, chat, players, performance, backups, world, schedules, events, crashes
 
     var titleKey: String { "page.\(rawValue)" }
 }
@@ -37,11 +37,14 @@ final class ServerPages {
     let serverId: String
     @ObservationIgnored private let client: () -> AgentClient?
     @ObservationIgnored private let noted: (AgentError) -> Void
+    /// Backups, Restore world, Schedules and Performance.
+    let world: WorldPages
 
     init(serverId: String, client: @escaping () -> AgentClient?, noted: @escaping (AgentError) -> Void) {
         self.serverId = serverId
         self.client = client
         self.noted = noted
+        world = WorldPages(serverId: serverId, client: client, noted: noted)
     }
 
     // MARK: - Console

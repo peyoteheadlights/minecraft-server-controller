@@ -194,7 +194,8 @@ struct ServerView: View {
         }
     }
 
-    /// Console, Chat, Players, Activity and Crashes.
+    /// Console, Chat, Players, Performance, Backups, Restore world,
+    /// Schedules, Activity and Crashes.
     private func screens(_ palette: Palette) -> some View {
         card(palette) {
             ForEach(ServerPage.allCases, id: \.self) { page in

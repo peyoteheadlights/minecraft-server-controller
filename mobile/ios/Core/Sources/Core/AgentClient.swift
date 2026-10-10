@@ -78,10 +78,15 @@ public final class AgentClient: @unchecked Sendable {
     public static let actionTimeout: TimeInterval = 150
     /// No request takes longer than this in all.
     public static let totalTimeout: TimeInterval = 150
+    /// Making a backup or a restore answers only once it is done, which can
+    /// take many minutes for a big world; so can a backup's download.
+    public static let slowTimeout: TimeInterval = 30 * 60
 
     public let pairing: Pairing
     public let trust: PinnedTrust
     public let session: URLSession
+    /// For work the agent answers only when it is done, and for files.
+    public let slowSession: URLSession
 
     private let token: () -> String?
     private let onSignedOut: () -> Void
@@ -109,10 +114,15 @@ public final class AgentClient: @unchecked Sendable {
         config.urlCache = nil
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
         self.session = URLSession(configuration: config, delegate: trust, delegateQueue: nil)
+        let slow = (config.copy() as? URLSessionConfiguration) ?? .ephemeral
+        slow.timeoutIntervalForRequest = AgentClient.slowTimeout
+        slow.timeoutIntervalForResource = 6 * 3600
+        self.slowSession = URLSession(configuration: slow, delegate: trust, delegateQueue: nil)
     }
 
     deinit {
         session.finishTasksAndInvalidate()
+        slowSession.finishTasksAndInvalidate()
     }
 
     // MARK: - The agent's API (mobile/api-routes.txt)
@@ -224,6 +234,7 @@ public final class AgentClient: @unchecked Sendable {
         body: Data? = nil,
         signedIn: Bool = true,
         timeout: TimeInterval = AgentClient.requestTimeout,
+        slow: Bool = false,
         as type: T.Type
     ) async throws -> T {
         let logPath = path.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false).first.map { String($0) } ?? path
@@ -232,7 +243,7 @@ public final class AgentClient: @unchecked Sendable {
         }
         var request = URLRequest(url: url)
         request.httpMethod = method
-        request.timeoutInterval = timeout
+        request.timeoutInterval = slow ? AgentClient.slowTimeout : timeout
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let body = body {
             request.httpBody = body
@@ -247,7 +258,7 @@ public final class AgentClient: @unchecked Sendable {
 
         let result: (Data, URLResponse)
         do {
-            result = try await session.data(for: request)
+            result = try await (slow ? slowSession : session).data(for: request)
         } catch {
             if Task.isCancelled {
                 throw CancellationError()
@@ -268,14 +279,7 @@ public final class AgentClient: @unchecked Sendable {
             throw AgentError.signedOut
         }
         if !(200...299).contains(code) {
-            let reason = isJson ? AgentClient.detail(data) : nil
-            if code == 401 || code == 429 {
-                throw AgentError.signInRefused(reason: reason ?? "")
-            }
-            if code == 403 {
-                throw AgentError.notAllowed(reason: reason ?? "")
-            }
-            throw AgentError.failed(status: code, reason: reason, requestId: http.value(forHTTPHeaderField: "X-Request-ID"))
+            throw AgentClient.refusal(http, data, isJson: isJson)
         }
         if !isJson {
             throw AgentError.notAnAgent
@@ -285,6 +289,90 @@ public final class AgentClient: @unchecked Sendable {
         } catch {
             throw AgentError.notAnAgent
         }
+    }
+
+    /// A refused request, in the agent's words.
+    private static func refusal(_ http: HTTPURLResponse, _ data: Data, isJson: Bool) -> AgentError {
+        let code = http.statusCode
+        let reason = isJson ? AgentClient.detail(data) : nil
+        if code == 401 || code == 429 {
+            return .signInRefused(reason: reason ?? "")
+        }
+        if code == 403 {
+            return .notAllowed(reason: reason ?? "")
+        }
+        return .failed(status: code, reason: reason, requestId: http.value(forHTTPHeaderField: "X-Request-ID"))
+    }
+
+    /// Downloads the .zip the agent serves at `path` into `destination`,
+    /// with the sign-in in a header (never in the address), and returns its
+    /// size. `progress` gets the bytes so far and the size, when the PC said
+    /// it, about twice a second. A refusal comes back in the agent's words.
+    func downloadZip(_ path: String, to destination: URL, progress: @escaping @Sendable (Int64, Int64?) -> Void) async throws -> Int64 {
+        let logPath = path.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false).first.map { String($0) } ?? path
+        guard let url = URL(string: pairing.origin + path) else {
+            throw AgentError.notAnAgent
+        }
+        guard let current = token() else {
+            throw AgentError.signedOut
+        }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 120
+        request.setValue("Bearer \(current)", forHTTPHeaderField: "Authorization")
+
+        let watch = TaskWatch()
+        let ticker = Task {
+            while !Task.isCancelled {
+                if let bytes = watch.bytes {
+                    progress(bytes.0, bytes.1)
+                }
+                try? await Task.sleep(nanoseconds: 500_000_000)
+            }
+        }
+        defer { ticker.cancel() }
+
+        let result: (URL, URLResponse)
+        do {
+            result = try await slowSession.download(for: request, delegate: watch)
+        } catch {
+            if Task.isCancelled {
+                throw CancellationError()
+            }
+            log.line("GET \(logPath) -> no answer")
+            throw translateFailure(error)
+        }
+        let file = result.0
+        let files = FileManager.default
+        guard let http = result.1 as? HTTPURLResponse else {
+            try? files.removeItem(at: file)
+            throw AgentError.notAnAgent
+        }
+        let code = http.statusCode
+        log.line("GET \(logPath) -> \(code)")
+        let contentType = (http.value(forHTTPHeaderField: "Content-Type") ?? "").lowercased()
+        if code == 401 {
+            try? files.removeItem(at: file)
+            onSignedOut()
+            throw AgentError.signedOut
+        }
+        if !(200...299).contains(code) {
+            let data = (try? Data(contentsOf: file)) ?? Data()
+            try? files.removeItem(at: file)
+            throw AgentClient.refusal(http, data, isJson: contentType.contains("application/json"))
+        }
+        guard contentType.hasPrefix("application/zip") else {
+            try? files.removeItem(at: file)
+            throw AgentError.notAnAgent
+        }
+        let size = ((try? files.attributesOfItem(atPath: file.path))?[.size] as? NSNumber)?.int64Value ?? 0
+        if http.expectedContentLength >= 0 && size != http.expectedContentLength {
+            try? files.removeItem(at: file)
+            throw AgentError.unreachable
+        }
+        try? files.removeItem(at: destination)
+        try files.moveItem(at: file, to: destination)
+        progress(size, size)
+        return size
     }
 
     private static func detail(_ data: Data) -> String? {
@@ -332,5 +420,26 @@ public final class AgentClient: @unchecked Sendable {
             }
         }
         return .unreachable
+    }
+}
+
+/// Keeps hold of a download's task, to read how far it has got.
+final class TaskWatch: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    private let lock = NSLock()
+    private var task: URLSessionTask?
+
+    func urlSession(_ session: URLSession, didCreateTask task: URLSessionTask) {
+        lock.lock()
+        self.task = task
+        lock.unlock()
+    }
+
+    /// Bytes so far and the size, when the PC said it.
+    var bytes: (Int64, Int64?)? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let task = task else { return nil }
+        let total = task.countOfBytesExpectedToReceive
+        return (task.countOfBytesReceived, total > 0 ? total : nil)
     }
 }

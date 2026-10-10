@@ -55,6 +55,14 @@ struct ServersListView: View {
                     ChatView(serverId: id)
                 case .page(let id, .players):
                     PlayersView(serverId: id)
+                case .page(let id, .performance):
+                    PerformanceView(serverId: id)
+                case .page(let id, .backups):
+                    BackupsView(serverId: id)
+                case .page(let id, .world):
+                    WorldRestoreView(serverId: id)
+                case .page(let id, .schedules):
+                    SchedulesView(serverId: id)
                 case .page(let id, .events):
                     EventsView(serverId: id)
                 case .page(let id, .crashes):

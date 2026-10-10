@@ -225,9 +225,9 @@ public struct PlayersPage: Decodable, Equatable, Sendable {
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        online = c.value(.online, [])
+        online = c.each(.online)
         onlineCount = c.maybe(.onlineCount)
-        known = c.value(.known, [])
+        known = c.each(.known)
         maxPlayers = c.maybe(.maxPlayers)
         lists = c.maybe(.lists)
         bans = c.maybe(.bans)

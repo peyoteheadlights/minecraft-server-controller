@@ -15,7 +15,7 @@ from ...security.permissions import (
 )
 from ..deps import audit, get_core
 from ..errors import audit_failure
-from ..responses import Job, JobList
+from ..responses import Job, JobList, JobUndone
 
 router = APIRouter()
 
@@ -46,7 +46,7 @@ async def get_job(
     return job.to_dict()
 
 
-@router.post("/jobs/{job_id}/undo")
+@router.post("/jobs/{job_id}/undo", response_model=JobUndone)
 async def undo_job(
     job_id: str,
     request: Request,

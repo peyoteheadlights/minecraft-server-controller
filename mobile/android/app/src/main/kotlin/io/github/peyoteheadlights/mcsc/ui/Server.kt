@@ -127,6 +127,10 @@ private val PAGES = listOf(
     "console" to "page.console",
     "chat" to "page.chat",
     "players" to "page.players",
+    "performance" to "page.performance",
+    "backups" to "page.backups",
+    "world" to "page.world",
+    "schedules" to "page.schedules",
     "events" to "page.events",
     "crashes" to "page.crashes",
 )

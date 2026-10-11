@@ -330,18 +330,252 @@ class JoinInfo(Open):
     running: bool
 
 
+class BackupCopy(Open):
+    """A backup's second copy off the PC, as found on the drive just now."""
+
+    state: str = Field(description="ok, failed, unreachable, missing or none")
+    reason: str | None = None
+    path: str | None = None
+    checked_at: float | None = None
+
+
 class Backup(Open):
     id: int
     name: str
-    kind: str | None = None
+    kind: str | None = Field(None, description="manual, scheduled or safety")
     created_at: float | None = None
     size_bytes: int | None = None
-    status: str | None = None
+    status: str | None = Field(None, description="ok (checked), unverified or failed")
+    note: str | None = None
+    includes: str | None = Field(None, description="Its top-level folders, comma-separated")
+    exists: bool | None = Field(None, description="Whether its file is still on disk")
+    copy_: BackupCopy | None = Field(None, alias="copy")
+
+
+class Retention(Open):
+    daily: int
+    weekly: int
+    monthly: int
 
 
 class BackupList(Open):
-    backups: list[Backup]
+    backups: list[Backup] = Field(description="Newest first")
     directory: str | None = None
+    retention: Retention | None = None
+
+
+class BackupMade(Open):
+    ok: bool
+    id: int | None = None
+    name: str
+    size_bytes: int | None = None
+    verified: bool | None = None
+    verification: dict[str, Any] | None = None
+    job_id: str | None = None
+
+
+class BackupCheck(Open):
+    """Opening the archive and checking it now. ``reason`` says why it failed."""
+
+    ok: bool
+    reason: str | None = None
+    entries: int | None = None
+    size_bytes: int | None = None
+    checks: list[str] = []
+
+
+class SafetyBackup(Open):
+    id: int | None = None
+    name: str
+
+
+class Undo(Open):
+    kind: str
+    backup_id: int
+    backup: str
+
+
+class Restored(Open):
+    """A restore asked without ``confirm`` answers ``confirmation_required``
+    and ``will_happen``; a confirmed one answers what was put back."""
+
+    ok: bool | None = None
+    confirmation_required: bool | None = None
+    will_happen: list[str] | None = None
+    backup: dict[str, Any] | None = None
+    restored: str | None = None
+    safety_backup: SafetyBackup | None = Field(
+        None, description="The backup made just before; null when none was"
+    )
+    undo: Undo | None = None
+    verified: bool | None = None
+    job_id: str | None = None
+
+
+class BackupDeleted(Open):
+    ok: bool
+    deleted: str
+
+
+class Offsite(Open):
+    directory: str = Field(description="Where second copies go; empty when they're off")
+    unavailable: str | None = Field(None, description="Why that folder can't be reached now")
+    subfolder: str | None = None
+
+
+class OffsiteSaved(Open):
+    ok: bool
+    directory: str
+
+
+class BackupCopied(Open):
+    ok: bool
+    copy_: BackupCopy = Field(alias="copy")
+
+
+class World(Open):
+    key: str
+    label: str
+    exists: bool
+    size_bytes: int | None = None
+    modified: float | None = None
+    last_backup: dict[str, Any] | None = Field(None, description="name and created_at")
+
+
+class WorldList(Open):
+    worlds: list[World]
+
+
+class Requested(Open):
+    """Written to the server console; Minecraft gives no answer to check."""
+
+    result: str = Field(description="REQUESTED")
+    detail: str
+
+
+class WorldPoint(Open):
+    backup_id: int
+    name: str
+    created_at: float
+    age_seconds: float
+    size_bytes: int | None = None
+    kind: str | None = None
+    note: str | None = None
+    checked: bool = Field(description="Only a checked backup is offered")
+    status: str | None = None
+    played_seconds: float | None = Field(
+        None, description="Time with players online since; null when sessions weren't recorded"
+    )
+
+
+class WorldTimeline(Open):
+    points: list[WorldPoint] = Field(description="Newest first")
+    server_running: bool
+    can_restore: bool
+    blocked_by: str | None = Field(None, description="The task holding the server, if any")
+    sessions_recorded: bool
+
+
+# ------------------------------------------------------------ schedules
+class Schedule(Open):
+    id: int
+    name: str
+    task: str
+    kind: str = Field(description="daily, weekly or interval")
+    expr: str
+    payload: dict[str, Any] = {}
+    enabled: bool
+    last_run: float | None = None
+    next_run: float | None = None
+    last_result: str | None = None
+
+
+class ScheduleList(Open):
+    schedules: list[Schedule]
+    tasks: list[str] = Field(description="What a schedule can run")
+
+
+class ScheduleSaved(Open):
+    ok: bool
+    schedule: Schedule
+
+
+class ScheduleRan(Open):
+    ok: bool
+    result: str = Field(description="What the task said, in its own words")
+
+
+# ------------------------------------------------------------ performance
+class Snapshot(Open):
+    """The values now. Each is null when it couldn't be measured."""
+
+    ts: float
+    cpu_percent: float | None = None
+    process_cpu_percent: float | None = None
+    ram_used_mb: float | None = None
+    ram_total_mb: float | None = None
+    ram_percent: float | None = None
+    proc_ram_mb: float | None = Field(None, description="null while the server isn't running")
+    disk_free_gb: float | None = None
+    disk_unknown_reason: str | None = None
+    net_sent_mb_s: float | None = None
+    net_recv_mb_s: float | None = None
+    tps: float | None = None
+    mspt: float | None = None
+
+
+class SeriesPoint(Open):
+    """One time bucket's averages. A value nobody measured is null: a gap."""
+
+    ts: float
+    cpu_percent: float | None = None
+    ram_used_mb: float | None = None
+    ram_total_mb: float | None = None
+    proc_ram_mb: float | None = None
+    tps: float | None = None
+    mspt: float | None = None
+    players: float | None = None
+    players_max: float | None = None
+
+
+class Series(Open):
+    points: list[SeriesPoint] = Field(description="Oldest first; empty buckets left out")
+    hours: float
+    bucket_seconds: float
+
+
+class Storage(Open):
+    worlds_gb: float
+    backups_gb: float
+    mods_gb: float
+    logs_gb: float
+    other_gb: float
+    free_gb: float | None = None
+    free_unknown_reason: str | None = None
+
+
+class Performance(Open):
+    current: Snapshot
+    series: Series
+    sample_interval: float
+    memory_limit_mb: int | None = Field(None, description="The -Xmx setting; null when none")
+    storage: Storage | None = Field(None, description="null when asked with storage=false")
+
+
+class HealthCheck(Open):
+    name: str
+    status: str = Field(description="ok, warn or unknown (never counted as passing)")
+    value: Any = None
+    threshold: Any = None
+    detail: str | None = None
+    source: str | None = None
+
+
+class ServerHealth(Open):
+    overall: str = Field(description="ALL CHECKS VERIFIED, PARTIALLY VERIFIED or ATTENTION NEEDED")
+    note: str = ""
+    checks: list[HealthCheck]
+    generated_at: float
 
 
 class AlertRow(Open):
@@ -359,6 +593,14 @@ class AlertHistory(Open):
 
 class JobList(Open):
     jobs: list[Job]
+
+
+class JobUndone(Open):
+    ok: bool
+    restored: str
+    safety_backup: SafetyBackup | None = None
+    undo: Undo | None = None
+    job_id: str | None = None
 
 
 class Recommendations(Open):

@@ -20,7 +20,16 @@ from ...security.permissions import (
 )
 from ..deps import audit, get_server
 from ..errors import audit_failure, respond_as
-from ..responses import BackupList
+from ..responses import (
+    BackupCheck,
+    BackupCopied,
+    BackupDeleted,
+    BackupList,
+    BackupMade,
+    Offsite,
+    OffsiteSaved,
+    Restored,
+)
 from .models import BackupRequest, OffsiteRequest, RestoreRequest
 
 router = APIRouter()
@@ -41,7 +50,7 @@ async def list_backups(
     }
 
 
-@router.post("/backups")
+@router.post("/backups", response_model=BackupMade)
 async def create_backup(
     payload: BackupRequest,
     request: Request,
@@ -55,7 +64,7 @@ async def create_backup(
     return {"ok": True, **result}
 
 
-@router.get("/backups/{backup_id}/verify")
+@router.get("/backups/{backup_id}/verify", response_model=BackupCheck)
 async def verify_backup(
     backup_id: int, principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):
@@ -74,7 +83,7 @@ async def download_backup(
     return FileResponse(path, media_type="application/zip", filename=path.name)
 
 
-@router.post("/backups/{backup_id}/restore")
+@router.post("/backups/{backup_id}/restore", response_model=Restored)
 async def restore_backup(
     backup_id: int,
     payload: RestoreRequest,
@@ -108,7 +117,7 @@ async def restore_backup(
     return {"ok": True, **result}
 
 
-@router.delete("/backups/{backup_id}")
+@router.delete("/backups/{backup_id}", response_model=BackupDeleted)
 async def delete_backup(
     backup_id: int,
     request: Request,
@@ -120,7 +129,7 @@ async def delete_backup(
     return {"ok": True, **result}
 
 
-@router.get("/backups/offsite")
+@router.get("/backups/offsite", response_model=Offsite)
 async def offsite_status(
     principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):
@@ -133,7 +142,7 @@ async def offsite_status(
     }
 
 
-@router.put("/backups/offsite")
+@router.put("/backups/offsite", response_model=OffsiteSaved)
 async def set_offsite(
     payload: OffsiteRequest,
     request: Request,
@@ -164,7 +173,7 @@ async def set_offsite(
     return {"ok": True, "directory": value}
 
 
-@router.post("/backups/{backup_id}/copy")
+@router.post("/backups/{backup_id}/copy", response_model=BackupCopied)
 async def copy_backup(
     backup_id: int,
     request: Request,

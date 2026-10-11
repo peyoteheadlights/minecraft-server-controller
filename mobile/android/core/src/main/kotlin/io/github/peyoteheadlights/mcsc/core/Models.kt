@@ -49,6 +49,8 @@ data class Capabilities(
     val mods: Boolean? = null,
     val bans: Boolean? = null,
     val crossplay: Boolean? = null,
+    /** False for a server type that reports no game speed (Bedrock). */
+    val speed: Boolean? = null,
 )
 
 @Serializable
@@ -167,4 +169,9 @@ object Permissions {
     const val PLAYERS_OP = "players.op"
     const val CHAT_SEND = "chat.send"
     const val SETTINGS_EDIT = "settings.edit"
+    const val BACKUPS_CREATE = "backups.create"
+    const val BACKUPS_DOWNLOAD = "backups.download"
+    const val BACKUPS_RESTORE = "backups.restore"
+    const val BACKUPS_DELETE = "backups.delete"
+    const val SCHEDULES_MANAGE = "schedules.manage"
 }

@@ -68,6 +68,8 @@ data class PhoneUi(
 
 fun now(): Double = System.currentTimeMillis() / 1000.0
 
+private val BACKUP_EVENTS = setOf("backup_completed", "backup_failed", "backup_deleted", "backup_restored", "backup_retention")
+
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val graph = app.graph
     private val prefs = graph.prefs
@@ -516,7 +518,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (signal.type == "state") {
             if (pages.players.loaded) pages.loadPlayers()
             if (pages.chat.loaded) pages.loadChat()
+            // Restore world needs the server off.
+            if (pages.world.timeline.loaded) pages.world.loadTimeline()
         }
+        // A backup made or removed elsewhere (a schedule, the dashboard).
+        if (signal.type in BACKUP_EVENTS && pages.world.backups.loaded && pages.world.busy == null) {
+            pages.world.loadBackups()
+            if (pages.world.timeline.loaded) pages.world.loadTimeline()
+        }
+        if (signal.type == "schedule_finished" && pages.world.schedules.loaded) pages.world.loadSchedules()
     }
 
     /** Many events can come at once (a server starting): read once after. */

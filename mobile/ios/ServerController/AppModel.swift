@@ -464,10 +464,31 @@ final class AppModel {
             if pages.chat.value != nil {
                 Task { await pages.loadChat() }
             }
+            // Restore world can only go back while the server is off.
+            if pages.world.timeline.value != nil {
+                Task { await pages.world.loadTimeline() }
+            }
+        case _ where AppModel.BACKUP_EVENTS.contains(type):
+            // A backup made or removed elsewhere (a schedule, the dashboard).
+            let world = pages.world
+            if world.backups.value != nil && world.busy == nil {
+                Task { await world.loadBackups() }
+            }
+            if world.timeline.value != nil {
+                Task { await world.loadTimeline() }
+            }
+        case "schedule_finished":
+            if pages.world.schedules.value != nil {
+                Task { await pages.world.loadSchedules() }
+            }
         default:
             break
         }
     }
+
+    private static let BACKUP_EVENTS: Set<String> = [
+        "backup_completed", "backup_failed", "backup_deleted", "backup_restored", "backup_retention",
+    ]
 
     /// Several events in a row (a server starting says a lot) read once.
     func scheduleRefresh() {

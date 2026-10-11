@@ -46,10 +46,19 @@ sealed class AgentException(val key: String, message: String? = null) : Exceptio
     /** The account isn't allowed to do that (403), in the agent's words. */
     class NotAllowed(val reason: String) : AgentException("mobile.error.not_allowed", reason)
 
+    /** Work the agent answers only once done (a backup, a restore) gave no
+     * answer in time. It may still be running on the PC; the screen reads
+     * it again when the PC says it finished. */
+    class StillWorking : AgentException("mobile.error.still_working")
+
     /** Any other refusal, in the agent's words, with its error number. */
     class Failed(val status: Int, val reason: String?, val requestId: String?) :
         AgentException("mobile.error.failed", reason)
 }
+
+/** Writing a download into the phone's own file failed (the phone is
+ * full, or the place picked stopped taking it): not the PC's fault. */
+class SaveFileException(cause: IOException) : IOException(cause.message, cause)
 
 /** Lines the client may log: method, path and status. Never headers, bodies
  * or the token; tests/NoSecretsTest checks that. */
@@ -71,6 +80,8 @@ class AgentClient(
     strict: Boolean = false,
     baseClient: OkHttpClient = OkHttpClient(),
     systemTrust: X509TrustManager = PinnedTrust.systemTrustManager(),
+    /** How long work the agent answers only when done may take. */
+    private val slowSeconds: Long = SLOW_SECONDS,
 ) {
     val trust = PinnedTrust(pairing.fingerprint, strict, systemTrust)
 
@@ -79,6 +90,19 @@ class AgentClient(
         .readTimeout(30, TimeUnit.SECONDS)
         // Stopping a server waits until Minecraft has saved and exited.
         .callTimeout(150, TimeUnit.SECONDS)
+        .build()
+
+    /** For work the agent answers only when it is done (a backup, a
+     * restore): it sends nothing until then, so after [slowSeconds] with no
+     * answer the app says the PC may still be working ([AgentException.StillWorking]). */
+    private val slowHttp: OkHttpClient = http.newBuilder()
+        .readTimeout(slowSeconds, TimeUnit.SECONDS)
+        .callTimeout(0, TimeUnit.SECONDS)
+        .build()
+
+    private val files: OkHttpClient = http.newBuilder()
+        .readTimeout(2, TimeUnit.MINUTES)
+        .callTimeout(0, TimeUnit.SECONDS)
         .build()
 
     private val jsonType = "application/json".toMediaType()
@@ -223,6 +247,145 @@ class AgentClient(
     suspend fun join(serverId: String): JoinInfo = get("${server(serverId)}/join", JoinInfo.serializer())
 
     // ------------------------------------------------------------------
+    // Backups, Restore world, Schedules and Performance. Making a backup,
+    // a restore and Run now answer only once the work is done, which can
+    // take minutes for a big world, so those wait as long as it takes.
+
+    suspend fun backups(serverId: String): BackupList = get("${server(serverId)}/backups", BackupList.serializer())
+
+    suspend fun backUp(serverId: String): BackupMade =
+        call(post("${server(serverId)}/backups", JsonObject(emptyMap())), BackupMade.serializer(), slow = true)
+
+    /** Opens the archive on the PC and checks it, now. */
+    suspend fun checkBackup(serverId: String, backupId: Long): BackupCheck =
+        get("${server(serverId)}/backups/$backupId/verify", BackupCheck.serializer(), slow = true)
+
+    /** Without [confirm], only what would happen; nothing changes. */
+    suspend fun restoreBackup(serverId: String, backupId: Long, confirm: Boolean, startAfter: Boolean = false): Restored =
+        call(
+            post("${server(serverId)}/backups/$backupId/restore", Backups.restoreBody(confirm, startAfter)),
+            Restored.serializer(),
+            slow = confirm,
+        )
+
+    suspend fun deleteBackup(serverId: String, backupId: Long): BackupDeleted =
+        call(request("${server(serverId)}/backups/$backupId").delete().build(), BackupDeleted.serializer())
+
+    /** Copies one backup to the second-copy folder (again). */
+    suspend fun copyBackup(serverId: String, backupId: Long): BackupCopied =
+        call(post("${server(serverId)}/backups/$backupId/copy", JsonObject(emptyMap())), BackupCopied.serializer(), slow = true)
+
+    suspend fun offsite(serverId: String): Offsite = get("${server(serverId)}/backups/offsite", Offsite.serializer())
+
+    /** Turns second copies off. Choosing a folder needs the PC's folder list. */
+    suspend fun turnOffsiteOff(serverId: String): Offsite = call(
+        request("${server(serverId)}/backups/offsite").put(buildJsonObject { put("directory", "") }.toBody()).build(),
+        Offsite.serializer(),
+    )
+
+    /**
+     * Streams a backup's zip into [out], with the sign-in in a header (never
+     * in the address), and returns the bytes written. [progress] gets the
+     * bytes so far and the size, when the PC said it. A failure writing to
+     * [out] is a [SaveFileException], not the PC's.
+     */
+    suspend fun downloadBackup(
+        serverId: String,
+        backupId: Long,
+        out: java.io.OutputStream,
+        progress: (Long, Long?) -> Unit = { _, _ -> },
+    ): Long = withContext(Dispatchers.IO) {
+        val path = "${server(serverId)}/backups/$backupId/download"
+        val current = token() ?: throw AgentException.SignedOut()
+        val request = Request.Builder().url(pairing.origin + path).header("Authorization", "Bearer $current").get().build()
+        val response = try {
+            files.newCall(request).execute()
+        } catch (e: IOException) {
+            log.line("GET ${request.url.encodedPath} -> no answer")
+            throw translate(e)
+        }
+        response.use {
+            log.line("GET ${request.url.encodedPath} -> ${it.code}")
+            if (!it.isSuccessful || !it.header("Content-Type").orEmpty().startsWith("application/zip")) {
+                read(it, request, JsonObject.serializer(), signedIn = true)
+                throw AgentException.NotAnAgent()
+            }
+            val body = it.body ?: throw AgentException.NotAnAgent()
+            val size = body.contentLength().takeIf { n -> n >= 0 }
+            var written = 0L
+            body.byteStream().use { input ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val n = try {
+                        input.read(buffer)
+                    } catch (e: IOException) {
+                        throw translate(e)
+                    }
+                    if (n < 0) break
+                    try {
+                        out.write(buffer, 0, n)
+                    } catch (e: IOException) {
+                        throw SaveFileException(e)
+                    }
+                    written += n
+                    progress(written, size)
+                }
+            }
+            if (size != null && written != size) throw AgentException.Unreachable()
+            written
+        }
+    }
+
+    suspend fun worlds(serverId: String): WorldList = get("${server(serverId)}/worlds", WorldList.serializer())
+
+    /** Asks Minecraft to save the world now (save-all flush). */
+    suspend fun saveWorld(serverId: String): Requested =
+        call(post("${server(serverId)}/worlds/save", JsonObject(emptyMap())), Requested.serializer())
+
+    suspend fun worldTimeline(serverId: String): WorldTimeline =
+        get("${server(serverId)}/world/timeline", WorldTimeline.serializer())
+
+    /** Puts back only the world from that backup; the server must be off. */
+    suspend fun restoreWorld(serverId: String, backupId: Long): Restored {
+        val body = buildJsonObject {
+            put("backup_id", backupId)
+            put("confirm", true)
+        }
+        return call(post("${server(serverId)}/world/undo", body), Restored.serializer(), slow = true)
+    }
+
+    /** This server's recent tasks, newest first. */
+    suspend fun jobs(serverId: String, limit: Int = 20): JobList =
+        get("/api/jobs?server_id=${path(serverId)}&limit=${limit.coerceIn(1, 200)}", JobList.serializer())
+
+    /** Undoes a finished change by restoring the backup made just before it. */
+    suspend fun undoJob(jobId: String): JobUndone =
+        call(post("/api/jobs/${path(jobId)}/undo", JsonObject(emptyMap())), JobUndone.serializer(), slow = true)
+
+    suspend fun schedules(serverId: String): ScheduleList = get("${server(serverId)}/schedules", ScheduleList.serializer())
+
+    suspend fun addSchedule(serverId: String, body: JsonObject): ScheduleSaved =
+        call(post("${server(serverId)}/schedules", body), ScheduleSaved.serializer())
+
+    suspend fun updateSchedule(serverId: String, scheduleId: Long, body: JsonObject): ScheduleSaved =
+        call(request("${server(serverId)}/schedules/$scheduleId").put(body.toBody()).build(), ScheduleSaved.serializer())
+
+    suspend fun deleteSchedule(serverId: String, scheduleId: Long): Ok =
+        call(request("${server(serverId)}/schedules/$scheduleId").delete().build(), Ok.serializer())
+
+    suspend fun runSchedule(serverId: String, scheduleId: Long): ScheduleRan =
+        call(post("${server(serverId)}/schedules/$scheduleId/run", JsonObject(emptyMap())), ScheduleRan.serializer(), slow = true)
+
+    /** The graphs' samples for the last [hours] (1 to 168), the values now
+     * and, with [storage], the disk use (slow: the PC walks the server folder). */
+    suspend fun performance(serverId: String, hours: Int, storage: Boolean = true): Performance =
+        get("${server(serverId)}/performance?hours=${hours.coerceIn(1, 168)}&storage=$storage", Performance.serializer())
+
+    /** The health checks. Can take a few seconds: the PC asks Tailscale. */
+    suspend fun serverHealth(serverId: String): ServerHealth =
+        get("${server(serverId)}/health/server", ServerHealth.serializer())
+
+    // ------------------------------------------------------------------
     private fun server(id: String) = "/api/servers/${path(id)}"
 
     private fun path(id: String) = java.net.URLEncoder.encode(id, "UTF-8").replace("+", "%20")
@@ -234,10 +397,10 @@ class AgentClient(
 
     private fun post(path: String, body: JsonObject): Request = request(path).post(body.toBody()).build()
 
-    private suspend fun <T> get(path: String, serializer: KSerializer<T>, signedIn: Boolean = true): T =
-        call(request(path).get().build(), serializer, signedIn)
+    private suspend fun <T> get(path: String, serializer: KSerializer<T>, signedIn: Boolean = true, slow: Boolean = false): T =
+        call(request(path).get().build(), serializer, signedIn, slow)
 
-    private suspend fun <T> call(request: Request, serializer: KSerializer<T>, signedIn: Boolean = true): T =
+    private suspend fun <T> call(request: Request, serializer: KSerializer<T>, signedIn: Boolean = true, slow: Boolean = false): T =
         withContext(Dispatchers.IO) {
             val withToken = if (signedIn) {
                 val current = token() ?: throw AgentException.SignedOut()
@@ -245,10 +408,17 @@ class AgentClient(
             } else {
                 request
             }
+            val started = System.nanoTime()
             val response = try {
-                http.newCall(withToken).execute()
+                (if (slow) slowHttp else http).newCall(withToken).execute()
             } catch (e: IOException) {
                 log.line("${request.method} ${request.url.encodedPath} -> no answer")
+                // Only the wait for the answer runs this long; a PC that is
+                // off fails to connect within seconds.
+                val waited = System.nanoTime() - started
+                if (slow && e is java.net.SocketTimeoutException && waited >= TimeUnit.SECONDS.toNanos(slowSeconds) * 9 / 10) {
+                    throw AgentException.StillWorking()
+                }
                 throw translate(e)
             }
             response.use { read(it, request, serializer, signedIn) }
@@ -301,6 +471,8 @@ class AgentClient(
 
     companion object {
         val QUICK_ACTIONS = listOf("start", "stop", "restart")
+
+        const val SLOW_SECONDS = 30L * 60
         val REC_ACTIONS = listOf("snooze", "dismiss", "restore")
     }
 }

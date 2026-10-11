@@ -30,6 +30,10 @@ final class StubAgent: URLProtocol {
         var status: Int
         var headers: [String: String]
         var body: Data
+        /// Seconds to wait before answering.
+        var delay: TimeInterval = 0
+        /// Fail this way instead of answering.
+        var failure: URLError? = nil
     }
 
     struct Seen {
@@ -87,6 +91,13 @@ final class StubAgent: URLProtocol {
         let answer: Answer? = StubAgent.answers.isEmpty ? nil : StubAgent.answers.removeFirst()
         StubAgent.lock.unlock()
 
+        if let delay = answer?.delay, delay > 0 {
+            Thread.sleep(forTimeInterval: delay)
+        }
+        if let failure = answer?.failure {
+            client?.urlProtocol(self, didFailWithError: failure)
+            return
+        }
         guard let answer = answer, let url = request.url,
               let response = HTTPURLResponse(url: url, statusCode: answer.status, httpVersion: "HTTP/1.1", headerFields: answer.headers)
         else {

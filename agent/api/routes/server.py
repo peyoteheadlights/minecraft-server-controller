@@ -20,7 +20,16 @@ from ...security.permissions import (
 )
 from ..deps import audit, get_server
 from ..errors import audit_failure
-from ..responses import CommandCheck, CommandSent, ServerAction, ServerStatus
+from ..responses import (
+    CommandCheck,
+    CommandSent,
+    Performance,
+    Requested,
+    ServerAction,
+    ServerHealth,
+    ServerStatus,
+    WorldList,
+)
 from .models import CommandRequest, StopRequest, TpsCommandRequest
 
 router = APIRouter()
@@ -218,7 +227,7 @@ async def check_command(command: str, principal: Principal = Depends(require(CON
     return {"valid": valid, "error": error, "danger_reason": describe_danger(command)}
 
 
-@router.get("/performance")
+@router.get("/performance", response_model=Performance)
 async def performance(
     hours: float = 6,
     storage: bool = True,
@@ -239,7 +248,7 @@ async def performance(
     }
 
 
-@router.get("/health/server")
+@router.get("/health/server", response_model=ServerHealth)
 async def server_health(
     principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):
@@ -250,12 +259,12 @@ async def server_health(
     return await asyncio.to_thread(ctx.metrics.health, player_count=ctx.players.online_count())
 
 
-@router.get("/worlds")
+@router.get("/worlds", response_model=WorldList)
 async def worlds(principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)):
     return {"worlds": ctx.backups.world_summary()}
 
 
-@router.post("/worlds/save")
+@router.post("/worlds/save", response_model=Requested)
 async def save_worlds(
     request: Request,
     principal: Principal = Depends(require(SERVER_CONTROL)),

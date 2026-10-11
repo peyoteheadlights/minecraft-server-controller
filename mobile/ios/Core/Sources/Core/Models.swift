@@ -93,12 +93,15 @@ public struct Capabilities: Codable, Equatable, Sendable {
     public var mods: Bool?
     public var bans: Bool?
     public var crossplay: Bool?
+    /// False for a server type that reports no game speed (Bedrock).
+    public var speed: Bool?
 
-    public init(addons: Bool? = nil, mods: Bool? = nil, bans: Bool? = nil, crossplay: Bool? = nil) {
+    public init(addons: Bool? = nil, mods: Bool? = nil, bans: Bool? = nil, crossplay: Bool? = nil, speed: Bool? = nil) {
         self.addons = addons
         self.mods = mods
         self.bans = bans
         self.crossplay = crossplay
+        self.speed = speed
     }
 }
 
@@ -422,4 +425,9 @@ public enum Permissions {
     public static let PLAYERS_OP = "players.op"
     public static let CHAT_SEND = "chat.send"
     public static let SETTINGS_EDIT = "settings.edit"
+    public static let BACKUPS_CREATE = "backups.create"
+    public static let BACKUPS_DOWNLOAD = "backups.download"
+    public static let BACKUPS_RESTORE = "backups.restore"
+    public static let BACKUPS_DELETE = "backups.delete"
+    public static let SCHEDULES_MANAGE = "schedules.manage"
 }

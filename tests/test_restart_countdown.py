@@ -167,6 +167,6 @@ async def test_mod_changes_are_refused_during_the_countdown(make_config):
     mods = ModManager(server.config, server.bus, db, server)
     await crash(server)
     with pytest.raises(ModError, match="Cancel it before"):
-        mods._require_server_offline("install a mod")
+        mods.require_server_offline("install a mod")
     await server.cancel_pending_restart()
-    mods._require_server_offline("install a mod")  # allowed once cancelled
+    mods.require_server_offline("install a mod")  # allowed once cancelled

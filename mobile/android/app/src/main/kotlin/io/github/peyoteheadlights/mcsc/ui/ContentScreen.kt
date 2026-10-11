@@ -157,6 +157,8 @@ private fun LazyListScope.modsList(vm: AppViewModel, serverId: String, content: 
     }
 
     val missing = Content.missing(content.dependencies)
+    // Unread is said as such, never shown as "nothing missing".
+    if (content.dependencies == null) item { Note(t("mobile.content.missing_unknown"), color = LocalColors.current.text3) }
     if (missing.isNotEmpty()) {
         item { SectionTitle(t("mobile.content.missing_title")) }
         item {
@@ -560,7 +562,7 @@ private fun UpdateAllDialog(vm: AppViewModel, content: ContentPages) {
     val count = content.ticked.size
     val blocked = plan?.let { UpdateAll.blocked(strings, it) }
     Question(
-        strings.t("mobile.content.update_all_title"),
+        strings.t("mobile.content.update_all"),
         confirm = if (plan != null && plan.updates.isNotEmpty()) strings.tn("mobile.content.update_all_go", count) else null,
         enabled = count > 0 && blocked == null,
         onConfirm = { content.updateAll(strings) },

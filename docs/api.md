@@ -220,7 +220,13 @@ summaries use this).
 `GET /api/mods/history`, `GET /api/mods/check`,
 `GET /api/mods/dependencies` (readable report), `POST /api/mods/dependencies/plan`
 (what would be downloaded, recursively; downloads nothing),
-`POST /api/mods/dependencies/install` (`{"mod_ids": [...]}` or all missing).
+`POST /api/mods/dependencies/install` (`{"mod_ids": [...]}` or all missing),
+`GET /api/mods/update-all` (every mod or plugin with a newer version on
+Modrinth, turned-off ones included and marked, plus the ones Modrinth
+couldn't be asked about; needs `server.view`),
+`POST /api/mods/update-all` (`{"mods": [{"filename", "version_id"}]}`: the
+ticked ones as one change, with the server stopped: one backup first, all
+put back if any update fails, one Undo; needs `mods.manage`).
 
 ## Game settings
 

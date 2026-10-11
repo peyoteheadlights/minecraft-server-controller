@@ -183,6 +183,40 @@ def test_a_failed_update_all_puts_back_what_the_agent_noted_about_each_mod(clien
     assert core.db.get_setting("mod_source:alpha") == source_before
 
 
+def test_the_check_for_updates_includes_turned_off_mods(client, mods_dir):
+    # So "Update all" is offered when only a turned-off mod has a newer version.
+    use(client, FakeModrinth(PROJECTS))
+    headers = auth(token_for(client))
+    found = client.get("/api/mods/updates?refresh=true", headers=headers).json()["updates"]
+    assert {u["mod_id"] for u in found} == {"alpha", "beta"}
+    mods = {m["mod_id"]: m for m in client.get("/api/mods", headers=headers).json()["mods"]}
+    assert mods["beta"]["update_available"]["latest_version"] == "2.0"
+
+
+def test_updating_a_turned_off_mod_on_its_own_keeps_it_off(client, mods_dir):
+    use(client, FakeModrinth(PROJECTS))
+    headers = auth(token_for(client))
+    body = {"filename": "beta.jar.disabled"}
+    response = client.post("/api/mods/update", json=body, headers=headers)
+    assert response.status_code == 200, response.text
+    assert installed(client, headers)["beta"] == ("2.0", False)
+
+
+def test_history_says_a_mod_was_put_back_when_update_all_failed(client, mods_dir):
+    use(client, BrokenModrinth(PROJECTS, broken={"beta"}))
+    headers = auth(token_for(client))
+    body = {"mods": [{"filename": "alpha.jar"}, {"filename": "beta.jar.disabled"}]}
+    assert client.post("/api/mods/update-all", json=body, headers=headers).status_code == 400
+    history = client.get("/api/mods/history", headers=headers).json()["history"]
+    rows = [
+        (r["action"], r["mod_id"], r["old_version"], r["new_version"], r["result"]) for r in history
+    ]
+    # Newest first: Update all failed, Alpha put back to 1.0, Alpha's update before it.
+    assert rows[0][0] == "update_all" and rows[0][4] == "failed"
+    assert rows[1] == ("rollback", "alpha", "2.0", "1.0", "ok")
+    assert rows[2][:2] == ("update", "alpha")
+
+
 def test_the_same_mod_ticked_twice_is_updated_once(client, mods_dir):
     use(client, FakeModrinth(PROJECTS))
     headers = auth(token_for(client))
@@ -375,6 +409,8 @@ def test_game_settings_answer_their_typed_shape(client):
     view = client.get("/api/servers/test/game-settings", headers=headers).json()
     fields = {f["key"]: f for f in view["fields"]}
     assert fields["max-players"]["value"] == 20 and fields["max-players"]["set"] is True
+    # The file's own text comes too, so a value Minecraft won't take is shown as written.
+    assert fields["max-players"]["raw"] == "20" and fields["difficulty"]["raw"] is None
     assert (
         fields["difficulty"]["set"] is False and fields["difficulty"]["minecraft_default"] == "easy"
     )

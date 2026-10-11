@@ -107,11 +107,12 @@ public enum Content {
         return "\(from) → \(to)"
     }
 
-    private static let actions: Set<String> = ["install", "upload", "remove", "update", "rollback", "enable", "disable", "update_all"]
+    private static let actions: Set<String> = ["install", "upload", "remove", "update", "rollback", "enable", "disable"]
 
     /// What a history row did, in words; the agent's own name for an action the app doesn't know.
     public static func action(_ strings: Strings, _ row: ModHistoryRow) -> String {
-        actions.contains(row.action) ? strings.t("mobile.content.action_" + row.action) : row.action
+        if row.action == "update_all" { return strings.t("mobile.content.update_all") }
+        return actions.contains(row.action) ? strings.t("mobile.content.action_" + row.action) : row.action
     }
 
     public static func historyTone(_ row: ModHistoryRow) -> Tone {
@@ -339,11 +340,15 @@ public enum GameForm {
         choiceWords.contains(value) ? strings.t("game." + value) : value
     }
 
-    /// The value the form starts with, as text: what the file says when it
-    /// can be read, otherwise what Minecraft uses then (an empty seed means
-    /// a random one). Booleans are "true" or "false".
+    /// The value the form starts with, as text: what the file says (as
+    /// written, when Minecraft wouldn't accept it), otherwise what Minecraft
+    /// uses then (an empty seed means a random one). Booleans are "true" or
+    /// "false".
     public static func initial(_ field: GameSetting) -> String {
-        let shown = field.set && field.problem == nil ? field.value?.text : nil
+        // A value Minecraft wouldn't accept is shown as the file has it (its problem is
+        // said next to it), never swapped for the default.
+        if field.set && field.problem != nil { return field.raw ?? "" }
+        let shown = field.set ? field.value?.text : nil
         if field.kind == "seed" { return shown ?? "" }
         return shown ?? field.minecraftDefault
     }

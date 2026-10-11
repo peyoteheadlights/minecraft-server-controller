@@ -102,11 +102,15 @@ object Content {
     fun change(strings: Strings, old: String?, new: String?): String =
         "${old?.takeIf { it.isNotBlank() } ?: strings.t("value.unknown")} → ${new?.takeIf { it.isNotBlank() } ?: strings.t("value.unknown")}"
 
-    private val ACTIONS = setOf("install", "upload", "remove", "update", "rollback", "enable", "disable", "update_all")
+    private val ACTIONS = setOf("install", "upload", "remove", "update", "rollback", "enable", "disable")
 
     /** What a history row did, in words; the agent's own name for an action the app doesn't know. */
     fun action(strings: Strings, row: ModHistoryRow): String =
-        if (row.action in ACTIONS) strings.t("mobile.content.action_${row.action}") else row.action
+        when (row.action) {
+            "update_all" -> strings.t("mobile.content.update_all")
+            in ACTIONS -> strings.t("mobile.content.action_${row.action}")
+            else -> row.action
+        }
 
     fun historyTone(row: ModHistoryRow): Tone = if (row.result == "ok") Tone.SUCCESS else Tone.DANGER
 
@@ -309,7 +313,10 @@ object GameForm {
      * a random one). Booleans are "true" or "false".
      */
     fun initial(field: GameSetting): String {
-        val shown = if (field.set && field.problem == null) text(field.value) else null
+        // A value Minecraft wouldn't accept is shown as the file has it (its problem is
+        // said next to it), never swapped for the default.
+        if (field.set && field.problem != null) return field.raw.orEmpty()
+        val shown = if (field.set) text(field.value) else null
         return when (field.kind) {
             "seed" -> shown.orEmpty()
             else -> shown ?: field.minecraftDefault

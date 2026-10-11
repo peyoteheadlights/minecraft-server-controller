@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 from ..jobs import JobConflict
 from ..safechange import SafeChange, run_safe_change
-from .manager import ModError
+from .manager import ModError, ModManager
 
 if TYPE_CHECKING:
     from ..core import ServerContext
@@ -31,7 +31,7 @@ async def update_all(
     another task holds it, or a file isn't in the folder."""
     mods = ctx.mods
     ctx.require_free()
-    mods._require_server_offline(f"update {mods.word}s")
+    mods.require_server_offline(f"update {mods.word}s")
     # The same file twice would fail the second time (it was renamed by the first).
     unique: dict[str, dict[str, Any]] = {}
     for item in wanted:
@@ -40,27 +40,26 @@ async def update_all(
     # What the agent notes about each mod (where it came from, its update),
     # put back with the files if one update fails.
     noted = [f"mod_{kind}:{mod.mod_id}" for mod, _ in targets for kind in ("source", "update")]
-    try:
-        folder = ctx.config.mods_dir.resolve().relative_to(ctx.config.server_dir.resolve()).parts[0]
-    except (ValueError, IndexError):
+    folder = _folder_in_server(ctx)
+    if folder is None:
         # A backup holds only what is inside the server folder, so it
         # couldn't put these mods back if one update failed.
         raise ModError(
             f"Update all needs the {mods.server_type.content} folder inside the server folder. "
             f"Update each {mods.word} on its own instead."
-        ) from None
+        )
+
+    # Each update done so far, kept here so a failure can say which ones were put back.
+    updated: list[dict[str, Any]] = []
 
     async def change(job: JobHandle | None) -> dict[str, Any]:
         before = {key: mods.db.get_setting(key) for key in noted}
-        updated = []
         for number, (mod, version_id) in enumerate(targets, start=1):
             if job:
                 job.step(f"Updating {mod.name} ({number} of {len(targets)})")
             try:
+                # A turned-off mod is updated, and stays off.
                 result = await mods.update(mod.filename, user=user, version_id=version_id)
-                if not mod.enabled:
-                    # A turned-off mod is updated, and stays off.
-                    await mods.set_enabled(result["updated"]["filename"], False, user=user)
             except Exception as exc:
                 for key, value in before.items():
                     mods.db.set_setting(key, value)
@@ -89,7 +88,7 @@ async def update_all(
     async def run(job: JobHandle | None) -> dict[str, Any]:
         # Asked again just before: it may have been started while this waited
         # its turn, and Update all never stops a running server.
-        mods._require_server_offline(f"update {mods.word}s")
+        mods.require_server_offline(f"update {mods.word}s")
         return await run_safe_change(ctx.server, ctx.backups, plan, job=job, user=user)
 
     names = ", ".join(mod.name for mod, _ in targets)
@@ -100,6 +99,7 @@ async def update_all(
     except JobConflict:
         raise
     except Exception as exc:
+        _note_put_back(mods, updated, user)
         mods.record("update_all", user, result="failed", detail=str(exc)[:500])
         raise
     mods.record("update_all", user, detail=names[:500])
@@ -109,3 +109,31 @@ async def update_all(
         "safety_backup": outcome["safety_backup"],
         "undo": outcome["undo"],
     }
+
+
+def _folder_in_server(ctx: ServerContext) -> str | None:
+    """The mods or plugins folder's name inside the server folder, or None
+    when it is somewhere else."""
+    mods_dir = ctx.config.mods_dir.resolve()
+    server_dir = ctx.config.server_dir.resolve()
+    if not mods_dir.is_relative_to(server_dir) or mods_dir == server_dir:
+        return None
+    return mods_dir.relative_to(server_dir).parts[0]
+
+
+def _note_put_back(mods: ModManager, updated: list[dict[str, Any]], user: str) -> None:
+    """After a failed Update all, a history row for each mod that had been
+    updated and is back at its old version, so the history doesn't read as
+    if it was still updated. Only what the folder shows now is recorded."""
+    for row in updated:
+        now = mods.find_by_id(row["mod_id"])
+        if now is None or now.version != row["previous_version"]:
+            continue
+        mods.record(
+            "rollback",
+            user,
+            now,
+            old_version=row["version"],
+            new_version=row["previous_version"],
+            detail=f"Put back from the backup because {TITLE} failed",
+        )

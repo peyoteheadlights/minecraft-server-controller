@@ -989,6 +989,8 @@ public struct GameSetting: Decodable, Equatable, Identifiable, Sendable {
     public var value: JSONValue?
     public var set: Bool
     public var problem: String?
+    /// The file's own text for it, as written (shown when it can't be read as a value).
+    public var raw: String?
     public var minecraftDefault: String
     public var choices: [String]
     public var maxLength: Int?
@@ -998,7 +1000,7 @@ public struct GameSetting: Decodable, Equatable, Identifiable, Sendable {
     public var id: String { key }
 
     enum CodingKeys: String, CodingKey {
-        case key, kind, value, set, problem, choices
+        case key, kind, value, set, problem, raw, choices
         case minecraftDefault = "minecraft_default"
         case maxLength = "max_length"
         case readOnly = "read_only"
@@ -1006,13 +1008,15 @@ public struct GameSetting: Decodable, Equatable, Identifiable, Sendable {
 
     public init(
         key: String, kind: String = "text", value: JSONValue? = nil, set: Bool = false, problem: String? = nil,
-        minecraftDefault: String = "", choices: [String] = [], maxLength: Int? = nil, readOnly: String? = nil
+        raw: String? = nil, minecraftDefault: String = "", choices: [String] = [], maxLength: Int? = nil,
+        readOnly: String? = nil
     ) {
         self.key = key
         self.kind = kind
         self.value = value
         self.set = set
         self.problem = problem
+        self.raw = raw
         self.minecraftDefault = minecraftDefault
         self.choices = choices
         self.maxLength = maxLength
@@ -1026,6 +1030,7 @@ public struct GameSetting: Decodable, Equatable, Identifiable, Sendable {
         value = c.maybe(.value)
         set = c.value(.set, false)
         problem = c.maybe(.problem)
+        raw = c.maybe(.raw)
         minecraftDefault = c.value(.minecraftDefault, "")
         choices = c.value(.choices, [])
         maxLength = c.maybe(.maxLength)

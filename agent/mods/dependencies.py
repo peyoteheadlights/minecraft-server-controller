@@ -567,7 +567,7 @@ class DependencyResolver:
 
     async def install(self, mod_ids: list[str] | None, user: str) -> dict[str, Any]:
         """Plan, then install each item through the normal verified path."""
-        self.manager._require_server_offline("install dependencies")
+        self.manager.require_server_offline("install dependencies")
         plan = await self.plan(mod_ids)
         results = []
         for item in plan["items"]:

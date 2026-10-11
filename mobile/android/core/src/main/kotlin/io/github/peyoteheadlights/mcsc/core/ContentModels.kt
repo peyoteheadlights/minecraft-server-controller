@@ -372,6 +372,8 @@ data class GameSetting(
     val value: JsonElement? = null,
     val set: Boolean = false,
     val problem: String? = null,
+    /** The file's own text for it, as written (shown when it can't be read as a value). */
+    val raw: String? = null,
     @SerialName("minecraft_default") val minecraftDefault: String = "",
     val choices: List<String> = emptyList(),
     val min: Int? = null,

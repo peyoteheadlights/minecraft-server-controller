@@ -124,6 +124,7 @@ final class ContentTests: XCTestCase {
         XCTAssertEqual(Content.action(s, ModHistoryRow(action: "something_new")), "something_new")
         XCTAssertEqual(Content.historyTone(ModHistoryRow(result: "failed")), .danger)
         XCTAssertEqual(Content.historyName(s, ModHistoryRow(action: "update_all", detail: "Alpha, Beta")), "Alpha, Beta")
+        XCTAssertEqual(Content.action(s, ModHistoryRow(action: "update_all")), "Update all")
     }
 
     func testOnlyTheFilesEachScreenTakesAreSent() {
@@ -269,10 +270,14 @@ final class ContentTests: XCTestCase {
         XCTAssertEqual(GameForm.initial(settings.fields[2]), "true")
         XCTAssertEqual(GameForm.initial(settings.fields[3]), "false")
         XCTAssertEqual(GameForm.initial(settings.fields[1]), "20")
-        // A value the file has but Minecraft won't take starts from the default.
+        // A value the file has but Minecraft won't take is shown as the file has it, never
+        // replaced by the default, and isn't written back unless it is changed.
         var bad = setting("view-distance", "int", nil, set: true, fallback: "10")
         bad.problem = "not a number"
-        XCTAssertEqual(GameForm.initial(bad), "10")
+        bad.raw = "ten"
+        XCTAssertEqual(GameForm.initial(bad), "ten")
+        let one = GameSettings(exists: true, fields: [bad], running: false, restartNeeded: false)
+        XCTAssertTrue(GameForm.changed(one, ["view-distance": "ten"]).isEmpty)
         XCTAssertTrue(GameForm.fileProblem(s, bad)?.hasSuffix("not a number") == true)
         XCTAssertEqual(GameForm.label(s, setting("allow-list", "bool", nil)), "Allowlist")
     }

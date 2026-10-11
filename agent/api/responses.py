@@ -1177,6 +1177,7 @@ class GameSetting(Open):
     value: Any = Field(None, description="What the file says, typed; null when unset or unreadable")
     set: bool
     problem: str | None = Field(None, description="Why the file's value couldn't be read")
+    raw: str | None = Field(None, description="The file's own text for it; null when unset")
     minecraft_default: str
     choices: list[str] = []
     min: int | None = None

@@ -96,6 +96,7 @@ class ContentTest {
         assertEquals("something_new", Content.action(strings, row.copy(action = "something_new")))
         assertEquals(Tone.DANGER, Content.historyTone(row.copy(result = "failed")))
         assertEquals("Alpha, Beta", Content.historyName(strings, ModHistoryRow(action = "update_all", detail = "Alpha, Beta")))
+        assertEquals("Update all", Content.action(strings, ModHistoryRow(action = "update_all")))
     }
 
     @Test
@@ -248,9 +249,11 @@ class ContentTest {
         assertEquals("true", GameForm.initial(settings.fields[2]))
         assertEquals("false", GameForm.initial(settings.fields[3]))
         assertEquals("20", GameForm.initial(settings.fields[1]))
-        // A value the file has but Minecraft won't take starts from the default.
-        val bad = setting("view-distance", "int", null, set = true, default = "10").copy(problem = "not a number")
-        assertEquals("10", GameForm.initial(bad))
+        // A value the file has but Minecraft won't take is shown as the file has it, never
+        // replaced by the default, and isn't written back unless it is changed.
+        val bad = setting("view-distance", "int", null, set = true, default = "10").copy(problem = "not a number", raw = "ten")
+        assertEquals("ten", GameForm.initial(bad))
+        assertTrue(GameForm.changed(GameSettings(fields = listOf(bad)), mapOf("view-distance" to "ten")).isEmpty())
         assertTrue(GameForm.fileProblem(strings, bad)!!.endsWith("not a number"))
         assertEquals("Allowlist", strings.t(GameForm.LABELS.getValue("allow-list").first))
     }

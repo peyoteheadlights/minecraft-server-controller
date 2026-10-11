@@ -58,14 +58,10 @@ class ModUpdateRequest(ModFileRequest):
     version_id: str | None = Field(default=None, max_length=64)
 
 
-class UpdateAllItem(ModUpdateRequest):
-    pass
-
-
 class UpdateAllRequest(BaseModel):
     """The ticked mods or plugins, each with the version the plan showed."""
 
-    mods: list[UpdateAllItem] = Field(min_length=1, max_length=200)
+    mods: list[ModUpdateRequest] = Field(min_length=1, max_length=200)
 
 
 class ModRollbackRequest(BaseModel):

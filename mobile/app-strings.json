@@ -304,5 +304,11 @@
   "mobile.add.working": ["Setting up… {step}", "Running: {step}"],
   "mobile.add.leave_ok": ["You can leave this screen or close the app. Setting up carries on, and the new server shows on All servers when it's ready.", "The task continues on the PC."],
   "mobile.add.pack_name": ["Modpack: {name}", "Pack: {name}"],
-  "mobile.add.start_over": ["Start again", "Reset"]
+  "mobile.add.start_over": ["Start again", "Reset"],
+
+  "mobile.import.not_a_world": ["Choose a world saved as a .zip (or a .mcworld for a Bedrock server).", "Expected .zip, .mcworld or .mctemplate."],
+  "mobile.import.sending": ["Sending {name}…", "Uploading {name}…"],
+  "mobile.import.stop_ask": ["Stop the server", "Stop"],
+  "mobile.download.save_failed": ["The world couldn't be saved on this phone: {reason}", "Writing the file failed: {reason}"],
+  "mobile.download.share_title": ["Take the world home", "Share world"]
 }

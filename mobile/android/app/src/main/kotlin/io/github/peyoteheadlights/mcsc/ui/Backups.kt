@@ -24,6 +24,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -37,6 +38,7 @@ import io.github.peyoteheadlights.mcsc.core.Offsite
 import io.github.peyoteheadlights.mcsc.core.Permissions
 import io.github.peyoteheadlights.mcsc.core.Tone
 import io.github.peyoteheadlights.mcsc.core.UndoRedo
+import io.github.peyoteheadlights.mcsc.core.WorldImport
 import io.github.peyoteheadlights.mcsc.core.WorldPoint
 import io.github.peyoteheadlights.mcsc.core.WorldRestore
 
@@ -388,7 +390,15 @@ fun WorldRestoreScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit) {
     val world = vm.pages(serverId).world
     val strings = vm.strings
     var asking by remember { mutableStateOf<WorldPoint?>(null) }
-    LaunchedEffect(serverId) { world.loadTimeline() }
+    var stopping by remember { mutableStateOf(false) }
+    var pickingFolder by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val bedrock = vm.servers.list.firstOrNull { it.id == serverId }?.edition == "bedrock"
+    val pickZip = rememberFilePicker { world.sendWorld(it, strings) }
+    // Read again when the server starts or stops: importing needs it off.
+    val state = vm.server[serverId]?.status?.state
+    LaunchedEffect(serverId, state) { world.loadTimeline() }
+    LaunchedEffect(serverId, bedrock) { if (!bedrock && WorldImport.canImport(vm.me)) world.loadSaves() }
     val now = rememberNow()
 
     ServerFrame(
@@ -410,6 +420,28 @@ fun WorldRestoreScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit) {
                     },
                     onDismiss = { asking = null },
                 )
+            }
+            if (stopping) {
+                Confirm(
+                    title = t("confirm.stop_title"),
+                    body = t("confirm.stop_body"),
+                    confirm = t("action.stop"),
+                    danger = true,
+                    onConfirm = {
+                        stopping = false
+                        vm.act(serverId, "stop")
+                    },
+                    onDismiss = { stopping = false },
+                )
+            }
+            if (pickingFolder) {
+                FolderPickerDialog(vm, t("import.pick_title"), null, onPick = {
+                    pickingFolder = false
+                    world.pickWorldFolder(it, strings)
+                }, onDismiss = { pickingFolder = false })
+            }
+            world.worldRead?.let { read ->
+                WorldReadDialog(vm, read, onReplace = { world.importWorld(strings) }, onCancel = world::forgetWorld)
             }
         },
     ) {
@@ -455,5 +487,16 @@ fun WorldRestoreScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit) {
                 item { Note(t("world.footer"), color = LocalColors.current.text3) }
             }
         }
+        worldImportCards(
+            vm, world, timeline, bedrock,
+            WorldImportActions(
+                pickZip = pickZip,
+                pickFolder = { pickingFolder = true },
+                stop = { stopping = true },
+                takeHome = {
+                    world.takeHome(sharedFolder(context), strings) { shareFile(context, it, strings.t("mobile.download.share_title")) }
+                },
+            ),
+        )
     }
 }

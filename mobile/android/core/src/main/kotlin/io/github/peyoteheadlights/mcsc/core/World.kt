@@ -269,3 +269,66 @@ object HealthChecks {
         is JsonArray, is JsonObject -> value.toString()
     }
 }
+
+/**
+ * Bringing a world in (a zip from the phone, a folder on the PC or one of
+ * single-player's saves) and taking this server's world home as a zip
+ * (world.js). A world is read and shown first; it replaces this one only
+ * after a confirm, with a backup first that Undo puts back.
+ */
+object WorldImport {
+    /** What the phone may send: a Java world's zip, a Bedrock .mcworld or .mctemplate. */
+    val SUFFIXES = listOf(".zip", ".mcworld", ".mctemplate")
+
+    fun canImport(me: Me?): Boolean = me?.can(Permissions.WORLD_REPLACE) == true
+
+    fun canDownload(me: Me?): Boolean = me?.can(Permissions.BACKUPS_DOWNLOAD) == true
+
+    fun accepts(fileName: String): Boolean = SUFFIXES.any { fileName.lowercase().endsWith(it) }
+
+    /** Why no world can be brought in now, or null when it can. */
+    fun blocked(strings: Strings, timeline: WorldTimeline): String? = when {
+        timeline.serverRunning -> strings.t("import.stop_first")
+        timeline.blockedBy != null -> strings.t("world.busy", "job" to timeline.blockedBy)
+        else -> null
+    }
+
+    fun title(read: WorldRead): String = read.world.name ?: read.world.folderName
+
+    /** Name, version, size and last played, as label and value; Unknown when not read. */
+    fun facts(
+        strings: Strings,
+        world: WorldInfo,
+        zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+        locale: java.util.Locale = java.util.Locale.getDefault(),
+    ): List<Pair<String, String>> = listOf(
+        strings.t("import.name") to (world.name ?: world.folderName),
+        strings.t("import.version") to (world.version ?: strings.t("value.unknown")),
+        strings.t("import.size") to strings.t(
+            "import.size_value", "size" to Display.bytes(strings, world.sizeBytes), "files" to world.files.toString(),
+        ),
+        strings.t("import.last_played") to
+            (world.lastPlayed?.takeIf { it > 0 }?.let { Display.dateTime(strings, it, zone, locale) } ?: strings.t("value.unknown")),
+    )
+
+    /** What the person should know before replacing: a level.dat not fully
+     * read, the wrong edition, a newer game version, where a Bedrock world goes. */
+    fun lines(strings: Strings, read: WorldRead): List<VersionChange.Line> = buildList {
+        read.world.readProblem?.let { add(VersionChange.Line(strings.t("import.read_problem", "problem" to it), Tone.WARNING)) }
+        if (!read.editionMatches) {
+            add(VersionChange.Line(strings.t(if (read.world.edition == "bedrock") "import.is_bedrock" else "import.is_java"), Tone.DANGER))
+        }
+        if (read.newerThanServer == true) {
+            add(VersionChange.Line(
+                strings.t("import.newer", "world" to (read.world.version ?: ""), "server" to (read.serverVersion ?: "")), Tone.WARNING,
+            ))
+        }
+        read.levelName?.let { add(VersionChange.Line(strings.t("import.bedrock_level", "name" to it), Tone.NEUTRAL)) }
+    }
+
+    /** The agent refuses a world of the other edition, so it isn't offered. */
+    fun canUse(read: WorldRead): Boolean = read.editionMatches
+
+    fun done(strings: Strings, result: WorldImported): String =
+        strings.t(if (result.undo != null) "import.done_with_undo" else "import.done")
+}

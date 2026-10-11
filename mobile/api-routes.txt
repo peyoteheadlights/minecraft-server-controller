@@ -116,3 +116,11 @@ POST /api/servers
 GET /api/new-server/options
 POST /api/new-server
 POST /api/modpacks/{token}/new-server
+POST /api/servers/{server_id}/world/import/upload
+POST /api/servers/{server_id}/world/import/folder
+GET /api/servers/{server_id}/world/saves
+POST /api/servers/{server_id}/world/import
+DELETE /api/servers/{server_id}/world/import/{token}
+POST /api/servers/{server_id}/world/download
+# The packed world is a zip, not JSON, so it has no typed answer; the apps
+# download it from GET /api/servers/{server_id}/world/download/{token}.

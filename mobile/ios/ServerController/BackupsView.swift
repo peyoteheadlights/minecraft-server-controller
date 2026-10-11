@@ -1,5 +1,6 @@
 import Core
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// A heading over a group of cards.
 struct SectionTitle: View {
@@ -492,16 +493,26 @@ struct WorldRestoreView: View {
 
     @Environment(AppModel.self) private var model
     @State private var asking: WorldPoint?
+    @State private var stopping = false
+    @State private var pickingZip = false
+    @State private var pickingFolder = false
 
     private var world: WorldPages { model.pages(serverId).world }
 
+    private var bedrock: Bool { model.servers.first { $0.id == serverId }?.edition == "bedrock" }
+
     var body: some View {
-        let world = self.world
+        @Bindable var world = self.world
         ServerFrame(serverId: serverId, title: model.t("page.world")) { palette in
             ScrollView {
                 TimelineView(.periodic(from: .now, by: 30)) { context in
                     VStack(alignment: .leading, spacing: 12) {
                         content(world, palette, now: context.date.timeIntervalSince1970)
+                        WorldImportCards(
+                            world: world, timeline: world.timeline.value, bedrock: bedrock, palette: palette,
+                            pickZip: { pickingZip = true }, pickFolder: { pickingFolder = true }, stop: { stopping = true },
+                            now: context.date.timeIntervalSince1970
+                        )
                     }
                     .padding(16)
                     .frame(maxWidth: 640)
@@ -524,8 +535,68 @@ struct WorldRestoreView: View {
                     Text(model.t("world.confirm_body", ["loss": WorldRestore.lossLine(model.strings, point)]) + "\n\n" + model.t("world.confirm_safety"))
                 }
             )
+            .alert(model.t("confirm.stop_title"), isPresented: $stopping) {
+                Button(model.t("action.stop"), role: .destructive) { stop() }
+                Button(model.t("mobile.common.cancel"), role: .cancel) {}
+            } message: {
+                Text(model.t("confirm.stop_body"))
+            }
+            .fileImporter(isPresented: $pickingZip, allowedContentTypes: [.item]) { result in
+                guard case .success(let url) = result else { return }
+                pickedZip(url)
+            }
+            .sheet(isPresented: $pickingFolder) {
+                FolderPickerView(title: model.t("import.pick_title"), start: nil) { folder in
+                    let strings = model.strings
+                    Task { await world.pickWorldFolder(folder, strings) }
+                }
+            }
+            .sheet(item: $world.worldRead, onDismiss: { world.forgetWorld() }) { read in
+                NavigationStack {
+                    WorldReadSheet(read: read) {
+                        // importWorld takes the read off first, which closes
+                        // the sheet without forgetting it on the agent.
+                        let strings = model.strings
+                        Task { await world.importWorld(strings) }
+                    }
+                }
+            }
+            .sheet(item: $world.sharing, onDismiss: { world.finishSharing() }) { done in
+                ShareSheet(file: done.file)
+            }
         }
         .task(id: serverId) { await world.loadTimeline() }
+        .task(id: "\(serverId):\(bedrock)") {
+            if !bedrock && WorldImport.canImport(model.me) { await world.loadSaves() }
+        }
+    }
+
+    /// Stops the server after asking, then reads the page again: a world
+    /// can come in once it is off.
+    private func stop() {
+        let world = self.world
+        Task {
+            let words = await model.perform("stop", serverId: serverId)
+            world.said = Said(text: words, good: words == model.t("mobile.server.done_stop"))
+            await world.loadTimeline()
+        }
+    }
+
+    private func pickedZip(_ url: URL) {
+        let strings = model.strings
+        let world = self.world
+        guard WorldImport.accepts(url.lastPathComponent) else {
+            world.said = Said(text: strings.t("mobile.import.not_a_world"), good: false)
+            return
+        }
+        Task {
+            do {
+                let file = try await Task.detached { try PickedCopy.make(url) }.value
+                world.sendWorld(file, strings)
+            } catch {
+                world.said = Said(text: strings.t("mobile.error.failed", ["reason": error.localizedDescription]), good: false)
+            }
+        }
     }
 
     private var askTitle: String {

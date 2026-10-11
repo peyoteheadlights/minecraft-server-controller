@@ -203,3 +203,16 @@ def test_adding_a_server_already_on_the_pc_says_the_agents_warnings(signed_in, t
     assert added["ok"] is True
     assert added["server"]["name"] == "Skyblock"
     assert isinstance(added["warnings"], list) and added["warnings"]
+
+
+def test_single_player_saves_and_forgetting_an_upload_are_typed(signed_in, monkeypatch, tmp_path):
+    from agent import worldimport
+
+    saves = tmp_path / "saves"
+    (saves / "Island").mkdir(parents=True)
+    (saves / "Island" / "level.dat").write_bytes(b"")
+    monkeypatch.setattr(worldimport, "saves_folder", lambda: saves)
+    listed = signed_in.get("/api/servers/test/world/saves").json()
+    assert listed["folder"] == str(saves)
+    assert [w["folder"] for w in listed["worlds"]] == ["Island"]
+    assert signed_in.delete("/api/servers/test/world/import/" + "0" * 32).json() == {"ok": True}

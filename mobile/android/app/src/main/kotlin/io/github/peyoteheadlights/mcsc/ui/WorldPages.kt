@@ -14,6 +14,8 @@ import io.github.peyoteheadlights.mcsc.core.Charts
 import io.github.peyoteheadlights.mcsc.core.Job
 import io.github.peyoteheadlights.mcsc.core.Offsite
 import io.github.peyoteheadlights.mcsc.core.Performance
+import io.github.peyoteheadlights.mcsc.core.PickedFile
+import io.github.peyoteheadlights.mcsc.core.SavedWorlds
 import io.github.peyoteheadlights.mcsc.core.Schedule
 import io.github.peyoteheadlights.mcsc.core.ScheduleList
 import io.github.peyoteheadlights.mcsc.core.Schedules
@@ -21,10 +23,13 @@ import io.github.peyoteheadlights.mcsc.core.ServerHealth
 import io.github.peyoteheadlights.mcsc.core.Storage
 import io.github.peyoteheadlights.mcsc.core.Strings
 import io.github.peyoteheadlights.mcsc.core.UndoRedo
+import io.github.peyoteheadlights.mcsc.core.WorldImport
 import io.github.peyoteheadlights.mcsc.core.WorldList
 import io.github.peyoteheadlights.mcsc.core.WorldPoint
+import io.github.peyoteheadlights.mcsc.core.WorldRead
 import io.github.peyoteheadlights.mcsc.core.WorldRestore
 import io.github.peyoteheadlights.mcsc.core.WorldTimeline
+import java.io.File
 import java.io.OutputStream
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -186,16 +191,8 @@ class WorldPages(
             said = try {
                 val out = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { open() }
                     ?: throw java.io.IOException(strings.t("value.unknown"))
-                var shown = -1L
                 out.use { stream ->
-                    c.downloadBackup(serverId, backup.id, stream) { done, size ->
-                        // A step per percent (or per megabyte), not per read.
-                        val step = if (size != null && size > 0) done * 100 / size else done / (1024 * 1024)
-                        if (step != shown) {
-                            shown = step
-                            downloading = Downloading(backup.name, done, size)
-                        }
-                    }
+                    c.downloadBackup(serverId, backup.id, stream, steps { done, size -> downloading = Downloading(backup.name, done, size) })
                 }
                 Said(strings.t("mobile.backups.saved_file", "name" to backup.name), good = true)
             } catch (e: AgentException) {
@@ -225,6 +222,135 @@ class WorldPages(
 
     fun restoreWorld(point: WorldPoint, strings: Strings) = work("world:${point.backupId}", strings, reload = ::loadTimeline) {
         Said(WorldRestore.done(strings, it.restoreWorld(serverId, point.backupId)), good = true)
+    }
+
+    // ------------------------------------------------------------ bringing a world in, taking it home
+    /** Single-player's worlds on the PC; null until read or when they couldn't be. */
+    var saves: SavedWorlds? by mutableStateOf(null)
+        private set
+    /** A world zip on its way to the PC: bytes sent so far and its size. */
+    var sending: Downloading? by mutableStateOf(null)
+        private set
+    /** The world read and waiting for "Replace world" (or Cancel). */
+    var worldRead: WorldRead? by mutableStateOf(null)
+        private set
+    private var sendJob: kotlinx.coroutines.Job? = null
+
+    fun loadSaves() {
+        val c = client() ?: return
+        scope.launch { saves = try { c.savedWorlds(serverId) } catch (e: AgentException) { null } }
+    }
+
+    /** Sends a world's zip picked on the phone; the agent reads it and nothing changes yet. */
+    fun sendWorld(file: PickedFile, strings: Strings) {
+        val c = client() ?: return
+        if (busy != null) return
+        if (!WorldImport.accepts(file.name)) {
+            said = Said(strings.t("mobile.import.not_a_world"), good = false)
+            return
+        }
+        busy = "import"
+        said = null
+        sending = Downloading(file.name, 0L, file.size)
+        sendJob = scope.launch {
+            try {
+                worldRead = c.uploadWorld(serverId, file, steps { done, size -> sending = Downloading(file.name, done, size) })
+            } catch (e: AgentException) {
+                noted(e)
+                said = Said(Message.of(e).text(strings), good = false)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                said = Said(strings.t("mobile.error.failed", "reason" to (e.message ?: strings.t("value.unknown"))), good = false)
+            } finally {
+                sending = null
+                busy = null
+                sendJob = null
+            }
+        }
+    }
+
+    /** Stops sending; the agent throws away the part it got. */
+    fun cancelSending() {
+        sendJob?.cancel()
+    }
+
+    /** Reads a world folder on the PC (picked, or one of single-player's saves). */
+    fun pickWorldFolder(path: String, strings: Strings) = work("import", strings) {
+        worldRead = it.pickWorldFolder(serverId, path)
+        null
+    }
+
+    /** Cancel on the read world: the agent forgets it. */
+    fun forgetWorld() {
+        val read = worldRead ?: return
+        worldRead = null
+        val c = client() ?: return
+        scope.launch { runCatching { c.forgetWorld(serverId, read.token) } }
+    }
+
+    /** Replaces this server's world with the one read; the backup made first is on the Undo list. */
+    fun importWorld(strings: Strings) {
+        val read = worldRead ?: return
+        worldRead = null
+        work("import", strings, reload = {
+            loadTimeline()
+            if (backups.loaded) loadBackups()
+        }) {
+            Said(WorldImport.done(strings, it.importWorld(serverId, read.token)), good = true)
+        }
+    }
+
+    /** Packs the world as a zip, downloads it into [folder] (only the newest
+     * is kept there) and hands it to [share] for the phone's share menu. */
+    fun takeHome(folder: File, strings: Strings, share: (File) -> Unit) {
+        val c = client() ?: return
+        if (busy != null) return
+        busy = "take_home"
+        said = null
+        scope.launch {
+            try {
+                val packed = c.packWorld(serverId)
+                val name = packed.filename.substringAfterLast('/').substringAfterLast('\\').ifBlank { "world.zip" }
+                downloading = Downloading(name, 0L, packed.sizeBytes)
+                val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    folder.mkdirs()
+                    folder.listFiles()?.forEach { it.delete() }
+                    File(folder, name)
+                }
+                try {
+                    file.outputStream().use { out ->
+                        c.downloadWorld(serverId, packed, out, steps { done, size -> downloading = Downloading(name, done, size) })
+                    }
+                } catch (e: Exception) {
+                    file.delete()
+                    throw e
+                }
+                share(file)
+            } catch (e: AgentException) {
+                noted(e)
+                said = Said(Message.of(e).text(strings), good = false)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                said = Said(strings.t("mobile.download.save_failed", "reason" to (e.message ?: strings.t("value.unknown"))), good = false)
+            } finally {
+                downloading = null
+                busy = null
+            }
+        }
+    }
+
+    /** Passes progress on a step per percent (or per megabyte), not per read. */
+    private fun steps(show: (Long, Long?) -> Unit): (Long, Long?) -> Unit {
+        var shown = -1L
+        return { done, size ->
+            val step = if (size != null && size > 0) done * 100 / size else done / (1024 * 1024)
+            if (step != shown) {
+                shown = step
+                show(done, size)
+            }
+        }
     }
 
     // ------------------------------------------------------------ schedules

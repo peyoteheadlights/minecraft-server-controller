@@ -458,4 +458,103 @@ final class WorldTests: XCTestCase {
         XCTAssertEqual(page.known.map(\.username), ["Alex"])
         XCTAssertEqual(page.onlineCount, 3)
     }
+
+    // MARK: - Bringing a world in, taking it home
+
+    private func me(_ permissions: String...) -> Me {
+        Me(user: "x", role: "helper", permissions: permissions)
+    }
+
+    func testImportingNeedsWorldReplaceTakingItHomeNeedsBackupsDownload() {
+        XCTAssertFalse(WorldImport.canImport(me(Permissions.BACKUPS_RESTORE)))
+        XCTAssertTrue(WorldImport.canImport(me(Permissions.WORLD_REPLACE)))
+        XCTAssertFalse(WorldImport.canDownload(me(Permissions.WORLD_REPLACE)))
+        XCTAssertTrue(WorldImport.canDownload(me(Permissions.BACKUPS_DOWNLOAD)))
+        XCTAssertFalse(WorldImport.canImport(nil))
+        XCTAssertTrue(WorldImport.accepts("My World.ZIP"))
+        XCTAssertTrue(WorldImport.accepts("island.mcworld"))
+        XCTAssertFalse(WorldImport.accepts("level.dat"))
+    }
+
+    func testARunningServerHasToBeStoppedBeforeAWorldComesIn() {
+        XCTAssertEqual(WorldImport.blocked(s, WorldTimeline(serverRunning: true)), s.t("import.stop_first"))
+        XCTAssertEqual(WorldImport.blocked(s, WorldTimeline(blockedBy: "A backup")), s.t("world.busy", ["job": "A backup"]))
+        XCTAssertNil(WorldImport.blocked(s, WorldTimeline()))
+    }
+
+    func testAWorldReadIsShownWithWhatIsKnownAndTheWrongEditionIsntOffered() throws {
+        let token = String(repeating: "a", count: 32)
+        let read = try JSONDecoder().decode(WorldRead.self, from: Data(("{\"token\": \"\(token)\", " + #""world": {"source": "zip", "folder_name": "Island", "name": null, "version": null, "last_played": null, "size_bytes": 2048, "files": 3, "read_problem": "truncated", "edition": "bedrock"}, "edition_matches": false, "server_edition": "java", "server_version": "1.21.1", "newer_than_server": null, "level_name": null}"#).utf8))
+        XCTAssertEqual(WorldImport.title(read), "Island")
+        let facts = WorldImport.facts(s, read.world, zone: utc, locale: us)
+        XCTAssertEqual(facts[0].0, s.t("import.name"))
+        XCTAssertEqual(facts[0].1, "Island")
+        XCTAssertEqual(facts[1].1, s.t("value.unknown"))
+        XCTAssertEqual(facts[2].1, s.t("import.size_value", ["size": Display.bytes(s, 2048), "files": "3"]))
+        XCTAssertEqual(facts[3].1, s.t("value.unknown"))
+        XCTAssertEqual(WorldImport.lines(s, read).map(\.text), [s.t("import.read_problem", ["problem": "truncated"]), s.t("import.is_bedrock")])
+        XCTAssertFalse(WorldImport.canUse(read))
+
+        var newer = read
+        newer.world.edition = "java"
+        newer.world.version = "1.21.4"
+        newer.world.readProblem = nil
+        newer.editionMatches = true
+        newer.newerThanServer = true
+        XCTAssertEqual(WorldImport.lines(s, newer).map(\.text), [s.t("import.newer", ["world": "1.21.4", "server": "1.21.1"])])
+        XCTAssertTrue(WorldImport.canUse(newer))
+    }
+
+    func testAnImportWithABackupFirstSaysItCanBeUndone() throws {
+        var result = try JSONDecoder().decode(WorldImported.self, from: Data(#"{"ok": true, "job_id": "j1", "world": {"source": "folder", "folder_name": "New", "size_bytes": 1, "files": 1}, "safety_backup": {"id": 7, "name": "pre-import.zip"}, "undo": {"kind": "restore_backup", "backup_id": 7, "backup": "pre-import.zip"}}"#.utf8))
+        XCTAssertEqual(WorldImport.done(s, result), s.t("import.done_with_undo"))
+        result.undo = nil
+        XCTAssertEqual(WorldImport.done(s, result), s.t("import.done"))
+    }
+
+    func testWorldsAreReadImportedForgottenAndTakenHomeThroughTheAgentsRoutes() async throws {
+        let c = client()
+        let token = String(repeating: "b", count: 32)
+        let readJSON = "{\"token\": \"\(token)\", " + #""world": {"source": "zip", "folder_name": "W", "size_bytes": 5, "files": 1}, "edition_matches": true, "server_edition": "java"}"#
+        StubAgent.json(readJSON)
+        let picked = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".zip")
+        try Data(repeating: 1, count: 2000).write(to: picked)
+        defer { try? FileManager.default.removeItem(at: picked) }
+        let read = try await c.uploadWorld(serverId: "survival", file: PickedFile(name: "w.zip", url: picked))
+        XCTAssertEqual(read.token, token)
+        XCTAssertEqual(path(0), "/api/servers/survival/world/import/upload")
+
+        StubAgent.json(readJSON)
+        _ = try await c.pickWorldFolder(serverId: "survival", path: "C:\\saves\\W")
+        XCTAssertEqual(path(1), "/api/servers/survival/world/import/folder")
+        XCTAssertEqual(body(1), #"{"path":"C:\\saves\\W"}"#)
+
+        StubAgent.json(#"{"folder": null, "worlds": []}"#)
+        let saves = try await c.savedWorlds(serverId: "survival")
+        XCTAssertNil(saves.folder)
+        XCTAssertEqual(path(2), "/api/servers/survival/world/saves")
+
+        StubAgent.json(#"{"ok": true, "job_id": "j", "world": {"source": "zip", "folder_name": "W", "size_bytes": 5, "files": 1}}"#)
+        _ = try await c.importWorld(serverId: "survival", token: token)
+        XCTAssertEqual(body(3), "{\"confirm\":true,\"token\":\"\(token)\"}")
+
+        StubAgent.json(#"{"ok": true}"#)
+        try await c.forgetWorld(serverId: "survival", token: token)
+        XCTAssertEqual(StubAgent.requests[4].request.httpMethod, "DELETE")
+        XCTAssertEqual(path(4), "/api/servers/survival/world/import/\(token)")
+
+        StubAgent.json(#"{"ok": true, "token": "t1", "files": 2, "size_bytes": 3, "filename": "My World.zip"}"#)
+        let packed = try await c.packWorld(serverId: "survival")
+        XCTAssertEqual(path(5), "/api/servers/survival/world/download")
+        let zip = Data([80, 75, 3, 4])
+        StubAgent.enqueue(StubAgent.Answer(status: 200, headers: ["Content-Type": "application/zip"], body: zip))
+        let out = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".zip")
+        defer { try? FileManager.default.removeItem(at: out) }
+        let written = try await c.downloadWorld(serverId: "survival", packed: packed, to: out)
+        XCTAssertEqual(written, 4)
+        XCTAssertEqual(try Data(contentsOf: out), zip)
+        XCTAssertEqual(StubAgent.requests[6].request.url?.path, "/api/servers/survival/world/download/t1")
+        XCTAssertEqual(StubAgent.requests[6].request.url?.query, "filename=My%20World.zip")
+        XCTAssertEqual(StubAgent.requests[6].request.value(forHTTPHeaderField: "Authorization"), "Bearer \(self.token)")
+    }
 }

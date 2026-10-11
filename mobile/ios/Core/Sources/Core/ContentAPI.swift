@@ -170,13 +170,19 @@ extension AgentClient {
     /// Sends a picked file as the dashboard's upload form does (field
     /// "file"). The form is written to a file next to it and sent from
     /// there, so the phone never holds the whole file in memory.
-    private func upload<T: Decodable>(_ path: String, _ file: PickedFile, as type: T.Type) async throws -> T {
+    /// `sent` gets the bytes sent so far and the form's size.
+    func upload<T: Decodable>(
+        _ path: String,
+        _ file: PickedFile,
+        sent: (@Sendable (Int64, Int64?) -> Void)? = nil,
+        as type: T.Type
+    ) async throws -> T {
         let boundary = "mcsc-" + UUID().uuidString
         let form = FileManager.default.temporaryDirectory.appendingPathComponent(boundary + ".form")
         defer { try? FileManager.default.removeItem(at: form) }
         try AgentClient.writeForm(file, boundary: boundary, to: form)
         return try await call(
-            "POST", path, slow: true, upload: (form, "multipart/form-data; boundary=" + boundary), as: type
+            "POST", path, slow: true, upload: (form, "multipart/form-data; boundary=" + boundary), sent: sent, as: type
         )
     }
 

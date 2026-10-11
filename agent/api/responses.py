@@ -1559,3 +1559,64 @@ class ServerCreated(Open):
     modpack: dict[str, Any] | None = Field(
         None, description="Only for a server made from a modpack"
     )
+
+
+# ------------------------------------------------------------ world import and download
+class WorldInfo(Open):
+    """A world read before it replaces anything."""
+
+    source: str = Field(description="zip or folder")
+    folder_name: str
+    name: str | None = Field(None, description="LevelName from level.dat; null when unreadable")
+    version: str | None = Field(
+        None, description="The game version that last saved it; null when unknown"
+    )
+    last_played: float | None = None
+    size_bytes: int
+    files: int
+    read_problem: str | None = None
+    edition: str = "java"
+
+
+class WorldRead(Open):
+    """An uploaded or picked world and whether it fits this server. Nothing
+    changes until the import is confirmed with the token."""
+
+    token: str
+    world: WorldInfo
+    edition_matches: bool
+    server_edition: str
+    server_version: str | None = None
+    newer_than_server: bool | None = Field(None, description="null when either version isn't known")
+    level_name: str | None = None
+
+
+class SavedWorld(Open):
+    folder: str
+    path: str
+    modified: float
+
+
+class SavedWorlds(Open):
+    folder: str | None = Field(
+        None, description="Single-player's saves folder; null when it isn't on this PC"
+    )
+    worlds: list[SavedWorld]
+
+
+class WorldImported(Open):
+    ok: bool
+    job_id: str
+    world: WorldInfo
+    safety_backup: SafetyBackup | None = None
+    undo: Undo | None = None
+
+
+class WorldPacked(Open):
+    """The world zipped for single-player; download it with the token."""
+
+    ok: bool
+    token: str
+    files: int
+    size_bytes: int
+    filename: str

@@ -432,4 +432,116 @@ class WorldTest {
             assertEquals("/api/jobs?server_id=survival&limit=20", agent.server.takeRequest().path)
         }
     }
+
+    // ------------------------------------------------------------ bringing a world in, taking it home
+    private fun me(vararg permissions: String) = Me(user = "x", role = "helper", permissions = permissions.toList())
+
+    @Test
+    fun `importing needs world replace, taking it home needs backups download`() {
+        assertFalse(WorldImport.canImport(me(Permissions.BACKUPS_RESTORE)))
+        assertTrue(WorldImport.canImport(me(Permissions.WORLD_REPLACE)))
+        assertFalse(WorldImport.canDownload(me(Permissions.WORLD_REPLACE)))
+        assertTrue(WorldImport.canDownload(me(Permissions.BACKUPS_DOWNLOAD)))
+        assertFalse(WorldImport.canImport(null))
+        assertTrue(WorldImport.accepts("My World.ZIP"))
+        assertTrue(WorldImport.accepts("island.mcworld"))
+        assertFalse(WorldImport.accepts("level.dat"))
+    }
+
+    @Test
+    fun `a running server has to be stopped before a world comes in`() {
+        assertEquals(strings.t("import.stop_first"), WorldImport.blocked(strings, WorldTimeline(serverRunning = true)))
+        assertEquals(strings.t("world.busy", "job" to "A backup"), WorldImport.blocked(strings, WorldTimeline(blockedBy = "A backup")))
+        assertNull(WorldImport.blocked(strings, WorldTimeline()))
+    }
+
+    @Test
+    fun `a world read is shown with what is known, and the wrong edition isn't offered`() {
+        val read = AgentJson.decodeFromString<WorldRead>(
+            """{"token": "${"a".repeat(32)}", "world": {"source": "zip", "folder_name": "Island", "name": null, "version": null,
+              "last_played": null, "size_bytes": 2048, "files": 3, "read_problem": "truncated", "edition": "bedrock"},
+              "edition_matches": false, "server_edition": "java", "server_version": "1.21.1", "newer_than_server": null, "level_name": null}"""
+        )
+        assertEquals("Island", WorldImport.title(read))
+        val facts = WorldImport.facts(strings, read.world, utc, Locale.US)
+        assertEquals(strings.t("import.name") to "Island", facts[0])
+        assertEquals(strings.t("value.unknown"), facts[1].second)
+        assertEquals(strings.t("import.size_value", "size" to Display.bytes(strings, 2048), "files" to "3"), facts[2].second)
+        assertEquals(strings.t("value.unknown"), facts[3].second)
+        assertEquals(
+            listOf(strings.t("import.read_problem", "problem" to "truncated"), strings.t("import.is_bedrock")),
+            WorldImport.lines(strings, read).map { it.text },
+        )
+        assertFalse(WorldImport.canUse(read))
+
+        val newer = read.copy(
+            world = read.world.copy(edition = "java", version = "1.21.4", readProblem = null),
+            editionMatches = true, newerThanServer = true,
+        )
+        assertEquals(
+            listOf(strings.t("import.newer", "world" to "1.21.4", "server" to "1.21.1")),
+            WorldImport.lines(strings, newer).map { it.text },
+        )
+        assertTrue(WorldImport.canUse(newer))
+    }
+
+    @Test
+    fun `an import with a backup first says it can be undone`() {
+        val result = AgentJson.decodeFromString<WorldImported>(
+            """{"ok": true, "job_id": "j1", "world": {"source": "folder", "folder_name": "New", "size_bytes": 1, "files": 1},
+              "safety_backup": {"id": 7, "name": "pre-import.zip"}, "undo": {"kind": "restore_backup", "backup_id": 7, "backup": "pre-import.zip"}}"""
+        )
+        assertEquals(strings.t("import.done_with_undo"), WorldImport.done(strings, result))
+        assertEquals(strings.t("import.done"), WorldImport.done(strings, result.copy(undo = null)))
+    }
+
+    @Test
+    fun `worlds are read, imported, forgotten and taken home through the agent's routes`() = runBlocking {
+        TestAgent().use { agent ->
+            val c = client(agent)
+            val readJson = """{"token": "${"b".repeat(32)}", "world": {"source": "zip", "folder_name": "W", "size_bytes": 5, "files": 1},
+              "edition_matches": true, "server_edition": "java"}"""
+            agent.server.enqueue(agent.json(readJson))
+            val bytes = ByteArray(200_000) { 1 }
+            var sent = 0L
+            val read = c.uploadWorld("survival", PickedFile.of("w.zip", bytes)) { n, _ -> sent = n }
+            assertEquals("b".repeat(32), read.token)
+            assertEquals(bytes.size.toLong(), sent)
+            val upload = agent.server.takeRequest()
+            assertEquals("/api/servers/survival/world/import/upload", upload.path)
+            assertTrue(upload.body.readUtf8().contains("filename=\"w.zip\""))
+
+            agent.server.enqueue(agent.json(readJson))
+            c.pickWorldFolder("survival", "C:\\saves\\W")
+            val folder = agent.server.takeRequest()
+            assertEquals("/api/servers/survival/world/import/folder", folder.path)
+            assertEquals("""{"path":"C:\\saves\\W"}""", folder.body.readUtf8())
+
+            agent.server.enqueue(agent.json("""{"folder": null, "worlds": []}"""))
+            assertNull(c.savedWorlds("survival").folder)
+            assertEquals("/api/servers/survival/world/saves", agent.server.takeRequest().path)
+
+            agent.server.enqueue(agent.json("""{"ok": true, "job_id": "j", "world": {"source": "zip", "folder_name": "W", "size_bytes": 5, "files": 1}}"""))
+            c.importWorld("survival", read.token)
+            assertEquals("""{"token":"${"b".repeat(32)}","confirm":true}""", agent.server.takeRequest().body.readUtf8())
+
+            agent.server.enqueue(agent.json("""{"ok": true}"""))
+            c.forgetWorld("survival", read.token)
+            val forget = agent.server.takeRequest()
+            assertEquals("DELETE", forget.method)
+            assertEquals("/api/servers/survival/world/import/${"b".repeat(32)}", forget.path)
+
+            agent.server.enqueue(agent.json("""{"ok": true, "token": "t1", "files": 2, "size_bytes": 3, "filename": "My World.zip"}"""))
+            val packed = c.packWorld("survival")
+            assertEquals("/api/servers/survival/world/download", agent.server.takeRequest().path)
+            val zip = byteArrayOf(80, 75, 3, 4)
+            agent.server.enqueue(MockResponse().setHeader("Content-Type", "application/zip").setBody(Buffer().write(zip)))
+            val out = ByteArrayOutputStream()
+            assertEquals(4L, c.downloadWorld("survival", packed, out))
+            assertTrue(zip.contentEquals(out.toByteArray()))
+            val download = agent.server.takeRequest()
+            assertEquals("/api/servers/survival/world/download/t1?filename=My%20World.zip", download.path)
+            assertEquals("Bearer $token", download.getHeader("Authorization"))
+        }
+    }
 }

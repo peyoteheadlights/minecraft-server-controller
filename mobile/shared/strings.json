@@ -7382,5 +7382,25 @@
  "mobile.add.start_over": [
   "Start again",
   "Reset"
+ ],
+ "mobile.import.not_a_world": [
+  "Choose a world saved as a .zip (or a .mcworld for a Bedrock server).",
+  "Expected .zip, .mcworld or .mctemplate."
+ ],
+ "mobile.import.sending": [
+  "Sending {name}…",
+  "Uploading {name}…"
+ ],
+ "mobile.import.stop_ask": [
+  "Stop the server",
+  "Stop"
+ ],
+ "mobile.download.save_failed": [
+  "The world couldn't be saved on this phone: {reason}",
+  "Writing the file failed: {reason}"
+ ],
+ "mobile.download.share_title": [
+  "Take the world home",
+  "Share world"
  ]
 }

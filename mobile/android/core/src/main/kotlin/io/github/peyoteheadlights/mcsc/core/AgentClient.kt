@@ -5,6 +5,8 @@ import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLException
 import javax.net.ssl.X509TrustManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.JsonObject
@@ -354,8 +356,23 @@ class AgentClient(
         backupId: Long,
         out: java.io.OutputStream,
         progress: (Long, Long?) -> Unit = { _, _ -> },
+    ): Long = downloadZip("${server(serverId)}/backups/$backupId/download", out, progress)
+
+    /** Streams the world packed by [packWorld] into [out], as [downloadBackup] does. */
+    suspend fun downloadWorld(
+        serverId: String,
+        packed: WorldPacked,
+        out: java.io.OutputStream,
+        progress: (Long, Long?) -> Unit = { _, _ -> },
+    ): Long = downloadZip(
+        "${server(serverId)}/world/download/${path(packed.token)}?filename=${path(packed.filename)}", out, progress,
+    )
+
+    private suspend fun downloadZip(
+        path: String,
+        out: java.io.OutputStream,
+        progress: (Long, Long?) -> Unit,
     ): Long = withContext(Dispatchers.IO) {
-        val path = "${server(serverId)}/backups/$backupId/download"
         val current = token() ?: throw AgentException.SignedOut()
         val request = Request.Builder().url(pairing.origin + path).header("Authorization", "Bearer $current").get().build()
         val response = try {
@@ -395,6 +412,41 @@ class AgentClient(
             written
         }
     }
+
+    /** Sends a world's zip (or .mcworld) and says what it is. Nothing is
+     * replaced until [importWorld]; [forgetWorld] throws it away. */
+    suspend fun uploadWorld(serverId: String, file: PickedFile, progress: (Long, Long?) -> Unit = { _, _ -> }): WorldRead {
+        val job = currentCoroutineContext()[Job]
+        val sending = upload("${server(serverId)}/world/import/upload", file) { sent, size ->
+            // Cancelled: stop sending, and the agent throws away the part it got.
+            if (job?.isActive == false) throw IOException("Cancelled")
+            progress(sent, size)
+        }
+        return call(sending, WorldRead.serializer(), slow = true)
+    }
+
+    /** Reads a world folder on the PC (one from the folder picker or single-player's saves). */
+    suspend fun pickWorldFolder(serverId: String, path: String): WorldRead =
+        call(post("${server(serverId)}/world/import/folder", buildJsonObject { put("path", path) }), WorldRead.serializer(), slow = true)
+
+    /** Single-player's worlds on the PC. */
+    suspend fun savedWorlds(serverId: String): SavedWorlds = get("${server(serverId)}/world/saves", SavedWorlds.serializer())
+
+    /** Replaces this server's world with the one read; a backup is taken first. */
+    suspend fun importWorld(serverId: String, token: String): WorldImported {
+        val body = buildJsonObject {
+            put("token", token)
+            put("confirm", true)
+        }
+        return call(post("${server(serverId)}/world/import", body), WorldImported.serializer(), slow = true)
+    }
+
+    suspend fun forgetWorld(serverId: String, token: String): Ok =
+        call(request("${server(serverId)}/world/import/${path(token)}").delete().build(), Ok.serializer())
+
+    /** Packs this server's world as a zip for single-player; [downloadWorld] fetches it. */
+    suspend fun packWorld(serverId: String): WorldPacked =
+        call(post("${server(serverId)}/world/download", JsonObject(emptyMap())), WorldPacked.serializer(), slow = true)
 
     suspend fun worlds(serverId: String): WorldList = get("${server(serverId)}/worlds", WorldList.serializer())
 
@@ -698,10 +750,10 @@ class AgentClient(
     private fun fileBody(filename: String) = buildJsonObject { put("filename", filename) }
 
     /** A file picked on the phone, sent as the dashboard's upload form does. */
-    private fun upload(path: String, file: PickedFile): Request {
+    private fun upload(path: String, file: PickedFile, progress: ((Long, Long?) -> Unit)? = null): Request {
         val form = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
-            .addFormDataPart("file", file.name, file.body())
+            .addFormDataPart("file", file.name, file.body(progress))
             .build()
         return request(path).post(form).build()
     }

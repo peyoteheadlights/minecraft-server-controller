@@ -1,5 +1,6 @@
 import Core
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// The "+" on All servers (mirrors AddServer.kt): a new server (Java or
 /// Bedrock, the kinds compared, a version, name, color, memory and folder,

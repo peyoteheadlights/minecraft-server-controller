@@ -291,3 +291,54 @@ data class ServerHealth(
     val note: String? = null,
     val checks: List<HealthCheck> = emptyList(),
 )
+
+/** A world read before it replaces anything (bringing a world in). */
+@Serializable
+data class WorldInfo(
+    val source: String = "",
+    @SerialName("folder_name") val folderName: String = "",
+    val name: String? = null,
+    val version: String? = null,
+    @SerialName("last_played") val lastPlayed: Double? = null,
+    @SerialName("size_bytes") val sizeBytes: Long = 0,
+    val files: Int = 0,
+    @SerialName("read_problem") val readProblem: String? = null,
+    val edition: String = "java",
+)
+
+/** An uploaded or picked world and whether it fits this server. Nothing
+ * changes until it is imported with [token]. */
+@Serializable
+data class WorldRead(
+    val token: String,
+    val world: WorldInfo,
+    @SerialName("edition_matches") val editionMatches: Boolean = false,
+    @SerialName("server_edition") val serverEdition: String = "java",
+    @SerialName("server_version") val serverVersion: String? = null,
+    @SerialName("newer_than_server") val newerThanServer: Boolean? = null,
+    @SerialName("level_name") val levelName: String? = null,
+)
+
+@Serializable
+data class SavedWorld(val folder: String = "", val path: String = "", val modified: Double = 0.0)
+
+/** Single-player's worlds on the PC; [folder] is null when it has none. */
+@Serializable
+data class SavedWorlds(val folder: String? = null, val worlds: List<SavedWorld> = emptyList())
+
+@Serializable
+data class WorldImported(
+    @SerialName("job_id") val jobId: String? = null,
+    val world: WorldInfo = WorldInfo(),
+    @SerialName("safety_backup") val safetyBackup: SafetyBackup? = null,
+    val undo: Undo? = null,
+)
+
+/** The world zipped for single-player, downloaded with [token]. */
+@Serializable
+data class WorldPacked(
+    val token: String,
+    val files: Int = 0,
+    @SerialName("size_bytes") val sizeBytes: Long? = null,
+    val filename: String = "world.zip",
+)

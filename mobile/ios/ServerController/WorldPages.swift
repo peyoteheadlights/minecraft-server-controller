@@ -251,6 +251,133 @@ final class WorldPages {
         }
     }
 
+    // MARK: - Bringing a world in, taking it home
+
+    /// Single-player's worlds on the PC; nil until read or when they couldn't be.
+    private(set) var saves: SavedWorlds? = nil
+    /// A world zip on its way to the PC: bytes sent so far and its size.
+    private(set) var sending: Downloading? = nil
+    /// The world read and waiting for "Replace world" (or Cancel).
+    var worldRead: WorldRead? = nil
+    /// The world taken home, waiting in the share menu.
+    var sharing: Downloaded? = nil
+    @ObservationIgnored private var sendTask: Task<Void, Never>? = nil
+    @ObservationIgnored private var sendRun = 0
+
+    func loadSaves() async {
+        guard let client = client() else { return }
+        saves = try? await client.savedWorlds(serverId: serverId)
+    }
+
+    /// Sends a world's zip picked on the phone; the agent reads it and
+    /// nothing changes yet. The phone's own copy goes once it's sent.
+    func sendWorld(_ file: PickedFile, _ strings: Strings) {
+        guard let client = client(), busy == nil else { return }
+        guard WorldImport.accepts(file.name) else {
+            said = Said(text: strings.t("mobile.import.not_a_world"), good: false)
+            return
+        }
+        busy = "import"
+        said = nil
+        sendRun += 1
+        let run = sendRun
+        let id = serverId
+        sending = Downloading(name: file.name, done: 0, size: nil)
+        sendTask = Task {
+            do {
+                worldRead = try await client.uploadWorld(serverId: id, file: file) { done, size in
+                    Task { @MainActor [weak self] in
+                        guard let self = self, self.sendRun == run, self.sending != nil else { return }
+                        self.sending = Downloading(name: file.name, done: done, size: size)
+                    }
+                }
+            } catch let problem as AgentError {
+                noted(problem)
+                said = Said(text: problem.message(strings), good: false)
+            } catch {}
+            try? FileManager.default.removeItem(at: file.url.deletingLastPathComponent())
+            sending = nil
+            busy = nil
+            sendTask = nil
+        }
+    }
+
+    /// Stops sending; the agent throws away the part it got.
+    func cancelSending() {
+        sendTask?.cancel()
+    }
+
+    /// Reads a world folder on the PC (picked, or one of single-player's saves).
+    func pickWorldFolder(_ path: String, _ strings: Strings) async {
+        await work("import", strings) { client, id in
+            self.worldRead = try await client.pickWorldFolder(serverId: id, path: path)
+            return nil
+        }
+    }
+
+    /// Cancel on the read world: the agent forgets it.
+    func forgetWorld() {
+        guard let read = worldRead else { return }
+        worldRead = nil
+        guard let client = client() else { return }
+        let id = serverId
+        Task { try? await client.forgetWorld(serverId: id, token: read.token) }
+    }
+
+    /// Replaces this server's world with the one read; the backup made first is on the Undo list.
+    func importWorld(_ strings: Strings) async {
+        guard let read = worldRead else { return }
+        // Taken off first, so closing the sheet doesn't forget it on the agent.
+        worldRead = nil
+        await work("import", strings, reload: { [weak self] in
+            await self?.loadTimeline()
+            if self?.backups.value != nil { await self?.loadBackups() }
+        }) { client, id in
+            Said(text: WorldImport.done(strings, try await client.importWorld(serverId: id, token: read.token)), good: true)
+        }
+    }
+
+    /// Packs the world as a zip, downloads it into the app's temporary
+    /// folder and hands it to the share menu (`sharing`); it never stays here.
+    func takeHome(_ strings: Strings) async {
+        guard let client = client(), busy == nil else { return }
+        busy = "take_home"
+        said = nil
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        do {
+            let packed = try await client.packWorld(serverId: serverId)
+            let name = (packed.filename as NSString).lastPathComponent
+            let file = folder.appendingPathComponent(name.isEmpty ? "world.zip" : name)
+            downloadRun += 1
+            let run = downloadRun
+            downloading = Downloading(name: file.lastPathComponent, done: 0, size: packed.sizeBytes)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            _ = try await client.downloadWorld(serverId: serverId, packed: packed, to: file) { done, size in
+                Task { @MainActor [weak self] in
+                    guard let self = self, self.downloadRun == run, self.downloading != nil else { return }
+                    self.downloading = Downloading(name: file.lastPathComponent, done: done, size: size)
+                }
+            }
+            sharing = Downloaded(name: file.lastPathComponent, file: file)
+        } catch let problem as AgentError {
+            noted(problem)
+            try? FileManager.default.removeItem(at: folder)
+            said = Said(text: problem.message(strings), good: false)
+        } catch {
+            try? FileManager.default.removeItem(at: folder)
+            said = Said(text: strings.t("mobile.download.save_failed", ["reason": error.localizedDescription]), good: false)
+        }
+        downloading = nil
+        busy = nil
+    }
+
+    /// The share menu closed: the copy in the app's own folder goes.
+    func finishSharing() {
+        guard let done = sharing else { return }
+        sharing = nil
+        try? FileManager.default.removeItem(at: done.file.deletingLastPathComponent())
+    }
+
     // MARK: - Schedules
 
     private(set) var schedules = PageRead<ScheduleList>()

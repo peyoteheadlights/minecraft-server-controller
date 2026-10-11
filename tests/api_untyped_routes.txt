@@ -1,7 +1,6 @@
 # Older routes that answer without a response model yet (agent/api/responses.py).
 # Remove a line when its route gets one. New routes must not be added here.
 DELETE /api/accounts/{username}
-DELETE /api/servers/{server_id}/world/import/{token}
 GET /api/account/preferences
 GET /api/accounts
 GET /api/export
@@ -22,7 +21,6 @@ GET /api/servers/{server_id}/mods/updates
 GET /api/servers/{server_id}/players/sessions
 GET /api/servers/{server_id}/tps
 GET /api/servers/{server_id}/world/download/{token}
-GET /api/servers/{server_id}/world/saves
 GET /api/settings
 GET /api/system/startup
 POST /api/account/password
@@ -40,10 +38,6 @@ POST /api/servers/{server_id}/server/cancel-restart
 POST /api/servers/{server_id}/server/clear-crash-block
 POST /api/servers/{server_id}/server/restart-now
 POST /api/servers/{server_id}/tps/detect
-POST /api/servers/{server_id}/world/download
-POST /api/servers/{server_id}/world/import
-POST /api/servers/{server_id}/world/import/folder
-POST /api/servers/{server_id}/world/import/upload
 PUT /api/account/preferences
 PUT /api/accounts/{username}
 PUT /api/servers/{server_id}/tps

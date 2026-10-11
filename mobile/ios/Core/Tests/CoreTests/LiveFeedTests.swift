@@ -59,6 +59,14 @@ final class LiveFeedTests: XCTestCase {
             LiveFeed.signals(from: "{\"type\": \"event\", \"event\": {\"type\": \"metrics\", \"message\": \"\", \"level\": \"info\", \"data\": {\"cpu\": 3}, \"ts\": 3, \"server_id\": \"survival\"}}"),
             [.changed(serverId: "survival", type: "metrics")]
         )
+        // A task's progress for the screen running it, and a refresh.
+        XCTAssertEqual(
+            LiveFeed.signals(from: "{\"type\": \"event\", \"event\": {\"type\": \"job\", \"message\": \"Update all: Updating Alpha (1 of 2)\", \"level\": \"info\", \"data\": {\"id\": \"j1\", \"kind\": \"mods\", \"title\": \"Update all on Survival\", \"state\": \"running\", \"step\": \"Updating Alpha (1 of 2)\", \"server_id\": \"survival\", \"progress\": null}, \"ts\": 3.2, \"server_id\": \"survival\"}}"),
+            [
+                .task(serverId: "survival", job: Job(id: "j1", kind: "mods", title: "Update all on Survival", state: "running", step: "Updating Alpha (1 of 2)", serverId: "survival")),
+                .changed(serverId: "survival", type: "job"),
+            ]
+        )
         XCTAssertEqual(
             LiveFeed.signals(from: "{\"type\": \"console_tail\", \"server_id\": \"creative\", \"lines\": []}"),
             [.consoleTail(serverId: "creative", lines: [])]

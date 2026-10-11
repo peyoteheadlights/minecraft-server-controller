@@ -117,11 +117,13 @@ public struct ServerRow: Codable, Equatable, Identifiable, Sendable {
     public var maxPlayers: Int?
     public var minecraftVersion: String?
     public var typeName: String?
+    /// "mods" or "plugins": what this server type takes (none for vanilla).
+    public var content: String?
     public var edition: String?
     public var capabilities: Capabilities?
 
     enum CodingKeys: String, CodingKey {
-        case id, name, color, state, uptime, edition, capabilities
+        case id, name, color, state, uptime, content, edition, capabilities
         case stateVerified = "state_verified"
         case playersOnline = "players_online"
         case playersVerified = "players_verified"
@@ -142,6 +144,7 @@ public struct ServerRow: Codable, Equatable, Identifiable, Sendable {
         maxPlayers: Int? = nil,
         minecraftVersion: String? = nil,
         typeName: String? = nil,
+        content: String? = nil,
         edition: String? = nil,
         capabilities: Capabilities? = nil
     ) {
@@ -156,6 +159,7 @@ public struct ServerRow: Codable, Equatable, Identifiable, Sendable {
         self.maxPlayers = maxPlayers
         self.minecraftVersion = minecraftVersion
         self.typeName = typeName
+        self.content = content
         self.edition = edition
         self.capabilities = capabilities
     }
@@ -173,6 +177,7 @@ public struct ServerRow: Codable, Equatable, Identifiable, Sendable {
         maxPlayers = try c.decodeIfPresent(Int.self, forKey: .maxPlayers)
         minecraftVersion = try c.decodeIfPresent(String.self, forKey: .minecraftVersion)
         typeName = try c.decodeIfPresent(String.self, forKey: .typeName)
+        content = try? c.decodeIfPresent(String.self, forKey: .content)
         edition = try c.decodeIfPresent(String.self, forKey: .edition)
         capabilities = try c.decodeIfPresent(Capabilities.self, forKey: .capabilities)
     }
@@ -430,4 +435,5 @@ public enum Permissions {
     public static let BACKUPS_RESTORE = "backups.restore"
     public static let BACKUPS_DELETE = "backups.delete"
     public static let SCHEDULES_MANAGE = "schedules.manage"
+    public static let MODS_MANAGE = "mods.manage"
 }

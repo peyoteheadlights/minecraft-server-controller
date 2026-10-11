@@ -23,6 +23,10 @@ final class AppModel {
     let strings: Strings
     let store = SharedStore()
     let requestLog = RequestLog()
+    /// Modrinth's pictures for mod search results, in the phone's Caches folder.
+    let icons = IconCache(
+        directory: FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.appendingPathComponent("modrinth-icons")
+    )
     @ObservationIgnored private(set) var client: AgentClient? = nil
     @ObservationIgnored private var liveTask: Task<Void, Never>? = nil
     @ObservationIgnored private var refreshTask: Task<Void, Never>? = nil
@@ -420,6 +424,10 @@ final class AppModel {
                     }
                 case .consoleTail(let serverId, let lines):
                     self.pagesById[serverId]?.onConsoleTail(lines)
+                case .task(let serverId, let job):
+                    if let serverId = serverId {
+                        self.pagesById[serverId]?.content.onTask(job)
+                    }
                 case .closed:
                     self.live = false
                     // Ask who this is: a 401 there signs the app out.
@@ -468,6 +476,8 @@ final class AppModel {
             if pages.world.timeline.value != nil {
                 Task { await pages.world.loadTimeline() }
             }
+            // Mods change only while it is stopped.
+            pages.content.onStateChanged()
         case _ where AppModel.BACKUP_EVENTS.contains(type):
             // A backup made or removed elsewhere (a schedule, the dashboard).
             let world = pages.world

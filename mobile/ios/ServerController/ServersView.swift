@@ -69,6 +69,10 @@ struct ServersListView: View {
                     CrashesView(serverId: id)
                 case .crash(let id, let crashId):
                     CrashView(serverId: id, crashId: crashId)
+                case .content(let id):
+                    ContentView(serverId: id)
+                case .game(let id):
+                    GameSettingsView(serverId: id)
                 }
             }
         }

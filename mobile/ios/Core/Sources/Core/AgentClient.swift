@@ -24,7 +24,9 @@ public enum AgentError: Error, Equatable, Sendable {
     /// The account isn't allowed to do that (403), in the agent's words.
     case notAllowed(reason: String)
     /// Any other refusal, in the agent's words, with its error number.
-    case failed(status: Int, reason: String?, requestId: String?)
+    /// `problems` gives each refused value's reason, by its key, when the
+    /// agent says (a game setting that can't be used).
+    case failed(status: Int, reason: String?, requestId: String?, problems: [String: String] = [:])
 
     public var key: String {
         switch self {
@@ -46,7 +48,7 @@ public enum AgentError: Error, Equatable, Sendable {
         switch self {
         case .signInRefused(let reason):
             return strings.t("mobile.error.sign_in", ["reason": reason])
-        case .failed(let status, let reason, _):
+        case .failed(let status, let reason, _, _):
             if let reason = reason, !reason.isEmpty {
                 return strings.t("mobile.error.failed", ["reason": reason])
             }
@@ -245,6 +247,7 @@ public final class AgentClient: @unchecked Sendable {
         signedIn: Bool = true,
         timeout: TimeInterval = AgentClient.requestTimeout,
         slow: Bool = false,
+        upload: (file: URL, contentType: String)? = nil,
         as type: T.Type
     ) async throws -> T {
         let logPath = path.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false).first.map { String($0) } ?? path
@@ -259,6 +262,9 @@ public final class AgentClient: @unchecked Sendable {
             request.httpBody = body
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
+        if let upload = upload {
+            request.setValue(upload.contentType, forHTTPHeaderField: "Content-Type")
+        }
         if signedIn {
             guard let current = token() else {
                 throw AgentError.signedOut
@@ -269,7 +275,12 @@ public final class AgentClient: @unchecked Sendable {
         let result: (Data, URLResponse)
         let started = Date()
         do {
-            result = try await (slow ? slowSession : session).data(for: request)
+            let chosen = slow ? slowSession : session
+            if let upload = upload {
+                result = try await chosen.upload(for: request, fromFile: upload.file)
+            } else {
+                result = try await chosen.data(for: request)
+            }
         } catch {
             if Task.isCancelled {
                 throw CancellationError()
@@ -319,7 +330,12 @@ public final class AgentClient: @unchecked Sendable {
         if code == 403 {
             return .notAllowed(reason: reason ?? "")
         }
-        return .failed(status: code, reason: reason, requestId: http.value(forHTTPHeaderField: "X-Request-ID"))
+        return .failed(
+            status: code,
+            reason: reason,
+            requestId: http.value(forHTTPHeaderField: "X-Request-ID"),
+            problems: isJson ? AgentClient.problems(data) : [:]
+        )
     }
 
     /// Downloads the .zip the agent serves at `path` into `destination`,
@@ -398,6 +414,14 @@ public final class AgentClient: @unchecked Sendable {
         try files.moveItem(at: file, to: destination)
         progress(size, size)
         return size
+    }
+
+    /// Each refused value's reason, by key ("problems" in the answer).
+    private static func problems(_ data: Data) -> [String: String] {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let found = object["problems"] as? [String: Any]
+        else { return [:] }
+        return found.compactMapValues { $0 as? String }
     }
 
     private static func detail(_ data: Data) -> String? {

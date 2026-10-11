@@ -111,7 +111,7 @@ final class PagesTests: XCTestCase {
         do {
             _ = try await ConsoleCommands(client: client(), serverId: "survival").submit("list")
             XCTFail("expected a failure")
-        } catch AgentError.failed(let status, let reason, _) {
+        } catch AgentError.failed(let status, let reason, _, _) {
             XCTAssertEqual(status, 409)
             XCTAssertEqual(reason, "The server isn't running.")
         } catch {

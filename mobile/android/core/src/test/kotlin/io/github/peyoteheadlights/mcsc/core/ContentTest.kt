@@ -149,6 +149,21 @@ class ContentTest {
         assertNull(Install.page("https://example.com/mod/sodium"))
     }
 
+    @Test
+    fun `the missing ones say what happened to each, in the agent's three answers`() {
+        val results = listOf(
+            DependencyResult("Fabric API", "installed"),
+            DependencyResult("Cloth", "skipped", "Already installed"),
+            DependencyResult("Iris", "failed", "Modrinth stopped answering."),
+        )
+        assertEquals(
+            "Done: Fabric API (Worked), Cloth (Already there), Iris (Failed: Modrinth stopped answering.)",
+            Install.missingDone(strings, results),
+        )
+        assertFalse(Install.allWorked(results))
+        assertTrue(Install.allWorked(results.take(2)))
+    }
+
     // ------------------------------------------------------------ Update all
     private val plan = UpdateAllPlan(
         updates = listOf(
@@ -287,6 +302,22 @@ class ContentTest {
             val again = IconCache(dir, hosts = setOf(cdn.hostName), httpsOnly = false)
             assertTrue(byteArrayOf(1, 2, 3).contentEquals(again.load(url)))
             assertEquals(1, cdn.requestCount)
+        } finally {
+            cdn.shutdown()
+        }
+    }
+
+    @Test
+    fun `an icon that redirects elsewhere or is too big is not loaded`() = runBlocking {
+        val cdn = MockWebServer()
+        cdn.start()
+        try {
+            val icons = IconCache(null, hosts = setOf(cdn.hostName), httpsOnly = false)
+            cdn.enqueue(MockResponse().setResponseCode(302).setHeader("Location", "https://evil.example/icon.png"))
+            assertNull(icons.load(cdn.url("/moved.png").toString()))
+            cdn.enqueue(MockResponse().setChunkedBody(Buffer().write(ByteArray(IconCache.MAX_ICON_BYTES + 1)), 64 * 1024))
+            assertNull(icons.load(cdn.url("/huge.png").toString()))
+            assertEquals(2, cdn.requestCount)
         } finally {
             cdn.shutdown()
         }

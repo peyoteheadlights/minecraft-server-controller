@@ -626,6 +626,12 @@ public struct DependencyResult: Decodable, Equatable, Sendable {
 
     enum CodingKeys: String, CodingKey { case title, result, detail }
 
+    public init(title: String, result: String, detail: String? = nil) {
+        self.title = title
+        self.result = result
+        self.detail = detail
+    }
+
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         title = c.value(.title, "")

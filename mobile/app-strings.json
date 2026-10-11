@@ -211,6 +211,7 @@
   "mobile.content.history_by": ["{when} · {who}", "{when} · {who}"],
   "mobile.content.result_ok": ["Worked", "ok"],
   "mobile.content.result_failed": ["Failed", "failed"],
+  "mobile.content.result_skipped": ["Already there", "skipped"],
   "mobile.content.update_all": ["Update all", "Update all"],
   "mobile.content.check_updates": ["Check for updates", "Check Modrinth for updates"],
   "mobile.content.checking": ["Checking Modrinth…", "Querying Modrinth…"],

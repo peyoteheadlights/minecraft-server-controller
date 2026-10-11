@@ -6971,6 +6971,10 @@
   "Failed",
   "failed"
  ],
+ "mobile.content.result_skipped": [
+  "Already there",
+  "skipped"
+ ],
  "mobile.content.update_all": [
   "Update all",
   "Update all"

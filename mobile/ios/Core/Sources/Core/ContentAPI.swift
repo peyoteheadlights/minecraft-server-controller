@@ -59,9 +59,10 @@ extension AgentClient {
         return try await call("GET", content(serverId) + "/mods/history?limit=\(count)", as: ModHistory.self)
     }
 
-    /// What Update all would change, checked on Modrinth now.
+    /// What Update all would change, checked on Modrinth now (a mod at a
+    /// time on the PC, so it can take a while with many).
     public func updateAllPlan(serverId: String) async throws -> UpdateAllPlan {
-        try await call("GET", content(serverId) + "/mods/update-all", as: UpdateAllPlan.self)
+        try await call("GET", content(serverId) + "/mods/update-all", slow: true, as: UpdateAllPlan.self)
     }
 
     /// Updates the ticked ones as one change (one backup, all or nothing).

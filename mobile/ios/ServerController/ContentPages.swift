@@ -304,8 +304,7 @@ final class ContentPages {
         missingPlan = nil
         await work("missing", strings, reload: loadMods) { client, id in
             let results = try await client.installDependencies(serverId: id).results
-            let words = results.map { "\($0.title) (\(strings.t($0.result == "ok" ? "mobile.content.result_ok" : "mobile.content.result_failed")))" }
-            return Said(text: strings.t("mobile.content.missing_done", ["results": words.joined(separator: ", ")]), good: results.allSatisfy { $0.result == "ok" })
+            return Said(text: Install.missingDone(strings, results), good: Install.allWorked(results))
         }
     }
 

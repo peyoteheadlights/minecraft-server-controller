@@ -435,7 +435,7 @@ class AgentClient(
 
     /** What Update all would change, checked on Modrinth now. */
     suspend fun updateAllPlan(serverId: String): UpdateAllPlan =
-        get("${server(serverId)}/mods/update-all", UpdateAllPlan.serializer())
+        get("${server(serverId)}/mods/update-all", UpdateAllPlan.serializer(), slow = true)
 
     /** Updates the ticked ones as one change (one backup, all or nothing). */
     suspend fun updateAll(serverId: String, body: JsonObject): UpdateAllResult =

@@ -207,6 +207,26 @@ public enum Install {
         guard let url = url, url.hasPrefix("https://modrinth.com/") else { return nil }
         return URL(string: url)
     }
+
+    /// What "Install the missing ones" did with each: installed, already there, or failed and why.
+    public static func missingDone(_ strings: Strings, _ results: [DependencyResult]) -> String {
+        let words = results.map { r -> String in
+            let said: String
+            switch r.result {
+            case "installed": said = strings.t("mobile.content.result_ok")
+            case "skipped": said = strings.t("mobile.content.result_skipped")
+            default:
+                let detail = r.detail.flatMap { $0.isEmpty ? nil : ": " + $0 } ?? ""
+                said = strings.t("mobile.content.result_failed") + detail
+            }
+            return "\(r.title) (\(said))"
+        }
+        return strings.t("mobile.content.missing_done", ["results": words.joined(separator: ", ")])
+    }
+
+    public static func allWorked(_ results: [DependencyResult]) -> Bool {
+        results.allSatisfy { $0.result == "installed" || $0.result == "skipped" }
+    }
 }
 
 /// Update all's list and what is sent (Phase 9 part 4).
@@ -420,7 +440,8 @@ public final class IconCache: @unchecked Sendable {
         config.requestCachePolicy = .returnCacheDataElseLoad
         config.httpCookieStorage = nil
         config.httpShouldSetCookies = false
-        self.session = URLSession(configuration: config)
+        // A redirect could lead off Modrinth's own address: never followed.
+        self.session = URLSession(configuration: config, delegate: NoRedirects(), delegateQueue: nil)
         self.hosts = hosts
         self.httpsOnly = httpsOnly
         memory.countLimit = kept
@@ -438,12 +459,34 @@ public final class IconCache: @unchecked Sendable {
         if let kept = memory.object(forKey: parsed as NSURL) {
             return kept as Data
         }
-        guard let answer = try? await session.data(from: parsed),
+        guard let answer = try? await session.bytes(from: parsed),
               let http = answer.1 as? HTTPURLResponse, (200...299).contains(http.statusCode),
-              answer.0.count <= IconCache.MAX_ICON_BYTES
+              http.expectedContentLength <= Int64(IconCache.MAX_ICON_BYTES)
         else { return nil }
-        let data = answer.0
+        // Read no more than the limit, even when the size wasn't said.
+        var data = Data()
+        do {
+            for try await byte in answer.0 {
+                data.append(byte)
+                if data.count > IconCache.MAX_ICON_BYTES { return nil }
+            }
+        } catch {
+            return nil
+        }
         memory.setObject(data as NSData, forKey: parsed as NSURL)
         return data
+    }
+}
+
+/// Refuses every redirect, so an icon is only ever read from where it was asked for.
+private final class NoRedirects: NSObject, URLSessionTaskDelegate {
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        completionHandler(nil)
     }
 }

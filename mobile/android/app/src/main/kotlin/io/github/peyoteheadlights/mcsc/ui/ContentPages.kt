@@ -315,8 +315,7 @@ class ContentPages(
         missingPlan = null
         work("missing", strings, reload = ::loadMods) {
             val results = it.installDependencies(serverId).results
-            val words = results.joinToString(", ") { r -> "${r.title} (${strings.t(if (r.result == "ok") "mobile.content.result_ok" else "mobile.content.result_failed")})" }
-            Said(strings.t("mobile.content.missing_done", "results" to words), good = results.all { r -> r.result == "ok" })
+            Said(Install.missingDone(strings, results), good = Install.allWorked(results))
         }
     }
 

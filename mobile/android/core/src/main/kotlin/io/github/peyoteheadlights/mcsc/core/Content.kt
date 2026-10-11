@@ -180,6 +180,21 @@ object Install {
 
     /** Only Modrinth's own pages open, in the in-app browser. */
     fun page(url: String?): String? = url?.takeIf { it.startsWith("https://modrinth.com/") }
+
+    /** What "Install the missing ones" did with each: installed, already there, or failed and why. */
+    fun missingDone(strings: Strings, results: List<DependencyResult>): String {
+        val words = results.joinToString(", ") { r ->
+            val said = when (r.result) {
+                "installed" -> strings.t("mobile.content.result_ok")
+                "skipped" -> strings.t("mobile.content.result_skipped")
+                else -> strings.t("mobile.content.result_failed") + (r.detail?.takeIf { it.isNotBlank() }?.let { ": $it" } ?: "")
+            }
+            "${r.title} ($said)"
+        }
+        return strings.t("mobile.content.missing_done", "results" to words)
+    }
+
+    fun allWorked(results: List<DependencyResult>): Boolean = results.all { it.result == "installed" || it.result == "skipped" }
 }
 
 /** Update all's list and what is sent (Phase 9 part 4). */
@@ -374,6 +389,9 @@ class IconCache(
 ) {
     private val http: OkHttpClient = baseClient.newBuilder()
         .apply { if (directory != null) cache(Cache(directory, DISK_BYTES)) }
+        // A redirect could lead off Modrinth's own address: never followed.
+        .followRedirects(false)
+        .followSslRedirects(false)
         .build()
 
     private val memory = object : LinkedHashMap<String, ByteArray>(16, 0.75f, true) {
@@ -396,7 +414,10 @@ class IconCache(
                     if (!response.isSuccessful) return@use null
                     val body = response.body ?: return@use null
                     if (body.contentLength() > MAX_ICON_BYTES) return@use null
-                    body.bytes().takeIf { it.size <= MAX_ICON_BYTES }
+                    // Read no more than the limit, even when the size wasn't said.
+                    val source = body.source()
+                    if (source.request(MAX_ICON_BYTES + 1L)) return@use null
+                    source.buffer.readByteArray()
                 }
             }.getOrNull()?.also { bytes -> synchronized(memory) { memory[url] = bytes } }
         }

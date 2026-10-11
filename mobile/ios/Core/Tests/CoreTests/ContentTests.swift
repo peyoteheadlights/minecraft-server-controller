@@ -170,6 +170,20 @@ final class ContentTests: XCTestCase {
         XCTAssertNil(Install.page("https://example.com/mod/sodium"))
     }
 
+    func testTheMissingOnesSayWhatHappenedToEachInTheAgentsThreeAnswers() {
+        let results = [
+            DependencyResult(title: "Fabric API", result: "installed"),
+            DependencyResult(title: "Cloth", result: "skipped", detail: "Already installed"),
+            DependencyResult(title: "Iris", result: "failed", detail: "Modrinth stopped answering."),
+        ]
+        XCTAssertEqual(
+            Install.missingDone(s, results),
+            "Done: Fabric API (Worked), Cloth (Already there), Iris (Failed: Modrinth stopped answering.)"
+        )
+        XCTAssertFalse(Install.allWorked(results))
+        XCTAssertTrue(Install.allWorked(Array(results.prefix(2))))
+    }
+
     // MARK: - Update all
 
     private let plan = UpdateAllPlan(updates: [
@@ -304,6 +318,13 @@ final class ContentTests: XCTestCase {
         XCTAssertEqual(first, Data([1, 2, 3]))
         XCTAssertEqual(second, Data([1, 2, 3]))
         XCTAssertEqual(StubAgent.requests.count, 1)
+    }
+
+    func testAnIconTooBigIsNotLoaded() async {
+        let icons = IconCache(directory: nil, configuration: StubAgent.configuration(), hosts: ["localhost"], httpsOnly: false)
+        StubAgent.enqueue(StubAgent.Answer(status: 200, headers: ["Content-Type": "image/png"], body: Data(count: IconCache.MAX_ICON_BYTES + 1)))
+        let huge = await icons.load("http://localhost/data/abc/huge.png")
+        XCTAssertNil(huge)
     }
 
     // MARK: - The agent

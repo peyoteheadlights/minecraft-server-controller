@@ -46,10 +46,19 @@ sealed class AgentException(val key: String, message: String? = null) : Exceptio
     /** The account isn't allowed to do that (403), in the agent's words. */
     class NotAllowed(val reason: String) : AgentException("mobile.error.not_allowed", reason)
 
+    /** Work the agent answers only once done (a backup, a restore) gave no
+     * answer in time. It may still be running on the PC; the screen reads
+     * it again when the PC says it finished. */
+    class StillWorking : AgentException("mobile.error.still_working")
+
     /** Any other refusal, in the agent's words, with its error number. */
     class Failed(val status: Int, val reason: String?, val requestId: String?) :
         AgentException("mobile.error.failed", reason)
 }
+
+/** Writing a download into the phone's own file failed (the phone is
+ * full, or the place picked stopped taking it): not the PC's fault. */
+class SaveFileException(cause: IOException) : IOException(cause.message, cause)
 
 /** Lines the client may log: method, path and status. Never headers, bodies
  * or the token; tests/NoSecretsTest checks that. */
@@ -71,6 +80,8 @@ class AgentClient(
     strict: Boolean = false,
     baseClient: OkHttpClient = OkHttpClient(),
     systemTrust: X509TrustManager = PinnedTrust.systemTrustManager(),
+    /** How long work the agent answers only when done may take. */
+    private val slowSeconds: Long = SLOW_SECONDS,
 ) {
     val trust = PinnedTrust(pairing.fingerprint, strict, systemTrust)
 
@@ -82,9 +93,10 @@ class AgentClient(
         .build()
 
     /** For work the agent answers only when it is done (a backup, a
-     * restore) and for files: no time limit while the PC keeps answering. */
+     * restore): it sends nothing until then, so after [slowSeconds] with no
+     * answer the app says the PC may still be working ([AgentException.StillWorking]). */
     private val slowHttp: OkHttpClient = http.newBuilder()
-        .readTimeout(30, TimeUnit.MINUTES)
+        .readTimeout(slowSeconds, TimeUnit.SECONDS)
         .callTimeout(0, TimeUnit.SECONDS)
         .build()
 
@@ -274,7 +286,8 @@ class AgentClient(
     /**
      * Streams a backup's zip into [out], with the sign-in in a header (never
      * in the address), and returns the bytes written. [progress] gets the
-     * bytes so far and the size, when the PC said it.
+     * bytes so far and the size, when the PC said it. A failure writing to
+     * [out] is a [SaveFileException], not the PC's.
      */
     suspend fun downloadBackup(
         serverId: String,
@@ -300,19 +313,23 @@ class AgentClient(
             val body = it.body ?: throw AgentException.NotAnAgent()
             val size = body.contentLength().takeIf { n -> n >= 0 }
             var written = 0L
-            try {
-                body.byteStream().use { input ->
-                    val buffer = ByteArray(64 * 1024)
-                    while (true) {
-                        val n = input.read(buffer)
-                        if (n < 0) break
-                        out.write(buffer, 0, n)
-                        written += n
-                        progress(written, size)
+            body.byteStream().use { input ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val n = try {
+                        input.read(buffer)
+                    } catch (e: IOException) {
+                        throw translate(e)
                     }
+                    if (n < 0) break
+                    try {
+                        out.write(buffer, 0, n)
+                    } catch (e: IOException) {
+                        throw SaveFileException(e)
+                    }
+                    written += n
+                    progress(written, size)
                 }
-            } catch (e: IOException) {
-                throw translate(e)
             }
             if (size != null && written != size) throw AgentException.Unreachable()
             written
@@ -360,9 +377,9 @@ class AgentClient(
         call(post("${server(serverId)}/schedules/$scheduleId/run", JsonObject(emptyMap())), ScheduleRan.serializer(), slow = true)
 
     /** The graphs' samples for the last [hours] (1 to 168), the values now
-     * and the disk use. */
-    suspend fun performance(serverId: String, hours: Int): Performance =
-        get("${server(serverId)}/performance?hours=${hours.coerceIn(1, 168)}", Performance.serializer())
+     * and, with [storage], the disk use (slow: the PC walks the server folder). */
+    suspend fun performance(serverId: String, hours: Int, storage: Boolean = true): Performance =
+        get("${server(serverId)}/performance?hours=${hours.coerceIn(1, 168)}&storage=$storage", Performance.serializer())
 
     /** The health checks. Can take a few seconds: the PC asks Tailscale. */
     suspend fun serverHealth(serverId: String): ServerHealth =
@@ -391,10 +408,17 @@ class AgentClient(
             } else {
                 request
             }
+            val started = System.nanoTime()
             val response = try {
                 (if (slow) slowHttp else http).newCall(withToken).execute()
             } catch (e: IOException) {
                 log.line("${request.method} ${request.url.encodedPath} -> no answer")
+                // Only the wait for the answer runs this long; a PC that is
+                // off fails to connect within seconds.
+                val waited = System.nanoTime() - started
+                if (slow && e is java.net.SocketTimeoutException && waited >= TimeUnit.SECONDS.toNanos(slowSeconds) * 9 / 10) {
+                    throw AgentException.StillWorking()
+                }
                 throw translate(e)
             }
             response.use { read(it, request, serializer, signedIn) }
@@ -447,6 +471,8 @@ class AgentClient(
 
     companion object {
         val QUICK_ACTIONS = listOf("start", "stop", "restart")
+
+        const val SLOW_SECONDS = 30L * 60
         val REC_ACTIONS = listOf("snooze", "dismiss", "restore")
     }
 }

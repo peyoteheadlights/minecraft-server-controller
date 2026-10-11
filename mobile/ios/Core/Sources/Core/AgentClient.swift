@@ -13,6 +13,10 @@ public enum AgentError: Error, Equatable, Sendable {
     case certificateExpired
     /// Something answered, but not this app's agent.
     case notAnAgent
+    /// Work the agent answers only once done (a backup, a restore) gave no
+    /// answer in time. It may still be running on the PC; the screen reads
+    /// it again when the PC says it finished.
+    case stillWorking
     /// The sign-in ended (signed out on the PC, a helper removed, expired).
     case signedOut
     /// Sign-in refused: the agent's own words ("Wrong username or password").
@@ -29,6 +33,7 @@ public enum AgentError: Error, Equatable, Sendable {
         case .certificateNotTrusted: return "mobile.error.certificate_untrusted"
         case .certificateExpired: return "mobile.error.certificate_expired"
         case .notAnAgent: return "mobile.error.not_agent"
+        case .stillWorking: return "mobile.error.still_working"
         case .signedOut: return "error.session_ended"
         case .signInRefused: return "mobile.error.sign_in"
         case .notAllowed: return "mobile.error.not_allowed"
@@ -79,7 +84,9 @@ public final class AgentClient: @unchecked Sendable {
     /// No request takes longer than this in all.
     public static let totalTimeout: TimeInterval = 150
     /// Making a backup or a restore answers only once it is done, which can
-    /// take many minutes for a big world; so can a backup's download.
+    /// take many minutes for a big world. The agent sends nothing until then,
+    /// so after this long with no answer the app says the PC may still be
+    /// working (`AgentError.stillWorking`).
     public static let slowTimeout: TimeInterval = 30 * 60
 
     public let pairing: Pairing
@@ -91,6 +98,7 @@ public final class AgentClient: @unchecked Sendable {
     private let token: () -> String?
     private let onSignedOut: () -> Void
     private let log: AgentLog
+    private let slowWait: TimeInterval
 
     public init(
         pairing: Pairing,
@@ -98,9 +106,11 @@ public final class AgentClient: @unchecked Sendable {
         onSignedOut: @escaping () -> Void = {},
         log: AgentLog = NoLog(),
         strict: Bool = false,
-        configuration: URLSessionConfiguration = .ephemeral
+        configuration: URLSessionConfiguration = .ephemeral,
+        slowWait: TimeInterval = AgentClient.slowTimeout
     ) {
         self.pairing = pairing
+        self.slowWait = slowWait
         self.token = token
         self.onSignedOut = onSignedOut
         self.log = log
@@ -115,7 +125,7 @@ public final class AgentClient: @unchecked Sendable {
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
         self.session = URLSession(configuration: config, delegate: trust, delegateQueue: nil)
         let slow = (config.copy() as? URLSessionConfiguration) ?? .ephemeral
-        slow.timeoutIntervalForRequest = AgentClient.slowTimeout
+        slow.timeoutIntervalForRequest = slowWait
         slow.timeoutIntervalForResource = 6 * 3600
         self.slowSession = URLSession(configuration: slow, delegate: trust, delegateQueue: nil)
     }
@@ -243,7 +253,7 @@ public final class AgentClient: @unchecked Sendable {
         }
         var request = URLRequest(url: url)
         request.httpMethod = method
-        request.timeoutInterval = slow ? AgentClient.slowTimeout : timeout
+        request.timeoutInterval = slow ? slowWait : timeout
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let body = body {
             request.httpBody = body
@@ -257,6 +267,7 @@ public final class AgentClient: @unchecked Sendable {
         }
 
         let result: (Data, URLResponse)
+        let started = Date()
         do {
             result = try await (slow ? slowSession : session).data(for: request)
         } catch {
@@ -264,6 +275,13 @@ public final class AgentClient: @unchecked Sendable {
                 throw CancellationError()
             }
             log.line("\(method) \(logPath) -> no answer")
+            // Only the wait for the answer runs this long; a PC that is off
+            // fails to connect within seconds.
+            let nsError = error as NSError
+            if slow && nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorTimedOut
+                && Date().timeIntervalSince(started) >= slowWait * 0.9 {
+                throw AgentError.stillWorking
+            }
             throw translateFailure(error)
         }
         let data = result.0
@@ -339,6 +357,13 @@ public final class AgentClient: @unchecked Sendable {
                 throw CancellationError()
             }
             log.line("GET \(logPath) -> no answer")
+            // Writing the file on this phone failed (it's full): not the PC's
+            // fault, so it is passed on as it is.
+            let nsError = error as NSError
+            let phoneSide = [NSURLErrorCannotCreateFile, NSURLErrorCannotOpenFile, NSURLErrorCannotWriteToFile, NSURLErrorCannotMoveFile]
+            if nsError.domain == NSURLErrorDomain && phoneSide.contains(nsError.code) {
+                throw error
+            }
             throw translateFailure(error)
         }
         let file = result.0

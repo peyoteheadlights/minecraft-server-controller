@@ -131,6 +131,10 @@ struct BackupsView: View {
             .onChange(of: world.downloaded?.id) {
                 moving = world.downloaded != nil
             }
+            .onAppear {
+                // A download that finished while another screen was open.
+                if world.downloaded != nil { moving = true }
+            }
         }
         .task(id: serverId) { await world.loadBackups() }
     }

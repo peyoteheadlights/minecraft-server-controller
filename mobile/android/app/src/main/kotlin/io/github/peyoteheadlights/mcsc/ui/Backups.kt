@@ -20,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -86,11 +87,19 @@ fun BackupsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit, onRest
     val world = vm.pages(serverId).world
     val strings = vm.strings
     var asking by remember { mutableStateOf<Confirming?>(null) }
-    var saving by remember { mutableStateOf<Backup?>(null) }
+    // The backup waiting for the picker: id, name and size, kept if the
+    // screen is rebuilt (the phone turned) while the picker is open.
+    var saving by rememberSaveable { mutableStateOf<Triple<Long, String, Long?>?>(null) }
     val save = rememberZipSaver { open, discard ->
-        val backup = saving
+        val waiting = saving
         saving = null
-        if (backup != null) world.download(backup, open, discard, strings)
+        if (waiting == null) {
+            // Nothing to put in the file the picker just made: remove it.
+            discard()
+        } else {
+            val (id, name, size) = waiting
+            world.download(Backup(id = id, name = name, sizeBytes = size), open, discard, strings)
+        }
     }
     LaunchedEffect(serverId) { world.loadBackups() }
 
@@ -139,7 +148,7 @@ fun BackupsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit, onRest
             BackupCard(vm, backup, world.offsite, busy,
                 onCheck = { world.check(backup, strings) },
                 onDownload = {
-                    saving = backup
+                    saving = Triple(backup.id, backup.name, backup.sizeBytes)
                     save(backup.name)
                 },
                 onRestore = { world.askRestore(backup, strings) },

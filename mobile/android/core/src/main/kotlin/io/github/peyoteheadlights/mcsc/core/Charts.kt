@@ -43,7 +43,7 @@ data class Chart(
         val values = points.map { it.value }
         if (values.isEmpty()) return "$title: ${empty.orEmpty()}"
         return strings.t(
-            "chart.aria",
+            "mobile.perf.summary",
             "title" to title,
             "latest" to format(values.last(), false),
             "low" to format(values.min(), false),
@@ -120,11 +120,14 @@ object Charts {
             }
             return ticks to true
         }
-        val offset = start.offset.totalSeconds
-        var tick = ceil((from + offset) / step) * step - offset
+        // Every quarter hour in the range whose local clock time falls on a
+        // step, with the zone's offset at that moment: a daylight-saving
+        // change inside the range keeps the ticks on the local hour.
+        var tick = ceil(from / 900).toLong() * 900
         while (tick <= to) {
-            ticks += tick
-            tick += step
+            val local = tick + zone.rules.getOffset(java.time.Instant.ofEpochSecond(tick)).totalSeconds
+            if (Math.floorMod(local, step) == 0L) ticks += tick.toDouble()
+            tick += 900
         }
         return ticks to false
     }

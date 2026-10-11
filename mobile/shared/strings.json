@@ -6527,6 +6527,10 @@
   "{value} at {time}",
   "{value} at {time}"
  ],
+ "mobile.perf.summary": [
+  "{title}: latest {latest}, lowest {low}, highest {high}. Touch or drag along the graph to read each point.",
+  "{title}: latest {latest}, min {low}, max {high}. Touch or drag to read each point."
+ ],
  "mobile.alerts.title": [
   "Notifications",
   "Notifications"
@@ -6830,6 +6834,10 @@
  "mobile.error.failed_no_reason": [
   "That didn't work. Error number {status}.",
   "Failed ({status})."
+ ],
+ "mobile.error.still_working": [
+  "No answer from your PC yet. It may still be working on it; this screen updates when it's done.",
+  "No answer within 30 minutes; the job may still be running on the agent."
  ],
  "mobile.widget.name": [
   "Servers",

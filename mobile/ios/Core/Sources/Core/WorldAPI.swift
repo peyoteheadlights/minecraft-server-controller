@@ -106,9 +106,10 @@ extension AgentClient {
     }
 
     /// The graphs' samples for the last `hours` (1 to 168), the values now
-    /// and the disk use.
-    public func performance(serverId: String, hours: Int) async throws -> Performance {
-        try await call("GET", world(serverId) + "/performance?hours=\(Swift.min(Swift.max(hours, 1), 168))", as: Performance.self)
+    /// and, with `storage`, the disk use (slow: the PC walks the server folder).
+    public func performance(serverId: String, hours: Int, storage: Bool = true) async throws -> Performance {
+        let range = Swift.min(Swift.max(hours, 1), 168)
+        return try await call("GET", world(serverId) + "/performance?hours=\(range)&storage=\(storage)", as: Performance.self)
     }
 
     /// The health checks. Can take a few seconds: the PC asks Tailscale.

@@ -51,7 +51,7 @@ public struct Graph: Identifiable, Sendable {
         guard let last = values.last, let low = values.min(), let high = values.max() else {
             return "\(title): \(empty ?? "")"
         }
-        return strings.t("chart.aria", [
+        return strings.t("mobile.perf.summary", [
             "title": title, "latest": format(last, false), "low": format(low, false), "high": format(high, false),
         ])
     }
@@ -127,11 +127,16 @@ public enum Graphs {
             }
             return (ticks, true)
         }
-        let offset = Double(zone.secondsFromGMT(for: Date(timeIntervalSince1970: from)))
-        var tick = ceil((from + offset) / step) * step - offset
+        // Every quarter hour in the range whose local clock time falls on a
+        // step, with the zone's offset at that moment: a daylight-saving
+        // change inside the range keeps the ticks on the local hour.
+        var tick = ceil(from / 900) * 900
         while tick <= to {
-            ticks.append(tick)
-            tick += step
+            let local = tick + Double(zone.secondsFromGMT(for: Date(timeIntervalSince1970: tick)))
+            if local.truncatingRemainder(dividingBy: step) == 0 {
+                ticks.append(tick)
+            }
+            tick += 900
         }
         return (ticks, false)
     }

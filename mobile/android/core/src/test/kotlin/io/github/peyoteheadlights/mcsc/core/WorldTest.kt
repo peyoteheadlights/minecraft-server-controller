@@ -57,6 +57,26 @@ class WorldTest {
         assertTrue(hours.all { (it + 3 * 3600) % 3600 == 0.0 })
     }
 
+    @Test
+    fun `clock ticks stay on the local hour across a daylight-saving change`() {
+        // London leaves summer time at 01:00 UTC on 25 October 2026.
+        val london = ZoneId.of("Europe/London")
+        val change = java.time.Instant.parse("2026-10-25T01:00:00Z").epochSecond.toDouble()
+        val (fours, _) = Charts.timeTicks(change - 12 * 3600, change + 12 * 3600, london)
+        val hours = fours.map { java.time.Instant.ofEpochSecond(it.toLong()).atZone(london).hour }
+        assertTrue(hours.toString(), hours.all { it % 4 == 0 })
+        assertTrue(fours.any { it > change })
+        val (hourly, _) = Charts.timeTicks(change - 3 * 3600, change + 3 * 3600, london)
+        assertTrue(hourly.all { java.time.Instant.ofEpochSecond(it.toLong()).atZone(london).minute == 0 })
+    }
+
+    @Test
+    fun `a graph's spoken summary says to touch, not to use arrow keys`() {
+        val chart = Charts.performance(strings, perf(SeriesPoint(ts = 100.0, cpuPercent = 5.0)), 3600.0, speedReported = true, zone = utc)[0]
+        val said = chart.summary(strings)
+        assertTrue(said, said.startsWith("CPU use: latest 5%") && said.contains("Touch") && !said.contains("arrow"))
+    }
+
     private fun perf(vararg points: SeriesPoint, limit: Double? = null) = Performance(
         series = Series(points = points.toList(), hours = 1.0, bucketSeconds = 10.0),
         sampleInterval = 30.0,
@@ -292,6 +312,30 @@ class WorldTest {
     }
 
     @Test
+    fun `a full phone is the phone's problem, not the PC's`() {
+        TestAgent().use { agent ->
+            agent.server.enqueue(MockResponse().setHeader("Content-Type", "application/zip").setBody(Buffer().write(ByteArray(1000))))
+            val full = object : java.io.OutputStream() {
+                override fun write(b: Int) = throw java.io.IOException("No space left on device")
+                override fun write(b: ByteArray, off: Int, len: Int) = throw java.io.IOException("No space left on device")
+            }
+            val e = assertThrows(SaveFileException::class.java) {
+                runBlocking { client(agent).downloadBackup("survival", 4, full) }
+            }
+            assertEquals("No space left on device", e.message)
+        }
+    }
+
+    @Test
+    fun `slow work with no answer in time may still be running on the PC`() {
+        TestAgent().use { agent ->
+            agent.server.enqueue(agent.json("""{"name": "b.zip"}""").setHeadersDelay(4, java.util.concurrent.TimeUnit.SECONDS))
+            val slow = AgentClient(agent.pairing(), { token }, systemTrust = TestAgent.trustingNothing(), slowSeconds = 1)
+            assertThrows(AgentException.StillWorking::class.java) { runBlocking { slow.backUp("survival") } }
+        }
+    }
+
+    @Test
     fun `a backup that isn't there comes back in the agent's words`() {
         TestAgent().use { agent ->
             agent.server.enqueue(agent.json("""{"detail": "That backup isn't on this server's list."}""", code = 404))
@@ -322,7 +366,7 @@ class WorldTest {
             assertNull(perf.current.procRamMb)
             assertNull(perf.series.points.single().tps)
             assertEquals(4096.0, perf.memoryLimitMb!!, 0.0)
-            assertEquals("/api/servers/survival/performance?hours=6", agent.server.takeRequest().path)
+            assertEquals("/api/servers/survival/performance?hours=6&storage=true", agent.server.takeRequest().path)
 
             agent.server.enqueue(agent.json("""{"jobs": []}"""))
             c.jobs("survival")

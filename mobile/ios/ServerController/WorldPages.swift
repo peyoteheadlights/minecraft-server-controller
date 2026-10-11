@@ -62,6 +62,9 @@ final class WorldPages {
     var restoring: RestoreAsk? = nil
     private(set) var downloading: Downloading? = nil
     var downloaded: Downloaded? = nil
+    /// Counts downloads, so a progress report that arrives late never
+    /// brings back a finished one.
+    @ObservationIgnored private var downloadRun = 0
 
     func loadBackups() async {
         guard let client = client() else { return }
@@ -159,6 +162,8 @@ final class WorldPages {
         guard let client = client(), busy == nil else { return }
         busy = "download:\(backup.id)"
         said = nil
+        downloadRun += 1
+        let run = downloadRun
         downloading = Downloading(name: backup.name, done: 0, size: backup.sizeBytes)
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         let name = (backup.name as NSString).lastPathComponent
@@ -167,7 +172,8 @@ final class WorldPages {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             _ = try await client.downloadBackup(serverId: serverId, backupId: backup.id, to: file) { done, size in
                 Task { @MainActor [weak self] in
-                    self?.downloading = Downloading(name: backup.name, done: done, size: size)
+                    guard let self = self, self.downloadRun == run, self.downloading != nil else { return }
+                    self.downloading = Downloading(name: backup.name, done: done, size: size)
                 }
             }
             downloaded = Downloaded(name: backup.name, file: file)
@@ -263,23 +269,46 @@ final class WorldPages {
     private(set) var health = PageRead<ServerHealth>()
     /// When `performance` was read, for drawing the graphs up to then.
     private(set) var readAt: Double = 0
+    /// Counts performance reads, so an answer for a range no longer shown is dropped.
+    @ObservationIgnored private var performanceRead = 0
 
     func loadPerformance() async {
-        let hours = range
-        await read(\.performance) { [weak self] client, id in
-            let data = try await client.performance(serverId: id, hours: hours)
-            self?.readAt = Date().timeIntervalSince1970
-            return data
-        }
+        await loadSeries(storage: true, kept: nil)
         // Last: it can take a few seconds while the PC asks Tailscale.
         await read(\.health) { client, id in try await client.serverHealth(serverId: id) }
     }
 
+    /// Only the graphs change with the range: the disk use and the health
+    /// checks (both slow on the PC) are kept from the last full read.
     func showRange(_ hours: Int) async {
         guard Graphs.RANGES.contains(hours), hours != range else { return }
+        let kept = performance.value?.storage
         range = hours
         performance = PageRead()
-        await loadPerformance()
+        await loadSeries(storage: false, kept: kept)
+    }
+
+    private func loadSeries(storage: Bool, kept: Storage?) async {
+        guard let client = client() else { return }
+        let hours = range
+        performanceRead += 1
+        let mine = performanceRead
+        performance.loading = true
+        do {
+            var data = try await client.performance(serverId: serverId, hours: hours, storage: storage)
+            guard mine == performanceRead else { return }
+            if !storage { data.storage = kept }
+            performance = PageRead(value: data)
+            readAt = Date().timeIntervalSince1970
+        } catch let problem as AgentError {
+            guard mine == performanceRead else { return }
+            noted(problem)
+            performance.problem = problem
+            performance.loading = false
+        } catch {
+            guard mine == performanceRead else { return }
+            performance.loading = false
+        }
     }
 
     // MARK: - Doing

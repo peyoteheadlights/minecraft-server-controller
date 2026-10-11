@@ -62,6 +62,28 @@ final class WorldTests: XCTestCase {
         XCTAssertTrue(hours.ticks.allSatisfy { ($0 + 3 * 3600).truncatingRemainder(dividingBy: 3600) == 0 })
     }
 
+    func testClockTicksStayOnTheLocalHourAcrossADaylightSavingChange() {
+        // London leaves summer time at 01:00 UTC on 25 October 2026.
+        let london = TimeZone(identifier: "Europe/London")!
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = london
+        let change = ISO8601DateFormatter().date(from: "2026-10-25T01:00:00Z")!.timeIntervalSince1970
+        let fours = Graphs.timeTicks(from: change - 12 * 3600, to: change + 12 * 3600, zone: london).ticks
+        let hours = fours.map { calendar.component(.hour, from: Date(timeIntervalSince1970: $0)) }
+        XCTAssertTrue(hours.allSatisfy { $0 % 4 == 0 }, "\(hours)")
+        XCTAssertTrue(fours.contains { $0 > change })
+        let hourly = Graphs.timeTicks(from: change - 3 * 3600, to: change + 3 * 3600, zone: london).ticks
+        XCTAssertTrue(hourly.allSatisfy { calendar.component(.minute, from: Date(timeIntervalSince1970: $0)) == 0 })
+    }
+
+    func testAGraphsSpokenSummarySaysToTouchNotToUseArrowKeys() {
+        let graph = Graphs.performance(s, perf([SeriesPoint(ts: 100, cpuPercent: 5)]), now: 3600, speedReported: true, zone: utc)[0]
+        let said = graph.summary(s)
+        XCTAssertTrue(said.hasPrefix("CPU use: latest 5%"), said)
+        XCTAssertTrue(said.contains("Touch"), said)
+        XCTAssertFalse(said.contains("arrow"), said)
+    }
+
     private func perf(_ points: [SeriesPoint], limit: Double? = nil) -> Performance {
         Performance(series: Series(points: points, hours: 1, bucketSeconds: 10), sampleInterval: 30, memoryLimitMb: limit)
     }
@@ -292,6 +314,31 @@ final class WorldTests: XCTestCase {
         XCTAssertFalse(request.url?.absoluteString.contains(token) ?? true)
     }
 
+    func testSlowWorkWithNoAnswerInTimeMayStillBeRunningOnThePC() async {
+        let value = token
+        let slow = AgentClient(
+            pairing: Pairing(host: "localhost", port: 8765, fingerprint: String(repeating: "ab", count: 32), apiVersion: 1),
+            token: { value },
+            configuration: StubAgent.configuration(),
+            slowWait: 0.3
+        )
+        StubAgent.enqueue(StubAgent.Answer(status: 0, headers: [:], body: Data(), delay: 0.6, failure: URLError(.timedOut)))
+        do {
+            _ = try await slow.backUp(serverId: "survival")
+            XCTFail("A backup with no answer read as done")
+        } catch {
+            XCTAssertEqual(error as? AgentError, .stillWorking)
+        }
+        // A quick call that times out is still the PC not answering.
+        StubAgent.enqueue(StubAgent.Answer(status: 0, headers: [:], body: Data(), failure: URLError(.timedOut)))
+        do {
+            _ = try await slow.backups(serverId: "survival")
+            XCTFail("No answer read as a list")
+        } catch {
+            XCTAssertEqual(error as? AgentError, .unreachable)
+        }
+    }
+
     func testABackupThatIsntThereComesBackInTheAgentsWords() async {
         StubAgent.json("{\"detail\": \"That backup isn't on this server's list.\"}", status: 404)
         let out = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".zip")
@@ -332,7 +379,7 @@ final class WorldTests: XCTestCase {
         XCTAssertNil(perf.current.procRamMb)
         XCTAssertNil(perf.series.points.first?.tps)
         XCTAssertEqual(perf.memoryLimitMb, 4096)
-        XCTAssertEqual(path(2), "/api/servers/survival/performance?hours=6")
+        XCTAssertEqual(path(2), "/api/servers/survival/performance?hours=6&storage=true")
 
         StubAgent.json("{\"jobs\": []}")
         _ = try await c.jobs(serverId: "survival")

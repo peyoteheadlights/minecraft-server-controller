@@ -16,6 +16,7 @@ import io.github.peyoteheadlights.mcsc.core.Schedule
 import io.github.peyoteheadlights.mcsc.core.ScheduleList
 import io.github.peyoteheadlights.mcsc.core.Schedules
 import io.github.peyoteheadlights.mcsc.core.ServerHealth
+import io.github.peyoteheadlights.mcsc.core.Storage
 import io.github.peyoteheadlights.mcsc.core.Strings
 import io.github.peyoteheadlights.mcsc.core.WorldList
 import io.github.peyoteheadlights.mcsc.core.WorldPoint
@@ -167,12 +168,18 @@ class WorldPages(
                 noted(e)
                 discard()
                 Said(Message.of(e).text(strings), good = false)
-            } catch (e: java.io.IOException) {
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                discard()
+                throw e
+            } catch (e: Exception) {
+                // Writing on the phone failed (full, or the place picked
+                // refused it): said as such, never as the PC's problem.
                 discard()
                 Said(strings.t("mobile.backups.save_failed", "reason" to (e.message ?: strings.t("value.unknown"))), good = false)
+            } finally {
+                downloading = null
+                busy = null
             }
-            downloading = null
-            busy = null
         }
     }
 
@@ -228,21 +235,41 @@ class WorldPages(
     var readAt: Double by mutableStateOf(0.0)
         private set
 
+    /** Counts performance reads, so an answer for a range no longer shown is dropped. */
+    private var performanceRead = 0
+
     fun loadPerformance() {
-        val hours = range
-        read({ performance }, { performance = it }) {
-            val data = it.performance(serverId, hours)
-            readAt = now()
-            data
-        }
+        loadSeries(storage = true)
         read({ health }, { health = it }) { it.serverHealth(serverId) }
     }
 
+    /** Only the graphs change with the range: the disk use and the health
+     * checks (both slow on the PC) are kept from the last full read. */
     fun showRange(hours: Int) {
         if (hours !in Charts.RANGES || hours == range) return
+        val kept = performance.value?.storage
         range = hours
         performance = Read()
-        loadPerformance()
+        loadSeries(storage = false, kept = kept)
+    }
+
+    private fun loadSeries(storage: Boolean, kept: Storage? = null) {
+        val c = client() ?: return
+        val hours = range
+        val mine = ++performanceRead
+        performance = performance.copy(loading = true)
+        scope.launch {
+            try {
+                val data = c.performance(serverId, hours, storage)
+                if (mine != performanceRead) return@launch
+                performance = Read(if (storage) data else data.copy(storage = kept))
+                readAt = now()
+            } catch (e: AgentException) {
+                if (mine != performanceRead) return@launch
+                noted(e)
+                performance = performance.copy(problem = Message.of(e), loading = false)
+            }
+        }
     }
 
     // ------------------------------------------------------------ doing
@@ -257,8 +284,13 @@ class WorldPages(
             } catch (e: AgentException) {
                 noted(e)
                 said = Said(Message.of(e).text(strings), good = false)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                said = Said(strings.t("mobile.error.failed", "reason" to (e.message ?: strings.t("value.unknown"))), good = false)
+            } finally {
+                busy = null
             }
-            busy = null
             reload?.invoke()
         }
     }

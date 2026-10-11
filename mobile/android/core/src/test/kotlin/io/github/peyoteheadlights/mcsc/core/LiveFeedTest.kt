@@ -68,6 +68,7 @@ class LiveFeedTest {
                         webSocket.send("""{"type": "event", "event": {"type": "console", "message": "x", "level": "info", "data": $line, "ts": 1, "server_id": "survival"}}""")
                         webSocket.send("""{"type": "event", "event": {"type": "chat", "message": "hi", "level": "info", "data": {"seq": 3, "ts": 2.0, "kind": "player", "name": "Alex", "text": "hi"}, "ts": 2, "server_id": "survival"}}""")
                         webSocket.send("""{"type": "event", "event": {"type": "metrics", "message": "", "level": "info", "data": {"cpu": 3}, "ts": 3, "server_id": "survival"}}""")
+                        webSocket.send("""{"type": "event", "event": {"type": "job", "message": "Update all: Updating Alpha (1 of 2)", "level": "info", "data": {"id": "j1", "kind": "mods", "title": "Update all on Survival", "state": "running", "step": "Updating Alpha (1 of 2)", "server_id": "survival", "progress": null}, "ts": 3.2, "server_id": "survival"}}""")
                         webSocket.send("""{"type": "event", "event": {"type": "player_joined", "message": "Alex joined", "level": "success", "data": {"username": "Alex"}, "ts": 3.5, "server_id": "survival"}}""")
                     } else {
                         webSocket.send("""{"type": "console_tail", "server_id": "creative", "lines": []}""")
@@ -83,7 +84,7 @@ class LiveFeedTest {
             assertFalse(feed.tail("creative"))
             val signals = mutableListOf<LiveSignal>()
             withTimeout(10_000) {
-                feed.connect("survival").take(7).collect {
+                feed.connect("survival").take(9).collect {
                     signals += it
                     if (it is LiveSignal.Changed && it.type == "player_joined") assertTrue(feed.tail("creative", lines = 900))
                 }
@@ -97,6 +98,9 @@ class LiveFeedTest {
                     LiveSignal.Chat("survival", ChatMessage(3, 2.0, "player", "Alex", "hi")),
                     // A reading, not history: it refreshes, but is no line for Activity.
                     LiveSignal.Changed("survival", "metrics", null),
+                    // A task's progress for the screen running it, and a refresh.
+                    LiveSignal.Task("survival", Job(id = "j1", kind = "mods", title = "Update all on Survival", state = "running", step = "Updating Alpha (1 of 2)", serverId = "survival")),
+                    LiveSignal.Changed("survival", "job", null),
                     LiveSignal.Changed("survival", "player_joined", EventRow(serverId = "survival", ts = 3.5, type = "player_joined", level = "success", message = "Alex joined")),
                     LiveSignal.ConsoleTail("creative", emptyList()),
                 ),

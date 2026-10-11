@@ -121,7 +121,12 @@ class LiveFeed(private val client: AgentClient, private val token: () -> String?
                             when (type) {
                                 "console" -> decode(ConsoleLine.serializer(), data)?.let { trySend(LiveSignal.Console(server, it)) }
                                 "chat" -> decode(ChatMessage.serializer(), data)?.let { trySend(LiveSignal.Chat(server, it)) }
-                                "job" -> decode(Job.serializer(), data)?.let { trySend(LiveSignal.Task(server, it)) }
+                                "job" -> {
+                                    // Its progress for the screen running it, and a fresh
+                                    // read of the server as for any other event.
+                                    decode(Job.serializer(), data)?.let { trySend(LiveSignal.Task(server, it)) }
+                                    trySend(LiveSignal.Changed(server, type))
+                                }
                                 else -> trySend(LiveSignal.Changed(server, type, row(event, type, server).takeIf { type !in NOT_STORED }))
                             }
                         }

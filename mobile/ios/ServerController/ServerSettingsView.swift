@@ -10,6 +10,7 @@ struct ServerSettingsView: View {
     let serverId: String
 
     @Environment(AppModel.self) private var model
+    @State private var asking: VersionAsk?
 
     private var setup: SetupPages { model.pages(serverId).setup }
 
@@ -27,12 +28,36 @@ struct ServerSettingsView: View {
             .refreshable {
                 await setup.loadSettings()
                 await setup.loadMemory()
+                await setup.loadVersion()
+            }
+            .alert(askTitle(setup), isPresented: Binding(get: { asking != nil }, set: { if !$0 { asking = nil } })) {
+                Button(model.t(asking == .rollBack ? "version.back_button" : "version.confirm_button"),
+                       role: asking == .change && setup.report?.value.map(VersionChange.danger) == true ? .destructive : nil) {
+                    let strings = model.strings
+                    let what = asking
+                    asking = nil
+                    Task {
+                        if what == .rollBack { await setup.rollBack(strings) } else { await setup.changeVersion(strings) }
+                    }
+                }
+                Button(model.t("mobile.common.cancel"), role: .cancel) { asking = nil }
+            } message: {
+                Text(model.t(asking == .rollBack ? "version.back_body" : "version.confirm_body"))
             }
         }
         .task(id: serverId) {
             setup.said = nil
             await setup.loadSettings()
             await setup.loadMemory()
+            await setup.loadVersion()
+        }
+    }
+
+    private func askTitle(_ setup: SetupPages) -> String {
+        switch asking {
+        case .rollBack: return model.t("version.back_title")
+        case .change: return model.t("version.confirm_title", ["name": setup.report?.value.map(VersionChange.target) ?? ""])
+        case nil: return ""
         }
     }
 
@@ -93,6 +118,10 @@ struct ServerSettingsView: View {
             SaidRow(said: setup.said, palette: palette)
             SectionTitle(text: model.t("serverset.cpu"), palette: palette)
             CardBox(palette: palette) { coresCard(setup, settings.cpu, canEdit, palette) }
+            SectionTitle(text: model.t("version.title"), palette: palette)
+            CardBox(palette: palette) {
+                VersionCardView(setup: setup, canEdit: canEdit, palette: palette) { asking = $0 }
+            }
             SectionTitle(text: model.t("memory.title"), palette: palette)
             CardBox(palette: palette) { memoryCard(setup, canEdit, palette) }
         } else if read.problem == nil {

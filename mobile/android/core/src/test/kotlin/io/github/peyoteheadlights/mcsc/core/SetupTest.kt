@@ -204,4 +204,99 @@ class SetupTest {
             assertEquals("""{"memory_mb":4096}""", put.body.readUtf8())
         }
     }
+
+    // ------------------------------------------------------------ version and type
+    private val versionJson = """{"type": "fabric", "capabilities": {"id": "fabric", "name": "Fabric", "edition": "java", "content": "mods"},
+        "minecraft_version": "1.21.1", "minecraft_version_source": "console", "loader_version": "0.16.5", "loader_name": "Fabric Loader",
+        "detected_type": "fabric", "pending_version": null, "eula_required": true, "eula_url": "https://aka.ms/MinecraftEULA",
+        "last_change": {"at": 1.0, "type": "fabric", "previous_type": "fabric", "minecraft_version": "1.21.1", "can_roll_back": true, "install_log": null, "moved_aside": []}}"""
+
+    private val preflightJson = """{"current": {"type": "fabric", "type_name": "Fabric", "minecraft_version": "1.21.1", "loader_version": "0.16.5", "observed": true},
+        "target": {"type": "paper", "type_name": "Paper", "minecraft_version": "1.20.4", "loader_version": null, "stable": true},
+        "type_change": true, "gentle_type_change": false, "direction": "older", "downgrade_warning": true,
+        "java": {"verdict": "unknown", "detail": "Java couldn't be checked on this PC."}, "java_required": 17,
+        "latest_only": false, "kept": false, "content_kind": "mods", "target_content_kind": "plugins", "content": [],
+        "moved_aside": ["sodium.jar", "lithium.jar"], "unknown_support": [], "not_supporting": [],
+        "backup_first": true, "crossplay": true, "crossplay_available": true}"""
+
+    @Test
+    fun `the version is what the console said, and roll back and the eula follow the agent`() {
+        val version = json.decodeFromString(ServerVersion.serializer(), versionJson)
+        assertEquals("Fabric 1.21.1", VersionChange.now(strings, version))
+        assertEquals(strings.t("version.not_seen_yet"), VersionChange.now(strings, version.copy(minecraftVersion = null)))
+        assertTrue(VersionChange.eulaNeeded(version))
+        assertFalse(VersionChange.eulaNeeded(version.copy(eulaRequired = false)))
+        assertTrue(VersionChange.canRollBack(version))
+        assertFalse(VersionChange.canRollBack(version.copy(lastChange = null)))
+        assertEquals("https://aka.ms/MinecraftEULA", version.eulaUrl)
+    }
+
+    @Test
+    fun `only the same edition's kinds are offered, and snapshots only when asked`() {
+        val version = json.decodeFromString(ServerVersion.serializer(), versionJson)
+        val types = listOf(ServerTypeInfo("fabric", "Fabric"), ServerTypeInfo("paper", "Paper"), ServerTypeInfo("bedrock", "Bedrock", edition = "bedrock"))
+        assertEquals(listOf("fabric", "paper"), VersionChange.sameEdition(types, version).map { it.id })
+        val offered = TypeVersions(versions = listOf(OfferedVersion("1.21.4"), OfferedVersion("25w01a", stable = false)))
+        assertEquals(listOf("1.21.4"), VersionChange.choices(offered, snapshots = false).map { it.minecraft })
+        assertEquals(2, VersionChange.choices(offered, snapshots = true).size)
+    }
+
+    @Test
+    fun `the check says what might break before anything changes`() {
+        val report = json.decodeFromString(VersionPreflight.serializer(), preflightJson)
+        val lines = VersionChange.lines(strings, report)
+        assertEquals(strings.t("version.downgrade"), lines[0].text)
+        assertEquals(Tone.WARNING, lines[1].tone)
+        assertTrue(lines[1].text.startsWith("This changes the server from Fabric to Paper."))
+        assertTrue(lines.any { it.text.startsWith("2 add-ons don't fit") })
+        assertEquals(strings.t("version.java_unknown"), lines[lines.size - 2].text)
+        assertEquals(strings.t("version.backup_first"), lines.last().text)
+        assertTrue(VersionChange.danger(report))
+        assertFalse(VersionChange.danger(report.copy(downgradeWarning = false, gentleTypeChange = true)))
+        assertEquals("Paper 1.20.4", VersionChange.target(report))
+        val incompatible = report.copy(java = JavaCheck("incompatible", "Minecraft 1.20.4 needs Java 17; this PC has Java 8."))
+        assertEquals(Tone.DANGER, VersionChange.lines(strings, incompatible).first().tone)
+    }
+
+    @Test
+    fun `a running change is found again when the screen opens`() {
+        val jobs = listOf(
+            Job("a", kind = "backup", state = "running", serverId = "s"),
+            Job("b", kind = "version_change", state = "succeeded", serverId = "s"),
+            Job("c", kind = "version_change", state = "running", serverId = "other"),
+            Job("d", kind = "version_rollback", state = "running", serverId = "s", step = "Putting the previous version back"),
+        )
+        assertEquals("d", VersionChange.running(jobs, "s")?.id)
+        assertNull(VersionChange.running(jobs.take(3), "s"))
+    }
+
+    @Test
+    fun `version routes are called as the dashboard calls them`() = runBlocking {
+        TestAgent().use { agent ->
+            val c = client(agent)
+            agent.server.enqueue(agent.json("""{"types": [{"id": "fabric", "name": "Fabric", "edition": "java", "ease": "easy", "recommended": true}], "recommended": "fabric", "default": "fabric"}"""))
+            assertEquals("fabric", c.serverTypes().types.single().id)
+            assertEquals("/api/server-types", agent.server.takeRequest().path)
+            agent.server.enqueue(agent.json("""{"type": "fabric", "type_name": "Fabric", "latest_stable": "1.21.4", "versions": [{"minecraft": "1.21.4", "stable": true, "loaders": ["0.16.9"], "java_required": 21}], "source_problem": null}"""))
+            assertEquals(21, c.typeVersions("fabric").versions.single().javaRequired)
+            assertEquals("/api/server-types/fabric/versions", agent.server.takeRequest().path)
+            agent.server.enqueue(agent.json(versionJson))
+            assertTrue(c.serverVersion("s").eulaRequired)
+            agent.server.takeRequest()
+            agent.server.enqueue(agent.json(preflightJson))
+            assertTrue(c.versionPreflight("s", "paper", "1.20.4", null).typeChange)
+            val check = agent.server.takeRequest()
+            assertEquals("/api/servers/s/version/preflight", check.path)
+            assertEquals("""{"type":"paper","minecraft_version":"1.20.4","confirm":false}""", check.body.readUtf8())
+            agent.server.enqueue(agent.json("""{"ok": true, "job_id": "j1", "pending": true}"""))
+            assertEquals("j1", c.changeVersion("s", "fabric", "1.21.4", "0.16.9").jobId)
+            assertEquals("""{"type":"fabric","minecraft_version":"1.21.4","loader_version":"0.16.9","confirm":true}""", agent.server.takeRequest().body.readUtf8())
+            agent.server.enqueue(agent.json("""{"ok": true, "job_id": "j2", "type": "fabric", "restored": []}"""))
+            assertEquals("j2", c.rollBackVersion("s").jobId)
+            assertEquals("/api/servers/s/version/roll-back", agent.server.takeRequest().path)
+            agent.server.enqueue(agent.json("""{"ok": true, "file": "C:\\s\\eula.txt", "url": "https://aka.ms/MinecraftEULA"}"""))
+            assertEquals("https://aka.ms/MinecraftEULA", c.acceptEula("s").url)
+            assertEquals("/api/servers/s/eula", agent.server.takeRequest().path)
+        }
+    }
 }

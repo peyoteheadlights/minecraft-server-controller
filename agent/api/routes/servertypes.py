@@ -25,7 +25,17 @@ from ...servertypes import create as create_module
 from ...servertypes import install as install_module
 from ...servertypes import versions as versions_module
 from ..deps import audit, get_core, get_server
-from ..responses import BedrockTerms, BedrockVersions
+from ..responses import (
+    BedrockTerms,
+    BedrockVersions,
+    EulaAccepted,
+    ServerTypes,
+    ServerVersion,
+    TypeVersions,
+    VersionChanged,
+    VersionPreflight,
+    VersionRolledBack,
+)
 from .models import (
     BedrockTermsRequest,
     CreateServerRequest,
@@ -40,7 +50,7 @@ router = APIRouter()
 
 
 # ---------------------------------------------------------------- the types
-@global_router.get("/server-types")
+@global_router.get("/server-types", response_model=ServerTypes)
 async def list_types(principal: Principal = Depends(require(SERVER_VIEW))):
     """Every server type with its capabilities. The dashboard's comparison
     table is generated from this, so it cannot drift from what the app does."""
@@ -51,7 +61,7 @@ async def list_types(principal: Principal = Depends(require(SERVER_VIEW))):
     }
 
 
-@global_router.get("/server-types/{type_id}/versions")
+@global_router.get("/server-types/{type_id}/versions", response_model=TypeVersions)
 async def type_versions(type_id: str, principal: Principal = Depends(require(SERVER_VIEW))):
     """The Minecraft versions this type offers, from its official source."""
     return await versions_module.report(servertypes.get(type_id).id)
@@ -132,7 +142,7 @@ async def bedrock_kept_versions(principal: Principal = Depends(require(SERVER_VI
 
 
 # ---------------------------------------------------- one server's version
-@router.get("/version")
+@router.get("/version", response_model=ServerVersion)
 async def current_version(
     principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):
@@ -151,6 +161,7 @@ async def current_version(
         "detected_type": status["server_type_detected"],
         "pending_version": status["pending_version"],
         "eula_required": status["eula_required"],
+        "eula_url": create_module.EULA_URL,
         "last_change": {
             "at": record.get("at"),
             "type": record.get("type"),
@@ -165,7 +176,7 @@ async def current_version(
     }
 
 
-@router.post("/version/preflight")
+@router.post("/version/preflight", response_model=VersionPreflight)
 async def version_preflight(
     payload: VersionChangeRequest,
     principal: Principal = Depends(require(SERVER_VIEW)),
@@ -180,7 +191,7 @@ async def version_preflight(
     )
 
 
-@router.post("/version")
+@router.post("/version", response_model=VersionChanged)
 async def change_version(
     payload: VersionChangeRequest,
     request: Request,
@@ -206,7 +217,7 @@ async def change_version(
     return {"ok": True, **result}
 
 
-@router.post("/version/roll-back")
+@router.post("/version/roll-back", response_model=VersionRolledBack)
 async def roll_back_version(
     request: Request,
     principal: Principal = Depends(require(SETTINGS_EDIT)),
@@ -218,7 +229,7 @@ async def roll_back_version(
     return {"ok": True, **result}
 
 
-@router.post("/eula")
+@router.post("/eula", response_model=EulaAccepted)
 async def accept_eula(
     request: Request,
     principal: Principal = Depends(require(SETTINGS_EDIT)),

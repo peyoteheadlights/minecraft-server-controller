@@ -538,6 +538,48 @@ class AgentClient(
         MemoryOverview.serializer(),
     )
 
+    suspend fun serverTypes(): ServerTypes = get("/api/server-types", ServerTypes.serializer())
+
+    /** The versions a type offers, from its official source (read through the PC). */
+    suspend fun typeVersions(typeId: String): TypeVersions =
+        get("/api/server-types/${path(typeId)}/versions", TypeVersions.serializer(), slow = true)
+
+    suspend fun serverVersion(serverId: String): ServerVersion =
+        get("${server(serverId)}/version", ServerVersion.serializer())
+
+    /** What a change would do, before anything happens. */
+    suspend fun versionPreflight(serverId: String, type: String, minecraft: String, loader: String?): VersionPreflight = call(
+        request("${server(serverId)}/version/preflight").post(versionBody(type, minecraft, loader, confirm = false).toBody()).build(),
+        VersionPreflight.serializer(),
+        slow = true,
+    )
+
+    /** Stops the server, takes a backup, installs and checks; answers once done. */
+    suspend fun changeVersion(serverId: String, type: String, minecraft: String, loader: String?): VersionChanged = call(
+        request("${server(serverId)}/version").post(versionBody(type, minecraft, loader, confirm = true).toBody()).build(),
+        VersionChanged.serializer(),
+        slow = true,
+    )
+
+    suspend fun rollBackVersion(serverId: String): VersionRolledBack = call(
+        request("${server(serverId)}/version/roll-back").post(JsonObject(emptyMap()).toBody()).build(),
+        VersionRolledBack.serializer(),
+        slow = true,
+    )
+
+    /** Only ever sent from the person's own tick. */
+    suspend fun acceptEula(serverId: String): EulaAccepted = call(
+        request("${server(serverId)}/eula").post(JsonObject(emptyMap()).toBody()).build(),
+        EulaAccepted.serializer(),
+    )
+
+    private fun versionBody(type: String, minecraft: String, loader: String?, confirm: Boolean) = buildJsonObject {
+        put("type", type)
+        put("minecraft_version", minecraft)
+        if (loader != null) put("loader_version", loader)
+        put("confirm", confirm)
+    }
+
     suspend fun setColor(serverId: String, color: String): ColorSaved = call(
         request("${server(serverId)}/color").put(buildJsonObject { put("color", color) }.toBody()).build(),
         ColorSaved.serializer(),

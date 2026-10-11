@@ -6,12 +6,18 @@ import androidx.compose.runtime.setValue
 import io.github.peyoteheadlights.mcsc.core.AgentClient
 import io.github.peyoteheadlights.mcsc.core.AgentException
 import io.github.peyoteheadlights.mcsc.core.CpuCores
+import io.github.peyoteheadlights.mcsc.core.Job
 import io.github.peyoteheadlights.mcsc.core.Memory
 import io.github.peyoteheadlights.mcsc.core.MemoryOverview
 import io.github.peyoteheadlights.mcsc.core.ServerForm
 import io.github.peyoteheadlights.mcsc.core.ServerSettings
 import io.github.peyoteheadlights.mcsc.core.ServerSettingsSaved
+import io.github.peyoteheadlights.mcsc.core.ServerTypeInfo
+import io.github.peyoteheadlights.mcsc.core.ServerVersion
 import io.github.peyoteheadlights.mcsc.core.Strings
+import io.github.peyoteheadlights.mcsc.core.TypeVersions
+import io.github.peyoteheadlights.mcsc.core.VersionChange
+import io.github.peyoteheadlights.mcsc.core.VersionPreflight
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -224,6 +230,182 @@ class SetupPages(
             } finally {
                 busy = null
             }
+        }
+    }
+
+    // ------------------------------------------------------------ version and type
+    var version: Read<ServerVersion> by mutableStateOf(Read())
+        private set
+
+    /** This edition's kinds, read when the changer is opened. */
+    var types: List<ServerTypeInfo> by mutableStateOf(emptyList())
+        private set
+    var versions: Read<TypeVersions> by mutableStateOf(Read())
+        private set
+    var pickedType: String? by mutableStateOf(null)
+        private set
+    var pickedVersion: String? by mutableStateOf(null)
+        private set
+    var pickedLoader: String? by mutableStateOf(null)
+        private set
+    var snapshots: Boolean by mutableStateOf(false)
+        private set
+
+    /** The check's report for the picked version; the change needs one. */
+    var report: Read<VersionPreflight>? by mutableStateOf(null)
+        private set
+
+    /** A version change or roll back running now, from the live feed or
+     * found again when the screen opens. */
+    var task: Job? by mutableStateOf(null)
+        private set
+
+    fun loadVersion() {
+        val c = client() ?: return
+        version = version.copy(loading = true)
+        scope.launch {
+            version = try {
+                Read(c.serverVersion(serverId))
+            } catch (e: AgentException) {
+                noted(e)
+                Read(problem = Message.of(e))
+            }
+            // Left while it ran: its progress is shown again.
+            if (busy == null) {
+                task = runCatching { VersionChange.running(c.jobs(serverId, 10).jobs, serverId) }.getOrNull()
+            }
+        }
+    }
+
+    fun onTask(job: Job) {
+        if (job.kind !in VersionChange.KINDS || job.serverId != serverId) return
+        task = job.takeIf { it.state == "running" }
+        if (job.state != "running" && busy == null) loadVersion()
+    }
+
+    /** Opens the changer: this edition's kinds and the current kind's versions. */
+    fun openChanger() {
+        val c = client() ?: return
+        val current = version.value ?: return
+        scope.launch {
+            try {
+                types = VersionChange.sameEdition(c.serverTypes().types, current)
+            } catch (e: AgentException) {
+                noted(e)
+            }
+        }
+        if (pickedType == null) pickType(current.type)
+    }
+
+    fun pickType(id: String) {
+        val c = client() ?: return
+        pickedType = id
+        pickedVersion = null
+        pickedLoader = null
+        report = null
+        versions = Read(loading = true)
+        scope.launch {
+            versions = try {
+                val read = c.typeVersions(id)
+                pickedVersion = read.latestStable ?: read.versions.firstOrNull()?.minecraft
+                pickedLoader = read.versions.firstOrNull { it.minecraft == pickedVersion }?.loaders?.firstOrNull()
+                Read(read)
+            } catch (e: AgentException) {
+                noted(e)
+                Read(problem = Message.of(e))
+            }
+        }
+    }
+
+    fun pickVersion(minecraft: String) {
+        pickedVersion = minecraft
+        pickedLoader = versions.value?.versions?.firstOrNull { it.minecraft == minecraft }?.loaders?.firstOrNull()
+        report = null
+    }
+
+    fun pickLoader(loader: String) {
+        pickedLoader = loader
+        report = null
+    }
+
+    fun showSnapshots(on: Boolean) {
+        snapshots = on
+    }
+
+    fun check() {
+        val c = client() ?: return
+        val type = pickedType ?: return
+        val minecraft = pickedVersion ?: return
+        report = Read(loading = true)
+        scope.launch {
+            report = try {
+                Read(c.versionPreflight(serverId, type, minecraft, pickedLoader))
+            } catch (e: AgentException) {
+                noted(e)
+                Read(problem = Message.of(e))
+            }
+        }
+    }
+
+    /** After the one confirmation: the server stops, a backup is taken,
+     * and the change runs as a task. */
+    fun changeVersion(strings: Strings) {
+        val checked = report?.value ?: return
+        val type = pickedType ?: return
+        val minecraft = pickedVersion ?: return
+        val c = client() ?: return
+        if (busy != null) return
+        busy = "version"
+        said = null
+        scope.launch {
+            try {
+                val done = c.changeVersion(serverId, type, minecraft, pickedLoader)
+                val notes = listOfNotNull(
+                    strings.t("version.changed", "version" to VersionChange.target(checked)),
+                    strings.t("new.unverified").takeIf { done.verified == false },
+                    strings.t("version.crossplay_off").takeIf { done.crossplayTurnedOff == true },
+                )
+                said = Said(notes.joinToString(" "), good = true)
+                report = null
+                onListChanged()
+            } catch (e: AgentException) {
+                noted(e)
+                said = Said(Message.of(e).text(strings), good = false)
+            } finally {
+                busy = null
+                task = null
+            }
+            loadVersion()
+        }
+    }
+
+    fun rollBack(strings: Strings) = versionWork("roll_back", strings) {
+        it.rollBackVersion(serverId)
+        Said(strings.t("version.went_back"), good = true)
+    }
+
+    /** Only from the person's own tick. */
+    fun acceptEula(strings: Strings) = versionWork("eula", strings) {
+        it.acceptEula(serverId)
+        Said(strings.t("version.eula_done"), good = true)
+    }
+
+    private fun versionWork(name: String, strings: Strings, call: suspend (AgentClient) -> Said) {
+        val c = client() ?: return
+        if (busy != null) return
+        busy = name
+        said = null
+        scope.launch {
+            try {
+                said = call(c)
+            } catch (e: AgentException) {
+                noted(e)
+                said = Said(Message.of(e).text(strings), good = false)
+            } finally {
+                busy = null
+                task = null
+            }
+            loadVersion()
         }
     }
 }

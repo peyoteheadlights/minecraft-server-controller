@@ -250,3 +250,86 @@ public enum Memory {
         return strings.t("memory.pc_unknown")
     }
 }
+
+/// Changing a server's version or type: checked first (what might break),
+/// one confirmation (the server stops and a backup is taken first), then a
+/// task with progress. Roll back puts the previous software back.
+public enum VersionChange {
+    /// A line of the check's report, and how loud it is.
+    public struct Line: Equatable, Sendable {
+        public let text: String
+        public let tone: Tone
+    }
+
+    public static let KINDS: Set<String> = ["version_change", "version_rollback"]
+
+    /// Java and Bedrock worlds differ, so only this edition's kinds are offered.
+    public static func sameEdition(_ types: [ServerTypeInfo], _ current: ServerVersion) -> [ServerTypeInfo] {
+        types.filter { $0.edition == current.capabilities.edition }
+    }
+
+    /// The versions to pick from: snapshots only when asked for.
+    public static func choices(_ versions: TypeVersions, snapshots: Bool) -> [OfferedVersion] {
+        snapshots ? versions.versions : versions.versions.filter(\.stable)
+    }
+
+    /// What the server is now: "Fabric 1.21.1", or that it isn't known yet.
+    public static func now(_ strings: Strings, _ version: ServerVersion) -> String {
+        guard let minecraft = version.minecraftVersion else { return strings.t("version.not_seen_yet") }
+        return "\(version.capabilities.name) \(minecraft)"
+    }
+
+    /// "Fabric 1.21.4", for the check and the confirmation.
+    public static func target(_ report: VersionPreflight) -> String {
+        "\(report.target.typeName) \(report.target.minecraftVersion ?? "")".trimmingCharacters(in: .whitespaces)
+    }
+
+    /// What the check found, loudest first; then that a backup comes first.
+    public static func lines(_ strings: Strings, _ report: VersionPreflight) -> [Line] {
+        var out: [Line] = []
+        if report.java.verdict == "incompatible" {
+            out.append(Line(text: report.java.detail ?? strings.t("value.unknown"), tone: .danger))
+        }
+        if report.downgradeWarning { out.append(Line(text: strings.t("version.downgrade"), tone: .warning)) }
+        if report.typeChange {
+            out.append(report.gentleTypeChange
+                ? Line(text: strings.t("version.type_change_gentle"), tone: .neutral)
+                : Line(text: strings.t("version.type_change", ["from": report.current.typeName, "to": report.target.typeName]), tone: .warning))
+        }
+        if report.crossplay && !report.crossplayAvailable {
+            out.append(Line(text: strings.t("version.crossplay_lost"), tone: .warning))
+        }
+        if !report.notSupporting.isEmpty {
+            let words = strings.t("version.not_supporting", ["count": report.notSupporting.count, "version": report.target.minecraftVersion ?? ""])
+            out.append(Line(text: words + " " + report.notSupporting.prefix(8).joined(separator: ", "), tone: .warning))
+        }
+        if !report.movedAside.isEmpty {
+            out.append(Line(text: strings.t("version.moved_aside", ["count": report.movedAside.count]) + " " + strings.t("version.moved_aside_note"), tone: .warning))
+        }
+        if !report.unknownSupport.isEmpty {
+            out.append(Line(text: strings.t("version.unknown_support", ["count": report.unknownSupport.count]) + " " + strings.t("version.unknown_support_note"), tone: .neutral))
+        }
+        if report.java.verdict == "unknown" { out.append(Line(text: strings.t("version.java_unknown"), tone: .neutral)) }
+        out.append(Line(text: strings.t("version.backup_first"), tone: .neutral))
+        return out
+    }
+
+    /// The confirmation's button is red for a downgrade or a hard type change.
+    public static func danger(_ report: VersionPreflight) -> Bool {
+        report.downgradeWarning || (report.typeChange && !report.gentleTypeChange)
+    }
+
+    /// The server won't start until Minecraft's EULA is agreed to.
+    public static func eulaNeeded(_ version: ServerVersion) -> Bool { version.eulaRequired }
+
+    /// The version set up but not yet confirmed by the console.
+    public static func pending(_ version: ServerVersion) -> String? { version.pendingVersion?["minecraft_version"]?.text }
+
+    public static func canRollBack(_ version: ServerVersion) -> Bool { version.lastChange?.canRollBack == true }
+
+    /// A version change or roll back running on this server now, to show
+    /// its progress when the screen is opened again.
+    public static func running(_ jobs: [Job], serverId: String) -> Job? {
+        jobs.first { KINDS.contains($0.kind) && $0.state == "running" && ($0.serverId == nil || $0.serverId == serverId) }
+    }
+}

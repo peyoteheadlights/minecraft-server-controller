@@ -1305,3 +1305,120 @@ class MemoryOverview(Open):
 
 class MemorySaved(MemoryOverview):
     ok: bool
+
+
+# ------------------------------------------------------------ server types and versions
+class ServerType(Open):
+    id: str
+    name: str
+    edition: str = "java"
+    content: str | None = None
+    ease: str | None = None
+    snapshots: bool = False
+    picks_loader: bool = False
+    loader_name: str | None = None
+    latest_only: bool = False
+    takes_memory_limit: bool = True
+    crossplay: bool = False
+    has_content: bool = False
+    recommended: bool = False
+
+
+class ServerTypes(Open):
+    types: list[ServerType]
+    recommended: str
+    default: str
+
+
+class OfferedVersion(Open):
+    minecraft: str
+    stable: bool = True
+    loaders: list[str] = []
+    java_required: int | None = Field(None, description="The oldest Java it runs on; null when unknown")
+    kept: bool = False
+    latest: bool = False
+
+
+class TypeVersions(Open):
+    type: str
+    type_name: str
+    latest_only: bool = False
+    snapshots: bool = False
+    picks_loader: bool = False
+    loader_name: str | None = None
+    latest_stable: str | None = None
+    versions: list[OfferedVersion]
+    source_problem: str | None = None
+
+
+class LastVersionChange(Open):
+    at: float | None = None
+    type: str | None = None
+    previous_type: str | None = None
+    minecraft_version: str | None = None
+    can_roll_back: bool = False
+
+
+class ServerVersion(Open):
+    """One server's type and version as its console reported them; null
+    means Unknown, never a guess from a file name."""
+
+    type: str
+    capabilities: ServerType
+    minecraft_version: str | None = None
+    minecraft_version_source: str | None = None
+    loader_version: str | None = None
+    loader_name: str | None = None
+    detected_type: str | None = None
+    pending_version: dict[str, Any] | None = None
+    eula_required: bool = False
+    eula_url: str
+    last_change: LastVersionChange | None = None
+
+
+class PreflightSide(Open):
+    type: str
+    type_name: str
+    minecraft_version: str | None = None
+    loader_version: str | None = None
+
+
+class JavaCheck(Open):
+    verdict: str = Field(description="ok, incompatible, unknown or not_needed")
+    detail: str | None = None
+
+
+class VersionPreflight(Open):
+    """What a version or type change would do, before anything happens."""
+
+    current: PreflightSide
+    target: PreflightSide
+    type_change: bool
+    gentle_type_change: bool
+    direction: str
+    downgrade_warning: bool
+    java: JavaCheck
+    java_required: int | None = None
+    moved_aside: list[str] = []
+    unknown_support: list[str] = []
+    not_supporting: list[str] = []
+    crossplay: bool = False
+    crossplay_available: bool = False
+
+
+class VersionChanged(Open):
+    ok: bool
+    job_id: str
+    verified: bool | None = None
+    crossplay_turned_off: bool | None = None
+
+
+class VersionRolledBack(Open):
+    ok: bool
+    job_id: str
+    type: str
+
+
+class EulaAccepted(Open):
+    ok: bool
+    url: str

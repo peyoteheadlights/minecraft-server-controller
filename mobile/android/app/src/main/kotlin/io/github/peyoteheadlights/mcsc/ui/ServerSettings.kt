@@ -38,6 +38,7 @@ import io.github.peyoteheadlights.mcsc.core.CpuCores
 import io.github.peyoteheadlights.mcsc.core.Memory
 import io.github.peyoteheadlights.mcsc.core.ServerColors
 import io.github.peyoteheadlights.mcsc.core.ServerForm
+import io.github.peyoteheadlights.mcsc.core.VersionChange
 
 /**
  * Server settings: how Command Block runs this server (Game settings are
@@ -51,10 +52,12 @@ fun ServerSettingsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit)
     val setup = vm.pages(serverId).setup
     val strings = vm.strings
     val canEdit = ServerForm.editable(vm.me)
+    var asking by remember { mutableStateOf<VersionAsk?>(null) }
     LaunchedEffect(serverId) {
         setup.clearSaid()
         setup.loadSettings()
         setup.loadMemory()
+        setup.loadVersion()
     }
 
     ServerFrame(
@@ -65,6 +68,31 @@ fun ServerSettingsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit)
         onRefresh = {
             setup.loadSettings()
             setup.loadMemory()
+            setup.loadVersion()
+        },
+        overlay = {
+            when (asking) {
+                VersionAsk.CHANGE -> setup.report?.value?.let { checked ->
+                    Confirm(
+                        t("version.confirm_title", "name" to VersionChange.target(checked)), t("version.confirm_body"), t("version.confirm_button"),
+                        danger = VersionChange.danger(checked),
+                        onConfirm = {
+                            asking = null
+                            setup.changeVersion(strings)
+                        },
+                        onDismiss = { asking = null },
+                    )
+                }
+                VersionAsk.ROLL_BACK -> Confirm(
+                    t("version.back_title"), t("version.back_body"), t("version.back_button"), danger = false,
+                    onConfirm = {
+                        asking = null
+                        setup.rollBack(strings)
+                    },
+                    onDismiss = { asking = null },
+                )
+                null -> Unit
+            }
         },
     ) {
         val read = setup.settings
@@ -128,6 +156,8 @@ fun ServerSettingsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit)
         item { SaidNote(setup.said) }
         item { SectionTitle(t("serverset.cpu")) }
         item { Card { CoresCard(vm, setup, canEdit) } }
+        item { SectionTitle(t("version.title")) }
+        item { Card { VersionCard(vm, setup, canEdit) { asking = it } } }
         item { SectionTitle(t("memory.title")) }
         item { Card { MemoryCard(vm, setup, canEdit, bedrock = vm.servers.list.firstOrNull { it.id == serverId }?.edition == "bedrock") } }
     }

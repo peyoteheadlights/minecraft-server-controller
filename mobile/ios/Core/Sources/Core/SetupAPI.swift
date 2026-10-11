@@ -30,6 +30,46 @@ extension AgentClient {
         return try await call("PUT", setup(serverId) + "/color", body: body, as: ColorSaved.self)
     }
 
+    public func serverTypes() async throws -> ServerTypes {
+        try await call("GET", "/api/server-types", as: ServerTypes.self)
+    }
+
+    /// The versions a type offers, from its official source (read through the PC).
+    public func typeVersions(typeId: String) async throws -> TypeVersions {
+        try await call("GET", "/api/server-types/" + AgentClient.pathSegment(typeId) + "/versions", slow: true, as: TypeVersions.self)
+    }
+
+    public func serverVersion(serverId: String) async throws -> ServerVersion {
+        try await call("GET", setup(serverId) + "/version", as: ServerVersion.self)
+    }
+
+    /// What a change would do, before anything happens.
+    public func versionPreflight(serverId: String, type: String, minecraft: String, loader: String?) async throws -> VersionPreflight {
+        let body = try versionBody(type: type, minecraft: minecraft, loader: loader, confirm: false)
+        return try await call("POST", setup(serverId) + "/version/preflight", body: body, slow: true, as: VersionPreflight.self)
+    }
+
+    /// Stops the server, takes a backup, installs and checks; answers once done.
+    public func changeVersion(serverId: String, type: String, minecraft: String, loader: String?) async throws -> VersionChanged {
+        let body = try versionBody(type: type, minecraft: minecraft, loader: loader, confirm: true)
+        return try await call("POST", setup(serverId) + "/version", body: body, slow: true, as: VersionChanged.self)
+    }
+
+    public func rollBackVersion(serverId: String) async throws -> VersionRolledBack {
+        try await call("POST", setup(serverId) + "/version/roll-back", body: Data("{}".utf8), slow: true, as: VersionRolledBack.self)
+    }
+
+    /// Only ever sent from the person's own tick.
+    public func acceptEula(serverId: String) async throws -> EulaAccepted {
+        try await call("POST", setup(serverId) + "/eula", body: Data("{}".utf8), as: EulaAccepted.self)
+    }
+
+    private func versionBody(type: String, minecraft: String, loader: String?, confirm: Bool) throws -> Data {
+        var body: [String: JSONValue] = ["type": .string(type), "minecraft_version": .string(minecraft), "confirm": .bool(confirm)]
+        if let loader { body["loader_version"] = .string(loader) }
+        return try AgentClient.encode(body)
+    }
+
     private func setup(_ id: String) -> String {
         "/api/servers/" + AgentClient.pathSegment(id)
     }

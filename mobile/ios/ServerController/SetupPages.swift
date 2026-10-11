@@ -196,4 +196,154 @@ final class SetupPages {
             said = Said(text: problem.message(strings), good: false)
         } catch {}
     }
+
+    // MARK: - Version and type
+
+    private(set) var version = PageRead<ServerVersion>()
+    /// This edition's kinds, read when the changer is opened.
+    private(set) var types: [ServerTypeInfo] = []
+    private(set) var versions = PageRead<TypeVersions>()
+    private(set) var pickedType: String? = nil
+    private(set) var pickedVersion: String? = nil
+    private(set) var pickedLoader: String? = nil
+    var snapshots = false
+    /// The check's report for the picked version; the change needs one.
+    private(set) var report: PageRead<VersionPreflight>? = nil
+    /// A version change or roll back running now, from the live feed or
+    /// found again when the screen opens.
+    private(set) var task: Job? = nil
+
+    func loadVersion() async {
+        guard let client = client() else { return }
+        version.loading = true
+        do {
+            version = PageRead(value: try await client.serverVersion(serverId: serverId))
+        } catch let problem as AgentError {
+            noted(problem)
+            version = PageRead(problem: problem)
+        } catch {
+            version.loading = false
+        }
+        // Left while it ran: its progress is shown again.
+        if busy == nil, let jobs = try? await client.jobs(serverId: serverId, limit: 10) {
+            task = VersionChange.running(jobs.jobs, serverId: serverId)
+        }
+    }
+
+    func onTask(_ job: Job) {
+        guard VersionChange.KINDS.contains(job.kind), job.serverId == serverId else { return }
+        task = job.state == "running" ? job : nil
+        if job.state != "running" && busy == nil {
+            Task { await loadVersion() }
+        }
+    }
+
+    /// Opens the changer: this edition's kinds and the current kind's versions.
+    func openChanger() async {
+        guard let client = client(), let current = version.value else { return }
+        if pickedType == nil { await pickType(current.type) }
+        do {
+            types = VersionChange.sameEdition(try await client.serverTypes().types, current)
+        } catch let problem as AgentError {
+            noted(problem)
+        } catch {}
+    }
+
+    func pickType(_ id: String) async {
+        guard let client = client() else { return }
+        pickedType = id
+        pickedVersion = nil
+        pickedLoader = nil
+        report = nil
+        versions = PageRead(loading: true)
+        do {
+            let read = try await client.typeVersions(typeId: id)
+            pickedVersion = read.latestStable ?? read.versions.first?.minecraft
+            pickedLoader = read.versions.first { $0.minecraft == pickedVersion }?.loaders.first
+            versions = PageRead(value: read)
+        } catch let problem as AgentError {
+            noted(problem)
+            versions = PageRead(problem: problem)
+        } catch {
+            versions.loading = false
+        }
+    }
+
+    func pickVersion(_ minecraft: String) {
+        pickedVersion = minecraft
+        pickedLoader = versions.value?.versions.first { $0.minecraft == minecraft }?.loaders.first
+        report = nil
+    }
+
+    func pickLoader(_ loader: String) {
+        pickedLoader = loader
+        report = nil
+    }
+
+    func check() async {
+        guard let client = client(), let type = pickedType, let minecraft = pickedVersion else { return }
+        report = PageRead(loading: true)
+        do {
+            report = PageRead(value: try await client.versionPreflight(serverId: serverId, type: type, minecraft: minecraft, loader: pickedLoader))
+        } catch let problem as AgentError {
+            noted(problem)
+            report = PageRead(problem: problem)
+        } catch {
+            report = nil
+        }
+    }
+
+    /// After the one confirmation: the server stops, a backup is taken,
+    /// and the change runs as a task.
+    func changeVersion(_ strings: Strings) async {
+        guard let checked = report?.value, let type = pickedType, let minecraft = pickedVersion,
+              let client = client(), busy == nil else { return }
+        busy = "version"
+        said = nil
+        do {
+            let done = try await client.changeVersion(serverId: serverId, type: type, minecraft: minecraft, loader: pickedLoader)
+            var notes = [strings.t("version.changed", ["version": VersionChange.target(checked)])]
+            if done.verified == false { notes.append(strings.t("new.unverified")) }
+            if done.crossplayTurnedOff == true { notes.append(strings.t("version.crossplay_off")) }
+            said = Said(text: notes.joined(separator: " "), good: true)
+            report = nil
+            await listChanged()
+        } catch let problem as AgentError {
+            noted(problem)
+            said = Said(text: problem.message(strings), good: false)
+        } catch {}
+        busy = nil
+        task = nil
+        await loadVersion()
+    }
+
+    func rollBack(_ strings: Strings) async {
+        await versionWork("roll_back", strings) { client, id in
+            _ = try await client.rollBackVersion(serverId: id)
+            return Said(text: strings.t("version.went_back"), good: true)
+        }
+    }
+
+    /// Only from the person's own tick.
+    func acceptEula(_ strings: Strings) async {
+        await versionWork("eula", strings) { client, id in
+            _ = try await client.acceptEula(serverId: id)
+            return Said(text: strings.t("version.eula_done"), good: true)
+        }
+    }
+
+    private func versionWork(_ name: String, _ strings: Strings, _ call: (AgentClient, String) async throws -> Said) async {
+        guard let client = client(), busy == nil else { return }
+        busy = name
+        said = nil
+        do {
+            said = try await call(client, serverId)
+        } catch let problem as AgentError {
+            noted(problem)
+            said = Said(text: problem.message(strings), good: false)
+        } catch {}
+        busy = nil
+        task = nil
+        await loadVersion()
+    }
 }

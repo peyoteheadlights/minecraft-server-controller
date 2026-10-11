@@ -269,5 +269,10 @@
   "mobile.serverset.autostart_hint": ["Only when Command Block itself starts with the PC.", "autostart_minecraft: starts when the agent starts."],
   "mobile.serverset.color_hint": ["Or type one as # and six letters or numbers, like #3366CC.", "Custom hex, #RRGGBB."],
   "mobile.serverset.color_bad": ["That isn't a color. Type # and six letters or numbers.", "Not a #RRGGBB hex value."],
-  "mobile.serverset.save": ["Save", "Save"]
+  "mobile.serverset.save": ["Save", "Save"],
+
+  "mobile.version.working": ["Changing… {step}", "Running: {step}"],
+  "mobile.version.working_plain": ["Changing… The server is stopped while this runs.", "Running."],
+  "mobile.version.leave_ok": ["You can leave this screen or close the app. The change carries on, and this screen shows it when you come back.", "The task continues on the PC; progress is shown here when you return."],
+  "mobile.version.pick": ["Pick a version", "Select version"]
 }

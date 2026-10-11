@@ -484,6 +484,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         is LiveSignal.Task -> signal.serverId?.let { pagesBy[it] }?.let { pages ->
                             pages.content.onTask(signal.job)
                             pages.world.onTask(signal.job)
+                            pages.setup.onTask(signal.job)
                         }
                         is LiveSignal.Closed -> {
                             live = false

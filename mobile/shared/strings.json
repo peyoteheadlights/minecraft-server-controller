@@ -7258,5 +7258,21 @@
  "mobile.serverset.save": [
   "Save",
   "Save"
+ ],
+ "mobile.version.working": [
+  "Changing… {step}",
+  "Running: {step}"
+ ],
+ "mobile.version.working_plain": [
+  "Changing… The server is stopped while this runs.",
+  "Running."
+ ],
+ "mobile.version.leave_ok": [
+  "You can leave this screen or close the app. The change carries on, and this screen shows it when you come back.",
+  "The task continues on the PC; progress is shown here when you return."
+ ],
+ "mobile.version.pick": [
+  "Pick a version",
+  "Select version"
  ]
 }

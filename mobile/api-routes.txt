@@ -97,3 +97,10 @@ PUT /api/servers/{server_id}/settings
 PUT /api/servers/{server_id}/color
 GET /api/servers/{server_id}/memory
 PUT /api/servers/{server_id}/memory
+GET /api/server-types
+GET /api/server-types/{type_id}/versions
+GET /api/servers/{server_id}/version
+POST /api/servers/{server_id}/version/preflight
+POST /api/servers/{server_id}/version
+POST /api/servers/{server_id}/version/roll-back
+POST /api/servers/{server_id}/eula

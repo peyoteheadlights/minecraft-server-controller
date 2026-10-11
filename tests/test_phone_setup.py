@@ -73,3 +73,10 @@ def test_memory_answer_is_typed_and_bounded_by_the_pc(signed_in):
     saved = signed_in.put("/api/servers/test/memory", json={"memory_mb": 2048}).json()
     assert saved["ok"] is True
     assert saved["limit_mb"] == 2048
+
+
+def test_the_version_answer_says_where_the_eula_is(signed_in):
+    body = signed_in.get("/api/servers/test/version").json()
+    assert body["eula_url"] == "https://aka.ms/MinecraftEULA"
+    assert body["minecraft_version"] is None  # not seen in the console yet: Unknown
+    assert body["capabilities"]["name"]

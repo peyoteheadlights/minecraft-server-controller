@@ -248,3 +248,72 @@ object Memory {
         else -> strings.t("memory.pc_unknown")
     }
 }
+
+/**
+ * Changing a server's version or type: checked first (what might break),
+ * one confirmation (the server stops and a backup is taken first), then a
+ * task with progress. Roll back puts the previous software back.
+ */
+object VersionChange {
+    /** A line of the check's report, and how loud it is. */
+    data class Line(val text: String, val tone: Tone)
+
+    val KINDS = setOf("version_change", "version_rollback")
+
+    /** Java and Bedrock worlds differ, so only this edition's kinds are offered. */
+    fun sameEdition(types: List<ServerTypeInfo>, current: ServerVersion): List<ServerTypeInfo> =
+        types.filter { it.edition == current.capabilities.edition }
+
+    /** The versions to pick from: snapshots only when asked for. */
+    fun choices(versions: TypeVersions, snapshots: Boolean): List<OfferedVersion> =
+        if (snapshots) versions.versions else versions.versions.filter { it.stable }
+
+    /** What the server is now: "Fabric 1.21.1", or that it isn't known yet. */
+    fun now(strings: Strings, version: ServerVersion): String =
+        version.minecraftVersion?.let { "${version.capabilities.name} $it" } ?: strings.t("version.not_seen_yet")
+
+    /** "Fabric 1.21.4", for the check and the confirmation. */
+    fun target(report: VersionPreflight): String = "${report.target.typeName} ${report.target.minecraftVersion.orEmpty()}".trim()
+
+    /** What the check found, loudest first; then that a backup comes first. */
+    fun lines(strings: Strings, report: VersionPreflight): List<Line> {
+        val out = mutableListOf<Line>()
+        if (report.java.verdict == "incompatible") out += Line(report.java.detail ?: strings.t("value.unknown"), Tone.DANGER)
+        if (report.downgradeWarning) out += Line(strings.t("version.downgrade"), Tone.WARNING)
+        if (report.typeChange) {
+            out += if (report.gentleTypeChange) Line(strings.t("version.type_change_gentle"), Tone.NEUTRAL)
+            else Line(strings.t("version.type_change", "from" to report.current.typeName, "to" to report.target.typeName), Tone.WARNING)
+        }
+        if (report.crossplay && !report.crossplayAvailable) out += Line(strings.t("version.crossplay_lost"), Tone.WARNING)
+        if (report.notSupporting.isNotEmpty()) {
+            out += Line(strings.t("version.not_supporting", "count" to report.notSupporting.size, "version" to report.target.minecraftVersion) +
+                " " + report.notSupporting.take(8).joinToString(", "), Tone.WARNING)
+        }
+        if (report.movedAside.isNotEmpty()) {
+            out += Line(strings.t("version.moved_aside", "count" to report.movedAside.size) + " " + strings.t("version.moved_aside_note"), Tone.WARNING)
+        }
+        if (report.unknownSupport.isNotEmpty()) {
+            out += Line(strings.t("version.unknown_support", "count" to report.unknownSupport.size) + " " + strings.t("version.unknown_support_note"), Tone.NEUTRAL)
+        }
+        if (report.java.verdict == "unknown") out += Line(strings.t("version.java_unknown"), Tone.NEUTRAL)
+        out += Line(strings.t("version.backup_first"), Tone.NEUTRAL)
+        return out
+    }
+
+    /** The confirmation's button is red for a downgrade or a hard type change. */
+    fun danger(report: VersionPreflight): Boolean = report.downgradeWarning || (report.typeChange && !report.gentleTypeChange)
+
+    /** The server won't start until Minecraft's EULA is agreed to. */
+    fun eulaNeeded(version: ServerVersion): Boolean = version.eulaRequired
+
+    /** The version set up but not yet confirmed by the console. */
+    fun pending(version: ServerVersion): String? =
+        (version.pendingVersion?.get("minecraft_version") as? JsonPrimitive)?.contentOrNull
+
+    fun canRollBack(version: ServerVersion): Boolean = version.lastChange?.canRollBack == true
+
+    /** A version change or roll back running on this server now, to show
+     * its progress when the screen is opened again. */
+    fun running(jobs: List<Job>, serverId: String): Job? =
+        jobs.firstOrNull { it.kind in KINDS && it.state == "running" && (it.serverId == null || it.serverId == serverId) }
+}

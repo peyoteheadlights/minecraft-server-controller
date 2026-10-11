@@ -318,3 +318,419 @@ public struct MemoryOverview: Decodable, Equatable, Sendable {
         running = c.value(.running, false)
     }
 }
+
+/// One kind of server, with what it can do (agent/servertypes).
+public struct ServerTypeInfo: Decodable, Equatable, Sendable {
+    public var id: String
+    public var name: String
+    public var edition: String
+    public var content: String?
+    public var ease: String?
+    public var snapshots: Bool
+    public var picksLoader: Bool
+    public var loaderName: String?
+    public var latestOnly: Bool
+    public var takesMemoryLimit: Bool
+    public var crossplay: Bool
+    public var recommended: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, edition, content, ease, snapshots, crossplay, recommended
+        case picksLoader = "picks_loader"
+        case loaderName = "loader_name"
+        case latestOnly = "latest_only"
+        case takesMemoryLimit = "takes_memory_limit"
+    }
+
+    public init(id: String, name: String = "", edition: String = "java", content: String? = nil, ease: String? = nil, snapshots: Bool = false, picksLoader: Bool = false, loaderName: String? = nil, latestOnly: Bool = false, takesMemoryLimit: Bool = true, crossplay: Bool = false, recommended: Bool = false) {
+        self.id = id
+        self.name = name
+        self.edition = edition
+        self.content = content
+        self.ease = ease
+        self.snapshots = snapshots
+        self.picksLoader = picksLoader
+        self.loaderName = loaderName
+        self.latestOnly = latestOnly
+        self.takesMemoryLimit = takesMemoryLimit
+        self.crossplay = crossplay
+        self.recommended = recommended
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        name = c.value(.name, "")
+        edition = c.value(.edition, "java")
+        content = c.maybe(.content)
+        ease = c.maybe(.ease)
+        snapshots = c.value(.snapshots, false)
+        picksLoader = c.value(.picksLoader, false)
+        loaderName = c.maybe(.loaderName)
+        latestOnly = c.value(.latestOnly, false)
+        takesMemoryLimit = c.value(.takesMemoryLimit, true)
+        crossplay = c.value(.crossplay, false)
+        recommended = c.value(.recommended, false)
+    }
+}
+
+public struct ServerTypes: Decodable, Equatable, Sendable {
+    public var types: [ServerTypeInfo]
+    public var recommended: String
+    public var defaultType: String
+
+    enum CodingKeys: String, CodingKey {
+        case types, recommended
+        case defaultType = "default"
+    }
+
+    public init(types: [ServerTypeInfo] = [], recommended: String = "", defaultType: String = "") {
+        self.types = types
+        self.recommended = recommended
+        self.defaultType = defaultType
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        types = c.each(.types)
+        recommended = c.value(.recommended, "")
+        defaultType = c.value(.defaultType, "")
+    }
+}
+
+/// One Minecraft version a type offers.
+public struct OfferedVersion: Decodable, Equatable, Sendable {
+    public var minecraft: String
+    public var stable: Bool
+    public var loaders: [String]
+    public var javaRequired: Int?
+    public var kept: Bool
+    public var latest: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case minecraft, stable, loaders, kept, latest
+        case javaRequired = "java_required"
+    }
+
+    public init(minecraft: String, stable: Bool = true, loaders: [String] = [], javaRequired: Int? = nil, kept: Bool = false, latest: Bool = false) {
+        self.minecraft = minecraft
+        self.stable = stable
+        self.loaders = loaders
+        self.javaRequired = javaRequired
+        self.kept = kept
+        self.latest = latest
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        minecraft = try c.decode(String.self, forKey: .minecraft)
+        stable = c.value(.stable, true)
+        loaders = c.value(.loaders, [])
+        javaRequired = c.maybe(.javaRequired)
+        kept = c.value(.kept, false)
+        latest = c.value(.latest, false)
+    }
+}
+
+public struct TypeVersions: Decodable, Equatable, Sendable {
+    public var type: String
+    public var typeName: String
+    public var latestOnly: Bool
+    public var snapshots: Bool
+    public var picksLoader: Bool
+    public var loaderName: String?
+    public var latestStable: String?
+    public var versions: [OfferedVersion]
+    public var sourceProblem: String?
+
+    enum CodingKeys: String, CodingKey {
+        case type, snapshots, versions
+        case typeName = "type_name"
+        case latestOnly = "latest_only"
+        case picksLoader = "picks_loader"
+        case loaderName = "loader_name"
+        case latestStable = "latest_stable"
+        case sourceProblem = "source_problem"
+    }
+
+    public init(type: String = "", typeName: String = "", latestOnly: Bool = false, snapshots: Bool = false, picksLoader: Bool = false, loaderName: String? = nil, latestStable: String? = nil, versions: [OfferedVersion] = [], sourceProblem: String? = nil) {
+        self.type = type
+        self.typeName = typeName
+        self.latestOnly = latestOnly
+        self.snapshots = snapshots
+        self.picksLoader = picksLoader
+        self.loaderName = loaderName
+        self.latestStable = latestStable
+        self.versions = versions
+        self.sourceProblem = sourceProblem
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        type = c.value(.type, "")
+        typeName = c.value(.typeName, "")
+        latestOnly = c.value(.latestOnly, false)
+        snapshots = c.value(.snapshots, false)
+        picksLoader = c.value(.picksLoader, false)
+        loaderName = c.maybe(.loaderName)
+        latestStable = c.maybe(.latestStable)
+        versions = c.each(.versions)
+        sourceProblem = c.maybe(.sourceProblem)
+    }
+}
+
+public struct LastVersionChange: Decodable, Equatable, Sendable {
+    public var at: Double?
+    public var type: String?
+    public var minecraftVersion: String?
+    public var canRollBack: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case at, type
+        case minecraftVersion = "minecraft_version"
+        case canRollBack = "can_roll_back"
+    }
+
+    public init(at: Double? = nil, type: String? = nil, minecraftVersion: String? = nil, canRollBack: Bool = false) {
+        self.at = at
+        self.type = type
+        self.minecraftVersion = minecraftVersion
+        self.canRollBack = canRollBack
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        at = c.maybe(.at)
+        type = c.maybe(.type)
+        minecraftVersion = c.maybe(.minecraftVersion)
+        canRollBack = c.value(.canRollBack, false)
+    }
+}
+
+/// A server's type and version as its console reported them; nil is Unknown.
+public struct ServerVersion: Decodable, Equatable, Sendable {
+    public var type: String
+    public var capabilities: ServerTypeInfo
+    public var minecraftVersion: String?
+    public var minecraftVersionSource: String?
+    public var loaderVersion: String?
+    public var loaderName: String?
+    public var detectedType: String?
+    public var pendingVersion: [String: JSONValue]?
+    public var eulaRequired: Bool
+    public var eulaUrl: String
+    public var lastChange: LastVersionChange?
+
+    enum CodingKeys: String, CodingKey {
+        case type, capabilities
+        case minecraftVersion = "minecraft_version"
+        case minecraftVersionSource = "minecraft_version_source"
+        case loaderVersion = "loader_version"
+        case loaderName = "loader_name"
+        case detectedType = "detected_type"
+        case pendingVersion = "pending_version"
+        case eulaRequired = "eula_required"
+        case eulaUrl = "eula_url"
+        case lastChange = "last_change"
+    }
+
+    public init(type: String = "", capabilities: ServerTypeInfo = ServerTypeInfo(id: ""), minecraftVersion: String? = nil, minecraftVersionSource: String? = nil, loaderVersion: String? = nil, loaderName: String? = nil, detectedType: String? = nil, pendingVersion: [String: JSONValue]? = nil, eulaRequired: Bool = false, eulaUrl: String = "", lastChange: LastVersionChange? = nil) {
+        self.type = type
+        self.capabilities = capabilities
+        self.minecraftVersion = minecraftVersion
+        self.minecraftVersionSource = minecraftVersionSource
+        self.loaderVersion = loaderVersion
+        self.loaderName = loaderName
+        self.detectedType = detectedType
+        self.pendingVersion = pendingVersion
+        self.eulaRequired = eulaRequired
+        self.eulaUrl = eulaUrl
+        self.lastChange = lastChange
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        type = c.value(.type, "")
+        capabilities = c.value(.capabilities, ServerTypeInfo(id: ""))
+        minecraftVersion = c.maybe(.minecraftVersion)
+        minecraftVersionSource = c.maybe(.minecraftVersionSource)
+        loaderVersion = c.maybe(.loaderVersion)
+        loaderName = c.maybe(.loaderName)
+        detectedType = c.maybe(.detectedType)
+        pendingVersion = c.maybe(.pendingVersion)
+        eulaRequired = c.value(.eulaRequired, false)
+        eulaUrl = c.value(.eulaUrl, "")
+        lastChange = c.maybe(.lastChange)
+    }
+}
+
+public struct PreflightSide: Decodable, Equatable, Sendable {
+    public var type: String
+    public var typeName: String
+    public var minecraftVersion: String?
+    public var loaderVersion: String?
+
+    enum CodingKeys: String, CodingKey {
+        case type
+        case typeName = "type_name"
+        case minecraftVersion = "minecraft_version"
+        case loaderVersion = "loader_version"
+    }
+
+    public init(type: String = "", typeName: String = "", minecraftVersion: String? = nil, loaderVersion: String? = nil) {
+        self.type = type
+        self.typeName = typeName
+        self.minecraftVersion = minecraftVersion
+        self.loaderVersion = loaderVersion
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        type = c.value(.type, "")
+        typeName = c.value(.typeName, "")
+        minecraftVersion = c.maybe(.minecraftVersion)
+        loaderVersion = c.maybe(.loaderVersion)
+    }
+}
+
+public struct JavaCheck: Decodable, Equatable, Sendable {
+    public var verdict: String
+    public var detail: String?
+
+    enum CodingKeys: String, CodingKey {
+        case verdict, detail
+    }
+
+    public init(verdict: String = "unknown", detail: String? = nil) {
+        self.verdict = verdict
+        self.detail = detail
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        verdict = c.value(.verdict, "unknown")
+        detail = c.maybe(.detail)
+    }
+}
+
+/// What a version or type change would do, before anything happens.
+public struct VersionPreflight: Decodable, Equatable, Sendable {
+    public var current: PreflightSide
+    public var target: PreflightSide
+    public var typeChange: Bool
+    public var gentleTypeChange: Bool
+    public var downgradeWarning: Bool
+    public var java: JavaCheck
+    public var javaRequired: Int?
+    public var movedAside: [String]
+    public var unknownSupport: [String]
+    public var notSupporting: [String]
+    public var crossplay: Bool
+    public var crossplayAvailable: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case current, target, java, crossplay
+        case typeChange = "type_change"
+        case gentleTypeChange = "gentle_type_change"
+        case downgradeWarning = "downgrade_warning"
+        case javaRequired = "java_required"
+        case movedAside = "moved_aside"
+        case unknownSupport = "unknown_support"
+        case notSupporting = "not_supporting"
+        case crossplayAvailable = "crossplay_available"
+    }
+
+    public init(current: PreflightSide = PreflightSide(), target: PreflightSide = PreflightSide(), typeChange: Bool = false, gentleTypeChange: Bool = false, downgradeWarning: Bool = false, java: JavaCheck = JavaCheck(), javaRequired: Int? = nil, movedAside: [String] = [], unknownSupport: [String] = [], notSupporting: [String] = [], crossplay: Bool = false, crossplayAvailable: Bool = false) {
+        self.current = current
+        self.target = target
+        self.typeChange = typeChange
+        self.gentleTypeChange = gentleTypeChange
+        self.downgradeWarning = downgradeWarning
+        self.java = java
+        self.javaRequired = javaRequired
+        self.movedAside = movedAside
+        self.unknownSupport = unknownSupport
+        self.notSupporting = notSupporting
+        self.crossplay = crossplay
+        self.crossplayAvailable = crossplayAvailable
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        current = c.value(.current, PreflightSide())
+        target = c.value(.target, PreflightSide())
+        typeChange = c.value(.typeChange, false)
+        gentleTypeChange = c.value(.gentleTypeChange, false)
+        downgradeWarning = c.value(.downgradeWarning, false)
+        java = c.value(.java, JavaCheck())
+        javaRequired = c.maybe(.javaRequired)
+        movedAside = c.value(.movedAside, [])
+        unknownSupport = c.value(.unknownSupport, [])
+        notSupporting = c.value(.notSupporting, [])
+        crossplay = c.value(.crossplay, false)
+        crossplayAvailable = c.value(.crossplayAvailable, false)
+    }
+}
+
+public struct VersionChanged: Decodable, Equatable, Sendable {
+    public var jobId: String
+    public var verified: Bool?
+    public var crossplayTurnedOff: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case verified
+        case jobId = "job_id"
+        case crossplayTurnedOff = "crossplay_turned_off"
+    }
+
+    public init(jobId: String = "", verified: Bool? = nil, crossplayTurnedOff: Bool? = nil) {
+        self.jobId = jobId
+        self.verified = verified
+        self.crossplayTurnedOff = crossplayTurnedOff
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        jobId = c.value(.jobId, "")
+        verified = c.maybe(.verified)
+        crossplayTurnedOff = c.maybe(.crossplayTurnedOff)
+    }
+}
+
+public struct VersionRolledBack: Decodable, Equatable, Sendable {
+    public var jobId: String
+    public var type: String
+
+    enum CodingKeys: String, CodingKey {
+        case type
+        case jobId = "job_id"
+    }
+
+    public init(jobId: String = "", type: String = "") {
+        self.jobId = jobId
+        self.type = type
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        jobId = c.value(.jobId, "")
+        type = c.value(.type, "")
+    }
+}
+
+public struct EulaAccepted: Decodable, Equatable, Sendable {
+    public var url: String
+
+    enum CodingKeys: String, CodingKey {
+        case url
+    }
+
+    public init(url: String = "") {
+        self.url = url
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        url = c.value(.url, "")
+    }
+}

@@ -99,3 +99,122 @@ data class MemoryOverview(
     val servers: List<MemoryServer> = emptyList(),
     val running: Boolean = false,
 )
+
+/** One kind of server, with what it can do (agent/servertypes). */
+@Serializable
+data class ServerTypeInfo(
+    val id: String,
+    val name: String = "",
+    val edition: String = "java",
+    /** mods, plugins or null. */
+    val content: String? = null,
+    /** easy, medium or hard to set up. */
+    val ease: String? = null,
+    val snapshots: Boolean = false,
+    @SerialName("picks_loader") val picksLoader: Boolean = false,
+    @SerialName("loader_name") val loaderName: String? = null,
+    @SerialName("latest_only") val latestOnly: Boolean = false,
+    @SerialName("takes_memory_limit") val takesMemoryLimit: Boolean = true,
+    val crossplay: Boolean = false,
+    val recommended: Boolean = false,
+)
+
+@Serializable
+data class ServerTypes(
+    val types: List<ServerTypeInfo> = emptyList(),
+    val recommended: String = "",
+    val default: String = "",
+)
+
+/** One Minecraft version a type offers. */
+@Serializable
+data class OfferedVersion(
+    val minecraft: String,
+    val stable: Boolean = true,
+    val loaders: List<String> = emptyList(),
+    @SerialName("java_required") val javaRequired: Int? = null,
+    val kept: Boolean = false,
+    val latest: Boolean = false,
+)
+
+@Serializable
+data class TypeVersions(
+    val type: String = "",
+    @SerialName("type_name") val typeName: String = "",
+    @SerialName("latest_only") val latestOnly: Boolean = false,
+    val snapshots: Boolean = false,
+    @SerialName("picks_loader") val picksLoader: Boolean = false,
+    @SerialName("loader_name") val loaderName: String? = null,
+    @SerialName("latest_stable") val latestStable: String? = null,
+    val versions: List<OfferedVersion> = emptyList(),
+    @SerialName("source_problem") val sourceProblem: String? = null,
+)
+
+@Serializable
+data class LastVersionChange(
+    val at: Double? = null,
+    val type: String? = null,
+    @SerialName("minecraft_version") val minecraftVersion: String? = null,
+    @SerialName("can_roll_back") val canRollBack: Boolean = false,
+)
+
+/** A server's type and version as its console reported them; null is Unknown. */
+@Serializable
+data class ServerVersion(
+    val type: String = "",
+    val capabilities: ServerTypeInfo = ServerTypeInfo(id = ""),
+    @SerialName("minecraft_version") val minecraftVersion: String? = null,
+    @SerialName("minecraft_version_source") val minecraftVersionSource: String? = null,
+    @SerialName("loader_version") val loaderVersion: String? = null,
+    @SerialName("loader_name") val loaderName: String? = null,
+    @SerialName("detected_type") val detectedType: String? = null,
+    @SerialName("pending_version") val pendingVersion: JsonObject? = null,
+    @SerialName("eula_required") val eulaRequired: Boolean = false,
+    @SerialName("eula_url") val eulaUrl: String = "",
+    @SerialName("last_change") val lastChange: LastVersionChange? = null,
+)
+
+@Serializable
+data class PreflightSide(
+    val type: String = "",
+    @SerialName("type_name") val typeName: String = "",
+    @SerialName("minecraft_version") val minecraftVersion: String? = null,
+    @SerialName("loader_version") val loaderVersion: String? = null,
+)
+
+@Serializable
+data class JavaCheck(
+    /** ok, incompatible, unknown or not_needed. */
+    val verdict: String = "unknown",
+    val detail: String? = null,
+)
+
+/** What a version or type change would do, before anything happens. */
+@Serializable
+data class VersionPreflight(
+    val current: PreflightSide = PreflightSide(),
+    val target: PreflightSide = PreflightSide(),
+    @SerialName("type_change") val typeChange: Boolean = false,
+    @SerialName("gentle_type_change") val gentleTypeChange: Boolean = false,
+    @SerialName("downgrade_warning") val downgradeWarning: Boolean = false,
+    val java: JavaCheck = JavaCheck(),
+    @SerialName("java_required") val javaRequired: Int? = null,
+    @SerialName("moved_aside") val movedAside: List<String> = emptyList(),
+    @SerialName("unknown_support") val unknownSupport: List<String> = emptyList(),
+    @SerialName("not_supporting") val notSupporting: List<String> = emptyList(),
+    val crossplay: Boolean = false,
+    @SerialName("crossplay_available") val crossplayAvailable: Boolean = false,
+)
+
+@Serializable
+data class VersionChanged(
+    @SerialName("job_id") val jobId: String = "",
+    val verified: Boolean? = null,
+    @SerialName("crossplay_turned_off") val crossplayTurnedOff: Boolean? = null,
+)
+
+@Serializable
+data class VersionRolledBack(@SerialName("job_id") val jobId: String = "", val type: String = "")
+
+@Serializable
+data class EulaAccepted(val url: String = "")

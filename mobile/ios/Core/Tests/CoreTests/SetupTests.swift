@@ -223,4 +223,113 @@ final class SetupTests: XCTestCase {
         XCTAssertEqual(method(1), "PUT")
         XCTAssertEqual(body(1), #"{"memory_mb":4096}"#)
     }
+
+    // MARK: - Version and type
+
+    private let versionJSON = #"""
+    {"type": "fabric", "capabilities": {"id": "fabric", "name": "Fabric", "edition": "java", "content": "mods"},
+     "minecraft_version": "1.21.1", "minecraft_version_source": "console", "loader_version": "0.16.5", "loader_name": "Fabric Loader",
+     "detected_type": "fabric", "pending_version": null, "eula_required": true, "eula_url": "https://aka.ms/MinecraftEULA",
+     "last_change": {"at": 1.0, "type": "fabric", "previous_type": "fabric", "minecraft_version": "1.21.1", "can_roll_back": true, "install_log": null, "moved_aside": []}}
+    """#
+
+    private let preflightJSON = #"""
+    {"current": {"type": "fabric", "type_name": "Fabric", "minecraft_version": "1.21.1", "loader_version": "0.16.5", "observed": true},
+     "target": {"type": "paper", "type_name": "Paper", "minecraft_version": "1.20.4", "loader_version": null, "stable": true},
+     "type_change": true, "gentle_type_change": false, "direction": "older", "downgrade_warning": true,
+     "java": {"verdict": "unknown", "detail": "Java couldn't be checked on this PC."}, "java_required": 17,
+     "latest_only": false, "kept": false, "content_kind": "mods", "target_content_kind": "plugins", "content": [],
+     "moved_aside": ["sodium.jar", "lithium.jar"], "unknown_support": [], "not_supporting": [],
+     "backup_first": true, "crossplay": true, "crossplay_available": true}
+    """#
+
+    private func decode<T: Decodable>(_ type: T.Type, _ text: String) throws -> T {
+        try JSONDecoder().decode(type, from: Data(text.utf8))
+    }
+
+    func testTheVersionIsWhatTheConsoleSaidAndRollBackAndTheEulaFollowTheAgent() throws {
+        var version = try decode(ServerVersion.self, versionJSON)
+        XCTAssertEqual(VersionChange.now(s, version), "Fabric 1.21.1")
+        XCTAssertTrue(VersionChange.eulaNeeded(version))
+        XCTAssertTrue(VersionChange.canRollBack(version))
+        XCTAssertEqual(version.eulaUrl, "https://aka.ms/MinecraftEULA")
+        version.minecraftVersion = nil
+        version.eulaRequired = false
+        version.lastChange = nil
+        XCTAssertEqual(VersionChange.now(s, version), s.t("version.not_seen_yet"))
+        XCTAssertFalse(VersionChange.eulaNeeded(version))
+        XCTAssertFalse(VersionChange.canRollBack(version))
+    }
+
+    func testOnlyTheSameEditionsKindsAreOfferedAndSnapshotsOnlyWhenAsked() throws {
+        let version = try decode(ServerVersion.self, versionJSON)
+        let types = [ServerTypeInfo(id: "fabric", name: "Fabric"), ServerTypeInfo(id: "paper", name: "Paper"), ServerTypeInfo(id: "bedrock", name: "Bedrock", edition: "bedrock")]
+        XCTAssertEqual(VersionChange.sameEdition(types, version).map(\.id), ["fabric", "paper"])
+        let offered = TypeVersions(versions: [OfferedVersion(minecraft: "1.21.4"), OfferedVersion(minecraft: "25w01a", stable: false)])
+        XCTAssertEqual(VersionChange.choices(offered, snapshots: false).map(\.minecraft), ["1.21.4"])
+        XCTAssertEqual(VersionChange.choices(offered, snapshots: true).count, 2)
+    }
+
+    func testTheCheckSaysWhatMightBreakBeforeAnythingChanges() throws {
+        let report = try decode(VersionPreflight.self, preflightJSON)
+        let lines = VersionChange.lines(s, report)
+        XCTAssertEqual(lines[0].text, s.t("version.downgrade"))
+        XCTAssertEqual(lines[1].tone, .warning)
+        XCTAssertTrue(lines[1].text.hasPrefix("This changes the server from Fabric to Paper."))
+        XCTAssertTrue(lines.contains { $0.text.hasPrefix("2 add-ons don't fit") })
+        XCTAssertEqual(lines[lines.count - 2].text, s.t("version.java_unknown"))
+        XCTAssertEqual(lines.last?.text, s.t("version.backup_first"))
+        XCTAssertTrue(VersionChange.danger(report))
+        var gentle = report
+        gentle.downgradeWarning = false
+        gentle.gentleTypeChange = true
+        XCTAssertFalse(VersionChange.danger(gentle))
+        XCTAssertEqual(VersionChange.target(report), "Paper 1.20.4")
+        var incompatible = report
+        incompatible.java = JavaCheck(verdict: "incompatible", detail: "Minecraft 1.20.4 needs Java 17; this PC has Java 8.")
+        XCTAssertEqual(VersionChange.lines(s, incompatible).first?.tone, .danger)
+    }
+
+    func testARunningChangeIsFoundAgainWhenTheScreenOpens() {
+        let jobs = [
+            Job(id: "a", kind: "backup", state: "running", serverId: "s"),
+            Job(id: "b", kind: "version_change", state: "succeeded", serverId: "s"),
+            Job(id: "c", kind: "version_change", state: "running", serverId: "other"),
+            Job(id: "d", kind: "version_rollback", state: "running", step: "Putting the previous version back", serverId: "s"),
+        ]
+        XCTAssertEqual(VersionChange.running(jobs, serverId: "s")?.id, "d")
+        XCTAssertNil(VersionChange.running(Array(jobs.prefix(3)), serverId: "s"))
+    }
+
+    func testVersionRoutesAreCalledAsTheDashboardCallsThem() async throws {
+        let c = client()
+        StubAgent.json(#"{"types": [{"id": "fabric", "name": "Fabric", "edition": "java", "ease": "easy", "recommended": true}], "recommended": "fabric", "default": "fabric"}"#)
+        let types = try await c.serverTypes()
+        XCTAssertEqual(types.types.first?.id, "fabric")
+        XCTAssertEqual(path(0), "/api/server-types")
+        StubAgent.json(#"{"type": "fabric", "type_name": "Fabric", "latest_stable": "1.21.4", "versions": [{"minecraft": "1.21.4", "stable": true, "loaders": ["0.16.9"], "java_required": 21}], "source_problem": null}"#)
+        let offered = try await c.typeVersions(typeId: "fabric")
+        XCTAssertEqual(offered.versions.first?.javaRequired, 21)
+        XCTAssertEqual(path(1), "/api/server-types/fabric/versions")
+        StubAgent.json(versionJSON)
+        let version = try await c.serverVersion(serverId: "s")
+        XCTAssertTrue(version.eulaRequired)
+        StubAgent.json(preflightJSON)
+        let report = try await c.versionPreflight(serverId: "s", type: "paper", minecraft: "1.20.4", loader: nil)
+        XCTAssertTrue(report.typeChange)
+        XCTAssertEqual(path(3), "/api/servers/s/version/preflight")
+        XCTAssertEqual(body(3), #"{"confirm":false,"minecraft_version":"1.20.4","type":"paper"}"#)
+        StubAgent.json(#"{"ok": true, "job_id": "j1", "pending": true}"#)
+        let changed = try await c.changeVersion(serverId: "s", type: "fabric", minecraft: "1.21.4", loader: "0.16.9")
+        XCTAssertEqual(changed.jobId, "j1")
+        XCTAssertEqual(body(4), #"{"confirm":true,"loader_version":"0.16.9","minecraft_version":"1.21.4","type":"fabric"}"#)
+        StubAgent.json(#"{"ok": true, "job_id": "j2", "type": "fabric", "restored": []}"#)
+        let back = try await c.rollBackVersion(serverId: "s")
+        XCTAssertEqual(back.jobId, "j2")
+        XCTAssertEqual(path(5), "/api/servers/s/version/roll-back")
+        StubAgent.json(#"{"ok": true, "file": "C:\\s\\eula.txt", "url": "https://aka.ms/MinecraftEULA"}"#)
+        let eula = try await c.acceptEula(serverId: "s")
+        XCTAssertEqual(eula.url, "https://aka.ms/MinecraftEULA")
+        XCTAssertEqual(path(6), "/api/servers/s/eula")
+    }
 }

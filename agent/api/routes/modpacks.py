@@ -11,6 +11,7 @@ from ... import modpack
 from ...security.auth import Principal
 from ...security.permissions import MODS_MANAGE, SERVERS_MANAGE, SETTINGS_EDIT, require
 from ..deps import audit, get_core, get_server
+from ..responses import ModpackImported, ModpackInspected, Ok
 from .models import ModpackIntoRequest, ModpackNewRequest
 
 # Agent-wide: reading a pack, and making a new server from it.
@@ -21,7 +22,7 @@ router = APIRouter()
 CHUNK = 1024 * 1024
 
 
-@global_router.post("/modpacks/inspect")
+@global_router.post("/modpacks/inspect", response_model=ModpackInspected)
 async def inspect_modpack(
     request: Request,
     file: UploadFile = File(...),
@@ -56,7 +57,7 @@ async def inspect_modpack(
     return result
 
 
-@global_router.delete("/modpacks/{token}")
+@global_router.delete("/modpacks/{token}", response_model=Ok)
 async def forget_modpack(
     token: str, principal: Principal = Depends(require(MODS_MANAGE)), core=Depends(get_core)
 ):
@@ -88,7 +89,7 @@ async def modpack_new_server(
     return {"ok": True, **result}
 
 
-@router.post("/modpack")
+@router.post("/modpack", response_model=ModpackImported)
 async def modpack_into_server(
     payload: ModpackIntoRequest,
     request: Request,

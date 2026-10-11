@@ -801,3 +801,374 @@ class AddonResult(Open):
     ok: bool
     installed: list[Addon] = []
     restart_needed: bool | None = None
+
+
+# ------------------------------------------------------------ mods and plugins
+class ModIssue(Open):
+    kind: str
+    severity: str = Field(description="error, warn or info")
+    detail: str
+
+
+class ModUpdate(Open):
+    """A newer version found on Modrinth at the last check."""
+
+    mod_id: str
+    latest_version: str
+    version_id: str
+    installed_version: str | None = None
+
+
+class Mod(Open):
+    filename: str
+    mod_id: str
+    name: str
+    version: str
+    enabled: bool
+    description: str | None = None
+    size_bytes: int | None = None
+    minecraft_range: str | None = None
+    loader: str | None = None
+    environment: str | None = None
+    status: str | None = Field(None, description="ok, warn, error or disabled")
+    issues: list[ModIssue] = []
+    has_history: bool | None = None
+    update_available: ModUpdate | None = None
+
+
+class ModProblem(ModIssue):
+    mod: str | None = None
+    filename: str | None = None
+
+
+class ModList(Open):
+    mods: list[Mod]
+    problems: list[ModProblem] = []
+    minecraft_version: str | None = Field(
+        None, description="null until the server has started once"
+    )
+    server_state: str
+    updates_checked_at: float | None = None
+
+
+class ModChanged(Open):
+    """Turning a mod or plugin on or off."""
+
+    ok: bool
+    mod: Mod
+    changed: bool | None = None
+
+
+class ModDependent(Open):
+    name: str
+    mod_id: str
+    filename: str
+    requires: str | None = None
+
+
+class ModImpact(Open):
+    """What else needs a mod, before it is removed."""
+
+    dependents: list[ModDependent]
+    warning: str | None = None
+
+
+class ModRemoved(Open):
+    ok: bool
+    removed: dict[str, Any]
+    trash: str | None = Field(None, description="Where the file was kept")
+
+
+class ModUpdated(Open):
+    ok: bool
+    updated: dict[str, Any]
+    previous_version: str | None = None
+
+
+class ModVersion(Open):
+    """A copy of a mod kept on this server, which it can roll back to."""
+
+    version: str | None = None
+    filename: str
+    archive_path: str
+    created_at: float
+    is_current: bool
+    exists: bool = Field(description="False when the kept file has gone")
+
+
+class ModVersions(Open):
+    versions: list[ModVersion]
+
+
+class ModRolledBack(Open):
+    ok: bool
+    restored: dict[str, Any]
+    previous_version: str | None = None
+
+
+class ModHistoryRow(Open):
+    ts: float
+    user: str | None = None
+    action: str
+    mod_id: str | None = None
+    mod_name: str | None = None
+    old_version: str | None = None
+    new_version: str | None = None
+    result: str = Field(description="ok or failed")
+    detail: str | None = None
+
+
+class ModHistory(Open):
+    history: list[ModHistoryRow] = Field(description="Newest first")
+
+
+class ModrinthHit(Open):
+    project_id: str | None = None
+    slug: str | None = None
+    title: str | None = None
+    description: str | None = None
+    downloads: int | None = None
+    icon_url: str | None = Field(None, description="Loaded by the client straight from Modrinth")
+    page: str | None = None
+    server_side: str | None = None
+    client_side: str | None = None
+
+
+class ModSearch(Open):
+    hits: list[ModrinthHit]
+    total: int | None = None
+
+
+class ModrinthFile(Open):
+    filename: str | None = None
+    size: int | None = None
+
+
+class ModrinthDependency(Open):
+    project_id: str | None = None
+    type: str | None = Field(None, description="required, optional, incompatible or embedded")
+
+
+class ModrinthVersion(Open):
+    version_id: str | None = None
+    version_number: str | None = None
+    release_type: str | None = None
+    game_versions: list[str] = []
+    dependencies: list[ModrinthDependency] = []
+    file: ModrinthFile | None = None
+
+
+class ModrinthProject(Open):
+    project_id: str | None = None
+    slug: str | None = None
+    title: str | None = None
+    description: str | None = None
+    license: str | None = None
+    server_side: str | None = None
+    client_side: str | None = None
+    icon_url: str | None = None
+    page: str | None = None
+
+
+class ModProject(Open):
+    """A Modrinth project and its versions that fit this server."""
+
+    project: ModrinthProject
+    versions: list[ModrinthVersion]
+    installed: dict[str, Any] | None = None
+
+
+class DependencyNeeded(Open):
+    mod_id: str
+    title: str | None = None
+    installed: bool = False
+
+
+class ModInstalled(Open):
+    ok: bool
+    installed: dict[str, Any]
+    dependencies_required: list[DependencyNeeded] = []
+    dependencies_installed: list[dict[str, Any]] = []
+
+
+class DependencyItem(Open):
+    mod_id: str
+    name: str
+    kind: str = Field(description="required or optional")
+    platform: bool = Field(description="Minecraft, the loader or Java rather than a mod")
+    status: str | None = None
+    range_text: str | None = None
+    reason: str | None = None
+    modrinth: dict[str, Any] | None = Field(None, description="Its Modrinth page, when found")
+
+
+class DependencyReport(Open):
+    items: list[DependencyItem]
+    missing_required: list[str] = []
+    lookup_error: str | None = None
+
+
+class PlannedDependency(Open):
+    mod_id: str
+    title: str | None = None
+    version_number: str | None = None
+    size: int | None = None
+    page: str | None = None
+
+
+class UnresolvableDependency(Open):
+    mod_id: str
+    name: str | None = None
+    reason: str
+    page: str | None = Field(None, description="A page to get it by hand, when known")
+
+
+class DependencyPlan(Open):
+    """What installing the missing ones would download. Nothing is yet."""
+
+    items: list[PlannedDependency]
+    unresolvable: list[UnresolvableDependency] = []
+
+
+class DependencyResult(Open):
+    title: str
+    result: str = Field(description="installed, skipped or failed")
+    detail: str | None = None
+    version: str | None = None
+
+
+class DependencyInstall(Open):
+    results: list[DependencyResult]
+    still_missing: list[dict[str, Any]] = []
+
+
+class ModUploaded(Open):
+    ok: bool
+    installed: dict[str, Any]
+
+
+class UpdateAllRow(Open):
+    mod_id: str
+    name: str
+    filename: str
+    enabled: bool = Field(description="Turned-off ones are listed but not ticked first")
+    installed_version: str
+    latest_version: str
+    version_id: str
+
+
+class UpdateAllUnchecked(Open):
+    mod_id: str
+    name: str
+    filename: str
+    reason: str
+
+
+class UpdateAllPlan(Open):
+    """What Update all would change, checked on Modrinth just now."""
+
+    updates: list[UpdateAllRow]
+    unchecked: list[UpdateAllUnchecked] = Field(
+        description="Ones Modrinth couldn't be asked about, with the reason"
+    )
+    server_running: bool
+    blocked_by: str | None = Field(None, description="The task holding the server, if any")
+    checked_at: float
+
+
+class UpdateAllDone(Open):
+    mod_id: str
+    name: str
+    filename: str
+    previous_version: str
+    version: str
+
+
+class UpdateAllResult(Open):
+    ok: bool
+    job_id: str
+    updated: list[UpdateAllDone]
+    safety_backup: SafetyBackup | None = Field(None, description="The one backup made first")
+    undo: Undo | None = None
+
+
+# ------------------------------------------------------------ modpacks
+class ModpackFile(Open):
+    name: str
+    path: str | None = None
+    size: int | None = None
+    status: str = Field(description="download, client_only or refused")
+    reason: str | None = None
+
+
+class Modpack(Open):
+    name: str
+    version: str | None = None
+    summary: str | None = None
+    minecraft_version: str | None = None
+    type: str | None = None
+    type_name: str | None = None
+    loader_version: str | None = None
+    files: list[ModpackFile] = []
+    download_count: int = 0
+    download_bytes: int = 0
+    client_only: list[str] = []
+    skipped_overrides: list[str] = []
+    problems: list[str] = []
+    can_import: bool
+
+
+class ModpackInto(Open):
+    version_change: bool
+    running: bool | None = None
+
+
+class ModpackInspected(Open):
+    token: str
+    pack: Modpack
+    into: ModpackInto | None = Field(None, description="What importing into server_id would do")
+
+
+class ModpackImported(Open):
+    ok: bool
+    job_id: str | None = None
+    modpack: dict[str, Any]
+    version_change: bool | None = None
+    undo: Undo | None = None
+
+
+# ------------------------------------------------------------ game settings
+class GameSetting(Open):
+    key: str
+    kind: str = Field(description="choice, bool, int, text, port or seed")
+    value: Any = Field(None, description="What the file says, typed; null when unset or unreadable")
+    set: bool
+    problem: str | None = Field(None, description="Why the file's value couldn't be read")
+    minecraft_default: str
+    choices: list[str] = []
+    min: int | None = None
+    max: int | None = None
+    max_length: int | None = None
+    read_only: str | None = Field(
+        None, description='"world_exists" for the seed once there is a world'
+    )
+
+
+class GameSettings(Open):
+    file: str
+    exists: bool
+    world_exists: bool
+    fields: list[GameSetting]
+    running: bool
+    restart_needed: bool
+
+
+class GameSettingsSaved(Open):
+    ok: bool
+    changed: dict[str, Any] = {}
+    keys: list[str] = []
+    nothing_changed: bool | None = None
+    safety_backup: str | None = Field(None, description="The backup of the old file, by name")
+    undo: Undo | None = None
+    running: bool
+    restart_needed: bool

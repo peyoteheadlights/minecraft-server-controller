@@ -730,6 +730,41 @@ class ModManager:
         self.db.set_setting("mod_updates_checked_at", time.time())
         return updates
 
+    async def update_plan(self) -> dict[str, Any]:
+        """What "Update all" would change: every mod or plugin, turned off
+        ones too, that Modrinth has a newer version of. One Modrinth can't
+        be asked about is listed in ``unchecked`` with the reason, never
+        left out as if it were up to date."""
+        mc_version = self._target_version()
+        updates: list[dict[str, Any]] = []
+        unchecked: list[dict[str, Any]] = []
+        for mod in self.scan():
+            source = self.db.get_setting(f"mod_source:{mod.mod_id}") or {}
+            project = source.get("modrinth_project") or mod.modrinth_project or mod.mod_id
+            row = {"mod_id": mod.mod_id, "name": mod.name or mod.mod_id, "filename": mod.filename}
+            try:
+                latest = await self.modrinth.latest_for(project, mc_version)
+            except ModrinthError as exc:
+                unchecked.append({**row, "reason": str(exc)})
+                continue
+            if (
+                not latest
+                or not latest["version_number"]
+                or latest["version_number"] == mod.version
+            ):
+                continue
+            updates.append(
+                {
+                    **row,
+                    "enabled": mod.enabled,
+                    "installed_version": mod.version,
+                    "latest_version": latest["version_number"],
+                    "version_id": latest["version_id"],
+                    "project": project,
+                }
+            )
+        return {"updates": updates, "unchecked": unchecked, "checked_at": time.time()}
+
     async def update(
         self, filename: str, user: str, version_id: str | None = None
     ) -> dict[str, Any]:

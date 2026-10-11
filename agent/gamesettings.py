@@ -120,14 +120,14 @@ async def save(
         )
         current_text = properties.PropertiesFile.read(path).text() if path.is_file() else ""
         if edited.text() == current_text:
-            return {"changed": {}, "nothing_changed": True, **_after(ctx)}
+            return {"changed": {}, "keys": [], "nothing_changed": True, **_after(ctx)}
     else:
         edited, changed = properties.apply_form(
             directory, updates or {}, lambda port: port_problem(ctx, port), server_type
         )
         others = sorted(changed)
         if not changed:
-            return {"changed": {}, "nothing_changed": True, **_after(ctx)}
+            return {"changed": {}, "keys": [], "nothing_changed": True, **_after(ctx)}
 
     async def change(job: JobHandle | None) -> dict[str, Any]:
         await asyncio.to_thread(edited.write, path)

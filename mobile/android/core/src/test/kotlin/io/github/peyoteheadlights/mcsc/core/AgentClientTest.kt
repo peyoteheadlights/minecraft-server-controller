@@ -119,8 +119,11 @@ class AgentClientTest {
     @Test
     fun `the sign-in asks to be remembered with the phone's name`() = runBlocking {
         TestAgent().use { agent ->
-            agent.server.enqueue(agent.json("""{"token": "$token"}"""))
-            assertEquals(token, client(agent).login("admin", "pw", "Server Controller on Pixel 9").token)
+            // A phone's sign-in has no end time: it lasts until signed out.
+            agent.server.enqueue(agent.json("""{"token": "$token", "user": "admin", "expires_at": null, "role": "owner", "remember": true}"""))
+            val signedIn = client(agent).login("admin", "pw", "Server Controller on Pixel 9")
+            assertEquals(token, signedIn.token)
+            assertNull(signedIn.expiresAt)
             val body = agent.server.takeRequest().body.readUtf8()
             assertTrue(body, body.contains("\"remember\":true"))
             assertTrue(body, body.contains("\"device\":\"Server Controller on Pixel 9\""))

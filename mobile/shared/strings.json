@@ -4828,8 +4828,8 @@
   "Remembered"
  ],
  "security.kept_note": [
-  "A device kept signed in stays signed in until you sign it out here, or until it isn't used for {days} days.",
-  "Remembered sessions last {days} days from their last use (security.remember_days); revoke them here."
+  "A browser kept signed in stays signed in until you sign it out here, or until it isn't used for {days} days. The phone app stays signed in until you sign it out.",
+  "Remembered browser sessions last {days} days from their last use (security.remember_days); phone app sessions last until revoked. Revoke them here."
  ],
  "security.device_out": [
   "Sign out",
@@ -6424,8 +6424,8 @@
   "Agent: {host}"
  ],
  "mobile.signin.stays": [
-  "You stay signed in on this phone, behind your phone's unlock. Sign it out any time from the dashboard's Security page.",
-  "A remembered session, stored in the phone's secure storage. Revocable under Security."
+  "You only sign in once. This phone stays signed in, behind your phone's unlock, until you sign it out here or on the PC.",
+  "A session with no time limit, stored in the phone's secure storage. Ends on sign-out, revoke, or a password change."
  ],
  "mobile.signin.device": [
   "{app} on {model}",

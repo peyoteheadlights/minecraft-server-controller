@@ -42,7 +42,7 @@
   "mobile.signin.title": ["Sign in", "Sign in"],
   "mobile.signin.lead": ["Use the same username and password as the dashboard.", "Same credentials as the dashboard."],
   "mobile.signin.pc": ["PC: {host}", "Agent: {host}"],
-  "mobile.signin.stays": ["You stay signed in on this phone, behind your phone's unlock. Sign it out any time from the dashboard's Security page.", "A remembered session, stored in the phone's secure storage. Revocable under Security."],
+  "mobile.signin.stays": ["You only sign in once. This phone stays signed in, behind your phone's unlock, until you sign it out here or on the PC.", "A session with no time limit, stored in the phone's secure storage. Ends on sign-out, revoke, or a password change."],
   "mobile.signin.device": ["{app} on {model}", "{app} on {model}"],
 
   "mobile.lock.title": ["Unlock to continue", "Locked"],

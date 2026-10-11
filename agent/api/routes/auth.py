@@ -37,6 +37,9 @@ async def login(payload: LoginRequest, request: Request, core=Depends(get_core))
         source_ip=client_ip(request),
         label=payload.device or payload.label,
         remember=payload.remember,
+        # The phone app names its device and keeps its sign-in: it lasts
+        # until signed out, so a phone signs in once after scanning the code.
+        until_signed_out=payload.remember and bool(payload.device.strip()),
     )
 
 

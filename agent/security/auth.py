@@ -276,7 +276,11 @@ class AuthManager:
         source_ip: str = "",
         label: str = "",
         remember: bool = False,
+        until_signed_out: bool = False,
     ) -> dict[str, Any]:
+        """Sign in. `until_signed_out` (the phone app's sign-in) never ends by
+        time: only signing out, the account going or its password changing
+        ends it."""
         username = (username or "").strip()[:64]
         self.login_rate.check(f"login:{source_ip or 'unknown'}")
         self._refresh_owner()
@@ -335,7 +339,8 @@ class AuthManager:
                 "last_used": time.time(),
                 "source_ip": source_ip,
                 "label": label[:80],
-                "remember": 1 if remember else 0,
+                "remember": 1 if remember or until_signed_out else 0,
+                "until_signed_out": 1 if until_signed_out else 0,
             },
         )
         self.db.audit("login", user=username, source_ip=source_ip)
@@ -343,7 +348,7 @@ class AuthManager:
         return {
             "token": token,
             "user": username,
-            "expires_at": expires,
+            "expires_at": None if until_signed_out else expires,
             "role": account["role"] if account else "owner",
             "remember": bool(remember),
         }
@@ -394,7 +399,8 @@ class AuthManager:
         row = self.db.query_one("SELECT * FROM sessions WHERE token_hash = ?", (digest,))
         if not row:
             raise AuthError("You've been signed out. Sign in again.")
-        if row["expires_at"] < time.time():
+        kept = bool(row.get("until_signed_out"))
+        if not kept and row["expires_at"] < time.time():
             self.db.execute("DELETE FROM sessions WHERE token_hash = ?", (digest,))
             raise AuthError("Your session has expired. Sign in again.")
         role, servers = self._role_of(row["user"])
@@ -404,7 +410,7 @@ class AuthManager:
             raise AuthError("You've been signed out. Sign in again.")
         now = time.time()
         expires_at = row["expires_at"]
-        if row.get("remember"):
+        if row.get("remember") or kept:
             # A kept sign-in lasts remember_days from its last use.
             expires_at = max(expires_at, now + self._lifetime(True))
         self.db.execute(
@@ -416,7 +422,7 @@ class AuthManager:
             user=row["user"],
             kind="session",
             token_hash=digest,
-            expires_at=row["expires_at"],
+            expires_at=None if kept else row["expires_at"],
             role=role,
             servers=servers,
         )
@@ -592,11 +598,13 @@ class AuthManager:
             raise AuthError("Only a sign-in from a browser can be given a new key.", status=400)
         old = (
             self.db.query_one(
-                "SELECT label, remember FROM sessions WHERE token_hash = ?", (principal.token_hash,)
+                "SELECT label, remember, until_signed_out FROM sessions WHERE token_hash = ?",
+                (principal.token_hash,),
             )
             or {}
         )
         remember = bool(old.get("remember"))
+        kept = bool(old.get("until_signed_out"))
         token = secrets.token_urlsafe(TOKEN_BYTES)
         expires = time.time() + self._lifetime(remember)
         self.db.insert(
@@ -611,11 +619,12 @@ class AuthManager:
                 # The same device keeps its name on the Security page.
                 "label": old.get("label") or "rotated",
                 "remember": 1 if remember else 0,
+                "until_signed_out": 1 if kept else 0,
             },
         )
         self.db.execute("DELETE FROM sessions WHERE token_hash = ?", (principal.token_hash,))
         self.db.audit("token_rotate", user=principal.user, source_ip=source_ip)
-        return {"token": token, "expires_at": expires}
+        return {"token": token, "expires_at": None if kept else expires}
 
     def logout(self, principal: Principal) -> None:
         if principal.token_hash:
@@ -657,7 +666,9 @@ class AuthManager:
         return prefs
 
     def purge_expired(self) -> int:
-        cur = self.db.execute("DELETE FROM sessions WHERE expires_at < ?", (time.time(),))
+        cur = self.db.execute(
+            "DELETE FROM sessions WHERE expires_at < ? AND until_signed_out = 0", (time.time(),)
+        )
         return cur.rowcount
 
     # -- signed-in devices ------------------------------------------------
@@ -671,7 +682,8 @@ class AuthManager:
         """Signed-in devices: every account's for the owner, a helper's own."""
         rows = self.db.query(
             "SELECT token_hash, user, created_at, expires_at, last_used, source_ip, label, "
-            "remember FROM sessions WHERE expires_at > ? ORDER BY last_used DESC",
+            "remember, until_signed_out FROM sessions "
+            "WHERE expires_at > ? OR until_signed_out = 1 ORDER BY last_used DESC",
             (time.time(),),
         )
         out = []
@@ -679,6 +691,8 @@ class AuthManager:
             if not principal.is_owner and row["user"] != principal.user:
                 continue
             digest = row.pop("token_hash")
+            if row.pop("until_signed_out"):
+                row["expires_at"] = None  # until it is signed out
             out.append(
                 {
                     **row,
@@ -707,7 +721,7 @@ class AuthManager:
     def active_sessions(self) -> list[dict[str, Any]]:
         rows = self.db.query(
             "SELECT user, created_at, expires_at, last_used, source_ip, label FROM sessions "
-            "WHERE expires_at > ? ORDER BY last_used DESC",
+            "WHERE expires_at > ? OR until_signed_out = 1 ORDER BY last_used DESC",
             (time.time(),),
         )
         return rows

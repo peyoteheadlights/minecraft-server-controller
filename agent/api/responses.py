@@ -645,7 +645,7 @@ class Recommendations(Open):
 class LoginResult(Open):
     token: str = Field(description="Send as 'Authorization: Bearer <token>'")
     user: str
-    expires_at: float
+    expires_at: float | None = Field(description="null for a phone's sign-in: it lasts until signed out")
     role: str = Field(description="owner or helper")
     remember: bool
 

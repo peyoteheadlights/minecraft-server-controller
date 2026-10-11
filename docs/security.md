@@ -20,10 +20,13 @@
 - Signing in returns a random 256-bit session token; only its SHA-256 is
   stored, so a stolen database yields no usable tokens.
 - Sessions expire after 12 hours by default, and can be rotated or revoked.
-- **Keep me signed in** (for a phone, or a PC you own) makes a session that
-  lasts `security.remember_days` (90 by default) from its **last use**, and
-  the browser keeps its token in `localStorage` instead of the tab's
-  session storage. The Security page lists every signed-in device (name,
+- **Keep me signed in** (for a PC you own) makes a session that lasts
+  `security.remember_days` (90 by default) from its **last use**, and the
+  browser keeps its token in `localStorage` instead of the tab's session
+  storage. The phone app's sign-in (it names its device and asks to be kept)
+  has no time limit: it ends only when it is signed out, its account is
+  removed, or that account's password changes. The token stays in the
+  phone's Keystore or Keychain, behind the phone's own lock. The Security page lists every signed-in device (name,
   account, when it signed in, last used, address) with a **Sign out**
   button for each. Signing a device out deletes its session at once;
   `DELETE /api/sessions/<id>` takes the listed id (the first 16 hex digits of

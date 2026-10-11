@@ -350,6 +350,24 @@ def test_a_phone_whose_sign_in_expired_isnt_woken(multi_client, google):
     assert sends(google["calls"]) == []
 
 
+def test_a_phone_signed_in_until_signed_out_is_woken_however_long_it_sat(multi_client, google):
+    import time
+
+    phone = multi_client.post(
+        "/api/auth/login",
+        json={"username": "admin", "password": "correct horse battery", "device": "Pixel", "remember": True},
+    ).json()
+    register_phone(multi_client, headers={"Authorization": f"Bearer {phone['token']}"})
+    core = multi_client.app.state.core
+    core.db.execute(
+        "UPDATE sessions SET expires_at = ? WHERE token_hash IN (SELECT session FROM app_phones)",
+        (time.time() - 365 * 86400,),
+    )
+    google["calls"].clear()
+    send(core, crash())
+    assert len(sends(google["calls"])) == 1
+
+
 def test_the_test_alert_wakes_app_phones_too(multi_client, google):
     register_phone(multi_client)
     google["calls"].clear()

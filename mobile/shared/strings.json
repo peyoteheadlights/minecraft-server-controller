@@ -6547,6 +6547,10 @@
   "{name} restored.",
   "Restored {name}."
  ],
+ "mobile.backups.restored_backup": [
+  "{name} restored. The old world was saved as {safety}.",
+  "Restored {name}. Backup: {safety}"
+ ],
  "mobile.backups.saved_file": [
   "Saved {name}.",
   "Saved {name}."

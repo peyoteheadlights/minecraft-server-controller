@@ -79,7 +79,7 @@ object Backups {
     fun restored(strings: Strings, result: Restored): String {
         val name = result.restored ?: ""
         val safety = result.safetyBackup?.name ?: return strings.t("mobile.backups.restored", "name" to name)
-        return strings.t("backups.restored", "name" to name, "safety" to safety)
+        return strings.t("mobile.backups.restored_backup", "name" to name, "safety" to safety)
     }
 
     /** The body a restore is confirmed with. The backup made first is

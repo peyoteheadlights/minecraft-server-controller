@@ -831,7 +831,7 @@ public enum Backups {
         guard let safety = result.safetyBackup?.name else {
             return strings.t("mobile.backups.restored", ["name": name])
         }
-        return strings.t("backups.restored", ["name": name, "safety": safety])
+        return strings.t("mobile.backups.restored_backup", ["name": name, "safety": safety])
     }
 }
 

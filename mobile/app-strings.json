@@ -80,6 +80,7 @@
   "mobile.crash.log_gone": ["The saved log isn't on the PC anymore.", "Saved log file no longer exists."],
 
   "mobile.backups.restored": ["{name} restored.", "Restored {name}."],
+  "mobile.backups.restored_backup": ["{name} restored. The old world was saved as {safety}.", "Restored {name}. Backup: {safety}"],
   "mobile.backups.saved_file": ["Saved {name}.", "Saved {name}."],
   "mobile.backups.save_failed": ["The backup couldn't be saved on this phone: {reason}", "Writing the file failed: {reason}"],
   "mobile.backups.downloading": ["Downloading {name}…", "Downloading {name}…"],

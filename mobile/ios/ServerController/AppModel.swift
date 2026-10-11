@@ -358,7 +358,8 @@ final class AppModel {
         let made = ServerPages(
             serverId: serverId,
             client: { [weak self] in self?.client },
-            noted: { [weak self] problem in self?.note(problem) }
+            noted: { [weak self] problem in self?.note(problem) },
+            listChanged: { [weak self] in await self?.refreshServers() }
         )
         pagesById[serverId] = made
         return made

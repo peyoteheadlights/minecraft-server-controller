@@ -387,7 +387,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** What the Console, Chat, Players, Activity and Crashes screens show. */
     fun pages(serverId: String): ServerPages = pagesBy.getOrPut(serverId) {
-        ServerPages(serverId, viewModelScope, { client() }, { prefs.lastProblem = it.key })
+        ServerPages(serverId, viewModelScope, { client() }, { prefs.lastProblem = it.key }, ::refreshServers)
     }
 
     fun canDo(permission: String): Boolean = me?.can(permission) == true

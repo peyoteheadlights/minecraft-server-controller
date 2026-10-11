@@ -518,6 +518,22 @@ class AgentClient(
         GameSettingsSaved.serializer(),
     )
 
+    // ------------------------------------------------------------ setup
+    suspend fun serverSettings(serverId: String): ServerSettings =
+        get("${server(serverId)}/settings", ServerSettings.serializer())
+
+    /** Saves [updates] (only what changed). Refused keys come back in
+     * [ServerSettingsSaved.rejected] with the agent's reason. */
+    suspend fun saveServerSettings(serverId: String, updates: JsonObject): ServerSettingsSaved = call(
+        request("${server(serverId)}/settings").put(buildJsonObject { put("updates", updates) }.toBody()).build(),
+        ServerSettingsSaved.serializer(),
+    )
+
+    suspend fun setColor(serverId: String, color: String): ColorSaved = call(
+        request("${server(serverId)}/color").put(buildJsonObject { put("color", color) }.toBody()).build(),
+        ColorSaved.serializer(),
+    )
+
     // ------------------------------------------------------------------
     private fun server(id: String) = "/api/servers/${path(id)}"
 

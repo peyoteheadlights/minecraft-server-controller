@@ -73,6 +73,8 @@ struct ServersListView: View {
                     ContentView(serverId: id)
                 case .game(let id):
                     GameSettingsView(serverId: id)
+                case .settings(let id):
+                    ServerSettingsView(serverId: id)
                 }
             }
         }

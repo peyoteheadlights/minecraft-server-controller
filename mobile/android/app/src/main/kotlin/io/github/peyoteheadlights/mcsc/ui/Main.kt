@@ -111,6 +111,9 @@ fun Main(vm: AppViewModel) {
             composable("server/{id}/game") { back ->
                 GameSettingsScreen(vm, back.serverId(), onBack = { nav.popBackStack() })
             }
+            composable("server/{id}/settings") { back ->
+                ServerSettingsScreen(vm, back.serverId(), onBack = { nav.popBackStack() })
+            }
             composable("server/{id}/events") { back ->
                 EventsScreen(vm, back.serverId(), onBack = { nav.popBackStack() })
             }

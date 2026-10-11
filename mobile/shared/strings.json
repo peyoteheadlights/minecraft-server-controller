@@ -7230,5 +7230,33 @@
  "mobile.common.loading": [
   "Loading…",
   "Loading…"
+ ],
+ "mobile.serverset.intro": [
+  "How Command Block runs this server. The game's own rules are in Game settings.",
+  "Agent-side settings for this server. server.properties is under Game settings."
+ ],
+ "mobile.serverset.read_only": [
+  "Your account can see these settings but not change them.",
+  "This account lacks settings.edit."
+ ],
+ "mobile.serverset.autostart": [
+  "Start it when the PC starts",
+  "Start with the agent"
+ ],
+ "mobile.serverset.autostart_hint": [
+  "Only when Command Block itself starts with the PC.",
+  "autostart_minecraft: starts when the agent starts."
+ ],
+ "mobile.serverset.color_hint": [
+  "Or type one as # and six letters or numbers, like #3366CC.",
+  "Custom hex, #RRGGBB."
+ ],
+ "mobile.serverset.color_bad": [
+  "That isn't a color. Type # and six letters or numbers.",
+  "Not a #RRGGBB hex value."
+ ],
+ "mobile.serverset.save": [
+  "Save",
+  "Save"
  ]
 }

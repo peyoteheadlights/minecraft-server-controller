@@ -91,3 +91,7 @@ GET /api/app/phone
 PUT /api/app/phone
 DELETE /api/app/phone
 GET /api/version
+# Setup (Phase 9 part 5).
+GET /api/servers/{server_id}/settings
+PUT /api/servers/{server_id}/settings
+PUT /api/servers/{server_id}/color

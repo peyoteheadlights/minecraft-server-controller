@@ -12,6 +12,7 @@ from ...minecraft import cpu
 from ...security.auth import Principal
 from ...security.permissions import SETTINGS_EDIT, SETTINGS_VIEW, require
 from ..deps import audit, get_server
+from ..responses import ColorSaved, ServerSettings, ServerSettingsSaved
 from .models import MemoryRequest, ServerColorRequest, ServerSettingsRequest
 
 router = APIRouter()
@@ -35,7 +36,7 @@ SERVER_SETTABLE = (
 )
 
 
-@router.get("/settings")
+@router.get("/settings", response_model=ServerSettings)
 async def get_server_settings(
     principal: Principal = Depends(require(SETTINGS_VIEW)), ctx=Depends(get_server)
 ):
@@ -51,6 +52,7 @@ async def get_server_settings(
         },
         "editable": list(SERVER_SETTABLE),
         "cpu": _cpu_overview(ctx),
+        "sleep": ctx.autosleep.status(),
     }
 
 
@@ -76,7 +78,7 @@ def _cpu_overview(ctx) -> dict:
     }
 
 
-@router.put("/settings")
+@router.put("/settings", response_model=ServerSettingsSaved)
 async def update_server_settings(
     payload: ServerSettingsRequest,
     request: Request,
@@ -86,7 +88,7 @@ async def update_server_settings(
     applied, rejected = {}, {}
     for key, value in payload.updates.items():
         if not any(key == p or key.startswith(p) for p in SERVER_SETTABLE):
-            rejected[key] = "This setting cannot be changed from the dashboard"
+            rejected[key] = "This setting can't be changed here."
             continue
         if key == "server.autosleep_minutes":
             try:
@@ -102,12 +104,13 @@ async def update_server_settings(
             if found:
                 rejected[key] = found[0]
                 continue
-        previous = ctx.config.get(key)
-        ctx.config.set(key, value)
+        target = _where(ctx, key)
+        previous = target.get(key)
+        target.set(key, value)
         try:
             ctx.config.section(key.split(".", 1)[0])
         except ConfigError as exc:
-            ctx.config.set(key, previous)
+            target.set(key, previous)
             rejected[key] = str(exc)
             continue
         applied[key] = value
@@ -134,7 +137,18 @@ async def update_server_settings(
     return result
 
 
-@router.put("/color")
+def _where(ctx, key: str):
+    """Where a setting is saved. With one server, its crash, backup and mod
+    settings stay the app-wide ones (unless it already has its own), so a
+    config.yaml with a single server: block keeps its shape."""
+    head = key.split(".", 1)[0]
+    if len(ctx.core.servers) > 1 or head not in SERVER_OVERRIDES:
+        return ctx.config
+    own = ctx.config.root.server_entry(ctx.server_id).get(head) or {}
+    return ctx.config if key.split(".", 1)[1].split(".")[0] in own else ctx.config.root
+
+
+@router.put("/color", response_model=ColorSaved)
 async def set_color(
     payload: ServerColorRequest,
     request: Request,

@@ -1206,3 +1206,68 @@ class GameSettingsSaved(Open):
     undo: Undo | None = None
     running: bool
     restart_needed: bool
+
+
+# ------------------------------------------------------------ server settings
+class PaletteColor(Open):
+    id: str
+    name: str
+    hex: str
+
+
+class CpuStatus(Open):
+    configured: list[int] | None = Field(None, description="null: every core")
+    applied: list[int] | None = Field(None, description="Read from the running server; null when unknown")
+    applied_reason: str | None = None
+    problems: list[str] = []
+
+
+class CpuOther(Open):
+    id: str
+    name: str
+    cores: list[int] = []
+
+
+class CpuOverview(Open):
+    logical_cores: int | None = None
+    supported: bool
+    unsupported_reason: str | None = None
+    others: list[CpuOther] = []
+    status: CpuStatus
+
+
+class SleepStatus(Open):
+    enabled: bool
+    minutes: int
+    players_online: int | None = None
+    stops_in: float | None = None
+    list_answered: bool | None = None
+
+
+class ServerSettings(Open):
+    """One server's own settings: name and launch settings under "server",
+    then its crash, backup and mod settings with its overrides applied."""
+
+    server_id: str
+    server: dict[str, Any]
+    color: str | None = None
+    palette: list[PaletteColor]
+    monitor: dict[str, Any]
+    backups: dict[str, Any]
+    mods: dict[str, Any]
+    overrides: dict[str, Any]
+    editable: list[str]
+    cpu: CpuOverview
+    sleep: SleepStatus | None = None
+
+
+class ServerSettingsSaved(Open):
+    ok: bool
+    applied: dict[str, Any]
+    rejected: dict[str, str] = Field(description="Each refused key with the reason, said to the person")
+    cpu_cores: dict[str, Any] | None = Field(None, description="Read back from the running server")
+
+
+class ColorSaved(Open):
+    ok: bool
+    color: str

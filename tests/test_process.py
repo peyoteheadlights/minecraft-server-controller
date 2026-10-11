@@ -119,7 +119,7 @@ async def test_crash_loop_protection_blocks_restart(make_config):
             "monitor.crash_window_minutes": 10,
         }
     )
-    os.environ["FAKE_CRASH_ON_START"] = "1"
+    os.environ["FAKE_CRASH_WHEN_ONLINE"] = "1"
     bus = EventBus()
     events = collector(bus)
     server = MinecraftServer(config, bus)
@@ -131,6 +131,21 @@ async def test_crash_loop_protection_blocks_restart(make_config):
     assert server.auto_restart_blocked is True
     assert "crashes within" in (server.auto_restart_block_reason or "")
     assert [e for e in events if e.type == "crash_loop"]
+
+
+async def test_a_server_that_failed_to_start_is_not_restarted(make_config):
+    config = make_config(**{"monitor.auto_restart": True, "monitor.restart_delay": 0.05})
+    os.environ["FAKE_CRASH_ON_START"] = "1"
+    bus = EventBus()
+    events = collector(bus)
+    server = MinecraftServer(config, bus)
+    await server.start()
+    assert await server.wait_exit(timeout=10)
+    await asyncio.sleep(0.5)
+    assert server.state is ServerState.CRASHED
+    assert not [e for e in events if e.type == "restart_scheduled"]
+    (alert,) = [e for e in events if e.type == "server_crashed"]
+    assert alert.message == "Server failed to start"
 
 
 async def test_commands_require_running_server(config):

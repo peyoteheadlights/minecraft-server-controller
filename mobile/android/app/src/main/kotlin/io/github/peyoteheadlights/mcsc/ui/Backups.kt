@@ -178,22 +178,22 @@ private fun LastChange(vm: AppViewModel, world: WorldPages, job: Job, busy: Stri
     val strings = vm.strings
     val now = rememberNow()
     Column {
-        SectionTitle(t("backups.last_change"))
+        SectionTitle(t("mobile.backups.last_change"))
         Card {
             Note(
-                t("backups.last_change_body", "title" to job.title, "when" to Display.ago(strings, job.finishedAt, now), "backup" to undo.backup),
+                t("mobile.backups.last_change_body", "title" to job.title, "when" to Display.ago(strings, job.finishedAt, now), "backup" to undo.backup),
                 color = LocalColors.current.text,
                 modifier = Modifier.padding(top = 10.dp),
             )
             if (vm.canDo(Permissions.BACKUPS_RESTORE)) {
                 Presses(
                     listOf(
-                        Press(t("backups.undo_change"), {
+                        Press(t("mobile.backups.undo_change"), {
                             ask(
                                 Confirming(
-                                    strings.t("backups.undo_title"),
-                                    strings.t("backups.undo_body", "title" to job.title, "backup" to undo.backup),
-                                    strings.t("backups.undo"),
+                                    strings.t("mobile.backups.undo_title"),
+                                    strings.t("mobile.backups.undo_body", "title" to job.title, "backup" to undo.backup),
+                                    strings.t("mobile.backups.undo_change"),
                                 ) { world.undo(job, strings) },
                             )
                         }, danger = true, enabled = busy == null),

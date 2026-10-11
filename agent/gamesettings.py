@@ -148,7 +148,7 @@ async def save(
         stop_server=False,
         take_backup=path.is_file(),
         backup_name="pre-game-settings",
-        backup_note="Automatic copy of server.properties before changing game settings",
+        backup_note="Before changing game settings",
         backup_includes=[properties.FILENAME],
     )
 

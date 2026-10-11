@@ -514,7 +514,7 @@ def plan_into(ctx: ServerContext, pack: Pack) -> dict[str, Any]:
 async def import_into(ctx: ServerContext, token: str, user: str = "system") -> dict[str, Any]:
     """Import a pack into an existing server. Sets the server up on the
     pack's type and versions first when it isn't on them already."""
-    from .safechange import SafeChange, run_safe_change
+    from .safechange import SafeChange, before, run_safe_change
     from .servertypes.install import change_version
 
     archive = upload_path(ctx.core, token)
@@ -554,7 +554,7 @@ async def import_into(ctx: ServerContext, token: str, user: str = "system") -> d
         stop_server=True,
         take_backup=True,
         backup_name="pre-modpack",
-        backup_note=f"Automatic safety copy before: {title}",
+        backup_note=before(title),
         # The usual backup list plus every top-level folder or file the
         # pack writes to (kubejs/, defaultconfigs/, scripts/ and the like),
         # so the undo covers everything the import changes.

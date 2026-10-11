@@ -27,6 +27,17 @@ at `/api/version` and only goes up for those changes.
 - PRIVACY.md says what the app and the phone apps contact, and when.
 - "Report a problem" and "Suggest a feature" on GitHub are forms now, with
   a reminder never to paste a password.
+- **Undo and Redo** on the Backups page. Undo reverses the newest change
+  (game settings, a restore, an imported world or modpack); pressing it
+  again reverses the one before, as far back as the backups made before
+  them are kept (14 days). Redo puts back what you undid, until you make a
+  new change. Each one says what goes back and how much play would be lost.
+- A server that **failed to start** is no longer restarted automatically:
+  it would almost always fail the same way. It still sends an alert, and
+  the dashboard and alerts say "failed to start" instead of "crashed".
+- Backups made before a change are named by it ("Before changing game
+  settings") instead of "Safety copy". Screens use one word per idea:
+  ops, tasks, schedules, alerts, Restore world and Roll back.
 
 ### API (version 1)
 
@@ -36,6 +47,13 @@ at `/api/version` and only goes up for those changes.
 - `POST /api/auth/login`, `POST /api/auth/logout` and `GET /api/auth/me`
   now describe their answers in `/api/openapi.json`. Nothing changed in
   what they answer.
+- `GET /api/servers/{id}/changes`, `POST /api/servers/{id}/changes/undo`
+  and `POST /api/servers/{id}/changes/redo`: each server's undo and redo
+  stacks. Additive. `POST /api/jobs/{id}/undo` is deprecated: it now undoes
+  a job only while it is the newest change (409 otherwise). Backups carry a
+  `label` ("Before ..."), and a server that failed to start sends
+  `server_crashed` with `reason: "startup_failure"`, as before, but is not
+  restarted.
 
 ## 1.3.0
 

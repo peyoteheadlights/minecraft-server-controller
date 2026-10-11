@@ -39,6 +39,10 @@ class RestoreRequest(BaseModel):
     safety_backup: bool = True
 
 
+class UndoRequest(BaseModel):
+    start_after: bool = False
+
+
 class ModInstallRequest(BaseModel):
     project: str = Field(max_length=100)
     version_id: str | None = Field(default=None, max_length=64)

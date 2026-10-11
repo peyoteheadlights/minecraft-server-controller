@@ -41,7 +41,7 @@ export function heroDetail(s) {
     case "RESTARTING": return [t("hero.restarting")];
     case "RESTART_PENDING":
     case "CRASHED": {
-      const parts = [t("hero.crashed")];
+      const parts = [t(s.last_exit_reason === "startup_failure" ? "hero.failed_to_start" : "hero.crashed")];
       if (known(s.last_exit_code) && technical()) parts.push(` ${t("hero.exit_code", { code: s.last_exit_code })}`);
       const crash = state.latestCrash;
       if (crash && crash.category && crash.category !== "Unknown") {

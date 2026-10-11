@@ -260,6 +260,8 @@ class Notifier:
     def title(self, event: Event) -> tuple[str, int, str]:
         """(emoji, colour, title) with the server named."""
         emoji, colour, title = EVENT_MAP.get(event.type, (event.type, "", 0x5865F2, event.type))[1:]
+        if event.type == "server_crashed" and (event.data or {}).get("reason") == "startup_failure":
+            title = "{server} failed to start"
         return emoji, colour, title.replace("{server}", self.server_name(event))
 
     # ------------------------------------------------------------------
@@ -302,7 +304,12 @@ class Notifier:
             fields.append(
                 {
                     "name": "Automatic restart",
-                    "value": "Enabled" if auto else "Disabled",
+                    # A server that failed to start is never restarted for you.
+                    "value": "Not after a failed start"
+                    if data.get("reason") == "startup_failure"
+                    else "Enabled"
+                    if auto
+                    else "Disabled",
                     "inline": True,
                 }
             )

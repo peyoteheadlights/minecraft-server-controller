@@ -133,7 +133,7 @@ class WorldPages(
     }
 
     fun undo(job: Job, strings: Strings) = work("undo", strings, reload = ::loadBackups) {
-        Said(strings.t("backups.undone", "name" to it.undoJob(job.id).restored), good = true)
+        Said(strings.t("mobile.backups.undone", "name" to it.undoJob(job.id).restored), good = true)
     }
 
     fun offsiteOff(strings: Strings) = work("offsite", strings, reload = ::loadBackups) {

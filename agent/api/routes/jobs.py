@@ -1,5 +1,5 @@
-"""Jobs: long operations (backups, restores and, later, downloads and
-version changes) and their real progress. One-click undo of a safe change."""
+"""Jobs: long operations (backups, restores, downloads, version changes) and
+their real progress."""
 
 from __future__ import annotations
 
@@ -46,22 +46,29 @@ async def get_job(
     return job.to_dict()
 
 
-@router.post("/jobs/{job_id}/undo", response_model=JobUndone)
+@router.post("/jobs/{job_id}/undo", response_model=JobUndone, deprecated=True)
 async def undo_job(
     job_id: str,
     request: Request,
     principal: Principal = Depends(require(BACKUPS_RESTORE)),
     core=Depends(get_core),
 ):
-    """Undo a finished change by restoring the backup it took first. The
-    undo is itself a safe change, so it can be undone too."""
+    """Undo a finished change while it is still the server's newest one.
+    Replaced by ``POST /api/servers/{id}/changes/undo``, which goes on back
+    one change at a time."""
     job = core.jobs.get(job_id)
     check_server(principal, job.server_id)
-    undo = (job.result or {}).get("undo")
-    if job.state != "succeeded" or not undo or undo.get("kind") != "restore_backup":
+    if job.state != "succeeded" or not (job.result or {}).get("undo"):
         raise HTTPException(status_code=400, detail="This job has nothing to undo")
     ctx = core.get_server(job.server_id)
+    stack = ctx.backups.changes.undo_stack()
+    if not stack or stack[0]["job_id"] != job_id:
+        raise HTTPException(
+            status_code=409,
+            detail="Only the newest change can be undone. Use Undo on the Backups page "
+            "to go back one change at a time.",
+        )
     with audit_failure(ctx, request, "job_undo", target=job_id):
-        result = await ctx.backups.restore(int(undo["backup_id"]), user=principal.user)
-    audit(ctx, request, "job_undo", target=job_id, detail=undo.get("backup"))
+        result = await ctx.backups.changes.undo(principal.user)
+    audit(ctx, request, "job_undo", target=job_id, detail=result["change"]["backup"])
     return {"ok": True, **result}

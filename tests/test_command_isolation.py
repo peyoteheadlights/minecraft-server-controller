@@ -267,7 +267,8 @@ async def test_five_crashes_stop_automatic_restarts(make_config):
     events = []
     bus.subscribe(lambda event: events.append(event.type))
     server = MinecraftServer(config, bus)
-    os.environ["FAKE_CRASH_ON_START"] = "1"
+    # Crashes while running: a server that fails to start is never restarted.
+    os.environ["FAKE_CRASH_WHEN_ONLINE"] = "1"
     try:
         await server.start()
         for _ in range(400):
@@ -280,7 +281,7 @@ async def test_five_crashes_stop_automatic_restarts(make_config):
         # and it stays stopped rather than trying again
         assert events.count("crash_loop") >= 1
     finally:
-        os.environ.pop("FAKE_CRASH_ON_START", None)
+        os.environ.pop("FAKE_CRASH_WHEN_ONLINE", None)
 
 
 # ====================================================================

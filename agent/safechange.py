@@ -7,11 +7,10 @@
     5. if the change or the check fails, put the backup back
     6. start the server again if asked
 
-The backup taken in step 2 is the change's one-click undo: the job's result
-records it, and undoing restores it (through this same routine, so the undo
-can itself be undone). Restoring a backup uses this routine today; version
-and type changes, world import, modpack import, duplication and settings
-edits in later phases will too.
+The backup taken in step 2 is the change's undo: a change that succeeds goes
+on the server's undo stack (agent/changes.py), and Undo puts that backup back.
+Restores, game settings, world and modpack imports, version and type changes
+and duplication all run through this routine.
 """
 
 from __future__ import annotations
@@ -53,6 +52,15 @@ class SafeChange:
     # way (restoring a backup does), so the safety backup is not extracted
     # over files that are already back as they were.
     undo_on_change_error: bool = True
+    # What a successful change does to Undo and Redo: "push" puts it on the
+    # undo stack; "clear_redo" is a change Undo can't reverse (a version
+    # change, which has its own Roll back), so it only empties Redo; "none"
+    # is Undo and Redo themselves, or a change that leaves this server as it
+    # was (duplicating it).
+    history: str = "push"
+    # What Undo puts back: these top-level names, or (None) what the backup
+    # holds.
+    undo_scope: list[str] | None = None
 
 
 async def run_safe_change(
@@ -84,6 +92,8 @@ async def run_safe_change(
         if change.stop_server:
             server.held_by = None
 
+    change_id = _record(backups, change, safety, job, user)
+
     started = False
     if change.start_after:
         step("Starting the server")
@@ -102,12 +112,31 @@ async def run_safe_change(
         **result,
         "safety_backup": safety,
         "undo": {"kind": "restore_backup", "backup_id": safety["id"], "backup": safety["name"]}
-        if safety
+        if safety and change.history == "push"
         else None,
+        "change_id": change_id,
         "check": detail,
         "was_running": was_running,
         "server_started": started,
     }
+
+
+def _record(
+    backups: BackupManager,
+    change: SafeChange,
+    safety: dict[str, Any] | None,
+    job: JobHandle | None,
+    user: str,
+) -> int | None:
+    """Put a finished change on the undo stack, or just empty Redo."""
+    history = getattr(backups, "changes", None)
+    if history is None or change.history == "none":
+        return None
+    if change.history != "push" or not safety:
+        history.clear_redo()
+        return None
+    scope = change.undo_scope if change.undo_scope is not None else change.backup_includes
+    return history.push(change.title, safety["id"], scope, user, job_id=job.id if job else None)
 
 
 async def _change_held(
@@ -141,7 +170,7 @@ async def _change_held(
             kind="safety",
             includes=change.backup_includes,
             user=user,
-            note=change.backup_note or f"Automatic safety copy before: {change.title}",
+            note=change.backup_note or before(change.title),
             job=job,
         )
 
@@ -162,6 +191,12 @@ async def _change_held(
     return result, detail, safety
 
 
+def before(title: str) -> str:
+    """The note on a backup made before a change, which is also how the
+    Backups list labels it: "Before changing game settings"."""
+    return f"Before {title[:1].lower()}{title[1:]}"
+
+
 async def _undo(
     backups: BackupManager, safety: dict[str, Any] | None, job: JobHandle | None
 ) -> str:
@@ -176,7 +211,7 @@ async def _undo(
     except Exception as exc:  # pragma: no cover - reported, never hidden
         log.exception("could not put the safety backup back")
         return (
-            f" Putting the previous files back also failed ({exc}); the safety backup "
+            f" Putting the previous files back also failed ({exc}); the backup "
             f"{safety['name']} is still there to restore."
         )
-    return f" The previous files were put back from the safety backup {safety['name']}."
+    return f" The previous files were put back from the backup {safety['name']}."

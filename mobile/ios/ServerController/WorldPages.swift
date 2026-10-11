@@ -145,7 +145,7 @@ final class WorldPages {
     func undo(_ job: Job, _ strings: Strings) async {
         await work("undo", strings, reload: loadBackups) { client, _ in
             let undone = try await client.undoJob(jobId: job.id)
-            return Said(text: strings.t("backups.undone", ["name": undone.restored ?? ""]), good: true)
+            return Said(text: strings.t("mobile.backups.undone", ["name": undone.restored ?? ""]), good: true)
         }
     }
 

@@ -748,6 +748,33 @@ def main():
                 lambda: expect(page.locator("table")).to_contain_text("sam", timeout=8000),
             )
             page.screenshot(path=str(shots / "11-helpers.png"))
+            print("\n=== Undo and Redo ===")
+            page.evaluate("location.hash = 'backups'")
+            page.locator("button", has_text="Back up now").click()
+            restore = page.locator("table button", has_text="Restore").first
+            expect(restore).to_be_visible(timeout=20000)
+            restore.click()
+            page.locator("[role=dialog] button.danger-filled").click()
+            changes = page.locator("section.section", has_text="Undo and Redo")
+            check(
+                "A restore goes on the undo stack",
+                lambda: expect(changes).to_contain_text("Newest change", timeout=20000),
+            )
+            changes.locator("button", has_text="Undo").click()
+            check(
+                "Undo says what goes back before it runs",
+                lambda: expect(page.locator("[role=dialog]")).to_contain_text(
+                    "just before this change"
+                ),
+            )
+            page.locator("[role=dialog] button.danger-filled").click()
+            check(
+                "After Undo, Redo is offered",
+                lambda: expect(changes.locator("button", has_text="Redo")).to_be_enabled(
+                    timeout=20000
+                ),
+            )
+            page.screenshot(path=str(shots / "10b-undo-redo.png"))
             page.evaluate("location.hash = 'getting-started'")
             check(
                 "Getting started lists the steps with buttons",

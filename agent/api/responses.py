@@ -595,6 +595,39 @@ class JobList(Open):
     jobs: list[Job]
 
 
+class Change(Open):
+    id: int
+    title: str
+    user: str | None = None
+    made_at: float
+    undone_at: float | None = Field(None, description="Set on the redo stack")
+    scope: list[str] | None = Field(
+        None, description="What Undo or Redo puts back; null for everything the backup holds"
+    )
+    backup_id: int
+    backup: str
+    backup_at: float = Field(description="When the backup that would be put back was made")
+    played_seconds: float | None = Field(
+        None,
+        description="How long people played since that backup; null when no sessions were recorded",
+    )
+
+
+class Changes(Open):
+    undo: list[Change] = Field(description="Newest first: Undo reverses the first one")
+    redo: list[Change] = Field(description="Undone last first: Redo puts back the first one")
+    server_running: bool
+    blocked_by: str | None = None
+
+
+class ChangeMoved(Open):
+    ok: bool
+    change: Change
+    restored: str
+    safety_backup: SafetyBackup | None = None
+    job_id: str | None = None
+
+
 class JobUndone(Open):
     ok: bool
     restored: str

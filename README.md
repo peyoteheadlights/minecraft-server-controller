@@ -19,7 +19,7 @@ a free private network, and HTTPS.
 - **See who's playing**, chat with them, and whitelist, kick or ban.
 - **Back up** the world on a schedule. Each backup is checked before it
   counts, and a second copy can go to a USB drive or a cloud folder.
-- **Go back in time**: put the world back to how it was yesterday. What
+- **Restore world**: put the world back to how it was yesterday. What
   it's like now is saved first, so that can be undone too.
 - **Bring a world in** from single-player, or take the server's world home
   as a .zip to play offline.

@@ -202,6 +202,6 @@ export function render() {
 }
 
 export function statusLine(status) {
-  const info = stateInfo(status.state);
+  const info = stateInfo(status.state, status.last_exit_reason);
   return [el("span", { class: `status-dot tone-${info.tone}${info.busy ? " pulse" : ""}` }), t(info.label)];
 }

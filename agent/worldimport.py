@@ -540,7 +540,7 @@ async def import_world(ctx: ServerContext, token: str, user: str = "system") -> 
         check=check,
         take_backup=bool(existing) or bool(level_name),
         backup_name="pre-import",
-        backup_note=f"Automatic safety copy before importing {info.name or info.folder_name}",
+        backup_note=f"Before importing {info.name or info.folder_name}",
         # Bedrock: the whole worlds/ folder and server.properties, whose
         # level-name changes (backup lists hold top-level names only).
         backup_includes=(

@@ -114,7 +114,12 @@ export const STATES = {
   UNKNOWN: { label: "state.unknown", tone: "neutral" },
 };
 
-export function stateInfo(name) {
+const FAILED_TO_START = { label: "state.failed_to_start", tone: "danger" };
+
+/* reason is the last exit's, when known: a server that died while starting
+   "failed to start" rather than crashed. */
+export function stateInfo(name, reason) {
+  if (name === "CRASHED" && reason === "startup_failure") return FAILED_TO_START;
   return STATES[name] || STATES.UNKNOWN;
 }
 

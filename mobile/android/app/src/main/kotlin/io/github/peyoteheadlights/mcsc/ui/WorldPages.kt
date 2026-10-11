@@ -165,6 +165,11 @@ class WorldPages(
         }
     }
 
+    fun setOffsite(directory: String, strings: Strings) = work("offsite", strings, reload = ::loadBackups) {
+        it.setOffsite(serverId, directory)
+        Said(strings.t("offsite.saved"), good = true)
+    }
+
     fun offsiteOff(strings: Strings) = work("offsite", strings, reload = ::loadBackups) {
         it.turnOffsiteOff(serverId)
         Said(strings.t("offsite.turned_off"), good = true)

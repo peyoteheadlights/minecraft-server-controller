@@ -131,6 +131,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * open twice (its home and its Console) while one replaces the other. */
     private val watchers = mutableListOf<String>()
     private val pagesBy = mutableMapOf<String, ServerPages>()
+
+    /** The PC folder picker's listing, shared by every screen that chooses a folder. */
+    val folders by lazy { FolderBrowser(viewModelScope, { client() }, { prefs.lastProblem = it.key }) }
     private var feed: LiveFeed? = null
     private var liveJob: Job? = null
     private var refreshJob: Job? = null

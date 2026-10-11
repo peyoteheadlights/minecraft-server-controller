@@ -32,6 +32,7 @@ import io.github.peyoteheadlights.mcsc.core.Backup
 import io.github.peyoteheadlights.mcsc.core.Backups
 import io.github.peyoteheadlights.mcsc.core.ChangeList
 import io.github.peyoteheadlights.mcsc.core.Display
+import io.github.peyoteheadlights.mcsc.core.FolderPicker
 import io.github.peyoteheadlights.mcsc.core.Offsite
 import io.github.peyoteheadlights.mcsc.core.Permissions
 import io.github.peyoteheadlights.mcsc.core.Tone
@@ -88,6 +89,7 @@ fun BackupsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit, onRest
     val world = vm.pages(serverId).world
     val strings = vm.strings
     var asking by remember { mutableStateOf<Confirming?>(null) }
+    var picking by remember { mutableStateOf(false) }
     // The backup waiting for the picker: id, name and size, kept if the
     // screen is rebuilt (the phone turned) while the picker is open.
     var saving by rememberSaveable { mutableStateOf<Triple<Long, String, Long?>?>(null) }
@@ -111,6 +113,12 @@ fun BackupsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit, onRest
         refreshing = false,
         onRefresh = world::loadBackups,
         overlay = {
+            if (picking) {
+                FolderPickerDialog(vm, t("offsite.pick_title"), world.offsite?.directory, onPick = {
+                    picking = false
+                    world.setOffsite(it, strings)
+                }, onDismiss = { picking = false })
+            }
             asking?.let { ask ->
                 Confirm(ask.title, ask.body, ask.confirm, danger = true, onConfirm = {
                     asking = null
@@ -174,7 +182,7 @@ fun BackupsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit, onRest
         item { SectionTitle(t("page.world")) }
         item { Card { Item(t("world.lead"), onClick = onRestoreWorld) } }
 
-        offsiteCard(vm, world.offsite, busy) { world.offsiteOff(strings) }
+        offsiteCard(vm, world.offsite, busy, onChoose = { picking = true }) { world.offsiteOff(strings) }
         worldsCard(vm, world)
     }
 }
@@ -313,7 +321,7 @@ private fun RestoreDialog(vm: AppViewModel, backup: Backup, willHappen: List<Str
     )
 }
 
-private fun LazyListScope.offsiteCard(vm: AppViewModel, offsite: Offsite?, busy: String?, onTurnOff: () -> Unit) {
+private fun LazyListScope.offsiteCard(vm: AppViewModel, offsite: Offsite?, busy: String?, onChoose: () -> Unit, onTurnOff: () -> Unit) {
     item { SectionTitle(t("offsite.title")) }
     item {
         val colors = LocalColors.current
@@ -329,9 +337,17 @@ private fun LazyListScope.offsiteCard(vm: AppViewModel, offsite: Offsite?, busy:
                 else -> Note(t("offsite.folder_ok", "folder" to folder))
             }
             if (vm.technical) offsite?.subfolder?.let { Note(it, color = colors.text3) }
-            if (canEdit) Note(t("mobile.offsite.choose_on_pc"), color = colors.text3)
-            if (canEdit && folder.isNotEmpty()) {
-                Presses(listOf(Press(t(if (busy == "offsite") "action.saving" else "offsite.turn_off"), onTurnOff, enabled = busy == null)))
+            // Choosing a folder needs the PC folder picker, which is the owner's.
+            val canPick = canEdit && FolderPicker.allowed(vm.me)
+            if (canEdit && !canPick) Note(t("mobile.offsite.choose_on_pc"), color = colors.text3)
+            if (canEdit && offsite != null) {
+                Presses(
+                    listOfNotNull(
+                        Press(t(if (folder.isEmpty()) "offsite.choose" else "offsite.change"), onChoose, enabled = busy == null).takeIf { canPick },
+                        Press(t(if (busy == "offsite") "action.saving" else "offsite.turn_off"), onTurnOff, enabled = busy == null)
+                            .takeIf { folder.isNotEmpty() },
+                    ),
+                )
             }
         }
     }

@@ -863,3 +863,119 @@ public struct ServerRemoved: Decodable, Equatable, Sendable {
         directory = c.value(.directory, "")
     }
 }
+
+public struct PcDrive: Decodable, Equatable, Sendable {
+    public var name: String
+    public var path: String
+
+    enum CodingKeys: String, CodingKey {
+        case name, path
+    }
+
+    public init(name: String, path: String) {
+        self.name = name
+        self.path = path
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decode(String.self, forKey: .name)
+        path = try c.decode(String.self, forKey: .path)
+    }
+}
+
+public struct PcShortcut: Decodable, Equatable, Sendable {
+    public var key: String
+    public var path: String
+
+    enum CodingKeys: String, CodingKey {
+        case key, path
+    }
+
+    public init(key: String, path: String) {
+        self.key = key
+        self.path = path
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        key = try c.decode(String.self, forKey: .key)
+        path = try c.decode(String.self, forKey: .path)
+    }
+}
+
+public struct PcFolder: Decodable, Equatable, Sendable {
+    public var name: String
+    public var path: String
+    public var world: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case name, path, world
+    }
+
+    public init(name: String, path: String, world: Bool = false) {
+        self.name = name
+        self.path = path
+        self.world = world
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decode(String.self, forKey: .name)
+        path = try c.decode(String.self, forKey: .path)
+        world = c.value(.world, false)
+    }
+}
+
+/// The folders inside one folder on the PC, names only. `path` is nil for the top: the drives and the usual shortcuts.
+public struct FolderListing: Decodable, Equatable, Sendable {
+    public var path: String?
+    public var parent: String?
+    public var folders: [PcFolder]
+    public var drives: [PcDrive]
+    public var shortcuts: [PcShortcut]
+    public var truncated: Bool
+    public var world: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case path, parent, folders, drives, shortcuts, truncated, world
+    }
+
+    public init(path: String? = nil, parent: String? = nil, folders: [PcFolder] = [], drives: [PcDrive] = [], shortcuts: [PcShortcut] = [], truncated: Bool = false, world: Bool = false) {
+        self.path = path
+        self.parent = parent
+        self.folders = folders
+        self.drives = drives
+        self.shortcuts = shortcuts
+        self.truncated = truncated
+        self.world = world
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        path = c.maybe(.path)
+        parent = c.maybe(.parent)
+        folders = c.each(.folders)
+        drives = c.each(.drives)
+        shortcuts = c.each(.shortcuts)
+        truncated = c.value(.truncated, false)
+        world = c.value(.world, false)
+    }
+}
+
+public struct OffsiteSaved: Decodable, Equatable, Sendable {
+    public var directory: String
+
+    enum CodingKeys: String, CodingKey {
+        case directory
+    }
+
+    public init(directory: String = "") {
+        self.directory = directory
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        directory = c.value(.directory, "")
+    }
+}

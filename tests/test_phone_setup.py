@@ -138,3 +138,18 @@ def test_java_options_save_through_server_settings(signed_in):
         "-Xmx2G",
         "-XX:+UseG1GC",
     ]
+
+
+def test_the_folder_picker_lists_drives_then_folders_and_refuses_with_a_reason(signed_in, tmp_path):
+    top = signed_in.get("/api/folders").json()
+    assert top["path"] is None
+    assert top["drives"]
+    picked = tmp_path / "picked"
+    (picked / "world").mkdir(parents=True)
+    (picked / "world" / "level.dat").write_bytes(b"")
+    inside = signed_in.get("/api/folders", params={"path": str(picked)}).json()
+    assert inside["folders"] == [{"name": "world", "path": str(picked / "world"), "world": True}]
+    assert inside["parent"] == str(tmp_path)
+    refused = signed_in.get("/api/folders", params={"path": "not/whole"})
+    assert refused.status_code == 400
+    assert refused.json()["detail"] == "Choose the whole path to a folder."

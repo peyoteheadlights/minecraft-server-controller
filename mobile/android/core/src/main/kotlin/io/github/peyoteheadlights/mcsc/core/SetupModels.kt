@@ -253,3 +253,29 @@ data class DuplicateStarted(val job: Job)
 /** A server taken off the list; its folder stays where it is. */
 @Serializable
 data class ServerRemoved(val removed: String, val name: String = "", val directory: String = "")
+
+@Serializable
+data class PcDrive(val name: String, val path: String)
+
+@Serializable
+data class PcShortcut(val key: String, val path: String)
+
+@Serializable
+data class PcFolder(val name: String, val path: String, val world: Boolean = false)
+
+/** The folders inside one folder on the PC, names only. [path] is null for
+ * the top: the drives and the usual shortcuts. */
+@Serializable
+data class FolderListing(
+    val path: String? = null,
+    val parent: String? = null,
+    val folders: List<PcFolder> = emptyList(),
+    val drives: List<PcDrive> = emptyList(),
+    val shortcuts: List<PcShortcut> = emptyList(),
+    val truncated: Boolean = false,
+    val world: Boolean = false,
+)
+
+@Serializable
+data class OffsiteSaved(val directory: String = "")
+

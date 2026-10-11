@@ -447,5 +447,39 @@ final class SetupTests: XCTestCase {
         XCTAssertEqual(path(0), "/api/servers/s/game-settings/raw")
         XCTAssertEqual(body(0), #"{"text":"motd=Hi\n"}"#)
     }
+
+    func testTheFolderPickerReadsTheListingAndGoesUpToTheDrivesFromARoot() throws {
+        let top = try JSONDecoder().decode(FolderListing.self, from: Data(#"{"path": null, "parent": null, "folders": [], "drives": [{"name": "C:", "path": "C:\\"}], "shortcuts": [{"key": "saves", "path": "C:\\saves"}]}"#.utf8))
+        XCTAssertTrue(FolderPicker.atTop(top))
+        XCTAssertNil(FolderPicker.up(top))
+        XCTAssertEqual(FolderPicker.shortcutName(s, top.shortcuts[0]), s.t("folders.saves"))
+        XCTAssertEqual(FolderPicker.driveName(s, top.drives[0]), s.t("folders.drive", ["name": "C:"]))
+        let root = try JSONDecoder().decode(FolderListing.self, from: Data(#"{"path": "C:\\", "parent": null, "folders": [{"name": "mc", "path": "C:\\mc", "world": false}]}"#.utf8))
+        XCTAssertFalse(FolderPicker.atTop(root))
+        XCTAssertEqual(FolderPicker.up(root), "")
+        let inside = try JSONDecoder().decode(FolderListing.self, from: Data(#"{"path": "C:\\mc", "parent": "C:\\", "folders": [], "truncated": true, "world": true}"#.utf8))
+        XCTAssertEqual(FolderPicker.up(inside), "C:\\")
+        XCTAssertEqual(FolderPicker.notes(s, inside), [s.t("folders.empty"), s.t("folders.truncated")])
+    }
+
+    func testTheFolderPickerIsTheOwnersAndTypingAPathIsForTechnicalMode() {
+        XCTAssertFalse(FolderPicker.allowed(me(Permissions.SETTINGS_EDIT)))
+        XCTAssertTrue(FolderPicker.allowed(me(Permissions.FILES_BROWSE)))
+        XCTAssertFalse(FolderPicker.canType(technical: false))
+        XCTAssertTrue(FolderPicker.canType(technical: true))
+    }
+
+    func testFoldersAndTheOffPCFolderGoToTheAgentsRoutes() async throws {
+        let c = client()
+        StubAgent.json(#"{"path": null, "parent": null, "folders": [], "drives": [], "shortcuts": []}"#)
+        _ = try await c.folders(path: nil)
+        XCTAssertEqual(path(0), "/api/folders")
+        StubAgent.json(#"{"path": "D:\\My stuff", "parent": "D:\\", "folders": []}"#)
+        _ = try await c.folders(path: "D:\\My stuff")
+        XCTAssertEqual(StubAgent.requests[1].request.url?.query, "path=D%3A%5CMy%20stuff")
+        StubAgent.json(#"{"ok": true, "directory": "D:\\Backups"}"#)
+        _ = try await c.setOffsite(serverId: "s", directory: "D:\\Backups")
+        XCTAssertEqual(body(2), #"{"directory":"D:\\Backups"}"#)
+    }
 }
 

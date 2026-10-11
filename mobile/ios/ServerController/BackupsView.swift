@@ -88,6 +88,7 @@ struct BackupsView: View {
 
     @Environment(AppModel.self) private var model
     @State private var asking: Confirming?
+    @State private var picking = false
     @State private var moving = false
 
     private var world: WorldPages { model.pages(serverId).world }
@@ -116,6 +117,12 @@ struct BackupsView: View {
                 },
                 message: { ask in Text(ask.body) }
             )
+            .sheet(isPresented: $picking) {
+                FolderPickerView(title: model.t("offsite.pick_title"), start: world.offsite?.directory) { folder in
+                    let strings = model.strings
+                    Task { await world.setOffsite(folder, strings) }
+                }
+            }
             .sheet(item: $world.moving) { ask in
                 MoveSheet(ask: ask) { startAfter in
                     let strings = model.strings
@@ -316,6 +323,20 @@ struct BackupsView: View {
         }
     }
 
+    private func offsitePresses(_ world: WorldPages, _ busy: String?, folder: String, canPick: Bool) -> [Press] {
+        let strings = model.strings
+        var presses: [Press] = []
+        if canPick {
+            presses.append(Press(title: model.t(folder.isEmpty ? "offsite.choose" : "offsite.change"), enabled: busy == nil) { picking = true })
+        }
+        if !folder.isEmpty {
+            presses.append(Press(title: model.t(busy == "offsite" ? "action.saving" : "offsite.turn_off"), enabled: busy == nil) {
+                Task { await world.offsiteOff(strings) }
+            })
+        }
+        return presses
+    }
+
     @ViewBuilder
     private func offsiteCard(_ world: WorldPages, _ busy: String?, _ palette: Palette) -> some View {
         let canEdit = model.can(Permissions.SETTINGS_EDIT)
@@ -339,16 +360,13 @@ struct BackupsView: View {
             if model.technical, let subfolder = offsite?.subfolder {
                 Hint(text: subfolder, palette: palette)
             }
-            if canEdit {
+            // Choosing a folder needs the PC folder picker, which is the owner's.
+            let canPick = canEdit && FolderPicker.allowed(model.me)
+            if canEdit && !canPick {
                 Hint(text: model.t("mobile.offsite.choose_on_pc"), palette: palette)
             }
-            if canEdit && !folder.isEmpty {
-                let strings = model.strings
-                Presses(presses: [
-                    Press(title: model.t(busy == "offsite" ? "action.saving" : "offsite.turn_off"), enabled: busy == nil) {
-                        Task { await world.offsiteOff(strings) }
-                    },
-                ], palette: palette)
+            if canEdit && offsite != nil {
+                Presses(presses: offsitePresses(world, busy, folder: folder, canPick: canPick), palette: palette)
             }
         }
     }

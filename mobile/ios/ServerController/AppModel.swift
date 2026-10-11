@@ -274,7 +274,7 @@ final class AppModel {
         pagesById = [:]
     }
 
-    private func note(_ problem: AgentError) {
+    func note(_ problem: AgentError) {
         lastProblem = problem.key
     }
 

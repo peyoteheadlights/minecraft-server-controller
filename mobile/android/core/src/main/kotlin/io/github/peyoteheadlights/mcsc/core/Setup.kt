@@ -482,3 +482,34 @@ object RawText {
     }
 }
 
+/**
+ * The PC folder picker (panels/folders.js): tap through the PC's folders,
+ * names only, and choose one. The owner's alone (files.browse); typing a
+ * path is for Technical mode, checked by the agent the same way.
+ */
+object FolderPicker {
+    fun allowed(me: Me?): Boolean = me?.can(Permissions.FILES_BROWSE) == true
+
+    fun canType(technical: Boolean): Boolean = technical
+
+    /** The drives and shortcuts, before any folder is open. */
+    fun atTop(listing: FolderListing): Boolean = listing.path == null
+
+    /** Where "Up one folder" goes: the parent, "" (the drives) from a
+     * drive's root, or null when already at the top. */
+    fun up(listing: FolderListing): String? = when {
+        atTop(listing) -> null
+        else -> listing.parent ?: ""
+    }
+
+    fun shortcutName(strings: Strings, shortcut: PcShortcut): String = strings.t("folders.${shortcut.key}")
+
+    fun driveName(strings: Strings, drive: PcDrive): String = strings.t("folders.drive", "name" to drive.name)
+
+    /** The lines under the list: empty, or only the first 500 shown. */
+    fun notes(strings: Strings, listing: FolderListing): List<String> = listOfNotNull(
+        strings.t("folders.empty").takeIf { !atTop(listing) && listing.folders.isEmpty() },
+        strings.t("folders.truncated").takeIf { listing.truncated },
+    )
+}
+

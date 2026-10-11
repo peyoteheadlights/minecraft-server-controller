@@ -431,5 +431,50 @@ class SetupTest {
             assertEquals("""{"text":"motd=Hi\n"}""", request.body.readUtf8())
         }
     }
+
+    @Test
+    fun `the folder picker reads the agent's listing and goes up to the drives from a root`() {
+        val top = AgentJson.decodeFromString<FolderListing>(
+            """{"path": null, "parent": null, "folders": [], "drives": [{"name": "C:", "path": "C:\\"}], "shortcuts": [{"key": "saves", "path": "C:\\saves"}]}"""
+        )
+        assertTrue(FolderPicker.atTop(top))
+        assertNull(FolderPicker.up(top))
+        assertEquals(strings.t("folders.saves"), FolderPicker.shortcutName(strings, top.shortcuts[0]))
+        assertEquals(strings.t("folders.drive", "name" to "C:"), FolderPicker.driveName(strings, top.drives[0]))
+        val root = AgentJson.decodeFromString<FolderListing>(
+            """{"path": "C:\\", "parent": null, "folders": [{"name": "mc", "path": "C:\\mc", "world": false}], "truncated": false, "world": false}"""
+        )
+        assertFalse(FolderPicker.atTop(root))
+        assertEquals("", FolderPicker.up(root))
+        val inside = AgentJson.decodeFromString<FolderListing>(
+            """{"path": "C:\\mc", "parent": "C:\\", "folders": [], "truncated": true, "world": true}"""
+        )
+        assertEquals("C:\\", FolderPicker.up(inside))
+        assertEquals(listOf(strings.t("folders.empty"), strings.t("folders.truncated")), FolderPicker.notes(strings, inside))
+    }
+
+    @Test
+    fun `the folder picker is the owner's, and typing a path is for Technical mode`() {
+        assertFalse(FolderPicker.allowed(me(Permissions.SETTINGS_EDIT)))
+        assertTrue(FolderPicker.allowed(me(Permissions.FILES_BROWSE)))
+        assertFalse(FolderPicker.canType(technical = false))
+        assertTrue(FolderPicker.canType(technical = true))
+    }
+
+    @Test
+    fun `folders and the off-PC folder go to the agent's routes`() = runBlocking {
+        TestAgent().use { agent ->
+            val c = client(agent)
+            agent.server.enqueue(agent.json("""{"path": null, "parent": null, "folders": [], "drives": [], "shortcuts": []}"""))
+            assertNull(c.folders(null).path)
+            assertEquals("/api/folders", agent.server.takeRequest().path)
+            agent.server.enqueue(agent.json("""{"path": "D:\\My stuff", "parent": "D:\\", "folders": []}"""))
+            c.folders("D:\\My stuff")
+            assertEquals("/api/folders?path=D%3A%5CMy%20stuff", agent.server.takeRequest().path)
+            agent.server.enqueue(agent.json("""{"ok": true, "directory": "D:\\Backups"}"""))
+            c.setOffsite("s", "D:\\Backups")
+            assertEquals("""{"directory":"D:\\Backups"}""", agent.server.takeRequest().body.readUtf8())
+        }
+    }
 }
 

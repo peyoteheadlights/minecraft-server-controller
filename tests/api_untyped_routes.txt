@@ -6,7 +6,6 @@ GET /api/account/preferences
 GET /api/accounts
 GET /api/export
 GET /api/export/{token}
-GET /api/folders
 GET /api/help-bundle
 GET /api/help-bundle/{token}
 GET /api/new-server/options

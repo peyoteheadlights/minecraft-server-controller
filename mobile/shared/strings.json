@@ -7322,5 +7322,13 @@
  "mobile.raw.args_saved": [
   "Saved. Used from the next start.",
   "JVM arguments saved; applied on next start."
+ ],
+ "mobile.folders.type_path": [
+  "Type the path",
+  "Path"
+ ],
+ "mobile.folders.open": [
+  "Open",
+  "Go"
  ]
 }

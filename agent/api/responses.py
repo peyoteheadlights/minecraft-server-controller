@@ -1474,3 +1474,33 @@ class ServerRemoved(Open):
     removed: str
     name: str
     directory: str
+
+
+# ------------------------------------------------------------ folder picker
+class PcDrive(Open):
+    name: str
+    path: str
+
+
+class PcShortcut(Open):
+    key: str
+    path: str
+
+
+class PcFolder(Open):
+    name: str
+    path: str
+    world: bool = Field(description="It holds a Minecraft world (a level.dat inside)")
+
+
+class FolderListing(Open):
+    """The folders inside one folder, names only. With no folder asked for:
+    the PC's drives and the usual shortcuts, and path is null."""
+
+    path: str | None
+    parent: str | None = Field(description="null at a drive's root: going up shows the drives")
+    folders: list[PcFolder]
+    drives: list[PcDrive] = []
+    shortcuts: list[PcShortcut] = []
+    truncated: bool = False
+    world: bool = False

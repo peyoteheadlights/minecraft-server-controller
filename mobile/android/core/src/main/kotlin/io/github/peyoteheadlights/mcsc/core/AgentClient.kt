@@ -291,6 +291,16 @@ class AgentClient(
         Offsite.serializer(),
     )
 
+    /** Chooses the folder for second copies; the agent checks it first. */
+    suspend fun setOffsite(serverId: String, directory: String): OffsiteSaved = call(
+        request("${server(serverId)}/backups/offsite").put(buildJsonObject { put("directory", directory) }.toBody()).build(),
+        OffsiteSaved.serializer(),
+    )
+
+    /** The folders inside [path] on the PC, or the drives and shortcuts when null. */
+    suspend fun folders(path: String?): FolderListing =
+        get(if (path.isNullOrEmpty()) "/api/folders" else "/api/folders?path=${path(path)}", FolderListing.serializer())
+
     /**
      * Streams a backup's zip into [out], with the sign-in in a header (never
      * in the address), and returns the bytes written. [progress] gets the

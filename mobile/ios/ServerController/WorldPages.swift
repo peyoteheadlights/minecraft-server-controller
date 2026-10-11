@@ -174,6 +174,13 @@ final class WorldPages {
         }
     }
 
+    func setOffsite(_ directory: String, _ strings: Strings) async {
+        await work("offsite", strings, reload: loadBackups) { client, id in
+            _ = try await client.setOffsite(serverId: id, directory: directory)
+            return Said(text: strings.t("offsite.saved"), good: true)
+        }
+    }
+
     func offsiteOff(_ strings: Strings) async {
         await work("offsite", strings, reload: loadBackups) { client, id in
             _ = try await client.turnOffsiteOff(serverId: id)

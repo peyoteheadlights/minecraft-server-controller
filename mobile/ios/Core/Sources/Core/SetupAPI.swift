@@ -90,6 +90,18 @@ extension AgentClient {
         try await call("DELETE", setup(serverId), as: ServerRemoved.self)
     }
 
+    /// The folders inside `path` on the PC, or the drives and shortcuts when nil.
+    public func folders(path: String?) async throws -> FolderListing {
+        guard let path, !path.isEmpty else { return try await call("GET", "/api/folders", as: FolderListing.self) }
+        return try await call("GET", "/api/folders?path=" + AgentClient.pathSegment(path), as: FolderListing.self)
+    }
+
+    /// Chooses the folder for second copies; the agent checks it first.
+    public func setOffsite(serverId: String, directory: String) async throws -> OffsiteSaved {
+        let body = try AgentClient.encode(["directory": JSONValue.string(directory)])
+        return try await call("PUT", setup(serverId) + "/backups/offsite", body: body, as: OffsiteSaved.self)
+    }
+
     private func versionBody(type: String, minecraft: String, loader: String?, confirm: Bool) throws -> Data {
         var body: [String: JSONValue] = ["type": .string(type), "minecraft_version": .string(minecraft), "confirm": .bool(confirm)]
         if let loader { body["loader_version"] = .string(loader) }

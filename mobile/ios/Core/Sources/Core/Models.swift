@@ -438,4 +438,6 @@ public enum Permissions {
     public static let SCHEDULES_MANAGE = "schedules.manage"
     public static let MODS_MANAGE = "mods.manage"
     public static let SERVERS_MANAGE = "servers.manage"
+    public static let FILES_BROWSE = "files.browse"
+    public static let WORLD_REPLACE = "world.replace"
 }

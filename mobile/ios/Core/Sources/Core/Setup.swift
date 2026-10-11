@@ -539,3 +539,37 @@ public enum RawText {
     }
 }
 
+/// The PC folder picker (panels/folders.js): tap through the PC's folders,
+/// names only, and choose one. The owner's alone (files.browse); typing a
+/// path is for Technical mode, checked by the agent the same way.
+public enum FolderPicker {
+    public static func allowed(_ me: Me?) -> Bool { me?.can(Permissions.FILES_BROWSE) == true }
+
+    public static func canType(technical: Bool) -> Bool { technical }
+
+    /// The drives and shortcuts, before any folder is open.
+    public static func atTop(_ listing: FolderListing) -> Bool { listing.path == nil }
+
+    /// Where "Up one folder" goes: the parent, "" (the drives) from a
+    /// drive's root, or nil when already at the top.
+    public static func up(_ listing: FolderListing) -> String? {
+        atTop(listing) ? nil : (listing.parent ?? "")
+    }
+
+    public static func shortcutName(_ strings: Strings, _ shortcut: PcShortcut) -> String {
+        strings.t("folders.\(shortcut.key)")
+    }
+
+    public static func driveName(_ strings: Strings, _ drive: PcDrive) -> String {
+        strings.t("folders.drive", ["name": drive.name])
+    }
+
+    /// The lines under the list: empty, or only the first 500 shown.
+    public static func notes(_ strings: Strings, _ listing: FolderListing) -> [String] {
+        var lines: [String] = []
+        if !atTop(listing) && listing.folders.isEmpty { lines.append(strings.t("folders.empty")) }
+        if listing.truncated { lines.append(strings.t("folders.truncated")) }
+        return lines
+    }
+}
+

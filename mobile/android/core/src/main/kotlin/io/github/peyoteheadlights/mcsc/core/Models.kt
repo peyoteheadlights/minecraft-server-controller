@@ -179,4 +179,6 @@ object Permissions {
     const val SCHEDULES_MANAGE = "schedules.manage"
     const val MODS_MANAGE = "mods.manage"
     const val SERVERS_MANAGE = "servers.manage"
+    const val FILES_BROWSE = "files.browse"
+    const val WORLD_REPLACE = "world.replace"
 }

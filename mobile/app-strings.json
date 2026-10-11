@@ -287,5 +287,8 @@
   "mobile.raw.args_title": ["Java options, as text", "JVM arguments (raw)"],
   "mobile.raw.args_hint": ["One option per line or all on one line. The memory slider only changes -Xmx.", "Whitespace-separated. The slider replaces -Xmx only."],
 
-  "mobile.raw.args_saved": ["Saved. Used from the next start.", "JVM arguments saved; applied on next start."]
+  "mobile.raw.args_saved": ["Saved. Used from the next start.", "JVM arguments saved; applied on next start."],
+
+  "mobile.folders.type_path": ["Type the path", "Path"],
+  "mobile.folders.open": ["Open", "Go"]
 }

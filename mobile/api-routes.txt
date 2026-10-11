@@ -110,3 +110,5 @@ PUT /api/servers/{server_id}/crossplay
 GET /api/servers/{server_id}/duplicate
 POST /api/servers/{server_id}/duplicate
 DELETE /api/servers/{server_id}
+# Part 5b: the PC folder picker, new servers and world import
+GET /api/folders

@@ -612,6 +612,10 @@ class AgentClient(
     )
 
     // ------------------------------------------------------------------
+    /** Takes a server off the list. Nothing on the PC is deleted. */
+    suspend fun removeServer(serverId: String): ServerRemoved =
+        call(request(server(serverId)).delete().build(), ServerRemoved.serializer())
+
     private fun server(id: String) = "/api/servers/${path(id)}"
 
     private fun path(id: String) = java.net.URLEncoder.encode(id, "UTF-8").replace("+", "%20")

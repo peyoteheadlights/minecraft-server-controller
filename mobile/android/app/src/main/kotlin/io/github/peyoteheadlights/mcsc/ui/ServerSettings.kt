@@ -38,6 +38,7 @@ import io.github.peyoteheadlights.mcsc.core.CpuCores
 import io.github.peyoteheadlights.mcsc.core.Crossplay
 import io.github.peyoteheadlights.mcsc.core.Duplicate
 import io.github.peyoteheadlights.mcsc.core.Memory
+import io.github.peyoteheadlights.mcsc.core.RemoveServer
 import io.github.peyoteheadlights.mcsc.core.ServerColors
 import io.github.peyoteheadlights.mcsc.core.ServerForm
 import io.github.peyoteheadlights.mcsc.core.VersionChange
@@ -50,7 +51,7 @@ import io.github.peyoteheadlights.mcsc.core.VersionChange
  * Someone who may only look sees it all read-only.
  */
 @Composable
-fun ServerSettingsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit) {
+fun ServerSettingsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit, onRemoved: () -> Unit) {
     val setup = vm.pages(serverId).setup
     val strings = vm.strings
     val canEdit = ServerForm.editable(vm.me)
@@ -101,6 +102,15 @@ fun ServerSettingsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit)
                     onConfirm = {
                         asking = null
                         setup.setCrossplay(true, strings)
+                    },
+                    onDismiss = { asking = null },
+                )
+                SetupAsk.REMOVE -> Confirm(
+                    t("serverset.remove_title", "name" to (vm.servers.list.firstOrNull { it.id == serverId }?.name ?: serverId)),
+                    t("serverset.remove_body"), t("serverset.remove_confirm"), danger = true,
+                    onConfirm = {
+                        asking = null
+                        setup.removeServer(strings, onRemoved)
                     },
                     onDismiss = { asking = null },
                 )
@@ -178,6 +188,10 @@ fun ServerSettingsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit)
         if (Duplicate.allowed(vm.me)) {
             item { SectionTitle(t("dup.title")) }
             item { Card { DuplicateCard(vm, setup, serverId) } }
+        }
+        if (RemoveServer.allowed(vm.me)) {
+            item { SectionTitle(t("serverset.remove")) }
+            item { Card { RemoveCard(vm, setup) { asking = it } } }
         }
     }
 }

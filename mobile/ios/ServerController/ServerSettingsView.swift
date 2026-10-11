@@ -33,7 +33,7 @@ struct ServerSettingsView: View {
             }
             .alert(askTitle(setup), isPresented: Binding(get: { asking != nil }, set: { if !$0 { asking = nil } })) {
                 Button(askButton,
-                       role: asking == .change && setup.report?.value.map(VersionChange.danger) == true ? .destructive : nil) {
+                       role: asking == .remove || (asking == .change && setup.report?.value.map(VersionChange.danger) == true) ? .destructive : nil) {
                     let strings = model.strings
                     let what = asking
                     asking = nil
@@ -42,6 +42,8 @@ struct ServerSettingsView: View {
                         case .rollBack: await setup.rollBack(strings)
                         case .change: await setup.changeVersion(strings)
                         case .crossplayOn: await setup.setCrossplay(true, strings)
+                        // The server is gone: back to All servers, not to its page.
+                        case .remove: if await setup.removeServer(strings) { model.serversPath = [] }
                         case nil: break
                         }
                     }
@@ -66,6 +68,7 @@ struct ServerSettingsView: View {
         case .rollBack: return model.t("version.back_title")
         case .change: return model.t("version.confirm_title", ["name": setup.report?.value.map(VersionChange.target) ?? ""])
         case .crossplayOn: return model.t("cross.on_title")
+        case .remove: return model.t("serverset.remove_title", ["name": model.servers.first(where: { $0.id == serverId })?.name ?? serverId])
         case nil: return ""
         }
     }
@@ -74,6 +77,7 @@ struct ServerSettingsView: View {
         switch asking {
         case .rollBack: return model.t("version.back_button")
         case .crossplayOn: return model.t("cross.on_button")
+        case .remove: return model.t("serverset.remove_confirm")
         default: return model.t("version.confirm_button")
         }
     }
@@ -82,6 +86,7 @@ struct ServerSettingsView: View {
         switch asking {
         case .rollBack: return model.t("version.back_body")
         case .crossplayOn: return model.t("cross.on_body", ["port": Crossplay.typedPort(setup.crossPort) ?? 19132])
+        case .remove: return model.t("serverset.remove_body")
         default: return model.t("version.confirm_body")
         }
     }
@@ -156,6 +161,10 @@ struct ServerSettingsView: View {
             if Duplicate.allowed(model.me) {
                 SectionTitle(text: model.t("dup.title"), palette: palette)
                 CardBox(palette: palette) { DuplicateCardView(setup: setup, serverId: serverId, palette: palette) }
+            }
+            if RemoveServer.allowed(model.me) {
+                SectionTitle(text: model.t("serverset.remove"), palette: palette)
+                CardBox(palette: palette) { RemoveCardView(setup: setup, palette: palette) { asking = $0 } }
             }
         } else if read.problem == nil {
             ProgressView().frame(maxWidth: .infinity)

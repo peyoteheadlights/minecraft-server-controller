@@ -839,3 +839,27 @@ public struct DuplicateStarted: Decodable, Equatable, Sendable {
         job = try c.decode(Job.self, forKey: .job)
     }
 }
+
+/// A server taken off the list; its folder stays where it is.
+public struct ServerRemoved: Decodable, Equatable, Sendable {
+    public var removed: String
+    public var name: String
+    public var directory: String
+
+    enum CodingKeys: String, CodingKey {
+        case removed, name, directory
+    }
+
+    public init(removed: String, name: String = "", directory: String = "") {
+        self.removed = removed
+        self.name = name
+        self.directory = directory
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        removed = try c.decode(String.self, forKey: .removed)
+        name = c.value(.name, "")
+        directory = c.value(.directory, "")
+    }
+}

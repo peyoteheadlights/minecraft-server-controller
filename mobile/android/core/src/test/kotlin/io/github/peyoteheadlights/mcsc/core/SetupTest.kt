@@ -347,4 +347,25 @@ class SetupTest {
             assertEquals("""{"name":"Copy","directory":"D:/mc/Copy","world":"fresh"}""", agent.server.takeRequest().body.readUtf8())
         }
     }
+
+    @Test
+    fun `remove server is for the owner and never on the last server`() {
+        assertFalse(RemoveServer.allowed(me(Permissions.SETTINGS_EDIT)))
+        assertTrue(RemoveServer.allowed(me(Permissions.SERVERS_MANAGE)))
+        assertEquals(strings.t("serverset.remove_last"), RemoveServer.blocked(strings, 1))
+        assertNull(RemoveServer.blocked(strings, 2))
+        assertEquals(strings.t("serverset.remove_hint"), RemoveServer.hint(strings, 2))
+        assertEquals(strings.t("serverset.remove_last"), RemoveServer.hint(strings, 1))
+    }
+
+    @Test
+    fun `remove server goes to the agent's route`() = runBlocking {
+        TestAgent().use { agent ->
+            agent.server.enqueue(agent.json("""{"ok": true, "removed": "s", "name": "Survival", "directory": "C:\\mc"}"""))
+            assertEquals("Survival", client(agent).removeServer("s").name)
+            val request = agent.server.takeRequest()
+            assertEquals("DELETE", request.method)
+            assertEquals("/api/servers/s", request.path)
+        }
+    }
 }

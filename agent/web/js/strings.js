@@ -513,11 +513,11 @@ export const STRINGS = /* strings-table */ {
   "serverset.stop_timeout": ["Force stop after (seconds)", "Stop timeout (s)"],
   "serverset.stop_timeout_hint": ["If it hasn't stopped by then, it's forced to stop.", "After this the process is killed."],
   "serverset.remove": ["Remove from list", "Remove server"],
-  "serverset.remove_hint": ["Removes it from the dashboard. Its folder, world and backups stay.", "Unregisters the server. Files, worlds and backups are not touched."],
+  "serverset.remove_hint": ["Removes it from Command Block. Its folder, world and backups stay.", "Unregisters the server. Files, worlds and backups are not touched."],
   "serverset.remove_last": ["The only server can't be removed.", "The last server cannot be removed."],
   "serverset.remove_button": ["Remove from list", "Remove"],
   "serverset.remove_title": ["Remove {name}?", "Remove {name}?"],
-  "serverset.remove_body": ["It leaves the dashboard. Nothing is deleted.", "Unregisters the server; no files are deleted."],
+  "serverset.remove_body": ["It leaves Command Block. Nothing is deleted.", "Unregisters the server; no files are deleted."],
   "serverset.remove_confirm": ["Remove", "Remove"],
   "serverset.removed": ["{name} removed.", "{name} removed from the list."],
 

@@ -4,9 +4,14 @@ the PC folder picker and world import."""
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
 from .test_api import auth, token_for
+
+ROOT = Path(__file__).resolve().parent.parent
 
 
 @pytest.fixture
@@ -89,3 +94,16 @@ def test_crossplay_and_duplicate_answers_are_typed(signed_in):
     options = signed_in.get("/api/servers/test/duplicate").json()
     assert options["name"].endswith("copy")
     assert options["directory"]
+
+
+def test_the_only_server_cant_be_removed(signed_in):
+    response = signed_in.delete("/api/servers/test")
+    assert response.status_code == 400
+    assert "only server" in response.json()["detail"]
+
+
+def test_remove_server_wording_never_says_dashboard():
+    strings = json.loads((ROOT / "mobile" / "shared" / "strings.json").read_text(encoding="utf-8"))
+    remove = {key: words for key, words in strings.items() if key.startswith("serverset.remove")}
+    assert remove
+    assert not [key for key, words in remove.items() if any("dashboard" in w.lower() for w in words)]

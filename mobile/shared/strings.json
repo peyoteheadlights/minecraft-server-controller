@@ -1844,7 +1844,7 @@
   "Remove server"
  ],
  "serverset.remove_hint": [
-  "Removes it from the dashboard. Its folder, world and backups stay.",
+  "Removes it from Command Block. Its folder, world and backups stay.",
   "Unregisters the server. Files, worlds and backups are not touched."
  ],
  "serverset.remove_last": [
@@ -1860,7 +1860,7 @@
   "Remove {name}?"
  ],
  "serverset.remove_body": [
-  "It leaves the dashboard. Nothing is deleted.",
+  "It leaves Command Block. Nothing is deleted.",
   "Unregisters the server; no files are deleted."
  ],
  "serverset.remove_confirm": [

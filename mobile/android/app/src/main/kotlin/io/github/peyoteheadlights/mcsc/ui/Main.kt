@@ -112,7 +112,12 @@ fun Main(vm: AppViewModel) {
                 GameSettingsScreen(vm, back.serverId(), onBack = { nav.popBackStack() })
             }
             composable("server/{id}/settings") { back ->
-                ServerSettingsScreen(vm, back.serverId(), onBack = { nav.popBackStack() })
+                ServerSettingsScreen(
+                    vm, back.serverId(),
+                    onBack = { nav.popBackStack() },
+                    // The server is gone: back to All servers, not to its page.
+                    onRemoved = { nav.popBackStack("servers", inclusive = false) },
+                )
             }
             composable("server/{id}/events") { back ->
                 EventsScreen(vm, back.serverId(), onBack = { nav.popBackStack() })

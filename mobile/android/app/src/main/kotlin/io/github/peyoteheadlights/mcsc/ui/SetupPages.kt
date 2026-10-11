@@ -522,4 +522,25 @@ class SetupPages(
             }
         }
     }
+
+    /** Takes this server off the list, then [onRemoved] leaves its screens. */
+    fun removeServer(strings: Strings, onRemoved: () -> Unit) {
+        val c = client() ?: return
+        if (busy != null) return
+        busy = "remove"
+        said = null
+        scope.launch {
+            try {
+                c.removeServer(serverId)
+                onListChanged()
+                onRemoved()
+            } catch (e: AgentException) {
+                noted(e)
+                said = Said(Message.of(e).text(strings), good = false)
+            } finally {
+                busy = null
+            }
+        }
+    }
 }
+

@@ -85,6 +85,11 @@ extension AgentClient {
         return try await call("POST", setup(serverId) + "/duplicate", body: body, as: DuplicateStarted.self)
     }
 
+    /// Takes a server off the list. Nothing on the PC is deleted.
+    public func removeServer(serverId: String) async throws -> ServerRemoved {
+        try await call("DELETE", setup(serverId), as: ServerRemoved.self)
+    }
+
     private func versionBody(type: String, minecraft: String, loader: String?, confirm: Bool) throws -> Data {
         var body: [String: JSONValue] = ["type": .string(type), "minecraft_version": .string(minecraft), "confirm": .bool(confirm)]
         if let loader { body["loader_version"] = .string(loader) }

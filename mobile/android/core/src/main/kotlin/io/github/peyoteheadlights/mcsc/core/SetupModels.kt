@@ -249,3 +249,7 @@ data class DuplicateOptions(
 
 @Serializable
 data class DuplicateStarted(val job: Job)
+
+/** A server taken off the list; its folder stays where it is. */
+@Serializable
+data class ServerRemoved(val removed: String, val name: String = "", val directory: String = "")

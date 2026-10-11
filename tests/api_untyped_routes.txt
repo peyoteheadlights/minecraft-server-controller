@@ -1,7 +1,6 @@
 # Older routes that answer without a response model yet (agent/api/responses.py).
 # Remove a line when its route gets one. New routes must not be added here.
 DELETE /api/accounts/{username}
-DELETE /api/servers/{server_id}
 DELETE /api/servers/{server_id}/world/import/{token}
 GET /api/account/preferences
 GET /api/accounts

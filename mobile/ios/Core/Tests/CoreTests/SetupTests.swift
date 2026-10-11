@@ -380,4 +380,22 @@ final class SetupTests: XCTestCase {
         XCTAssertEqual(started.job.id, "j")
         XCTAssertEqual(body(3), #"{"directory":"D:/mc/Copy","name":"Copy","world":"fresh"}"#)
     }
+
+    func testRemoveServerIsForTheOwnerAndNeverOnTheLastServer() {
+        XCTAssertFalse(RemoveServer.allowed(me(Permissions.SETTINGS_EDIT)))
+        XCTAssertTrue(RemoveServer.allowed(me(Permissions.SERVERS_MANAGE)))
+        XCTAssertEqual(RemoveServer.blocked(s, serverCount: 1), s.t("serverset.remove_last"))
+        XCTAssertNil(RemoveServer.blocked(s, serverCount: 2))
+        XCTAssertEqual(RemoveServer.hint(s, serverCount: 2), s.t("serverset.remove_hint"))
+        XCTAssertEqual(RemoveServer.hint(s, serverCount: 1), s.t("serverset.remove_last"))
+    }
+
+    func testRemoveServerGoesToTheAgentsRoute() async throws {
+        StubAgent.json(#"{"ok": true, "removed": "s", "name": "Survival", "directory": "D:/mc"}"#)
+        let removed = try await client().removeServer(serverId: "s")
+        XCTAssertEqual(removed.name, "Survival")
+        XCTAssertEqual(method(0), "DELETE")
+        XCTAssertEqual(path(0), "/api/servers/s")
+    }
 }
+

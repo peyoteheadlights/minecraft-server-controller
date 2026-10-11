@@ -18,6 +18,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import io.github.peyoteheadlights.mcsc.core.Crossplay
 import io.github.peyoteheadlights.mcsc.core.Duplicate
+import io.github.peyoteheadlights.mcsc.core.RemoveServer
 
 /** "Let Bedrock players join": its state, the port, and the agent's reason
  * when this kind of server can't have it. */
@@ -120,3 +121,19 @@ fun DuplicateCard(vm: AppViewModel, setup: SetupPages, serverId: String) {
         }
     }
 }
+
+/** Remove server: off the list, its folder, world and backups stay. Never
+ * the last server: the button is off with the reason under the heading. */
+@Composable
+fun RemoveCard(vm: AppViewModel, setup: SetupPages, onAsk: (SetupAsk) -> Unit) {
+    val colors = LocalColors.current
+    val count = vm.servers.list.size
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Gap) {
+        Text(RemoveServer.hint(vm.strings, count), color = colors.text2)
+        OutlinedButton(
+            onClick = { onAsk(SetupAsk.REMOVE) },
+            enabled = setup.busy == null && RemoveServer.blocked(vm.strings, count) == null,
+        ) { Text(t("serverset.remove_button"), color = colors.danger) }
+    }
+}
+

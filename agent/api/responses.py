@@ -1457,3 +1457,12 @@ class DuplicateOptions(Open):
 class DuplicateStarted(Open):
     ok: bool
     job: Job
+
+
+class ServerRemoved(Open):
+    """A server taken off the list. Nothing on disk was touched."""
+
+    ok: bool
+    removed: str
+    name: str
+    directory: str

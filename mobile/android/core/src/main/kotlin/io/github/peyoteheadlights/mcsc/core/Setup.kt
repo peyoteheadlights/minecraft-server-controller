@@ -352,3 +352,15 @@ object Duplicate {
     fun progress(job: Job?, serverId: String): String? =
         job?.takeIf { it.kind == "duplicate" && it.state == "running" && it.serverId == serverId }?.step
 }
+
+/** Remove server: off the list, nothing deleted. Owner only, never the last one. */
+object RemoveServer {
+    fun allowed(me: Me?): Boolean = me?.can(Permissions.SERVERS_MANAGE) == true
+
+    /** Why the button is off, or null when it can be pressed. */
+    fun blocked(strings: Strings, serverCount: Int): String? =
+        if (serverCount <= 1) strings.t("serverset.remove_last") else null
+
+    /** The line under the heading: what removing does, or why it can't. */
+    fun hint(strings: Strings, serverCount: Int): String = blocked(strings, serverCount) ?: strings.t("serverset.remove_hint")
+}

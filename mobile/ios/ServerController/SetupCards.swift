@@ -122,3 +122,24 @@ struct DuplicateCardView: View {
         }
     }
 }
+
+/// Remove server: off the list, its folder, world and backups stay. Never
+/// the last server: the button is off with the reason above it.
+struct RemoveCardView: View {
+    let setup: SetupPages
+    let palette: Palette
+    let ask: (SetupAsk) -> Void
+
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let count = model.servers.count
+        VStack(alignment: .leading, spacing: 8) {
+            Hint(text: RemoveServer.hint(model.strings, serverCount: count), palette: palette)
+            Button(model.t("serverset.remove_button"), role: .destructive) { ask(.remove) }
+                .buttonStyle(.bordered)
+                .disabled(setup.busy != nil || RemoveServer.blocked(model.strings, serverCount: count) != nil)
+        }
+    }
+}
+

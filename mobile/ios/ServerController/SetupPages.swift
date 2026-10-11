@@ -426,4 +426,23 @@ final class SetupPages {
             said = Said(text: problem.message(strings), good: false)
         } catch {}
     }
+
+    /// Takes this server off the list. True when it is gone, so the screen
+    /// can go back to All servers.
+    func removeServer(_ strings: Strings) async -> Bool {
+        guard let client = client(), busy == nil else { return false }
+        busy = "remove"
+        said = nil
+        defer { busy = nil }
+        do {
+            _ = try await client.removeServer(serverId: serverId)
+            await listChanged()
+            return true
+        } catch let problem as AgentError {
+            noted(problem)
+            said = Said(text: problem.message(strings), good: false)
+        } catch {}
+        return false
+    }
 }
+

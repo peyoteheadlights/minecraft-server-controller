@@ -379,3 +379,18 @@ public enum Duplicate {
         return job.step
     }
 }
+
+/// Remove server: off the list, nothing deleted. Owner only, never the last one.
+public enum RemoveServer {
+    public static func allowed(_ me: Me?) -> Bool { me?.can(Permissions.SERVERS_MANAGE) == true }
+
+    /// Why the button is off, or nil when it can be pressed.
+    public static func blocked(_ strings: Strings, serverCount: Int) -> String? {
+        serverCount <= 1 ? strings.t("serverset.remove_last") : nil
+    }
+
+    /// The line under the heading: what removing does, or why it can't.
+    public static func hint(_ strings: Strings, serverCount: Int) -> String {
+        blocked(strings, serverCount: serverCount) ?? strings.t("serverset.remove_hint")
+    }
+}

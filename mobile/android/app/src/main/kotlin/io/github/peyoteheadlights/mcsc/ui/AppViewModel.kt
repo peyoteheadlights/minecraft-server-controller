@@ -481,7 +481,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         is LiveSignal.Console -> signal.serverId?.let { pagesBy[it] }?.onConsoleLine(signal.line)
                         is LiveSignal.Chat -> signal.serverId?.let { pagesBy[it] }?.onChat(signal.message)
                         is LiveSignal.ConsoleTail -> pagesBy[signal.serverId]?.onConsoleTail(signal.lines)
-                        is LiveSignal.Task -> signal.serverId?.let { pagesBy[it] }?.content?.onTask(signal.job)
+                        is LiveSignal.Task -> signal.serverId?.let { pagesBy[it] }?.let { pages ->
+                            pages.content.onTask(signal.job)
+                            pages.world.onTask(signal.job)
+                        }
                         is LiveSignal.Closed -> {
                             live = false
                             // A 401 here signs the app out; anything else, try again.

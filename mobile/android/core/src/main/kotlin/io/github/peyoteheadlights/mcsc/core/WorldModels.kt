@@ -158,8 +158,41 @@ data class Job(
 @Serializable
 data class JobList(val jobs: List<Job> = emptyList())
 
+/** One change on a server's Undo or Redo list (agent/changes.py). */
 @Serializable
-data class JobUndone(val restored: String = "")
+data class Change(
+    val id: Long,
+    val title: String = "",
+    val user: String? = null,
+    @SerialName("made_at") val madeAt: Double = 0.0,
+    /** Set on the Redo list: when it was undone. */
+    @SerialName("undone_at") val undoneAt: Double? = null,
+    /** What Undo or Redo puts back; null for everything the backup holds. */
+    val scope: List<String>? = null,
+    @SerialName("backup_id") val backupId: Long? = null,
+    val backup: String = "",
+    /** When the backup that would be put back was made. */
+    @SerialName("backup_at") val backupAt: Double = 0.0,
+    /** Play since that backup; null when no sessions were recorded. */
+    @SerialName("played_seconds") val playedSeconds: Double? = null,
+)
+
+/** A server's two lists: Undo reverses [undo]'s first, Redo puts back [redo]'s first. */
+@Serializable
+data class UndoRedo(
+    val undo: List<Change> = emptyList(),
+    val redo: List<Change> = emptyList(),
+    @SerialName("server_running") val serverRunning: Boolean = false,
+    @SerialName("blocked_by") val blockedBy: String? = null,
+)
+
+/** What Undo or Redo did. */
+@Serializable
+data class ChangeMoved(
+    val change: Change,
+    val restored: String = "",
+    @SerialName("safety_backup") val safetyBackup: SafetyBackup? = null,
+)
 
 @Serializable
 data class Schedule(

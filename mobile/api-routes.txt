@@ -43,7 +43,11 @@ POST /api/servers/{server_id}/worlds/save
 GET /api/servers/{server_id}/world/timeline
 POST /api/servers/{server_id}/world/undo
 GET /api/jobs
+# Only phone apps from before Undo and Redo call this one.
 POST /api/jobs/{job_id}/undo
+GET /api/servers/{server_id}/changes
+POST /api/servers/{server_id}/changes/undo
+POST /api/servers/{server_id}/changes/redo
 GET /api/servers/{server_id}/schedules
 POST /api/servers/{server_id}/schedules
 PUT /api/servers/{server_id}/schedules/{schedule_id}

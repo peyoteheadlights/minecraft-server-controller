@@ -49,9 +49,8 @@ object Backups {
     /** A backup whose file is gone can't be downloaded or restored. */
     fun onDisk(backup: Backup): Boolean = backup.exists != false
 
-    /** The newest finished change on this server that can be undone. The
-     * agent lists jobs newest first. */
-    fun lastUndoable(jobs: List<Job>): Job? = jobs.firstOrNull { it.state == "succeeded" && it.result?.undo != null }
+    /** A task's states once it is over. */
+    val FINISHED = setOf("succeeded", "failed", "interrupted")
 
     /** "Kept: last 7 days, 4 weeks, 3 months"; null when the agent didn't say. */
     fun keeping(strings: Strings, retention: Retention?): String? {
@@ -165,13 +164,15 @@ object WorldRestore {
 
     /** "2h 10m ago · about 1h 30m of play would be lost"; play not known
      * when no sessions were recorded (never "no play"). */
-    fun lossLine(strings: Strings, point: WorldPoint): String {
-        val since = strings.t("world.since", "duration" to Display.duration(strings, point.ageSeconds))
-        val played = point.playedSeconds
+    fun lossLine(strings: Strings, point: WorldPoint): String = lossLine(strings, point.ageSeconds, point.playedSeconds)
+
+    /** The same line for a backup made [ageSeconds] ago (Undo and Redo use it too). */
+    fun lossLine(strings: Strings, ageSeconds: Double, playedSeconds: Double?): String {
+        val since = strings.t("world.since", "duration" to Display.duration(strings, ageSeconds))
         val play = when {
-            played == null -> strings.t("world.play_unknown")
-            played < 60 -> strings.t("world.no_play")
-            else -> strings.t("world.play_lost", "duration" to Display.duration(strings, played))
+            playedSeconds == null -> strings.t("world.play_unknown")
+            playedSeconds < 60 -> strings.t("world.no_play")
+            else -> strings.t("world.play_lost", "duration" to Display.duration(strings, playedSeconds))
         }
         return "$since · $play"
     }
@@ -185,6 +186,54 @@ object WorldRestore {
 
     fun done(strings: Strings, result: Restored): String =
         result.safetyBackup?.name?.let { strings.t("world.done_with_undo", "name" to it) } ?: strings.t("world.done")
+}
+
+/** Undo and Redo: the two lists of changes (changesCard and moveChange in backups.js). */
+object ChangeList {
+    /** How many changes past the newest the screen lists ("Pressing Undo again goes on to"). */
+    const val LATER = 3
+
+    /** Whether the Undo ("undo") or Redo ("redo") button works now: the
+     * person may restore, there is something to move and no task holds the server. */
+    fun canMove(changes: UndoRedo, direction: String, canRestore: Boolean): Boolean {
+        val list = if (direction == "undo") changes.undo else changes.redo
+        return canRestore && list.isNotEmpty() && changes.blockedBy == null
+    }
+
+    /** The first line: the newest change, or that nothing is left to undo. */
+    fun next(strings: Strings, changes: UndoRedo, now: Double): String {
+        val change = changes.undo.firstOrNull() ?: return strings.t("changes.nothing_to_undo")
+        return strings.t(
+            "changes.next_undo",
+            "title" to change.title,
+            "when" to Display.ago(strings, change.madeAt, now),
+            "who" to (change.user ?: strings.t("value.unknown")),
+        )
+    }
+
+    /** The change Redo would put back, or null when nothing was undone. */
+    fun nextRedo(strings: Strings, changes: UndoRedo, now: Double): String? {
+        val change = changes.redo.firstOrNull() ?: return null
+        return strings.t("changes.next_redo", "title" to change.title, "when" to Display.ago(strings, change.undoneAt, now))
+    }
+
+    /** The changes after the newest, for "Pressing Undo again goes on to". */
+    fun later(strings: Strings, changes: UndoRedo, now: Double): List<String> =
+        changes.undo.drop(1).take(LATER).map {
+            strings.t("changes.later_item", "title" to it.title, "when" to Display.ago(strings, it.madeAt, now))
+        }
+
+    /** The question before Undo or Redo: what goes back, and what would be lost. */
+    fun ask(strings: Strings, direction: String, change: Change, now: Double): Pair<String, String> {
+        val what = change.scope?.joinToString(", ") ?: strings.t("changes.everything")
+        val body = strings.t("changes.${direction}_body", "what" to what, "when" to Display.dateTime(strings, change.backupAt))
+        val loss = WorldRestore.lossLine(strings, (now - change.backupAt).coerceAtLeast(0.0), change.playedSeconds)
+        return strings.t("changes.${direction}_title", "title" to change.title) to
+            listOf(body, loss, strings.t("changes.server_stops")).joinToString("\n\n")
+    }
+
+    fun done(strings: Strings, direction: String, moved: ChangeMoved): String =
+        strings.t("changes.${direction}_done", "title" to moved.change.title)
 }
 
 /** The health checks' words (healthCard in performance.js). */

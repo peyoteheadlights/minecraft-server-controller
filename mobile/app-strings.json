@@ -94,12 +94,6 @@
   "mobile.perf.summary": ["{title}: latest {latest}, lowest {low}, highest {high}. Touch or drag along the graph to read each point.", "{title}: latest {latest}, min {low}, max {high}. Touch or drag to read each point."],
 
   "mobile.alerts.title": ["Alerts", "Alerts"],
-  "mobile.backups.last_change": ["Newest change", "Newest change"],
-  "mobile.backups.last_change_body": ["{title}, {when}. Undo puts back the backup {backup} made just before it.", "{title}, {when}. Undo restores the backup {backup} taken just before it."],
-  "mobile.backups.undo_change": ["Undo", "Undo"],
-  "mobile.backups.undo_title": ["Undo this change?", "Undo this change?"],
-  "mobile.backups.undo_body": ["{title} is undone by restoring {backup}. The server stops first, and a backup of how things are now is made.", "{title} is undone by restoring {backup}. The server is stopped first and a backup is taken."],
-  "mobile.backups.undone": ["Undone. {name} is back.", "Undone: {name} is back."],
   "mobile.alerts.empty": ["Nothing yet. Alerts about your servers show up here.", "No alerts since pairing."],
   "mobile.alerts.empty_hint": ["The PC decides which alerts are sent, in the dashboard's Settings, under Alerts.", "Events and cooldowns are set in the dashboard (notifications.*)."],
   "mobile.alerts.mark_read": ["Mark all as read", "Mark all read"],

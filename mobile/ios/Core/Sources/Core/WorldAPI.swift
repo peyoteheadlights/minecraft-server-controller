@@ -79,9 +79,17 @@ extension AgentClient {
         return try await call("GET", "/api/jobs?server_id=" + AgentClient.pathSegment(serverId) + "&limit=\(count)", as: JobList.self)
     }
 
-    /// Undoes a finished change by restoring the backup made just before it.
-    public func undoJob(jobId: String) async throws -> JobUndone {
-        try await call("POST", "/api/jobs/" + AgentClient.pathSegment(jobId) + "/undo", body: Data("{}".utf8), slow: true, as: JobUndone.self)
+    /// The server's Undo and Redo lists.
+    public func changes(serverId: String) async throws -> UndoRedo {
+        try await call("GET", world(serverId) + "/changes", as: UndoRedo.self)
+    }
+
+    /// Reverses the newest change ("undo") or puts back the one undone last
+    /// ("redo"). The server stops for it; `startAfter` starts it again.
+    public func moveChange(serverId: String, direction: String, startAfter: Bool) async throws -> ChangeMoved {
+        precondition(direction == "undo" || direction == "redo")
+        let body = try AgentClient.encode(MoveBody(startAfter: startAfter))
+        return try await call("POST", world(serverId) + "/changes/" + direction, body: body, slow: true, as: ChangeMoved.self)
     }
 
     public func schedules(serverId: String) async throws -> ScheduleList {
@@ -131,6 +139,12 @@ extension AgentClient {
             case startAfter = "start_after"
             case safetyBackup = "safety_backup"
         }
+    }
+
+    private struct MoveBody: Encodable {
+        let startAfter: Bool
+
+        enum CodingKeys: String, CodingKey { case startAfter = "start_after" }
     }
 
     private struct WorldRestoreBody: Encodable {

@@ -8,6 +8,8 @@ import io.github.peyoteheadlights.mcsc.core.AgentException
 import io.github.peyoteheadlights.mcsc.core.Backup
 import io.github.peyoteheadlights.mcsc.core.BackupList
 import io.github.peyoteheadlights.mcsc.core.Backups
+import io.github.peyoteheadlights.mcsc.core.Change
+import io.github.peyoteheadlights.mcsc.core.ChangeList
 import io.github.peyoteheadlights.mcsc.core.Charts
 import io.github.peyoteheadlights.mcsc.core.Job
 import io.github.peyoteheadlights.mcsc.core.Offsite
@@ -18,6 +20,7 @@ import io.github.peyoteheadlights.mcsc.core.Schedules
 import io.github.peyoteheadlights.mcsc.core.ServerHealth
 import io.github.peyoteheadlights.mcsc.core.Storage
 import io.github.peyoteheadlights.mcsc.core.Strings
+import io.github.peyoteheadlights.mcsc.core.UndoRedo
 import io.github.peyoteheadlights.mcsc.core.WorldList
 import io.github.peyoteheadlights.mcsc.core.WorldPoint
 import io.github.peyoteheadlights.mcsc.core.WorldRestore
@@ -34,6 +37,9 @@ data class Downloading(val name: String, val done: Long, val size: Long?)
 
 /** A restore waiting for "yes": the backup and what the agent says will happen. */
 data class RestoreAsk(val backup: Backup, val willHappen: List<String>)
+
+/** Undo or Redo waiting for "yes": "undo" or "redo", and the change it moves. */
+data class MoveAsk(val direction: String, val change: Change)
 
 /**
  * Everything Backups, Restore world, Schedules and Performance show for one
@@ -63,7 +69,10 @@ class WorldPages(
         private set
     var worlds: Read<WorldList> by mutableStateOf(Read())
         private set
-    var lastChange: Job? by mutableStateOf(null)
+    /** The Undo and Redo lists; null until read, or when they couldn't be. */
+    var changes: UndoRedo? by mutableStateOf(null)
+        private set
+    var moving: MoveAsk? by mutableStateOf(null)
         private set
     var restoring: RestoreAsk? by mutableStateOf(null)
         private set
@@ -83,7 +92,7 @@ class WorldPages(
             }
             // As the dashboard: without these the list still shows.
             offsite = try { c.offsite(serverId) } catch (e: AgentException) { null }
-            lastChange = try { Backups.lastUndoable(c.jobs(serverId).jobs) } catch (e: AgentException) { null }
+            changes = try { c.changes(serverId) } catch (e: AgentException) { null }
             worlds = try { Read(c.worlds(serverId)) } catch (e: AgentException) { Read(problem = Message.of(e)) }
         }
     }
@@ -132,8 +141,28 @@ class WorldPages(
         Said(strings.t("backups.deleted"), good = true)
     }
 
-    fun undo(job: Job, strings: Strings) = work("undo", strings, reload = ::loadBackups) {
-        Said(strings.t("mobile.backups.undone", "name" to it.undoJob(job.id).restored), good = true)
+    /** A task finished on another device (or here) may have added a change:
+     * read the lists again while Backups is open. */
+    fun onTask(job: Job) {
+        if (job.state in Backups.FINISHED && backups.loaded && busy == null) loadBackups()
+    }
+
+    /** Asks before Undo ("undo") or Redo ("redo") of the first change on that list. */
+    fun askMove(direction: String) {
+        val lists = changes ?: return
+        moving = (if (direction == "undo") lists.undo else lists.redo).firstOrNull()?.let { MoveAsk(direction, it) }
+    }
+
+    fun cancelMove() {
+        moving = null
+    }
+
+    fun move(startAfter: Boolean, strings: Strings) {
+        val ask = moving ?: return
+        moving = null
+        work(ask.direction, strings, reload = ::loadBackups) {
+            Said(ChangeList.done(strings, ask.direction, it.moveChange(serverId, ask.direction, startAfter)), good = true)
+        }
     }
 
     fun offsiteOff(strings: Strings) = work("offsite", strings, reload = ::loadBackups) {

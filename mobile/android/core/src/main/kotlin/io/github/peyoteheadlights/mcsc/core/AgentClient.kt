@@ -364,9 +364,16 @@ class AgentClient(
     suspend fun jobs(serverId: String, limit: Int = 20): JobList =
         get("/api/jobs?server_id=${path(serverId)}&limit=${limit.coerceIn(1, 200)}", JobList.serializer())
 
-    /** Undoes a finished change by restoring the backup made just before it. */
-    suspend fun undoJob(jobId: String): JobUndone =
-        call(post("/api/jobs/${path(jobId)}/undo", JsonObject(emptyMap())), JobUndone.serializer(), slow = true)
+    /** The server's Undo and Redo lists. */
+    suspend fun changes(serverId: String): UndoRedo = get("${server(serverId)}/changes", UndoRedo.serializer())
+
+    /** Reverses the newest change ("undo") or puts back the one undone last
+     * ("redo"). The server stops for it; [startAfter] starts it again. */
+    suspend fun moveChange(serverId: String, direction: String, startAfter: Boolean): ChangeMoved {
+        require(direction == "undo" || direction == "redo")
+        val body = buildJsonObject { put("start_after", startAfter) }
+        return call(post("${server(serverId)}/changes/$direction", body), ChangeMoved.serializer(), slow = true)
+    }
 
     suspend fun schedules(serverId: String): ScheduleList = get("${server(serverId)}/schedules", ScheduleList.serializer())
 

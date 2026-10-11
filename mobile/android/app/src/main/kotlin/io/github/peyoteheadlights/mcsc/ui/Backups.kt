@@ -30,11 +30,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.peyoteheadlights.mcsc.core.Backup
 import io.github.peyoteheadlights.mcsc.core.Backups
+import io.github.peyoteheadlights.mcsc.core.ChangeList
 import io.github.peyoteheadlights.mcsc.core.Display
-import io.github.peyoteheadlights.mcsc.core.Job
 import io.github.peyoteheadlights.mcsc.core.Offsite
 import io.github.peyoteheadlights.mcsc.core.Permissions
 import io.github.peyoteheadlights.mcsc.core.Tone
+import io.github.peyoteheadlights.mcsc.core.UndoRedo
 import io.github.peyoteheadlights.mcsc.core.WorldPoint
 import io.github.peyoteheadlights.mcsc.core.WorldRestore
 
@@ -77,7 +78,7 @@ fun SaidNote(said: Said?) {
 private data class Confirming(val title: String, val body: String, val confirm: String, val run: () -> Unit)
 
 /**
- * Back up now, Save world, the last change and its Undo, every backup with
+ * Back up now, Save world, Undo and Redo, every backup with
  * Check, Download, Restore and Delete, the second copy off the PC, and the
  * worlds. A download goes to a file the person picks, with the sign-in in
  * a header; nothing else ever leaves the PC.
@@ -119,6 +120,10 @@ fun BackupsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit, onRest
             world.restoring?.let { ask ->
                 RestoreDialog(vm, ask.backup, ask.willHappen, onRestore = { world.restore(it, strings) }, onDismiss = world::cancelRestore)
             }
+            world.moving?.let { ask ->
+                val (title, body) = ChangeList.ask(strings, ask.direction, ask.change, rememberNow())
+                StartAfterDialog(title, body, t("changes.${ask.direction}"), onConfirm = { world.move(it, strings) }, onDismiss = world::cancelMove)
+            }
         },
     ) {
         val busy = world.busy
@@ -139,7 +144,9 @@ fun BackupsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit, onRest
                 Note(t("mobile.backups.downloading", "name" to name) + share)
             }
         }
-        world.lastChange?.let { job -> item { LastChange(vm, world, job, busy) { asking = it } } }
+        world.changes?.takeIf { it.undo.isNotEmpty() || it.redo.isNotEmpty() }?.let { lists ->
+            item { UndoRedoCard(vm, world, lists, busy) }
+        }
 
         item { SectionTitle(t("backups.list")) }
         val list = world.backups
@@ -172,31 +179,29 @@ fun BackupsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit, onRest
     }
 }
 
+/** The Undo and Redo lists (changesCard in backups.js): the newest change,
+ * the one undone last, and the next few Undo would go on to. */
 @Composable
-private fun LastChange(vm: AppViewModel, world: WorldPages, job: Job, busy: String?, ask: (Confirming) -> Unit) {
-    val undo = job.result?.undo ?: return
+private fun UndoRedoCard(vm: AppViewModel, world: WorldPages, lists: UndoRedo, busy: String?) {
     val strings = vm.strings
+    val colors = LocalColors.current
     val now = rememberNow()
+    val canRestore = vm.canDo(Permissions.BACKUPS_RESTORE)
     Column {
-        SectionTitle(t("mobile.backups.last_change"))
+        SectionTitle(t("changes.title"))
         Card {
-            Note(
-                t("mobile.backups.last_change_body", "title" to job.title, "when" to Display.ago(strings, job.finishedAt, now), "backup" to undo.backup),
-                color = LocalColors.current.text,
-                modifier = Modifier.padding(top = 10.dp),
-            )
-            if (vm.canDo(Permissions.BACKUPS_RESTORE)) {
+            Note(ChangeList.next(strings, lists, now), color = colors.text, modifier = Modifier.padding(top = 10.dp))
+            ChangeList.nextRedo(strings, lists, now)?.let { Note(it, color = colors.text) }
+            val later = ChangeList.later(strings, lists, now)
+            if (later.isNotEmpty()) Note(t("changes.then") + "\n" + later.joinToString("\n") { "• $it" })
+            lists.blockedBy?.let { Note(t("world.busy", "job" to it), color = colors.warning) }
+            if (canRestore) {
                 Presses(
                     listOf(
-                        Press(t("mobile.backups.undo_change"), {
-                            ask(
-                                Confirming(
-                                    strings.t("mobile.backups.undo_title"),
-                                    strings.t("mobile.backups.undo_body", "title" to job.title, "backup" to undo.backup),
-                                    strings.t("mobile.backups.undo_change"),
-                                ) { world.undo(job, strings) },
-                            )
-                        }, danger = true, enabled = busy == null),
+                        Press(t("changes.undo"), { world.askMove("undo") }, danger = true,
+                            enabled = busy == null && ChangeList.canMove(lists, "undo", canRestore)),
+                        Press(t("changes.redo"), { world.askMove("redo") }, danger = true,
+                            enabled = busy == null && ChangeList.canMove(lists, "redo", canRestore)),
                     ),
                 )
             }
@@ -247,6 +252,35 @@ private fun BackupCard(
             ),
         )
     }
+}
+
+/** Undo or Redo: what goes back and what would be lost, "start the server after", then yes or no. */
+@Composable
+private fun StartAfterDialog(title: String, body: String, confirm: String, onConfirm: (Boolean) -> Unit, onDismiss: () -> Unit) {
+    val colors = LocalColors.current
+    var startAfter by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column {
+                Text(body)
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp)) {
+                    Checkbox(checked = startAfter, onCheckedChange = { startAfter = it })
+                    Text(t("backups.start_after"))
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(startAfter) }, colors = ButtonDefaults.textButtonColors(contentColor = colors.danger)) {
+                Text(confirm)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(t("mobile.common.cancel")) } },
+        containerColor = colors.float,
+        titleContentColor = colors.text,
+        textContentColor = colors.text2,
+    )
 }
 
 /** What the agent says a restore will do, "start the server after", then yes or no. */

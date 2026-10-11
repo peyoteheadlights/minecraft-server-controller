@@ -427,6 +427,7 @@ final class AppModel {
                 case .task(let serverId, let job):
                     if let serverId = serverId {
                         self.pagesById[serverId]?.content.onTask(job)
+                        self.pagesById[serverId]?.world.onTask(job)
                     }
                 case .closed:
                     self.live = false

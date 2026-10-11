@@ -163,16 +163,53 @@ final class WorldTests: XCTestCase {
         XCTAssertTrue(Backups.onDisk(good))
     }
 
-    func testOnlyAFinishedChangeWithABackupMadeBeforeItCanBeUndone() {
-        let undo = Undo(backup: "safety-1.zip")
-        let jobs = [
-            Job(id: "a", state: "running", undo: undo),
-            Job(id: "b", state: "succeeded"),
-            Job(id: "c", state: "succeeded", undo: undo),
-            Job(id: "d", state: "succeeded", undo: undo),
-        ]
-        XCTAssertEqual(Backups.lastUndoable(jobs)?.id, "c")
-        XCTAssertNil(Backups.lastUndoable(Array(jobs.prefix(2))))
+    // MARK: - Undo and Redo
+
+    private func change(_ id: Int64, _ title: String, at: Double) -> Change {
+        Change(id: id, title: title, user: "mark", madeAt: at, backup: "b\(id).zip", backupAt: at - 5, playedSeconds: 600)
+    }
+
+    func testUndoAndRedoWorkOnlyWithTheRestorePermissionSomethingToMoveAndNoTaskHoldingTheServer() {
+        let both = UndoRedo(undo: [change(2, "Restore", at: 100)], redo: [change(1, "Mods", at: 50)])
+        XCTAssertTrue(ChangeList.canMove(both, "undo", canRestore: true))
+        XCTAssertTrue(ChangeList.canMove(both, "redo", canRestore: true))
+        XCTAssertFalse(ChangeList.canMove(both, "undo", canRestore: false))
+        var held = both
+        held.blockedBy = "Backing up"
+        XCTAssertFalse(ChangeList.canMove(held, "undo", canRestore: true))
+        // A new change empties Redo: nothing to put back.
+        var afterNew = both
+        afterNew.redo = []
+        XCTAssertFalse(ChangeList.canMove(afterNew, "redo", canRestore: true))
+        XCTAssertFalse(ChangeList.canMove(UndoRedo(), "undo", canRestore: true))
+    }
+
+    func testTheListsAreSaidNewestFirstWithWhoMadeTheChange() {
+        let now = 10_000.0
+        var undone = change(9, "Game settings", at: 0)
+        undone.undoneAt = now - 120
+        let changes = UndoRedo(undo: (1...5).reversed().map { change(Int64($0), "Change \($0)", at: now - Double($0) * 3600) }, redo: [undone])
+        let next = ChangeList.next(s, changes, now: now)
+        XCTAssertTrue(next.contains("Change 5") && next.contains("mark"), next)
+        XCTAssertEqual(ChangeList.later(s, changes, now: now).count, ChangeList.LATER)
+        XCTAssertTrue(ChangeList.later(s, changes, now: now)[0].contains("Change 4"))
+        XCTAssertTrue(ChangeList.nextRedo(s, changes, now: now)?.contains("Game settings") ?? false)
+        XCTAssertNil(ChangeList.nextRedo(s, UndoRedo(), now: now))
+        XCTAssertEqual(ChangeList.next(s, UndoRedo(), now: now), s.t("changes.nothing_to_undo"))
+    }
+
+    func testUndoSaysWhatGoesBackAndHowMuchPlayWouldBeLost() {
+        let now = 7200.0
+        var c = change(3, "Restore world", at: 3605)
+        c.scope = ["world"]
+        let asked = ChangeList.ask(s, "undo", c, now: now)
+        XCTAssertEqual(asked.title, s.t("changes.undo_title", ["title": "Restore world"]))
+        XCTAssertTrue(asked.body.contains(s.t("world.play_lost", ["duration": Display.duration(s, 600)])), asked.body)
+        XCTAssertTrue(asked.body.hasSuffix(s.t("changes.server_stops")))
+        c.scope = nil
+        c.playedSeconds = nil
+        let all = ChangeList.ask(s, "redo", c, now: now).body
+        XCTAssertTrue(all.contains(s.t("changes.everything")) && all.contains(s.t("world.play_unknown")), all)
     }
 
     func testWhatIsKeptAndWhatARestoreDidAreSaidInTheDashboardsWords() {
@@ -298,6 +335,34 @@ final class WorldTests: XCTestCase {
         let sent = try JSONSerialization.jsonObject(with: StubAgent.requests[1].body) as? [String: Any]
         XCTAssertEqual(sent?["confirm"] as? Bool, true)
         XCTAssertEqual(sent?["start_after"] as? Bool, true)
+    }
+
+    func testTheChangeListsAreReadAndUndoAndRedoSentToTheServersOwnRoutes() async throws {
+        let c = client()
+        StubAgent.json(
+            #"{"undo": [{"id": 4, "title": "Install Sodium", "user": "mark", "made_at": 100, "undone_at": null, "scope": ["mods"], "#
+                + #""backup_id": 7, "backup": "pre.zip", "backup_at": 99, "played_seconds": null}], "redo": [], "server_running": true, "blocked_by": null}"#
+        )
+        let changes = try await c.changes(serverId: "survival")
+        XCTAssertEqual(changes.undo.first?.title, "Install Sodium")
+        XCTAssertEqual(changes.undo.first?.scope, ["mods"])
+        XCTAssertNil(changes.undo.first?.playedSeconds)
+        XCTAssertTrue(changes.serverRunning)
+        XCTAssertEqual(path(0), "/api/servers/survival/changes")
+
+        StubAgent.json(
+            #"{"ok": true, "change": {"id": 4, "title": "Install Sodium", "made_at": 100, "backup_id": 7, "backup": "pre.zip", "backup_at": 99}, "#
+                + #""restored": "pre.zip", "safety_backup": {"id": 8, "name": "now.zip"}, "job_id": "j"}"#
+        )
+        let moved = try await c.moveChange(serverId: "survival", direction: "undo", startAfter: true)
+        XCTAssertEqual(ChangeList.done(s, "undo", moved), s.t("changes.undo_done", ["title": "Install Sodium"]))
+        XCTAssertEqual(path(1), "/api/servers/survival/changes/undo")
+        let sent = try JSONSerialization.jsonObject(with: StubAgent.requests[1].body) as? [String: Any]
+        XCTAssertEqual(sent?["start_after"] as? Bool, true)
+
+        StubAgent.json(#"{"ok": true, "change": {"id": 4, "title": "Install Sodium", "made_at": 100, "backup": "now.zip", "backup_at": 150}, "restored": "now.zip"}"#)
+        _ = try await c.moveChange(serverId: "survival", direction: "redo", startAfter: false)
+        XCTAssertEqual(path(2), "/api/servers/survival/changes/redo")
     }
 
     func testABackupDownloadsWithTheSignInInAHeaderNeverInTheAddress() async throws {

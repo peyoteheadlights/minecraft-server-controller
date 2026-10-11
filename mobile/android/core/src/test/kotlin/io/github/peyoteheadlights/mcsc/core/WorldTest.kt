@@ -157,17 +157,51 @@ class WorldTest {
         assertTrue(Backups.onDisk(good))
     }
 
+    // ------------------------------------------------------------ undo and redo
+    private fun change(id: Long, title: String, at: Double) =
+        Change(id, title, user = "mark", madeAt = at, backup = "b$id.zip", backupAt = at - 5, playedSeconds = 600.0)
+
     @Test
-    fun `only a finished change with a backup made before it can be undone`() {
-        val undo = JobResult(Undo("restore_backup", 7, "safety-1.zip"))
-        val jobs = listOf(
-            Job("a", state = "running", result = undo),
-            Job("b", state = "succeeded"),
-            Job("c", state = "succeeded", result = undo),
-            Job("d", state = "succeeded", result = undo),
+    fun `Undo and Redo work only with the restore permission, something to move and no task holding the server`() {
+        val both = UndoRedo(undo = listOf(change(2, "Restore", 100.0)), redo = listOf(change(1, "Mods", 50.0)))
+        assertTrue(ChangeList.canMove(both, "undo", canRestore = true))
+        assertTrue(ChangeList.canMove(both, "redo", canRestore = true))
+        assertFalse(ChangeList.canMove(both, "undo", canRestore = false))
+        assertFalse(ChangeList.canMove(both.copy(blockedBy = "Backing up"), "undo", canRestore = true))
+        // A new change empties Redo: nothing to put back.
+        val afterNew = both.copy(redo = emptyList())
+        assertFalse(ChangeList.canMove(afterNew, "redo", canRestore = true))
+        assertFalse(ChangeList.canMove(UndoRedo(), "undo", canRestore = true))
+    }
+
+    @Test
+    fun `the lists are said newest first, with who made the change`() {
+        val now = 10_000.0
+        val changes = UndoRedo(
+            undo = (5L downTo 1L).map { change(it, "Change $it", now - it * 3600) },
+            redo = listOf(change(9, "Game settings", 0.0).copy(undoneAt = now - 120)),
         )
-        assertEquals("c", Backups.lastUndoable(jobs)?.id)
-        assertNull(Backups.lastUndoable(jobs.take(2)))
+        val next = ChangeList.next(strings, changes, now)
+        assertTrue(next, next.contains("Change 5") && next.contains("mark"))
+        assertEquals(ChangeList.LATER, ChangeList.later(strings, changes, now).size)
+        assertTrue(ChangeList.later(strings, changes, now).first().contains("Change 4"))
+        assertTrue(ChangeList.nextRedo(strings, changes, now)!!.contains("Game settings"))
+        assertNull(ChangeList.nextRedo(strings, UndoRedo(), now))
+        assertEquals(strings.t("changes.nothing_to_undo"), ChangeList.next(strings, UndoRedo(), now))
+    }
+
+    @Test
+    fun `Undo says what goes back and how much play would be lost`() {
+        val now = 7200.0
+        val c = change(3, "Restore world", 3605.0).copy(scope = listOf("world"))
+        val (title, body) = ChangeList.ask(strings, "undo", c, now)
+        assertEquals(strings.t("changes.undo_title", "title" to "Restore world"), title)
+        assertTrue(body, body.contains("world"))
+        assertTrue(body, body.contains(strings.t("world.play_lost", "duration" to Display.duration(strings, 600.0))))
+        assertTrue(body, body.endsWith(strings.t("changes.server_stops")))
+        // Everything in the backup when the change names nothing; play unknown stays unknown.
+        val (_, all) = ChangeList.ask(strings, "redo", c.copy(scope = null, playedSeconds = null), now)
+        assertTrue(all, all.contains(strings.t("changes.everything")) && all.contains(strings.t("world.play_unknown")))
     }
 
     @Test
@@ -288,6 +322,31 @@ class WorldTest {
             assertEquals("pre.zip", done.safetyBackup?.name)
             val sent = agent.server.takeRequest().body.readUtf8()
             assertTrue(sent, sent.contains("\"confirm\":true") && sent.contains("\"start_after\":true"))
+        }
+    }
+
+    @Test
+    fun `the change lists are read and Undo and Redo sent to the server's own routes`() = runBlocking {
+        TestAgent().use { agent ->
+            val c = client(agent)
+            agent.server.enqueue(agent.json("""{"undo": [{"id": 4, "title": "Install Sodium", "user": "mark", "made_at": 100, "undone_at": null, "scope": ["mods"], "backup_id": 7, "backup": "pre.zip", "backup_at": 99, "played_seconds": null}], "redo": [], "server_running": true, "blocked_by": null}"""))
+            val changes = c.changes("survival")
+            assertEquals("Install Sodium", changes.undo.single().title)
+            assertEquals(listOf("mods"), changes.undo.single().scope)
+            assertNull(changes.undo.single().playedSeconds)
+            assertTrue(changes.serverRunning)
+            assertEquals("/api/servers/survival/changes", agent.server.takeRequest().path)
+
+            agent.server.enqueue(agent.json("""{"ok": true, "change": {"id": 4, "title": "Install Sodium", "made_at": 100, "backup_id": 7, "backup": "pre.zip", "backup_at": 99}, "restored": "pre.zip", "safety_backup": {"id": 8, "name": "now.zip"}, "job_id": "j"}"""))
+            val moved = c.moveChange("survival", "undo", startAfter = true)
+            assertEquals(strings.t("changes.undo_done", "title" to "Install Sodium"), ChangeList.done(strings, "undo", moved))
+            val sent = agent.server.takeRequest()
+            assertEquals("/api/servers/survival/changes/undo", sent.path)
+            assertTrue(sent.body.readUtf8().contains("\"start_after\":true"))
+
+            agent.server.enqueue(agent.json("""{"ok": true, "change": {"id": 4, "title": "Install Sodium", "made_at": 100, "backup_id": 8, "backup": "now.zip", "backup_at": 150}, "restored": "now.zip"}"""))
+            c.moveChange("survival", "redo", startAfter = false)
+            assertEquals("/api/servers/survival/changes/redo", agent.server.takeRequest().path)
         }
     }
 

@@ -116,6 +116,12 @@ struct BackupsView: View {
                 },
                 message: { ask in Text(ask.body) }
             )
+            .sheet(item: $world.moving) { ask in
+                MoveSheet(ask: ask) { startAfter in
+                    let strings = model.strings
+                    Task { await world.move(ask, startAfter: startAfter, strings) }
+                }
+            }
             .sheet(item: $world.restoring) { ask in
                 RestoreSheet(ask: ask, palette: palette) { startAfter in
                     let strings = model.strings
@@ -152,8 +158,8 @@ struct BackupsView: View {
                 Hint(text: downloadText(progress), palette: palette)
             }
         }
-        if let job = world.lastChange, let undo = job.undo {
-            lastChange(world, job, undo, busy, palette, now: now)
+        if let lists = world.changes, !lists.undo.isEmpty || !lists.redo.isEmpty {
+            undoRedoCard(world, lists, busy, palette, now: now)
         }
 
         SectionTitle(text: model.t("backups.list"), palette: palette)
@@ -220,25 +226,35 @@ struct BackupsView: View {
         return model.t("mobile.backups.downloading", ["name": progress.name]) + " " + share
     }
 
+    /// The Undo and Redo lists (changesCard in backups.js): the newest
+    /// change, the one undone last, and the next few Undo would go on to.
     @ViewBuilder
-    private func lastChange(_ world: WorldPages, _ job: Job, _ undo: Undo, _ busy: String?, _ palette: Palette, now: Double) -> some View {
+    private func undoRedoCard(_ world: WorldPages, _ lists: UndoRedo, _ busy: String?, _ palette: Palette, now: Double) -> some View {
         let strings = model.strings
-        SectionTitle(text: model.t("mobile.backups.last_change"), palette: palette)
+        let canRestore = model.can(Permissions.BACKUPS_RESTORE)
+        SectionTitle(text: model.t("changes.title"), palette: palette)
         CardBox(palette: palette) {
-            Text(model.t("mobile.backups.last_change_body", [
-                "title": job.title, "when": Display.ago(strings, job.finishedAt, now: now), "backup": undo.backup,
-            ]))
-            .foregroundStyle(palette.textPrimary)
-            if model.can(Permissions.BACKUPS_RESTORE) {
+            Text(ChangeList.next(strings, lists, now: now))
+                .foregroundStyle(palette.textPrimary)
+            if let redo = ChangeList.nextRedo(strings, lists, now: now) {
+                Text(redo).foregroundStyle(palette.textPrimary)
+            }
+            let later = ChangeList.later(strings, lists, now: now)
+            if !later.isEmpty {
+                Hint(text: ([model.t("changes.then")] + later.map { "• " + $0 }).joined(separator: "\n"), palette: palette)
+            }
+            if let job = lists.blockedBy {
+                Text(model.t("world.busy", ["job": job])).foregroundStyle(palette.tone(.warning))
+            }
+            if canRestore {
                 Presses(presses: [
-                    Press(title: model.t("mobile.backups.undo_change"), danger: true, enabled: busy == nil) {
-                        asking = Confirming(
-                            title: model.t("mobile.backups.undo_title"),
-                            body: model.t("mobile.backups.undo_body", ["title": job.title, "backup": undo.backup]),
-                            confirm: model.t("mobile.backups.undo_change")
-                        ) {
-                            Task { await world.undo(job, strings) }
-                        }
+                    Press(title: model.t("changes.undo"), danger: true,
+                          enabled: busy == nil && ChangeList.canMove(lists, "undo", canRestore: canRestore)) {
+                        world.askMove("undo")
+                    },
+                    Press(title: model.t("changes.redo"), danger: true,
+                          enabled: busy == nil && ChangeList.canMove(lists, "redo", canRestore: canRestore)) {
+                        world.askMove("redo")
                     },
                 ], palette: palette)
             }
@@ -363,6 +379,45 @@ struct BackupsView: View {
                 }
             }
         }
+    }
+}
+
+/// Undo or Redo: what goes back and what would be lost, "start the server
+/// after", then yes or no.
+private struct MoveSheet: View {
+    let ask: MoveAsk
+    let move: (Bool) -> Void
+
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    @State private var startAfter = false
+
+    var body: some View {
+        let asked = ChangeList.ask(model.strings, ask.direction, ask.change, now: Date().timeIntervalSince1970)
+        NavigationStack {
+            Form {
+                Section {
+                    Text(asked.body)
+                }
+                Section {
+                    Toggle(model.t("backups.start_after"), isOn: $startAfter)
+                }
+                Section {
+                    Button(model.t("changes.\(ask.direction)"), role: .destructive) {
+                        move(startAfter)
+                        dismiss()
+                    }
+                }
+            }
+            .navigationTitle(asked.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(model.t("mobile.common.cancel")) { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
     }
 }
 

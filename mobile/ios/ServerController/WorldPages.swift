@@ -16,6 +16,14 @@ struct RestoreAsk: Identifiable {
     var id: Int64 { backup.id }
 }
 
+/// Undo or Redo waiting for "yes": "undo" or "redo", and the change it moves.
+struct MoveAsk: Identifiable {
+    let direction: String
+    let change: Change
+
+    var id: String { "\(direction):\(change.id)" }
+}
+
 /// A backup on its way to this phone: bytes so far and the size, when the
 /// PC said it.
 struct Downloading: Equatable {
@@ -58,7 +66,9 @@ final class WorldPages {
     private(set) var backups = PageRead<BackupList>()
     private(set) var offsite: Offsite? = nil
     private(set) var worlds = PageRead<WorldList>()
-    private(set) var lastChange: Job? = nil
+    /// The Undo and Redo lists; nil until read, or when they couldn't be.
+    private(set) var changes: UndoRedo? = nil
+    var moving: MoveAsk? = nil
     var restoring: RestoreAsk? = nil
     private(set) var downloading: Downloading? = nil
     var downloaded: Downloaded? = nil
@@ -80,7 +90,7 @@ final class WorldPages {
         }
         // As the dashboard: without these the list still shows.
         offsite = try? await client.offsite(serverId: serverId)
-        lastChange = (try? await client.jobs(serverId: serverId)).flatMap { Backups.lastUndoable($0.jobs) }
+        changes = try? await client.changes(serverId: serverId)
         do {
             worlds = PageRead(value: try await client.worlds(serverId: serverId))
         } catch let problem as AgentError {
@@ -142,10 +152,25 @@ final class WorldPages {
         }
     }
 
-    func undo(_ job: Job, _ strings: Strings) async {
-        await work("undo", strings, reload: loadBackups) { client, _ in
-            let undone = try await client.undoJob(jobId: job.id)
-            return Said(text: strings.t("mobile.backups.undone", ["name": undone.restored ?? ""]), good: true)
+    /// A task finished on another device (or here) may have added a change:
+    /// read the lists again while Backups is open.
+    func onTask(_ job: Job) {
+        if Backups.FINISHED.contains(job.state) && backups.value != nil && busy == nil {
+            Task { await loadBackups() }
+        }
+    }
+
+    /// Asks before Undo ("undo") or Redo ("redo") of the first change on that list.
+    func askMove(_ direction: String) {
+        guard let lists = changes else { return }
+        moving = (direction == "undo" ? lists.undo : lists.redo).first.map { MoveAsk(direction: direction, change: $0) }
+    }
+
+    func move(_ ask: MoveAsk, startAfter: Bool, _ strings: Strings) async {
+        moving = nil
+        await work(ask.direction, strings, reload: loadBackups) { client, id in
+            let moved = try await client.moveChange(serverId: id, direction: ask.direction, startAfter: startAfter)
+            return Said(text: ChangeList.done(strings, ask.direction, moved), good: true)
         }
     }
 

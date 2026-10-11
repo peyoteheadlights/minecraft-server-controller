@@ -178,6 +178,10 @@ struct ContentView: View {
             }
 
             let missing = Content.missing(content.dependencies)
+            // Unread is said as such, never shown as "nothing missing".
+            if content.dependencies == nil {
+                Hint(text: model.t("mobile.content.missing_unknown"), palette: palette)
+            }
             if !missing.isEmpty {
                 SectionTitle(text: model.t("mobile.content.missing_title"), palette: palette)
                 CardBox(palette: palette) {
@@ -814,7 +818,7 @@ private struct UpdateAllSheet: View {
                 }
             }
         }
-        .navigationTitle(model.t("mobile.content.update_all_title"))
+        .navigationTitle(model.t("mobile.content.update_all"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {

@@ -401,7 +401,7 @@ class ModManager:
     # ------------------------------------------------------------------
     # write operations
     # ------------------------------------------------------------------
-    def _require_server_offline(self, action: str) -> None:
+    def require_server_offline(self, action: str) -> None:
         if self.server.state.value == "RESTART_PENDING":
             # The countdown could restart the server while a jar is half-written.
             raise ModError(f"An automatic restart is counting down. Cancel it before you {action}.")
@@ -430,7 +430,7 @@ class ModManager:
     ) -> dict[str, Any]:
         """Download and install a mod or plugin. Returns what changed."""
         self._require_content()
-        self._require_server_offline(f"install a {self.word}")
+        self.require_server_offline(f"install a {self.word}")
         mc_version = minecraft_version or self.server.mc_version
         kind = self.server_type.name
 
@@ -561,7 +561,7 @@ class ModManager:
     ) -> dict[str, Any]:
         """Install an uploaded jar. Same rules as a Modrinth install."""
         self._require_content()
-        self._require_server_offline(f"install a {self.word}")
+        self.require_server_offline(f"install a {self.word}")
         safe_filename(filename, JAR_EXT)
         if not data.startswith(b"PK"):
             raise ModError("That file isn't a .jar file.")
@@ -631,7 +631,7 @@ class ModManager:
         }
 
     async def remove(self, filename: str, user: str, backup: bool = True) -> dict[str, Any]:
-        self._require_server_offline(f"remove a {self.word}")
+        self.require_server_offline(f"remove a {self.word}")
         mod = self.find(filename)
         path = Path(mod.path)
         assert_not_symlink(path)
@@ -658,7 +658,7 @@ class ModManager:
         return {"removed": mod.to_dict(), "archived": archived, "trash": str(trash_target)}
 
     async def set_enabled(self, filename: str, enabled: bool, user: str) -> dict[str, Any]:
-        self._require_server_offline(f"turn a {self.word} on or off")
+        self.require_server_offline(f"turn a {self.word} on or off")
         mod = self.find(filename)
         path = Path(mod.path)
         assert_not_symlink(path)
@@ -700,23 +700,41 @@ class ModManager:
         return pending.get("minecraft_version") or self.server.mc_version
 
     async def check_updates(self, minecraft_version: str | None = None) -> list[dict[str, Any]]:
-        mc_version = minecraft_version or self._target_version()
-        updates: list[dict[str, Any]] = []
-        for mod in self.scan():
-            if not mod.enabled:
-                continue
+        """Ask Modrinth about every mod or plugin (turned-off ones too, so
+        their updates are offered; they stay off) and save what it says for
+        the Mods list. Returns the updates found."""
+        found, _ = await self._check(minecraft_version or self._target_version())
+        return [entry for _, entry in found]
+
+    async def _check(
+        self, mc_version: str | None
+    ) -> tuple[list[tuple[ModInfo, dict[str, Any]]], list[tuple[ModInfo, str]]]:
+        """Each mod with a newer version and its saved update, and each mod
+        Modrinth couldn't be asked about with the reason. Several are asked
+        at once."""
+        mods = self.scan()
+        asking = asyncio.Semaphore(PLAN_CHECKS_AT_ONCE)
+
+        async def ask(mod: ModInfo) -> tuple[str, dict[str, Any] | None | ModrinthError]:
             project = self._project(mod)
-            try:
-                latest = await self.modrinth.latest_for(project, mc_version)
-            except ModrinthError:
-                continue
-            if not latest:
-                continue
-            entry = self._note_update(mod, project, latest)
-            if entry:
-                updates.append(entry)
+            async with asking:
+                try:
+                    return project, await self.modrinth.latest_for(project, mc_version)
+                except ModrinthError as exc:
+                    return project, exc
+
+        answers = await asyncio.gather(*(ask(mod) for mod in mods))
+        found: list[tuple[ModInfo, dict[str, Any]]] = []
+        unchecked: list[tuple[ModInfo, str]] = []
+        for mod, (project, latest) in zip(mods, answers, strict=True):
+            if isinstance(latest, ModrinthError):
+                unchecked.append((mod, str(latest)))
+            elif latest:
+                entry = self._note_update(mod, project, latest)
+                if entry:
+                    found.append((mod, entry))
         self.db.set_setting("mod_updates_checked_at", time.time())
-        return updates
+        return found, unchecked
 
     def _project(self, mod: ModInfo) -> str:
         source = self.db.get_setting(f"mod_source:{mod.mod_id}") or {}
@@ -751,46 +769,25 @@ class ModManager:
         be asked about is listed in ``unchecked`` with the reason, never
         left out as if it were up to date. What it finds is saved for the
         Mods list too, as a check for updates would."""
-        mc_version = self._target_version()
-        mods = self.scan()
-        asking = asyncio.Semaphore(PLAN_CHECKS_AT_ONCE)
+        found, unchecked = await self._check(self._target_version())
 
-        async def ask(mod: ModInfo) -> tuple[str, dict[str, Any] | None | ModrinthError]:
-            project = self._project(mod)
-            async with asking:
-                try:
-                    return project, await self.modrinth.latest_for(project, mc_version)
-                except ModrinthError as exc:
-                    return project, exc
+        def row(mod: ModInfo) -> dict[str, Any]:
+            return {"mod_id": mod.mod_id, "name": mod.name or mod.mod_id, "filename": mod.filename}
 
-        answers = await asyncio.gather(*(ask(mod) for mod in mods))
-        updates: list[dict[str, Any]] = []
-        unchecked: list[dict[str, Any]] = []
-        for mod, (project, latest) in zip(mods, answers, strict=True):
-            row = {"mod_id": mod.mod_id, "name": mod.name or mod.mod_id, "filename": mod.filename}
-            if isinstance(latest, ModrinthError):
-                unchecked.append({**row, "reason": str(latest)})
-                continue
-            if not latest or not self._note_update(mod, project, latest):
-                continue
-            updates.append(
-                {
-                    **row,
-                    "enabled": mod.enabled,
-                    "installed_version": mod.version,
-                    "latest_version": latest["version_number"],
-                    "version_id": latest["version_id"],
-                    "project": project,
-                }
-            )
-        checked_at = time.time()
-        self.db.set_setting("mod_updates_checked_at", checked_at)
-        return {"updates": updates, "unchecked": unchecked, "checked_at": checked_at}
+        keys = ("installed_version", "latest_version", "version_id", "project")
+        return {
+            "updates": [
+                {**row(mod), "enabled": mod.enabled, **{key: entry[key] for key in keys}}
+                for mod, entry in found
+            ],
+            "unchecked": [{**row(mod), "reason": reason} for mod, reason in unchecked],
+            "checked_at": self.db.get_setting("mod_updates_checked_at"),
+        }
 
     async def update(
         self, filename: str, user: str, version_id: str | None = None
     ) -> dict[str, Any]:
-        self._require_server_offline(f"update a {self.word}")
+        self.require_server_offline(f"update a {self.word}")
         mod = self.find(filename)
         old_path = Path(mod.path)
         archived = self.archive(old_path, mod, source="pre-update")
@@ -806,6 +803,9 @@ class ModManager:
 
         data, new_filename, sha256 = await self.modrinth.download(version)
         target = safe_join(self.mods_dir, new_filename, allowed_extensions=JAR_EXT)
+        if not mod.enabled:
+            # A turned-off mod is updated, and stays off.
+            target = target.with_name(target.name + DISABLED_SUFFIX)
         temp = self.mods_dir / f".{new_filename}.part"
         temp.write_bytes(data)
         try:
@@ -858,7 +858,7 @@ class ModManager:
         }
 
     async def rollback(self, mod_id: str, archive_path: str, user: str) -> dict[str, Any]:
-        self._require_server_offline(f"go back to an older {self.word}")
+        self.require_server_offline(f"go back to an older {self.word}")
         row = self.db.query_one(
             "SELECT * FROM mod_versions WHERE server_id = ? AND mod_id = ? AND archive_path = ?",
             (self.server.server_id, mod_id, archive_path),

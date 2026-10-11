@@ -6984,12 +6984,12 @@
   "Packs"
  ],
  "mobile.content.none_for_type": [
-  "This server's type takes no mods or plugins. Change its type on your PC to add some.",
-  "This server type has no content folder."
+  "This server's type takes no add-ons. Change its type on your PC to add some.",
+  "This server type has no add-ons folder."
  ],
  "mobile.content.stop_first": [
-  "Stop the server first. Mods and plugins change only while it's stopped.",
-  "Stop the server first: content changes need it stopped."
+  "Stop the server first. Changes here happen only while it's stopped.",
+  "Stop the server first: changes here need it stopped."
  ],
  "mobile.content.stop_confirm_title": [
   "Stop the server?",
@@ -7043,10 +7043,6 @@
   "Turned off",
   "disable"
  ],
- "mobile.content.action_update_all": [
-  "Update all",
-  "update_all"
- ],
  "mobile.content.history_by": [
   "{when} · {who}",
   "{when} · {who}"
@@ -7074,10 +7070,6 @@
  "mobile.content.checking": [
   "Checking Modrinth…",
   "Querying Modrinth…"
- ],
- "mobile.content.update_all_title": [
-  "Update all",
-  "Update all"
  ],
  "mobile.content.update_all_lead": [
   "One backup is made first. If any update fails, everything is put back from it and you're told which one.",
@@ -7162,6 +7154,10 @@
  "mobile.content.installed": [
   "{name} {version} installed. It loads the next time the server starts.",
   "Installed {name} {version}; loaded on next start."
+ ],
+ "mobile.content.missing_unknown": [
+  "Couldn't check what's missing this time. Pull down to try again.",
+  "Dependency report unavailable."
  ],
  "mobile.content.missing_title": [
   "Needed but missing",

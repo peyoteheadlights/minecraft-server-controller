@@ -54,6 +54,34 @@ GET /api/servers/{server_id}/health/server
 # A backup's file is a zip, not JSON, so it has no typed answer; the apps
 # also download it from GET /api/servers/{server_id}/backups/{backup_id}/download
 # (tests/test_phone_world.py checks it stays).
+# Mods / Plugins / Packs and Game settings (Phase 9 part 4).
+GET /api/servers/{server_id}/mods
+POST /api/servers/{server_id}/mods/enable
+POST /api/servers/{server_id}/mods/disable
+GET /api/servers/{server_id}/mods/impact
+POST /api/servers/{server_id}/mods/remove
+POST /api/servers/{server_id}/mods/update
+GET /api/servers/{server_id}/mods/versions/{mod_id}
+POST /api/servers/{server_id}/mods/rollback
+GET /api/servers/{server_id}/mods/history
+GET /api/servers/{server_id}/mods/update-all
+POST /api/servers/{server_id}/mods/update-all
+GET /api/servers/{server_id}/mods/search
+GET /api/servers/{server_id}/mods/project/{project}
+POST /api/servers/{server_id}/mods/install
+GET /api/servers/{server_id}/mods/dependencies
+POST /api/servers/{server_id}/mods/dependencies/plan
+POST /api/servers/{server_id}/mods/dependencies/install
+POST /api/servers/{server_id}/mods/upload
+POST /api/modpacks/inspect
+DELETE /api/modpacks/{token}
+POST /api/servers/{server_id}/modpack
+GET /api/servers/{server_id}/addons
+POST /api/servers/{server_id}/addons/upload
+PUT /api/servers/{server_id}/addons/{pack_uuid}
+DELETE /api/servers/{server_id}/addons/{pack_uuid}
+GET /api/servers/{server_id}/game-settings
+PUT /api/servers/{server_id}/game-settings
 GET /api/alerts
 GET /api/app/phone
 PUT /api/app/phone

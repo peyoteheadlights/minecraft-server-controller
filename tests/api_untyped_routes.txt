@@ -1,7 +1,6 @@
 # Older routes that answer without a response model yet (agent/api/responses.py).
 # Remove a line when its route gets one. New routes must not be added here.
 DELETE /api/accounts/{username}
-DELETE /api/modpacks/{token}
 DELETE /api/servers/{server_id}
 DELETE /api/servers/{server_id}/world/import/{token}
 GET /api/account/preferences
@@ -23,19 +22,11 @@ GET /api/server-types/{type_id}/versions
 GET /api/servers/{server_id}/backups/{backup_id}/download
 GET /api/servers/{server_id}/crossplay
 GET /api/servers/{server_id}/duplicate
-GET /api/servers/{server_id}/game-settings
 GET /api/servers/{server_id}/info
 GET /api/servers/{server_id}/logs/download
 GET /api/servers/{server_id}/memory
-GET /api/servers/{server_id}/mods
 GET /api/servers/{server_id}/mods/check
-GET /api/servers/{server_id}/mods/dependencies
-GET /api/servers/{server_id}/mods/history
-GET /api/servers/{server_id}/mods/impact
-GET /api/servers/{server_id}/mods/project/{project}
-GET /api/servers/{server_id}/mods/search
 GET /api/servers/{server_id}/mods/updates
-GET /api/servers/{server_id}/mods/versions/{mod_id}
 GET /api/servers/{server_id}/players/sessions
 GET /api/servers/{server_id}/settings
 GET /api/servers/{server_id}/tps
@@ -50,7 +41,6 @@ POST /api/auth/rotate
 POST /api/export
 POST /api/help-bundle
 POST /api/maintenance
-POST /api/modpacks/inspect
 POST /api/modpacks/{token}/new-server
 POST /api/new-server
 POST /api/notifications/test
@@ -61,16 +51,6 @@ POST /api/security/revoke-sessions
 POST /api/servers
 POST /api/servers/{server_id}/duplicate
 POST /api/servers/{server_id}/eula
-POST /api/servers/{server_id}/modpack
-POST /api/servers/{server_id}/mods/dependencies/install
-POST /api/servers/{server_id}/mods/dependencies/plan
-POST /api/servers/{server_id}/mods/disable
-POST /api/servers/{server_id}/mods/enable
-POST /api/servers/{server_id}/mods/install
-POST /api/servers/{server_id}/mods/remove
-POST /api/servers/{server_id}/mods/rollback
-POST /api/servers/{server_id}/mods/update
-POST /api/servers/{server_id}/mods/upload
 POST /api/servers/{server_id}/server/cancel-restart
 POST /api/servers/{server_id}/server/clear-crash-block
 POST /api/servers/{server_id}/server/restart-now
@@ -86,8 +66,6 @@ PUT /api/account/preferences
 PUT /api/accounts/{username}
 PUT /api/servers/{server_id}/color
 PUT /api/servers/{server_id}/crossplay
-PUT /api/servers/{server_id}/game-settings
-PUT /api/servers/{server_id}/game-settings/raw
 PUT /api/servers/{server_id}/memory
 PUT /api/servers/{server_id}/settings
 PUT /api/servers/{server_id}/tps

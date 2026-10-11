@@ -10,22 +10,43 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from ...jobs import JobConflict
 from ...mods.dependencies import DependencyError
 from ...mods.modrinth import ModrinthError
+from ...mods.updateall import update_all
 from ...security.auth import Principal
 from ...security.permissions import MODS_MANAGE, SERVER_VIEW, require
 from ..deps import audit, get_server
 from ..errors import DOMAIN_ERRORS, audit_failure, respond_as
+from ..responses import (
+    DependencyInstall,
+    DependencyPlan,
+    DependencyReport,
+    ModChanged,
+    ModHistory,
+    ModImpact,
+    ModInstalled,
+    ModList,
+    ModProject,
+    ModRemoved,
+    ModRolledBack,
+    ModSearch,
+    ModUpdated,
+    ModUploaded,
+    ModVersions,
+    UpdateAllPlan,
+    UpdateAllResult,
+)
 from .models import (
     DependencyInstallRequest,
     ModFileRequest,
     ModInstallRequest,
     ModRollbackRequest,
     ModUpdateRequest,
+    UpdateAllRequest,
 )
 
 router = APIRouter()
 
 
-@router.get("/mods")
+@router.get("/mods", response_model=ModList)
 async def list_mods(principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)):
     mods = ctx.mods.list_installed()
     checks = ctx.mods.check_all()
@@ -43,7 +64,7 @@ async def list_mods(principal: Principal = Depends(require(SERVER_VIEW)), ctx=De
     }
 
 
-@router.get("/mods/search")
+@router.get("/mods/search", response_model=ModSearch)
 async def search_mods(
     q: str = "",
     minecraft_version: str = "",
@@ -58,7 +79,7 @@ async def search_mods(
     )
 
 
-@router.get("/mods/project/{project}")
+@router.get("/mods/project/{project}", response_model=ModProject)
 async def mod_project(
     project: str, principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):
@@ -71,7 +92,7 @@ async def mod_project(
     }
 
 
-@router.post("/mods/install")
+@router.post("/mods/install", response_model=ModInstalled)
 async def install_mod(
     payload: ModInstallRequest,
     request: Request,
@@ -104,7 +125,7 @@ async def install_mod(
     return {"ok": True, **result}
 
 
-@router.post("/mods/upload")
+@router.post("/mods/upload", response_model=ModUploaded)
 async def upload_mod(
     request: Request,
     file: UploadFile = File(...),
@@ -122,7 +143,7 @@ async def upload_mod(
     return {"ok": True, **result}
 
 
-@router.get("/mods/impact")
+@router.get("/mods/impact", response_model=ModImpact)
 async def mod_impact(
     filename: str, principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):
@@ -130,7 +151,7 @@ async def mod_impact(
         return ctx.mods.removal_impact(filename)
 
 
-@router.post("/mods/remove")
+@router.post("/mods/remove", response_model=ModRemoved)
 async def remove_mod(
     payload: ModFileRequest,
     request: Request,
@@ -147,7 +168,7 @@ async def remove_mod(
     return {"ok": True, **result}
 
 
-@router.post("/mods/enable")
+@router.post("/mods/enable", response_model=ModChanged)
 async def enable_mod(
     payload: ModFileRequest,
     request: Request,
@@ -163,7 +184,7 @@ async def enable_mod(
     return {"ok": True, **result}
 
 
-@router.post("/mods/disable")
+@router.post("/mods/disable", response_model=ModChanged)
 async def disable_mod(
     payload: ModFileRequest,
     request: Request,
@@ -196,7 +217,7 @@ async def mod_updates(
     return {"updates": updates, "checked_at": ctx.db.get_setting("mod_updates_checked_at")}
 
 
-@router.post("/mods/update")
+@router.post("/mods/update", response_model=ModUpdated)
 async def update_mod(
     payload: ModUpdateRequest,
     request: Request,
@@ -215,14 +236,41 @@ async def update_mod(
     return {"ok": True, **result}
 
 
-@router.get("/mods/versions/{mod_id}")
+@router.get("/mods/update-all", response_model=UpdateAllPlan)
+async def update_all_plan(
+    principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
+):
+    """What Update all would change: every mod or plugin with a newer
+    version on Modrinth (turned-off ones marked), asked just now."""
+    plan = await ctx.mods.update_plan()
+    return {**plan, "server_running": ctx.server.running, "blocked_by": ctx.server.held_by}
+
+
+@router.post("/mods/update-all", response_model=UpdateAllResult)
+async def update_all_mods(
+    payload: UpdateAllRequest,
+    request: Request,
+    principal: Principal = Depends(require(MODS_MANAGE)),
+    ctx=Depends(get_server),
+):
+    """Update the ticked ones as one change: one backup first, and all of
+    them put back from it if any update fails."""
+    with respond_as(400), audit_failure(ctx, request, "mod_update_all"):
+        result = await update_all(
+            ctx, [item.model_dump() for item in payload.mods], user=principal.user
+        )
+    audit(ctx, request, "mod_update_all", detail=", ".join(u["name"] for u in result["updated"]))
+    return {"ok": True, **result}
+
+
+@router.get("/mods/versions/{mod_id}", response_model=ModVersions)
 async def mod_versions(
     mod_id: str, principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):
     return {"versions": ctx.mods.versions_for(mod_id)}
 
 
-@router.post("/mods/rollback")
+@router.post("/mods/rollback", response_model=ModRolledBack)
 async def rollback_mod(
     payload: ModRollbackRequest,
     request: Request,
@@ -239,14 +287,14 @@ async def rollback_mod(
     return {"ok": True, **result}
 
 
-@router.get("/mods/history")
+@router.get("/mods/history", response_model=ModHistory)
 async def mod_history(
     limit: int = 100, principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):
     return {"history": ctx.mods.history(max(1, min(limit, 500)))}
 
 
-@router.get("/mods/dependencies")
+@router.get("/mods/dependencies", response_model=DependencyReport)
 async def mod_dependencies(
     principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):
@@ -259,7 +307,7 @@ async def mod_dependencies(
     return report
 
 
-@router.post("/mods/dependencies/plan")
+@router.post("/mods/dependencies/plan", response_model=DependencyPlan)
 async def plan_dependencies(
     payload: DependencyInstallRequest,
     principal: Principal = Depends(require(SERVER_VIEW)),
@@ -269,7 +317,7 @@ async def plan_dependencies(
     return await ctx.mods.deps.plan(payload.mod_ids)
 
 
-@router.post("/mods/dependencies/install")
+@router.post("/mods/dependencies/install", response_model=DependencyInstall)
 async def install_dependencies(
     payload: DependencyInstallRequest,
     request: Request,

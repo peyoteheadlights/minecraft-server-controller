@@ -13,6 +13,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
@@ -51,9 +52,14 @@ sealed class AgentException(val key: String, message: String? = null) : Exceptio
      * it again when the PC says it finished. */
     class StillWorking : AgentException("mobile.error.still_working")
 
-    /** Any other refusal, in the agent's words, with its error number. */
-    class Failed(val status: Int, val reason: String?, val requestId: String?) :
-        AgentException("mobile.error.failed", reason)
+    /** Any other refusal, in the agent's words, with its error number.
+     * A form the agent refused also has each value's reason, by key. */
+    class Failed(
+        val status: Int,
+        val reason: String?,
+        val requestId: String?,
+        val problems: Map<String, String> = emptyMap(),
+    ) : AgentException("mobile.error.failed", reason)
 }
 
 /** Writing a download into the phone's own file failed (the phone is
@@ -386,6 +392,126 @@ class AgentClient(
         get("${server(serverId)}/health/server", ServerHealth.serializer())
 
     // ------------------------------------------------------------------
+    // Mods / Plugins / Packs and Game settings. Mods change only while the
+    // server is stopped; the agent refuses otherwise, in its own words.
+    // Installs, updates and imports answer once done, so they wait.
+
+    suspend fun mods(serverId: String): ModList = get("${server(serverId)}/mods", ModList.serializer())
+
+    /** Turns a mod or plugin on or off without removing it. */
+    suspend fun setModEnabled(serverId: String, filename: String, enabled: Boolean): ModChanged =
+        call(post("${server(serverId)}/mods/${if (enabled) "enable" else "disable"}", fileBody(filename)), ModChanged.serializer())
+
+    /** What else needs a mod, asked before removing it. */
+    suspend fun modImpact(serverId: String, filename: String): ModImpact =
+        get("${server(serverId)}/mods/impact?filename=${path(filename)}", ModImpact.serializer())
+
+    /** Removes a mod; its file is kept so it can be put back. */
+    suspend fun removeMod(serverId: String, filename: String): ModRemoved =
+        call(post("${server(serverId)}/mods/remove", fileBody(filename)), ModRemoved.serializer())
+
+    suspend fun updateMod(serverId: String, filename: String, versionId: String?): ModUpdated {
+        val body = buildJsonObject {
+            put("filename", filename)
+            put("version_id", versionId)
+        }
+        return call(post("${server(serverId)}/mods/update", body), ModUpdated.serializer(), slow = true)
+    }
+
+    /** The copies of a mod kept on this server, newest first. */
+    suspend fun modVersions(serverId: String, modId: String): ModVersions =
+        get("${server(serverId)}/mods/versions/${path(modId)}", ModVersions.serializer())
+
+    suspend fun rollBackMod(serverId: String, modId: String, archivePath: String): ModRolledBack {
+        val body = buildJsonObject {
+            put("mod_id", modId)
+            put("archive_path", archivePath)
+        }
+        return call(post("${server(serverId)}/mods/rollback", body), ModRolledBack.serializer())
+    }
+
+    suspend fun modHistory(serverId: String, limit: Int = 100): ModHistory =
+        get("${server(serverId)}/mods/history?limit=${limit.coerceIn(1, 500)}", ModHistory.serializer())
+
+    /** What Update all would change, checked on Modrinth now. */
+    suspend fun updateAllPlan(serverId: String): UpdateAllPlan =
+        get("${server(serverId)}/mods/update-all", UpdateAllPlan.serializer(), slow = true)
+
+    /** Updates the ticked ones as one change (one backup, all or nothing). */
+    suspend fun updateAll(serverId: String, body: JsonObject): UpdateAllResult =
+        call(post("${server(serverId)}/mods/update-all", body), UpdateAllResult.serializer(), slow = true)
+
+    /** Modrinth results that fit this server's type and Minecraft version. */
+    suspend fun searchMods(serverId: String, query: String, offset: Int = 0): ModSearch =
+        get("${server(serverId)}/mods/search?q=${path(query)}&limit=$SEARCH_PAGE&offset=${offset.coerceAtLeast(0)}", ModSearch.serializer())
+
+    suspend fun modProject(serverId: String, slug: String): ModProject =
+        get("${server(serverId)}/mods/project/${path(slug)}", ModProject.serializer())
+
+    suspend fun installMod(serverId: String, slug: String, versionId: String?, withDependencies: Boolean): ModInstalled {
+        val body = buildJsonObject {
+            put("project", slug)
+            put("version_id", versionId)
+            put("install_dependencies", withDependencies)
+        }
+        return call(post("${server(serverId)}/mods/install", body), ModInstalled.serializer(), slow = true)
+    }
+
+    suspend fun dependencies(serverId: String): DependencyReport =
+        get("${server(serverId)}/mods/dependencies", DependencyReport.serializer())
+
+    /** What installing the missing ones would download. Nothing is yet. */
+    suspend fun planDependencies(serverId: String): DependencyPlan =
+        call(post("${server(serverId)}/mods/dependencies/plan", JsonObject(emptyMap())), DependencyPlan.serializer())
+
+    suspend fun installDependencies(serverId: String): DependencyInstall =
+        call(post("${server(serverId)}/mods/dependencies/install", JsonObject(emptyMap())), DependencyInstall.serializer(), slow = true)
+
+    /** Adds a mod or plugin file (.jar) picked on the phone. */
+    suspend fun uploadMod(serverId: String, file: PickedFile): ModUploaded =
+        call(upload("${server(serverId)}/mods/upload", file), ModUploaded.serializer(), slow = true)
+
+    /** Reads a modpack (.mrpack) and says what importing it here would do. */
+    suspend fun inspectModpack(serverId: String, file: PickedFile): ModpackInspected =
+        call(upload("/api/modpacks/inspect?server_id=${path(serverId)}", file), ModpackInspected.serializer(), slow = true)
+
+    /** Throws away a modpack read but not imported. */
+    suspend fun forgetModpack(token: String): Ok =
+        call(request("/api/modpacks/${path(token)}").delete().build(), Ok.serializer())
+
+    suspend fun importModpack(serverId: String, token: String): ModpackImported {
+        val body = buildJsonObject {
+            put("token", token)
+            put("confirm", true)
+        }
+        return call(post("${server(serverId)}/modpack", body), ModpackImported.serializer(), slow = true)
+    }
+
+    /** A Bedrock server's behavior and resource packs. */
+    suspend fun addons(serverId: String): AddonList = get("${server(serverId)}/addons", AddonList.serializer())
+
+    suspend fun uploadAddon(serverId: String, file: PickedFile): AddonResult =
+        call(upload("${server(serverId)}/addons/upload", file), AddonResult.serializer(), slow = true)
+
+    suspend fun setAddonEnabled(serverId: String, uuid: String, enabled: Boolean): AddonResult = call(
+        request("${server(serverId)}/addons/${path(uuid)}").put(buildJsonObject { put("enabled", enabled) }.toBody()).build(),
+        AddonResult.serializer(),
+    )
+
+    suspend fun removeAddon(serverId: String, uuid: String): AddonResult =
+        call(request("${server(serverId)}/addons/${path(uuid)}").delete().build(), AddonResult.serializer())
+
+    suspend fun gameSettings(serverId: String): GameSettings =
+        get("${server(serverId)}/game-settings", GameSettings.serializer())
+
+    /** Saves only [values], the ones changed. A refused one comes back as
+     * [AgentException.Failed] with each value's reason in its problems. */
+    suspend fun saveGameSettings(serverId: String, values: JsonObject): GameSettingsSaved = call(
+        request("${server(serverId)}/game-settings").put(buildJsonObject { put("values", values) }.toBody()).build(),
+        GameSettingsSaved.serializer(),
+    )
+
+    // ------------------------------------------------------------------
     private fun server(id: String) = "/api/servers/${path(id)}"
 
     private fun path(id: String) = java.net.URLEncoder.encode(id, "UTF-8").replace("+", "%20")
@@ -396,6 +522,17 @@ class AgentClient(
     private fun JsonObject.toBody(): RequestBody = toString().toRequestBody(jsonType)
 
     private fun post(path: String, body: JsonObject): Request = request(path).post(body.toBody()).build()
+
+    private fun fileBody(filename: String) = buildJsonObject { put("filename", filename) }
+
+    /** A file picked on the phone, sent as the dashboard's upload form does. */
+    private fun upload(path: String, file: PickedFile): Request {
+        val form = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("file", file.name, file.body())
+            .build()
+        return request(path).post(form).build()
+    }
 
     private suspend fun <T> get(path: String, serializer: KSerializer<T>, signedIn: Boolean = true, slow: Boolean = false): T =
         call(request(path).get().build(), serializer, signedIn, slow)
@@ -438,7 +575,12 @@ class AgentClient(
                 response.code == 401 || response.code == 429 ->
                     throw AgentException.SignInRefused(reason ?: "")
                 response.code == 403 -> throw AgentException.NotAllowed(reason ?: "")
-                else -> throw AgentException.Failed(response.code, reason, response.header("X-Request-ID"))
+                else -> throw AgentException.Failed(
+                    response.code,
+                    reason,
+                    response.header("X-Request-ID"),
+                    if (isJson) problems(text) else emptyMap(),
+                )
             }
         }
         if (!isJson) throw AgentException.NotAnAgent()
@@ -452,6 +594,11 @@ class AgentClient(
     private fun detail(text: String): String? = runCatching {
         AgentJson.parseToJsonElement(text).let { it as? JsonObject }?.get("detail")?.jsonPrimitive?.contentOrNull
     }.getOrNull()
+
+    private fun problems(text: String): Map<String, String> = runCatching {
+        val found = (AgentJson.parseToJsonElement(text) as JsonObject)["problems"] as? JsonObject
+        found?.mapNotNull { (key, value) -> (value as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull?.let { key to it } }?.toMap()
+    }.getOrNull().orEmpty()
 
     internal fun translateFailure(e: IOException): AgentException = translate(e)
 
@@ -473,6 +620,7 @@ class AgentClient(
         val QUICK_ACTIONS = listOf("start", "stop", "restart")
 
         const val SLOW_SECONDS = 30L * 60
+        const val SEARCH_PAGE = 20
         val REC_ACTIONS = listOf("snooze", "dismiss", "restore")
     }
 }

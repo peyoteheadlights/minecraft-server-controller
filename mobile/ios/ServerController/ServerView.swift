@@ -195,26 +195,35 @@ struct ServerView: View {
     }
 
     /// Console, Chat, Players, Performance, Backups, Restore world,
-    /// Schedules, Activity and Crashes.
+    /// Schedules, Activity and Crashes, then Mods / Plugins / Packs (named
+    /// for the server type, when it takes any) and Game settings.
     private func screens(_ palette: Palette) -> some View {
         card(palette) {
             ForEach(ServerPage.allCases, id: \.self) { page in
-                NavigationLink(value: ServerRoute.page(serverId, page)) {
-                    HStack {
-                        Text(model.t(page.titleKey))
-                            .foregroundStyle(palette.textPrimary)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(palette.textSecondary)
-                            .accessibilityHidden(true)
-                    }
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
+                screenLink(model.t(page.titleKey), ServerRoute.page(serverId, page), palette)
             }
+            if let kind = Content.kind(model.servers.first(where: { $0.id == serverId })), kind != .none {
+                screenLink(model.t(kind.titleKey), ServerRoute.content(serverId), palette)
+            }
+            screenLink(model.t("page.game_settings"), ServerRoute.game(serverId), palette)
         }
+    }
+
+    private func screenLink(_ title: String, _ route: ServerRoute, _ palette: Palette) -> some View {
+        NavigationLink(value: route) {
+            HStack {
+                Text(title)
+                    .foregroundStyle(palette.textPrimary)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(palette.textSecondary)
+                    .accessibilityHidden(true)
+            }
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func card<Content: View>(_ palette: Palette, @ViewBuilder _ content: () -> Content) -> some View {

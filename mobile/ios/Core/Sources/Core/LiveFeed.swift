@@ -14,6 +14,8 @@ public enum LiveSignal: Equatable, Sendable {
     case console(serverId: String?, line: ConsoleLine)
     /// Someone said something in the watched server's game.
     case chat(serverId: String?, message: ChatMessage)
+    /// A task's progress (an install, Update all): its step, then its end.
+    case task(serverId: String?, job: Job)
     /// The watched server's latest console lines, which replace what the
     /// Console shows: on connecting, and after `LiveFeed.tail`.
     case consoleTail(serverId: String, lines: [ConsoleLine])
@@ -92,6 +94,11 @@ public final class LiveFeed: @unchecked Sendable {
             case "chat":
                 guard let said = decode(ChatMessage.self, event["data"]) else { return [] }
                 return [.chat(serverId: server, message: said)]
+            case "job":
+                // Its progress for the screen running it, and a fresh read
+                // of the server as for any other event.
+                let job = decode(Job.self, event["data"]).map { LiveSignal.task(serverId: server, job: $0) }
+                return (job.map { [$0] } ?? []) + [.changed(serverId: server, type: kind)]
             default:
                 let row = EventRow(
                     serverId: server,

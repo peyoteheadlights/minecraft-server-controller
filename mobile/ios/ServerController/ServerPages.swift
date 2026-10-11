@@ -19,6 +19,9 @@ enum ServerRoute: Hashable {
     case server(String)
     case page(String, ServerPage)
     case crash(String, Int64)
+    /// Mods, Plugins or Packs, named for the server type.
+    case content(String)
+    case game(String)
 }
 
 /// A server's own screens, with the dashboard's titles for them.
@@ -39,12 +42,15 @@ final class ServerPages {
     @ObservationIgnored private let noted: (AgentError) -> Void
     /// Backups, Restore world, Schedules and Performance.
     let world: WorldPages
+    /// Mods / Plugins / Packs and Game settings.
+    let content: ContentPages
 
     init(serverId: String, client: @escaping () -> AgentClient?, noted: @escaping (AgentError) -> Void) {
         self.serverId = serverId
         self.client = client
         self.noted = noted
         world = WorldPages(serverId: serverId, client: client, noted: noted)
+        content = ContentPages(serverId: serverId, client: client, noted: noted)
     }
 
     // MARK: - Console

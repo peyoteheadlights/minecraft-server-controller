@@ -22,6 +22,8 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import io.github.peyoteheadlights.mcsc.core.Content
+import io.github.peyoteheadlights.mcsc.core.ContentKind
 import io.github.peyoteheadlights.mcsc.core.Display
 import io.github.peyoteheadlights.mcsc.core.Permissions
 import io.github.peyoteheadlights.mcsc.core.QuickAction
@@ -114,6 +116,9 @@ fun ServerScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit, onOpen:
         item {
             Card(Modifier.padding(top = 12.dp)) {
                 for ((page, key) in PAGES) Item(t(key), onClick = { onOpen(page) })
+                // Mods, Plugins or Packs by server type; none for a type that takes neither.
+                Content.kind(row)?.takeIf { it != ContentKind.NONE }?.let { kind -> Item(t(kind.titleKey), onClick = { onOpen("content") }) }
+                Item(t("page.game_settings"), onClick = { onOpen("game") })
             }
         }
         joinCard(vm, pages)

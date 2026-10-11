@@ -66,6 +66,8 @@ data class ServerRow(
     @SerialName("max_players") val maxPlayers: Int? = null,
     @SerialName("minecraft_version") val minecraftVersion: String? = null,
     @SerialName("type_name") val typeName: String? = null,
+    /** "mods" or "plugins"; null for a type that takes neither. */
+    val content: String? = null,
     val edition: String? = null,
     val capabilities: Capabilities? = null,
 )
@@ -174,4 +176,5 @@ object Permissions {
     const val BACKUPS_RESTORE = "backups.restore"
     const val BACKUPS_DELETE = "backups.delete"
     const val SCHEDULES_MANAGE = "schedules.manage"
+    const val MODS_MANAGE = "mods.manage"
 }

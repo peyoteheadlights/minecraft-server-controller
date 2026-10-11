@@ -45,6 +45,9 @@ class ServerPages(
     /** Backups, Restore world, Schedules and Performance. */
     val world = WorldPages(serverId, scope, client, noted)
 
+    /** Mods, Plugins or Packs, and Game settings. */
+    val content = ContentPages(serverId, scope, client, noted)
+
     // ------------------------------------------------------------ console
     var console: Read<List<ConsoleLine>> by mutableStateOf(Read())
         private set

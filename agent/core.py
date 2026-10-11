@@ -114,16 +114,20 @@ class ServerContext:
     def color(self) -> str | None:
         return self.core.db.server_color(self.server_id)
 
-    async def mod_change(
-        self, title: str, change: Callable[[], Awaitable[Any]], user: str | None = None
-    ) -> Any:
-        """Run a change to this server's mods as a risky job, so it never
-        runs during a restore or another change (and they wait for it)."""
+    def require_free(self) -> None:
+        """Refuse (409) while another change holds this server."""
         if self.server.held_by:
             raise JobConflict(
                 f"Wait for '{self.server.held_by}' to finish first. A server runs one "
                 "change like this at a time."
             )
+
+    async def mod_change(
+        self, title: str, change: Callable[[], Awaitable[Any]], user: str | None = None
+    ) -> Any:
+        """Run a change to this server's mods as a risky job, so it never
+        runs during a restore or another change (and they wait for it)."""
+        self.require_free()
 
         async def run(job: JobHandle) -> Any:
             job.step(title)

@@ -36,7 +36,14 @@ public enum JSONValue: Codable, Equatable, Sendable {
         switch self {
         case .null: try c.encodeNil()
         case .bool(let value): try c.encode(value)
-        case .number(let value): try c.encode(value)
+        case .number(let value):
+            // A whole number goes back as one (25565, not 25565.0): the
+            // agent reads a port or a count with int().
+            if value.rounded() == value && abs(value) < 1e15 {
+                try c.encode(Int64(value))
+            } else {
+                try c.encode(value)
+            }
         case .string(let value): try c.encode(value)
         case .array(let value): try c.encode(value)
         case .object(let value): try c.encode(value)
@@ -414,22 +421,33 @@ public struct WorldTimeline: Decodable, Equatable, Sendable {
 /// A task the agent ran (a backup, a restore, a mod install).
 public struct Job: Decodable, Equatable, Identifiable, Sendable {
     public var id: String
+    public var kind: String
     public var title: String
     public var state: String
+    /// What it is doing now ("Updating Sodium (2 of 5)").
+    public var step: String?
+    public var serverId: String?
     public var finishedAt: Double?
     public var undo: Undo?
 
     enum CodingKeys: String, CodingKey {
-        case id, title, state, result
+        case id, kind, title, state, step, result
+        case serverId = "server_id"
         case finishedAt = "finished_at"
     }
 
     enum ResultKeys: String, CodingKey { case undo }
 
-    public init(id: String, title: String = "", state: String = "", finishedAt: Double? = nil, undo: Undo? = nil) {
+    public init(
+        id: String, kind: String = "", title: String = "", state: String = "", step: String? = nil,
+        serverId: String? = nil, finishedAt: Double? = nil, undo: Undo? = nil
+    ) {
         self.id = id
+        self.kind = kind
         self.title = title
         self.state = state
+        self.step = step
+        self.serverId = serverId
         self.finishedAt = finishedAt
         self.undo = undo
     }
@@ -437,8 +455,11 @@ public struct Job: Decodable, Equatable, Identifiable, Sendable {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
+        kind = c.value(.kind, "")
         title = c.value(.title, "")
         state = c.value(.state, "")
+        step = c.maybe(.step)
+        serverId = c.maybe(.serverId)
         finishedAt = c.maybe(.finishedAt)
         let result = try? c.nestedContainer(keyedBy: ResultKeys.self, forKey: .result)
         undo = result?.maybe(.undo)

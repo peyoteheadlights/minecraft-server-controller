@@ -37,7 +37,7 @@ or worlds.
 ## The phone apps
 
 The Android and iPhone apps talk only to your PC, over your Tailscale
-network. They have no accounts, no ads, no analytics and no tracking, and
+network, apart from the mod pictures described below. They have no accounts, no ads, no analytics and no tracking, and
 send nothing to the person who made them.
 
 - Your sign-in is kept in the phone's secure storage (the Android keystore
@@ -52,8 +52,14 @@ send nothing to the person who made them.
 - **Copy details for a problem report** puts versions and recent request
   results on the clipboard, never a password, sign-in code or address. You
   choose where to paste it.
-- The apps open other websites (Tailscale, GitHub's forms, this policy) in
-  the phone's browser. Nothing of your sign-in goes with them.
+- **Mod pictures**: when you search Modrinth for mods or plugins, the
+  results' pictures are loaded by the phone straight from Modrinth
+  (`cdn.modrinth.com`) and kept in the phone's cache. Modrinth sees the
+  phone's internet address, as for any website. The search itself goes
+  through your PC.
+- The apps open other websites (Tailscale, GitHub's forms, a mod's
+  Modrinth page, this policy) in the phone's browser. Nothing of your
+  sign-in goes with them.
 
 ## Questions
 

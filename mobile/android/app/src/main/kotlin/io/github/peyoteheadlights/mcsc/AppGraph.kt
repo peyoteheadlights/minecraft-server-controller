@@ -5,6 +5,7 @@ import android.os.Build
 import androidx.core.content.pm.ShortcutManagerCompat
 import io.github.peyoteheadlights.mcsc.core.AgentClient
 import io.github.peyoteheadlights.mcsc.core.AlertState
+import io.github.peyoteheadlights.mcsc.core.IconCache
 import io.github.peyoteheadlights.mcsc.core.Pairer
 import io.github.peyoteheadlights.mcsc.core.RequestLog
 import io.github.peyoteheadlights.mcsc.core.Strings
@@ -31,6 +32,9 @@ class AppGraph(private val context: Context) {
     val strings: Strings = Strings(shared.english).also { it.technical = prefs.technical }
 
     private val http = OkHttpClient()
+
+    /** Modrinth's icons, kept in the phone's cache folder (Android may clear it). */
+    val icons = IconCache(File(context.cacheDir, "modrinth-icons"), http)
     private val signedOutEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     /** Fires when the PC ends this phone's sign-in (a 401). */

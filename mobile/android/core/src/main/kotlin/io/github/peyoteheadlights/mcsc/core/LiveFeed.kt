@@ -34,6 +34,9 @@ sealed class LiveSignal {
     /** A new console line of the watched server. */
     data class Console(val serverId: String?, val line: ConsoleLine) : LiveSignal()
 
+    /** A task's progress (an install, Update all): its step, then its end. */
+    data class Task(val serverId: String?, val job: Job) : LiveSignal()
+
     /** Someone said something in the watched server's game. */
     data class Chat(val serverId: String?, val message: ChatMessage) : LiveSignal()
 
@@ -118,6 +121,12 @@ class LiveFeed(private val client: AgentClient, private val token: () -> String?
                             when (type) {
                                 "console" -> decode(ConsoleLine.serializer(), data)?.let { trySend(LiveSignal.Console(server, it)) }
                                 "chat" -> decode(ChatMessage.serializer(), data)?.let { trySend(LiveSignal.Chat(server, it)) }
+                                "job" -> {
+                                    // Its progress for the screen running it, and a fresh
+                                    // read of the server as for any other event.
+                                    decode(Job.serializer(), data)?.let { trySend(LiveSignal.Task(server, it)) }
+                                    trySend(LiveSignal.Changed(server, type))
+                                }
                                 else -> trySend(LiveSignal.Changed(server, type, row(event, type, server).takeIf { type !in NOT_STORED }))
                             }
                         }

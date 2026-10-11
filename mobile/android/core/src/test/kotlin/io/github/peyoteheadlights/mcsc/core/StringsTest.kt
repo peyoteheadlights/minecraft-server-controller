@@ -15,7 +15,8 @@ class StringsTest {
             root.walk().filter { it.extension == "kt" }.flatMap { file -> keys.findAll(file.readText()).map { it.groupValues[1] } }
         }.filterNot { it.endsWith(".json") }.toSet()
         assertTrue(used.size > 20)
-        val missing = used.filterNot { it in Shared.strings }
+        // A counted wording (strings.tn) is stored as key.one and key.other.
+        val missing = used.filterNot { it in Shared.strings || "$it.one" in Shared.strings }
         assertEquals("missing from strings.json", emptyList<String>(), missing.sorted())
     }
 

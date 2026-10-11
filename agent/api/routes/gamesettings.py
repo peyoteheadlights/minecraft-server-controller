@@ -8,12 +8,13 @@ from ... import gamesettings
 from ...security.auth import Principal
 from ...security.permissions import SETTINGS_EDIT, SETTINGS_VIEW, require
 from ..deps import audit, get_server
+from ..responses import GameSettings, GameSettingsSaved
 from .models import GameSettingsRawRequest, GameSettingsRequest
 
 router = APIRouter()
 
 
-@router.get("/game-settings")
+@router.get("/game-settings", response_model=GameSettings)
 async def get_game_settings(
     principal: Principal = Depends(require(SETTINGS_VIEW)), ctx=Depends(get_server)
 ):
@@ -21,7 +22,7 @@ async def get_game_settings(
     return gamesettings.view(ctx)
 
 
-@router.put("/game-settings")
+@router.put("/game-settings", response_model=GameSettingsSaved)
 async def save_game_settings(
     payload: GameSettingsRequest,
     request: Request,
@@ -35,7 +36,7 @@ async def save_game_settings(
     return {"ok": True, **result}
 
 
-@router.put("/game-settings/raw")
+@router.put("/game-settings/raw", response_model=GameSettingsSaved)
 async def save_game_settings_raw(
     payload: GameSettingsRawRequest,
     request: Request,

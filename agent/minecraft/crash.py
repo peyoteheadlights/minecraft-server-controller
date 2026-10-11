@@ -194,7 +194,10 @@ class CrashReporter:
         return rows
 
     def get_crash(self, crash_id: int) -> dict[str, Any] | None:
-        row = self.db.query_one("SELECT * FROM crashes WHERE id = ?", (crash_id,))
+        row = self.db.query_one(
+            "SELECT * FROM crashes WHERE id = ? AND server_id = ?",
+            (crash_id, self.server.server_id),
+        )
         if not row:
             return None
         row["evidence"] = json.loads(row.get("evidence") or "[]")

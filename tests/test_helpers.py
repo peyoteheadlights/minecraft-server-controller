@@ -220,3 +220,71 @@ def test_password_reset_on_the_pc(multi, tmp_path, monkeypatch):
     db = Database(multi.database_path)
     assert db.query("SELECT * FROM sessions") == []
     assert db.query_one("SELECT * FROM audit_log WHERE action = 'password_reset'")
+
+
+def test_a_crash_is_only_read_through_its_own_server(multi_client, owner):
+    core = multi_client.app.state.core
+    row = core.db.insert(
+        "crashes",
+        {
+            "server_id": "survival",
+            "ts": 1.0,
+            "exit_code": 1,
+            "category": "unknown",
+            "confidence": "low",
+            "summary": "boom",
+            "evidence": "[]",
+            "context": "{}",
+            "restarted": 0,
+        },
+    )
+    crash_id = row if isinstance(row, int) else row["id"]
+    assert multi_client.get(f"/api/servers/survival/crashes/{crash_id}").status_code == 200
+    # A helper limited to Creative can't read Survival's crash by its number.
+    helper = add_helper(multi_client, owner, servers=["creative"])
+    multi_client.headers.pop("Authorization")
+    response = multi_client.get(f"/api/servers/creative/crashes/{crash_id}", headers=helper)
+    assert response.status_code == 404
+
+
+def test_only_the_owner_sees_failed_sign_ins_in_the_history(multi_client, owner):
+    helper = add_helper(multi_client, owner)
+    multi_client.headers.pop("Authorization")
+    multi_client.post("/api/auth/login", json={"username": "nobody", "password": "wrong-one"})
+
+    def types(headers):
+        response = multi_client.get("/api/servers/survival/events", headers=headers)
+        assert response.status_code == 200
+        return {row["type"] for row in response.json()["events"]}
+
+    assert "auth_failure" in types(owner)
+    assert "auth_failure" not in types(helper)
+
+
+def _feed_types_until_marker(client, token):
+    from agent.events import Event
+
+    core = client.app.state.core
+    seen = []
+    with client.websocket_connect("/ws") as ws:
+        ws.send_json({"type": "auth", "token": token, "server_id": "survival"})
+        while ws.receive_json().get("type") != "ready":
+            pass
+        failed = Event(type="auth_failure", message="x", data={"source_ip": "192.0.2.1"})
+        client.portal.call(core.bus.publish, failed)
+        client.portal.call(core.bus.publish, Event(type="test_marker", message="after"))
+        while "test_marker" not in seen:
+            message = ws.receive_json()
+            if message.get("type") == "event":
+                seen.append(message["event"]["type"])
+    return seen
+
+
+def test_only_the_owner_hears_failed_sign_ins_on_the_live_feed(multi_client, owner):
+    helper = add_helper(multi_client, owner)
+
+    def token(headers):
+        return {k.lower(): v for k, v in headers.items()}["authorization"].split()[1]
+
+    assert "auth_failure" in _feed_types_until_marker(multi_client, token(owner))
+    assert "auth_failure" not in _feed_types_until_marker(multi_client, token(helper))

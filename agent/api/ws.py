@@ -27,6 +27,7 @@ import time
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from ..events import OWNER_ONLY_EVENTS
 from ..security.auth import AuthError
 from ..security.permissions import WS_ACTIONS, can_see_server, check
 
@@ -116,6 +117,8 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     def accept(event) -> bool:
         if event.server_id is not None and not can_see_server(who["principal"], event.server_id):
             return False  # a helper limited to other servers hears nothing of this one
+        if event.type in OWNER_ONLY_EVENTS and not who["principal"].is_owner:
+            return False
         if event.type in PAGE_ONLY and event.server_id is not None:
             return event.server_id == watching["server_id"]
         return True

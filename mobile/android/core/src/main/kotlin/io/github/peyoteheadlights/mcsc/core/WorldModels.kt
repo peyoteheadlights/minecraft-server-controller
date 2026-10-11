@@ -148,6 +148,9 @@ data class Job(
     val kind: String = "",
     val title: String = "",
     val state: String = "",
+    /** What it is doing now ("Updating Sodium (2 of 5)"). */
+    val step: String? = null,
+    @SerialName("server_id") val serverId: String? = null,
     @SerialName("finished_at") val finishedAt: Double? = null,
     val result: JobResult? = null,
 )

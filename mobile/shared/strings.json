@@ -6891,6 +6891,266 @@
   "Got an idea? Suggest a feature",
   "Suggest a feature"
  ],
+ "mobile.content.packs": [
+  "Packs",
+  "Packs"
+ ],
+ "mobile.content.none_for_type": [
+  "This server's type takes no mods or plugins. Change its type on your PC to add some.",
+  "This server type has no content folder."
+ ],
+ "mobile.content.stop_first": [
+  "Stop the server first. Mods and plugins change only while it's stopped.",
+  "Stop the server first: content changes need it stopped."
+ ],
+ "mobile.content.stop_confirm_title": [
+  "Stop the server?",
+  "Stop the server?"
+ ],
+ "mobile.content.stop_confirm_body": [
+  "Players are disconnected and the world is saved first.",
+  "Sends stop; the world is saved first."
+ ],
+ "mobile.content.state_unknown": [
+  "The server's state is Unknown, so nothing can be changed until the PC answers.",
+  "Server state unknown; changes disabled."
+ ],
+ "mobile.content.not_allowed": [
+  "Your account can see these but not change them.",
+  "This account lacks mods.manage."
+ ],
+ "mobile.content.unknown": [
+  "What's installed is Unknown until the PC answers.",
+  "Installed list unknown: agent unreachable."
+ ],
+ "mobile.content.versions": [
+  "Versions",
+  "Versions"
+ ],
+ "mobile.content.action_install": [
+  "Installed",
+  "install"
+ ],
+ "mobile.content.action_upload": [
+  "Added from a file",
+  "upload"
+ ],
+ "mobile.content.action_remove": [
+  "Removed",
+  "remove"
+ ],
+ "mobile.content.action_update": [
+  "Updated",
+  "update"
+ ],
+ "mobile.content.action_rollback": [
+  "Rolled back",
+  "rollback"
+ ],
+ "mobile.content.action_enable": [
+  "Turned on",
+  "enable"
+ ],
+ "mobile.content.action_disable": [
+  "Turned off",
+  "disable"
+ ],
+ "mobile.content.action_update_all": [
+  "Update all",
+  "update_all"
+ ],
+ "mobile.content.history_by": [
+  "{when} · {who}",
+  "{when} · {who}"
+ ],
+ "mobile.content.result_ok": [
+  "Worked",
+  "ok"
+ ],
+ "mobile.content.result_failed": [
+  "Failed",
+  "failed"
+ ],
+ "mobile.content.update_all": [
+  "Update all",
+  "Update all"
+ ],
+ "mobile.content.check_updates": [
+  "Check for updates",
+  "Check Modrinth for updates"
+ ],
+ "mobile.content.checking": [
+  "Checking Modrinth…",
+  "Querying Modrinth…"
+ ],
+ "mobile.content.update_all_title": [
+  "Update all",
+  "Update all"
+ ],
+ "mobile.content.update_all_lead": [
+  "One backup is made first. If any update fails, everything is put back from it and you're told which one.",
+  "One verified backup first; any failure restores it (all or nothing)."
+ ],
+ "mobile.content.update_all_none": [
+  "Everything is up to date.",
+  "No newer versions on Modrinth."
+ ],
+ "mobile.content.update_all_off": [
+  "Turned off, so not ticked",
+  "Disabled; unticked by default"
+ ],
+ "mobile.content.update_all_unchecked": [
+  "Couldn't check {name}: {reason}",
+  "{name} not checked: {reason}"
+ ],
+ "mobile.content.update_all_go.one": [
+  "Update {count}",
+  "Update {count}"
+ ],
+ "mobile.content.update_all_go.other": [
+  "Update {count}",
+  "Update {count}"
+ ],
+ "mobile.content.update_all_working": [
+  "Updating… {step}",
+  "Running: {step}"
+ ],
+ "mobile.content.update_all_done.one": [
+  "Updated {count}. The backup made first is {backup}.",
+  "Updated {count}; pre-change backup {backup}."
+ ],
+ "mobile.content.update_all_done.other": [
+  "Updated {count}. The backup made first is {backup}.",
+  "Updated {count}; pre-change backup {backup}."
+ ],
+ "mobile.content.working": [
+  "Working on it…",
+  "Running…"
+ ],
+ "mobile.content.search_title": [
+  "Add from Modrinth",
+  "Search Modrinth"
+ ],
+ "mobile.content.search_hint": [
+  "Only ones that fit {type} and Minecraft {version} are shown.",
+  "Filtered to {type}, game version {version}."
+ ],
+ "mobile.content.more": [
+  "More results",
+  "Load more"
+ ],
+ "mobile.content.downloads": [
+  "{count} downloads",
+  "{count} downloads"
+ ],
+ "mobile.content.open_page": [
+  "Open on Modrinth",
+  "Modrinth page"
+ ],
+ "mobile.content.side_server": [
+  "Needed on the server: {side}",
+  "server_side: {side}"
+ ],
+ "mobile.content.side_client": [
+  "Needed in the game: {side}",
+  "client_side: {side}"
+ ],
+ "mobile.content.side_required": [
+  "Yes",
+  "required"
+ ],
+ "mobile.content.side_optional": [
+  "Optional",
+  "optional"
+ ],
+ "mobile.content.side_unsupported": [
+  "No",
+  "unsupported"
+ ],
+ "mobile.content.installed": [
+  "{name} {version} installed. It loads the next time the server starts.",
+  "Installed {name} {version}; loaded on next start."
+ ],
+ "mobile.content.missing_title": [
+  "Needed but missing",
+  "Missing required dependencies"
+ ],
+ "mobile.content.install_missing": [
+  "Install the missing ones",
+  "Install missing dependencies"
+ ],
+ "mobile.content.missing_plan.one": [
+  "{count} file will be downloaded and checked:",
+  "{count} download planned:"
+ ],
+ "mobile.content.missing_plan.other": [
+  "{count} files will be downloaded and checked:",
+  "{count} downloads planned:"
+ ],
+ "mobile.content.cant_install": [
+  "{name} can't be installed from here: {reason}",
+  "{name} unresolvable: {reason}"
+ ],
+ "mobile.content.get_it": [
+  "Get it yourself",
+  "Open page"
+ ],
+ "mobile.content.missing_done": [
+  "Done: {results}",
+  "Results: {results}"
+ ],
+ "mobile.content.add_file": [
+  "Add a file",
+  "Upload a .jar"
+ ],
+ "mobile.content.add_file_hint": [
+  "Choose a .jar file from this phone. It's checked before it's added.",
+  "Upload a .jar; validated like a Modrinth install."
+ ],
+ "mobile.content.add_pack": [
+  "Add a pack",
+  "Upload a pack"
+ ],
+ "mobile.content.wrong_file": [
+  "Choose a {kind} file.",
+  "Expected {kind}."
+ ],
+ "mobile.content.added": [
+  "Added {name}.",
+  "Installed {name}."
+ ],
+ "mobile.content.reading": [
+  "Reading the file…",
+  "Uploading…"
+ ],
+ "mobile.content.modpack_choose": [
+  "Choose a modpack file",
+  "Choose .mrpack"
+ ],
+ "mobile.content.modpack_failed_note": [
+  "If anything fails, the server is put back from its backup.",
+  "On failure the pre-import backup is restored."
+ ],
+ "mobile.content.modpack_done": [
+  "Imported {name}. Start the server to try it.",
+  "{name} imported."
+ ],
+ "mobile.content.pack_world": [
+  "In the world {world}",
+  "World: {world}"
+ ],
+ "mobile.game.allowlist": [
+  "Allowlist",
+  "allow-list"
+ ],
+ "mobile.game.read_only": [
+  "Your account can see these settings but not change them.",
+  "This account lacks settings.edit."
+ ],
+ "mobile.game.fix_marked": [
+  "Some values can't be used. Each one says why.",
+  "Some values were rejected; see each field."
+ ],
  "mobile.common.cancel": [
   "Cancel",
   "Cancel"

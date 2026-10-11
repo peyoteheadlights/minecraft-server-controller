@@ -6792,8 +6792,8 @@
   "Revoke its session under Security. The next request gets 401 and the app clears its token; its push address is deleted with the session."
  ],
  "mobile.privacy.body": [
-  "The app talks only to your PC. It keeps your sign-in in the phone's secure storage and sends nothing to us, because there is no us: there is no account, no tracking and no analytics. Lock-screen alerts, if the owner turns them on, go through Google with no words in them. The full privacy policy is on GitHub.",
-  "No telemetry, analytics or third-party SDKs besides Firebase Cloud Messaging (only when push alerts are enabled; payloads carry an alert id only). The session token is stored with Android Keystore / iOS Keychain. Full policy: PRIVACY.md."
+  "The app talks only to your PC, apart from mod pictures in search results, which load from Modrinth. It keeps your sign-in in the phone's secure storage and sends nothing to us, because there is no us: there is no account, no tracking and no analytics. Lock-screen alerts, if the owner turns them on, go through Google with no words in them. The full privacy policy is on GitHub.",
+  "No telemetry, analytics or third-party SDKs besides Firebase Cloud Messaging (only when push alerts are enabled; payloads carry an alert id only). Modrinth search icons load from cdn.modrinth.com. The session token is stored with Android Keystore / iOS Keychain. Full policy: PRIVACY.md."
  ],
  "mobile.privacy.full": [
   "Read the full privacy policy",

@@ -32,7 +32,12 @@ final class StringsTests: XCTestCase {
     func testEveryKeyTheAppUsesIsInTheTable() throws {
         let used = try usedKeys()
         XCTAssertGreaterThan(used.count, 20)
-        let missing = used.filter { Shared.strings[$0] == nil }.sorted()
+        // A key ending in "_" is the start of one built from parts (checked
+        // below); a count key is in the table as "key.one" and "key.other".
+        let missing = used
+            .filter { !$0.hasSuffix("_") }
+            .filter { Shared.strings[$0] == nil && Shared.strings[$0 + ".one"] == nil }
+            .sorted()
         XCTAssertEqual(missing, [], "missing from strings.json")
     }
 
@@ -52,6 +57,12 @@ final class StringsTests: XCTestCase {
         }
         for theme in ["system", "light", "dark", "graphite", "contrast"] {
             built.append("theme.\(theme)")
+        }
+        for action in ["install", "upload", "remove", "update", "rollback", "enable", "disable", "update_all"] {
+            built.append("mobile.content.action_\(action)")
+        }
+        for side in ["required", "optional", "unsupported", "server", "client"] {
+            built.append("mobile.content.side_\(side)")
         }
         XCTAssertEqual(built.filter { Shared.strings[$0] == nil }, [])
     }

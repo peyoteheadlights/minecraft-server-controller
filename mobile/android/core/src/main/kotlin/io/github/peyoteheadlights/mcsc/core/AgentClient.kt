@@ -580,6 +580,32 @@ class AgentClient(
         put("confirm", confirm)
     }
 
+    suspend fun crossplay(serverId: String): CrossplayInfo =
+        get("${server(serverId)}/crossplay", CrossplayInfo.serializer())
+
+    /** Installs or moves aside Geyser and Floodgate; the server must be stopped. */
+    suspend fun setCrossplay(serverId: String, enabled: Boolean, port: Int?): CrossplayInfo = call(
+        request("${server(serverId)}/crossplay").put(buildJsonObject {
+            put("enabled", enabled)
+            if (port != null) put("port", port)
+        }.toBody()).build(),
+        CrossplayInfo.serializer(),
+        slow = true,
+    )
+
+    suspend fun duplicateOptions(serverId: String): DuplicateOptions =
+        get("${server(serverId)}/duplicate", DuplicateOptions.serializer())
+
+    /** Starts the copy as a task; the new server appears once it is checked. */
+    suspend fun duplicate(serverId: String, name: String, directory: String, world: String): DuplicateStarted = call(
+        request("${server(serverId)}/duplicate").post(buildJsonObject {
+            put("name", name)
+            put("directory", directory)
+            put("world", world)
+        }.toBody()).build(),
+        DuplicateStarted.serializer(),
+    )
+
     suspend fun setColor(serverId: String, color: String): ColorSaved = call(
         request("${server(serverId)}/color").put(buildJsonObject { put("color", color) }.toBody()).build(),
         ColorSaved.serializer(),

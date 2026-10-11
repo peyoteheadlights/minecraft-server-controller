@@ -178,4 +178,5 @@ object Permissions {
     const val BACKUPS_DELETE = "backups.delete"
     const val SCHEDULES_MANAGE = "schedules.manage"
     const val MODS_MANAGE = "mods.manage"
+    const val SERVERS_MANAGE = "servers.manage"
 }

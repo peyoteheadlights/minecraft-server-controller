@@ -218,3 +218,34 @@ data class VersionRolledBack(@SerialName("job_id") val jobId: String = "", val t
 
 @Serializable
 data class EulaAccepted(val url: String = "")
+
+/** Whether Bedrock players can join this Java server (Geyser). */
+@Serializable
+data class CrossplayInfo(
+    val available: Boolean = false,
+    @SerialName("unavailable_reason") val unavailableReason: String? = null,
+    val enabled: Boolean = false,
+    val port: Int? = null,
+    @SerialName("default_port") val defaultPort: Int = 19132,
+    @SerialName("suggested_port") val suggestedPort: Int? = null,
+    @SerialName("username_prefix") val usernamePrefix: String = "",
+    @SerialName("missing_mod") val missingMod: String? = null,
+    val ready: Boolean = false,
+    val differences: List<String> = emptyList(),
+    /** Only from a measured Tailscale address. */
+    val address: String? = null,
+    @SerialName("address_unknown") val addressUnknown: String? = null,
+)
+
+/** A suggested name and folder for a copy of this server. */
+@Serializable
+data class DuplicateOptions(
+    val name: String = "",
+    val directory: String = "",
+    val running: Boolean = false,
+    val crossplay: Boolean = false,
+    @SerialName("world_folders") val worldFolders: List<String> = emptyList(),
+)
+
+@Serializable
+data class DuplicateStarted(val job: Job)

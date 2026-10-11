@@ -333,3 +333,49 @@ public enum VersionChange {
         jobs.first { KINDS.contains($0.kind) && $0.state == "running" && ($0.serverId == nil || $0.serverId == serverId) }
     }
 }
+
+/// "Let Bedrock players join": only for kinds Geyser is built for.
+public enum Crossplay {
+    /// Why this server can't have it, in the agent's words when it gave them.
+    public static func whyNot(_ strings: Strings, _ info: CrossplayInfo) -> String? {
+        info.available ? nil : (info.unavailableReason ?? strings.t("cross.not_for_type"))
+    }
+
+    /// The port box starts at the saved port, else the agent's free one, else 19132.
+    public static func port(_ info: CrossplayInfo) -> String { String(info.port ?? info.suggestedPort ?? info.defaultPort) }
+
+    /// The typed port to send; nil lets the agent pick a free one.
+    public static func typedPort(_ text: String) -> Int? {
+        guard let port = Int(text.trimmingCharacters(in: .whitespaces)), (1...65535).contains(port) else { return nil }
+        return port
+    }
+
+    /// Whether it is ready, only when both files are really there.
+    public static func ready(_ strings: Strings, _ info: CrossplayInfo) -> String {
+        strings.t(info.ready ? "cross.ready_yes" : "cross.files_missing")
+    }
+}
+
+/// Duplicate: a copy of the server with its own port and color, owner only.
+public enum Duplicate {
+    public static let COPY = "copy"
+    public static let FRESH = "fresh"
+
+    public static func allowed(_ me: Me?) -> Bool { me?.can(Permissions.SERVERS_MANAGE) == true }
+
+    /// The world choices: copy what's there (when there is a world) or start fresh.
+    public static func worlds(_ options: DuplicateOptions) -> [String] {
+        options.worldFolders.isEmpty ? [FRESH] : [COPY, FRESH]
+    }
+
+    /// Both name and folder are needed; the agent checks the rest.
+    public static func ready(_ name: String, _ directory: String) -> Bool {
+        !name.trimmingCharacters(in: .whitespaces).isEmpty && !directory.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    /// A running copy's progress, from the live feed.
+    public static func progress(_ job: Job?, serverId: String) -> String? {
+        guard let job, job.kind == "duplicate", job.state == "running", job.serverId == serverId else { return nil }
+        return job.step
+    }
+}

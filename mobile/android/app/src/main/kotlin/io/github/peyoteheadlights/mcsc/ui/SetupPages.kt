@@ -6,6 +6,10 @@ import androidx.compose.runtime.setValue
 import io.github.peyoteheadlights.mcsc.core.AgentClient
 import io.github.peyoteheadlights.mcsc.core.AgentException
 import io.github.peyoteheadlights.mcsc.core.CpuCores
+import io.github.peyoteheadlights.mcsc.core.Crossplay
+import io.github.peyoteheadlights.mcsc.core.CrossplayInfo
+import io.github.peyoteheadlights.mcsc.core.Duplicate
+import io.github.peyoteheadlights.mcsc.core.DuplicateOptions
 import io.github.peyoteheadlights.mcsc.core.Job
 import io.github.peyoteheadlights.mcsc.core.Memory
 import io.github.peyoteheadlights.mcsc.core.MemoryOverview
@@ -278,6 +282,11 @@ class SetupPages(
     }
 
     fun onTask(job: Job) {
+        if (job.kind == "duplicate" && job.serverId == serverId) {
+            copying = job.takeIf { it.state == "running" }
+            if (job.state == "succeeded") onListChanged()
+            return
+        }
         if (job.kind !in VersionChange.KINDS || job.serverId != serverId) return
         task = job.takeIf { it.state == "running" }
         if (job.state != "running" && busy == null) loadVersion()
@@ -406,6 +415,111 @@ class SetupPages(
                 task = null
             }
             loadVersion()
+        }
+    }
+
+    // ------------------------------------------------------------ crossplay
+    var crossplay: Read<CrossplayInfo> by mutableStateOf(Read())
+        private set
+
+    /** The port typed for Bedrock players. */
+    var crossPort: String by mutableStateOf("")
+        private set
+
+    fun loadCrossplay() {
+        val c = client() ?: return
+        crossplay = crossplay.copy(loading = true)
+        scope.launch {
+            crossplay = try {
+                val read = c.crossplay(serverId)
+                crossPort = Crossplay.port(read)
+                Read(read)
+            } catch (e: AgentException) {
+                noted(e)
+                Read(problem = Message.of(e))
+            }
+        }
+    }
+
+    fun typePort(text: String) {
+        crossPort = text.filter(Char::isDigit).take(5)
+    }
+
+    fun setCrossplay(on: Boolean, strings: Strings) {
+        val c = client() ?: return
+        if (busy != null) return
+        busy = "crossplay"
+        said = null
+        scope.launch {
+            try {
+                crossplay = Read(c.setCrossplay(serverId, on, if (on) Crossplay.typedPort(crossPort) else null))
+                said = Said(strings.t(if (on) "cross.on_done" else "cross.off_done"), good = true)
+            } catch (e: AgentException) {
+                noted(e)
+                said = Said(Message.of(e).text(strings), good = false)
+            } finally {
+                busy = null
+            }
+        }
+    }
+
+    // ------------------------------------------------------------ duplicate
+    var copyOptions: Read<DuplicateOptions> by mutableStateOf(Read())
+        private set
+    var copyName: String by mutableStateOf("")
+        private set
+    var copyFolder: String by mutableStateOf("")
+        private set
+    var copyWorld: String by mutableStateOf(Duplicate.COPY)
+        private set
+
+    /** The copy running now, from the live feed. */
+    var copying: Job? by mutableStateOf(null)
+        private set
+
+    fun loadCopyOptions() {
+        val c = client() ?: return
+        scope.launch {
+            copyOptions = try {
+                val read = c.duplicateOptions(serverId)
+                copyName = read.name
+                copyFolder = read.directory
+                copyWorld = Duplicate.worlds(read).first()
+                Read(read)
+            } catch (e: AgentException) {
+                noted(e)
+                Read(problem = Message.of(e))
+            }
+        }
+    }
+
+    fun nameCopy(text: String) {
+        copyName = text.take(ServerForm.NAME_LIMIT)
+    }
+
+    fun placeCopy(text: String) {
+        copyFolder = text
+    }
+
+    fun pickCopyWorld(world: String) {
+        copyWorld = world
+    }
+
+    fun duplicate(strings: Strings) {
+        val c = client() ?: return
+        if (busy != null || !Duplicate.ready(copyName, copyFolder)) return
+        busy = "duplicate"
+        said = null
+        scope.launch {
+            try {
+                copying = c.duplicate(serverId, copyName.trim(), copyFolder.trim(), copyWorld).job
+                said = Said(strings.t("dup.started", "name" to copyName.trim()) + " " + strings.t("dup.after"), good = true)
+            } catch (e: AgentException) {
+                noted(e)
+                said = Said(Message.of(e).text(strings), good = false)
+            } finally {
+                busy = null
+            }
         }
     }
 }

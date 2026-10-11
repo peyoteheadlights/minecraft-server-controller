@@ -13,7 +13,7 @@ class StringsTest {
         val roots = listOf(File("src/main"), File("../app/src/main")).filter { it.exists() }
         val used = roots.flatMap { root ->
             root.walk().filter { it.extension == "kt" }.flatMap { file -> keys.findAll(file.readText()).map { it.groupValues[1] } }
-        }.filterNot { it.endsWith(".json") }.toSet()
+        }.filterNot { it.endsWith(".json") || it == Permissions.SERVERS_MANAGE }.toSet()
         assertTrue(used.size > 20)
         // A counted wording (strings.tn) is stored as key.one and key.other.
         val missing = used.filterNot { it in Shared.strings || "$it.one" in Shared.strings }

@@ -80,3 +80,12 @@ def test_the_version_answer_says_where_the_eula_is(signed_in):
     assert body["eula_url"] == "https://aka.ms/MinecraftEULA"
     assert body["minecraft_version"] is None  # not seen in the console yet: Unknown
     assert body["capabilities"]["name"]
+
+
+def test_crossplay_and_duplicate_answers_are_typed(signed_in):
+    cross = signed_in.get("/api/servers/test/crossplay").json()
+    assert cross["available"] is True  # the fake server is Fabric
+    assert cross["enabled"] is False
+    options = signed_in.get("/api/servers/test/duplicate").json()
+    assert options["name"].endswith("copy")
+    assert options["directory"]

@@ -317,3 +317,38 @@ object VersionChange {
     fun running(jobs: List<Job>, serverId: String): Job? =
         jobs.firstOrNull { it.kind in KINDS && it.state == "running" && (it.serverId == null || it.serverId == serverId) }
 }
+
+/** "Let Bedrock players join": only for kinds Geyser is built for. */
+object Crossplay {
+    /** Why this server can't have it, in the agent's words when it gave them. */
+    fun whyNot(strings: Strings, info: CrossplayInfo): String? =
+        if (info.available) null else info.unavailableReason ?: strings.t("cross.not_for_type")
+
+    /** The port box starts at the saved port, else the agent's free one, else 19132. */
+    fun port(info: CrossplayInfo): String = (info.port ?: info.suggestedPort ?: info.defaultPort).toString()
+
+    /** The typed port to send; null lets the agent pick a free one. */
+    fun typedPort(text: String): Int? = text.trim().toIntOrNull()?.takeIf { it in 1..65535 }
+
+    /** Whether it is ready, only when both files are really there. */
+    fun ready(strings: Strings, info: CrossplayInfo): String =
+        strings.t(if (info.ready) "cross.ready_yes" else "cross.files_missing")
+}
+
+/** Duplicate: a copy of the server with its own port and color, owner only. */
+object Duplicate {
+    const val COPY = "copy"
+    const val FRESH = "fresh"
+
+    fun allowed(me: Me?): Boolean = me?.can(Permissions.SERVERS_MANAGE) == true
+
+    /** The world choices: copy what's there (when there is a world) or start fresh. */
+    fun worlds(options: DuplicateOptions): List<String> = if (options.worldFolders.isEmpty()) listOf(FRESH) else listOf(COPY, FRESH)
+
+    /** Both name and folder are needed; the agent checks the rest. */
+    fun ready(name: String, directory: String): Boolean = name.isNotBlank() && directory.isNotBlank()
+
+    /** A running copy's progress, from the live feed. */
+    fun progress(job: Job?, serverId: String): String? =
+        job?.takeIf { it.kind == "duplicate" && it.state == "running" && it.serverId == serverId }?.step
+}

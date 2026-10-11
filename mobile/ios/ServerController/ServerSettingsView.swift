@@ -10,7 +10,7 @@ struct ServerSettingsView: View {
     let serverId: String
 
     @Environment(AppModel.self) private var model
-    @State private var asking: VersionAsk?
+    @State private var asking: SetupAsk?
 
     private var setup: SetupPages { model.pages(serverId).setup }
 
@@ -29,20 +29,26 @@ struct ServerSettingsView: View {
                 await setup.loadSettings()
                 await setup.loadMemory()
                 await setup.loadVersion()
+                await setup.loadCrossplay()
             }
             .alert(askTitle(setup), isPresented: Binding(get: { asking != nil }, set: { if !$0 { asking = nil } })) {
-                Button(model.t(asking == .rollBack ? "version.back_button" : "version.confirm_button"),
+                Button(askButton,
                        role: asking == .change && setup.report?.value.map(VersionChange.danger) == true ? .destructive : nil) {
                     let strings = model.strings
                     let what = asking
                     asking = nil
                     Task {
-                        if what == .rollBack { await setup.rollBack(strings) } else { await setup.changeVersion(strings) }
+                        switch what {
+                        case .rollBack: await setup.rollBack(strings)
+                        case .change: await setup.changeVersion(strings)
+                        case .crossplayOn: await setup.setCrossplay(true, strings)
+                        case nil: break
+                        }
                     }
                 }
                 Button(model.t("mobile.common.cancel"), role: .cancel) { asking = nil }
             } message: {
-                Text(model.t(asking == .rollBack ? "version.back_body" : "version.confirm_body"))
+                Text(askBody(setup))
             }
         }
         .task(id: serverId) {
@@ -50,6 +56,8 @@ struct ServerSettingsView: View {
             await setup.loadSettings()
             await setup.loadMemory()
             await setup.loadVersion()
+            await setup.loadCrossplay()
+            if Duplicate.allowed(model.me) { await setup.loadCopyOptions() }
         }
     }
 
@@ -57,7 +65,24 @@ struct ServerSettingsView: View {
         switch asking {
         case .rollBack: return model.t("version.back_title")
         case .change: return model.t("version.confirm_title", ["name": setup.report?.value.map(VersionChange.target) ?? ""])
+        case .crossplayOn: return model.t("cross.on_title")
         case nil: return ""
+        }
+    }
+
+    private var askButton: String {
+        switch asking {
+        case .rollBack: return model.t("version.back_button")
+        case .crossplayOn: return model.t("cross.on_button")
+        default: return model.t("version.confirm_button")
+        }
+    }
+
+    private func askBody(_ setup: SetupPages) -> String {
+        switch asking {
+        case .rollBack: return model.t("version.back_body")
+        case .crossplayOn: return model.t("cross.on_body", ["port": Crossplay.typedPort(setup.crossPort) ?? 19132])
+        default: return model.t("version.confirm_body")
         }
     }
 
@@ -122,8 +147,16 @@ struct ServerSettingsView: View {
             CardBox(palette: palette) {
                 VersionCardView(setup: setup, canEdit: canEdit, palette: palette) { asking = $0 }
             }
+            SectionTitle(text: model.t("cross.title"), palette: palette)
+            CardBox(palette: palette) {
+                CrossplayCardView(setup: setup, canEdit: canEdit, palette: palette) { asking = $0 }
+            }
             SectionTitle(text: model.t("memory.title"), palette: palette)
             CardBox(palette: palette) { memoryCard(setup, canEdit, palette) }
+            if Duplicate.allowed(model.me) {
+                SectionTitle(text: model.t("dup.title"), palette: palette)
+                CardBox(palette: palette) { DuplicateCardView(setup: setup, serverId: serverId, palette: palette) }
+            }
         } else if read.problem == nil {
             ProgressView().frame(maxWidth: .infinity)
         }

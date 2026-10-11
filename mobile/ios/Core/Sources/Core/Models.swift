@@ -437,4 +437,5 @@ public enum Permissions {
     public static let BACKUPS_DELETE = "backups.delete"
     public static let SCHEDULES_MANAGE = "schedules.manage"
     public static let MODS_MANAGE = "mods.manage"
+    public static let SERVERS_MANAGE = "servers.manage"
 }

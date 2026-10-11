@@ -1,9 +1,9 @@
 import Core
 import SwiftUI
 
-/// What the version card asks to confirm.
-enum VersionAsk: Identifiable {
-    case change, rollBack
+/// What Server settings asks to confirm.
+enum SetupAsk: Identifiable {
+    case change, rollBack, crossplayOn
 
     var id: Self { self }
 }
@@ -16,7 +16,7 @@ struct VersionCardView: View {
     let setup: SetupPages
     let canEdit: Bool
     let palette: Palette
-    let ask: (VersionAsk) -> Void
+    let ask: (SetupAsk) -> Void
 
     @Environment(AppModel.self) private var model
     @State private var open = false

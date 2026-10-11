@@ -299,4 +299,52 @@ class SetupTest {
             assertEquals("/api/servers/s/eula", agent.server.takeRequest().path)
         }
     }
+
+    // ------------------------------------------------------------ crossplay and duplicate
+    @Test
+    fun `crossplay is offered only where geyser is built, with the agent's reason`() {
+        val off = json.decodeFromString(CrossplayInfo.serializer(), """{"available": false, "unavailable_reason": "GeyserMC publishes no build for Forge servers.", "enabled": false, "port": null, "default_port": 19132, "suggested_port": null, "differences": []}""")
+        assertEquals("GeyserMC publishes no build for Forge servers.", Crossplay.whyNot(strings, off))
+        assertEquals(strings.t("cross.not_for_type"), Crossplay.whyNot(strings, off.copy(unavailableReason = null)))
+        val on = CrossplayInfo(available = true, enabled = false, suggestedPort = 19133)
+        assertNull(Crossplay.whyNot(strings, on))
+        assertEquals("19133", Crossplay.port(on))
+        assertEquals("19132", Crossplay.port(CrossplayInfo(available = true)))
+        assertEquals(19140, Crossplay.typedPort(" 19140 "))
+        assertNull(Crossplay.typedPort("99999"))
+        assertEquals(strings.t("cross.files_missing"), Crossplay.ready(strings, on.copy(enabled = true)))
+    }
+
+    @Test
+    fun `duplicate is for the owner and offers the world choices there are`() {
+        assertFalse(Duplicate.allowed(me(Permissions.SETTINGS_EDIT)))
+        assertTrue(Duplicate.allowed(me(Permissions.SERVERS_MANAGE)))
+        assertEquals(listOf("copy", "fresh"), Duplicate.worlds(DuplicateOptions(worldFolders = listOf("world"))))
+        assertEquals(listOf("fresh"), Duplicate.worlds(DuplicateOptions()))
+        assertFalse(Duplicate.ready(" ", "C:\\s"))
+        assertTrue(Duplicate.ready("Copy", "C:\\s"))
+        assertEquals("Copying files", Duplicate.progress(Job("j", kind = "duplicate", state = "running", serverId = "s", step = "Copying files"), "s"))
+        assertNull(Duplicate.progress(Job("j", kind = "duplicate", state = "succeeded", serverId = "s"), "s"))
+    }
+
+    @Test
+    fun `crossplay and duplicate go to the agent's routes`() = runBlocking {
+        TestAgent().use { agent ->
+            val c = client(agent)
+            agent.server.enqueue(agent.json("""{"available": true, "enabled": false, "default_port": 19132, "suggested_port": 19132, "username_prefix": ".", "differences": ["a"], "address": null, "address_unknown": null}"""))
+            assertTrue(c.crossplay("s").available)
+            agent.server.takeRequest()
+            agent.server.enqueue(agent.json("""{"ok": true, "available": true, "enabled": true, "port": 19132, "default_port": 19132, "ready": true}"""))
+            assertTrue(c.setCrossplay("s", true, 19132).ready)
+            val put = agent.server.takeRequest()
+            assertEquals("PUT", put.method)
+            assertEquals("""{"enabled":true,"port":19132}""", put.body.readUtf8())
+            agent.server.enqueue(agent.json("""{"name": "Survival copy", "directory": "C:\\mc\\Survival copy", "running": true, "crossplay": false, "world_folders": ["world"]}"""))
+            assertEquals("Survival copy", c.duplicateOptions("s").name)
+            agent.server.takeRequest()
+            agent.server.enqueue(agent.json("""{"ok": true, "job": {"id": "j", "kind": "duplicate", "title": "Copying", "state": "running", "server_id": "s"}}"""))
+            assertEquals("j", c.duplicate("s", "Copy", "D:/mc/Copy", "fresh").job.id)
+            assertEquals("""{"name":"Copy","directory":"D:/mc/Copy","world":"fresh"}""", agent.server.takeRequest().body.readUtf8())
+        }
+    }
 }

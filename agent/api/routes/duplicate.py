@@ -8,12 +8,13 @@ from ... import duplicate as duplicate_module
 from ...security.auth import Principal
 from ...security.permissions import SERVERS_MANAGE, require
 from ..deps import audit, get_server
+from ..responses import DuplicateOptions, DuplicateStarted
 from .models import DuplicateRequest
 
 router = APIRouter()
 
 
-@router.get("/duplicate")
+@router.get("/duplicate", response_model=DuplicateOptions)
 async def duplicate_options(
     principal: Principal = Depends(require(SERVERS_MANAGE)), ctx=Depends(get_server)
 ):
@@ -21,7 +22,7 @@ async def duplicate_options(
     return duplicate_module.suggestion(ctx.core, ctx)
 
 
-@router.post("/duplicate")
+@router.post("/duplicate", response_model=DuplicateStarted)
 async def duplicate_server(
     payload: DuplicateRequest,
     request: Request,

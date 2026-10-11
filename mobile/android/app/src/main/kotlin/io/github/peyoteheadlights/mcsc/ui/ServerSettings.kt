@@ -35,6 +35,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import io.github.peyoteheadlights.mcsc.core.CpuCores
+import io.github.peyoteheadlights.mcsc.core.Crossplay
+import io.github.peyoteheadlights.mcsc.core.Duplicate
 import io.github.peyoteheadlights.mcsc.core.Memory
 import io.github.peyoteheadlights.mcsc.core.ServerColors
 import io.github.peyoteheadlights.mcsc.core.ServerForm
@@ -52,12 +54,14 @@ fun ServerSettingsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit)
     val setup = vm.pages(serverId).setup
     val strings = vm.strings
     val canEdit = ServerForm.editable(vm.me)
-    var asking by remember { mutableStateOf<VersionAsk?>(null) }
+    var asking by remember { mutableStateOf<SetupAsk?>(null) }
     LaunchedEffect(serverId) {
         setup.clearSaid()
         setup.loadSettings()
         setup.loadMemory()
         setup.loadVersion()
+        setup.loadCrossplay()
+        if (Duplicate.allowed(vm.me)) setup.loadCopyOptions()
     }
 
     ServerFrame(
@@ -69,10 +73,11 @@ fun ServerSettingsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit)
             setup.loadSettings()
             setup.loadMemory()
             setup.loadVersion()
+            setup.loadCrossplay()
         },
         overlay = {
             when (asking) {
-                VersionAsk.CHANGE -> setup.report?.value?.let { checked ->
+                SetupAsk.CHANGE -> setup.report?.value?.let { checked ->
                     Confirm(
                         t("version.confirm_title", "name" to VersionChange.target(checked)), t("version.confirm_body"), t("version.confirm_button"),
                         danger = VersionChange.danger(checked),
@@ -83,11 +88,19 @@ fun ServerSettingsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit)
                         onDismiss = { asking = null },
                     )
                 }
-                VersionAsk.ROLL_BACK -> Confirm(
+                SetupAsk.ROLL_BACK -> Confirm(
                     t("version.back_title"), t("version.back_body"), t("version.back_button"), danger = false,
                     onConfirm = {
                         asking = null
                         setup.rollBack(strings)
+                    },
+                    onDismiss = { asking = null },
+                )
+                SetupAsk.CROSSPLAY_ON -> Confirm(
+                    t("cross.on_title"), t("cross.on_body", "port" to (Crossplay.typedPort(setup.crossPort) ?: 19132)), t("cross.on_button"), danger = false,
+                    onConfirm = {
+                        asking = null
+                        setup.setCrossplay(true, strings)
                     },
                     onDismiss = { asking = null },
                 )
@@ -158,8 +171,14 @@ fun ServerSettingsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit)
         item { Card { CoresCard(vm, setup, canEdit) } }
         item { SectionTitle(t("version.title")) }
         item { Card { VersionCard(vm, setup, canEdit) { asking = it } } }
+        item { SectionTitle(t("cross.title")) }
+        item { Card { CrossplayCard(vm, setup, canEdit) { asking = it } } }
         item { SectionTitle(t("memory.title")) }
         item { Card { MemoryCard(vm, setup, canEdit, bedrock = vm.servers.list.firstOrNull { it.id == serverId }?.edition == "bedrock") } }
+        if (Duplicate.allowed(vm.me)) {
+            item { SectionTitle(t("dup.title")) }
+            item { Card { DuplicateCard(vm, setup, serverId) } }
+        }
     }
 }
 

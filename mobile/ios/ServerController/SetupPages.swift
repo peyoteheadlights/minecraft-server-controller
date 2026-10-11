@@ -231,6 +231,11 @@ final class SetupPages {
     }
 
     func onTask(_ job: Job) {
+        if job.kind == "duplicate" && job.serverId == serverId {
+            copying = job.state == "running" ? job : nil
+            if job.state == "succeeded" { Task { await listChanged() } }
+            return
+        }
         guard VersionChange.KINDS.contains(job.kind), job.serverId == serverId else { return }
         task = job.state == "running" ? job : nil
         if job.state != "running" && busy == nil {
@@ -345,5 +350,80 @@ final class SetupPages {
         busy = nil
         task = nil
         await loadVersion()
+    }
+
+    // MARK: - Crossplay
+
+    private(set) var crossplay = PageRead<CrossplayInfo>()
+    /// The port typed for Bedrock players.
+    var crossPort = ""
+
+    func loadCrossplay() async {
+        guard let client = client() else { return }
+        crossplay.loading = true
+        do {
+            let read = try await client.crossplay(serverId: serverId)
+            crossPort = Crossplay.port(read)
+            crossplay = PageRead(value: read)
+        } catch let problem as AgentError {
+            noted(problem)
+            crossplay = PageRead(problem: problem)
+        } catch {
+            crossplay.loading = false
+        }
+    }
+
+    func setCrossplay(_ on: Bool, _ strings: Strings) async {
+        guard let client = client(), busy == nil else { return }
+        busy = "crossplay"
+        said = nil
+        defer { busy = nil }
+        do {
+            crossplay = PageRead(value: try await client.setCrossplay(serverId: serverId, enabled: on, port: on ? Crossplay.typedPort(crossPort) : nil))
+            said = Said(text: strings.t(on ? "cross.on_done" : "cross.off_done"), good: true)
+        } catch let problem as AgentError {
+            noted(problem)
+            said = Said(text: problem.message(strings), good: false)
+        } catch {}
+    }
+
+    // MARK: - Duplicate
+
+    private(set) var copyOptions = PageRead<DuplicateOptions>()
+    var copyName = ""
+    var copyFolder = ""
+    var copyWorld = Duplicate.COPY
+    /// The copy running now, from the live feed.
+    private(set) var copying: Job? = nil
+
+    func loadCopyOptions() async {
+        guard let client = client() else { return }
+        do {
+            let read = try await client.duplicateOptions(serverId: serverId)
+            copyName = read.name
+            copyFolder = read.directory
+            copyWorld = Duplicate.worlds(read)[0]
+            copyOptions = PageRead(value: read)
+        } catch let problem as AgentError {
+            noted(problem)
+            copyOptions = PageRead(problem: problem)
+        } catch {}
+    }
+
+    func duplicate(_ strings: Strings) async {
+        guard let client = client(), busy == nil, Duplicate.ready(copyName, copyFolder) else { return }
+        let name = copyName.trimmingCharacters(in: .whitespaces)
+        busy = "duplicate"
+        said = nil
+        defer { busy = nil }
+        do {
+            copying = try await client.duplicate(
+                serverId: serverId, name: name, directory: copyFolder.trimmingCharacters(in: .whitespaces), world: copyWorld
+            ).job
+            said = Said(text: strings.t("dup.started", ["name": name]) + " " + strings.t("dup.after"), good: true)
+        } catch let problem as AgentError {
+            noted(problem)
+            said = Said(text: problem.message(strings), good: false)
+        } catch {}
     }
 }

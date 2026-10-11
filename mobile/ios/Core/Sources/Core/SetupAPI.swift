@@ -64,6 +64,27 @@ extension AgentClient {
         try await call("POST", setup(serverId) + "/eula", body: Data("{}".utf8), as: EulaAccepted.self)
     }
 
+    public func crossplay(serverId: String) async throws -> CrossplayInfo {
+        try await call("GET", setup(serverId) + "/crossplay", as: CrossplayInfo.self)
+    }
+
+    /// Installs or moves aside Geyser and Floodgate; the server must be stopped.
+    public func setCrossplay(serverId: String, enabled: Bool, port: Int?) async throws -> CrossplayInfo {
+        var body: [String: JSONValue] = ["enabled": .bool(enabled)]
+        if let port { body["port"] = .number(Double(port)) }
+        return try await call("PUT", setup(serverId) + "/crossplay", body: try AgentClient.encode(body), slow: true, as: CrossplayInfo.self)
+    }
+
+    public func duplicateOptions(serverId: String) async throws -> DuplicateOptions {
+        try await call("GET", setup(serverId) + "/duplicate", as: DuplicateOptions.self)
+    }
+
+    /// Starts the copy as a task; the new server appears once it is checked.
+    public func duplicate(serverId: String, name: String, directory: String, world: String) async throws -> DuplicateStarted {
+        let body = try AgentClient.encode(["name": name, "directory": directory, "world": world])
+        return try await call("POST", setup(serverId) + "/duplicate", body: body, as: DuplicateStarted.self)
+    }
+
     private func versionBody(type: String, minecraft: String, loader: String?, confirm: Bool) throws -> Data {
         var body: [String: JSONValue] = ["type": .string(type), "minecraft_version": .string(minecraft), "confirm": .bool(confirm)]
         if let loader { body["loader_version"] = .string(loader) }

@@ -27,6 +27,8 @@ from ...servertypes import versions as versions_module
 from ..deps import audit, get_core, get_server
 from ..responses import (
     BedrockTerms,
+    Crossplay,
+    CrossplaySaved,
     BedrockVersions,
     EulaAccepted,
     ServerTypes,
@@ -246,7 +248,7 @@ async def accept_eula(
 
 
 # ---------------------------------------------------------------- crossplay
-@router.get("/crossplay")
+@router.get("/crossplay", response_model=Crossplay)
 async def crossplay_status(
     principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
 ):
@@ -264,7 +266,7 @@ async def crossplay_status(
     }
 
 
-@router.put("/crossplay")
+@router.put("/crossplay", response_model=CrossplaySaved)
 async def set_crossplay(
     payload: CrossplayRequest,
     request: Request,

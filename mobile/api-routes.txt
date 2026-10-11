@@ -104,3 +104,7 @@ POST /api/servers/{server_id}/version/preflight
 POST /api/servers/{server_id}/version
 POST /api/servers/{server_id}/version/roll-back
 POST /api/servers/{server_id}/eula
+GET /api/servers/{server_id}/crossplay
+PUT /api/servers/{server_id}/crossplay
+GET /api/servers/{server_id}/duplicate
+POST /api/servers/{server_id}/duplicate

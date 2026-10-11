@@ -1422,3 +1422,38 @@ class VersionRolledBack(Open):
 class EulaAccepted(Open):
     ok: bool
     url: str
+
+
+# ------------------------------------------------------------ crossplay and duplicate
+class Crossplay(Open):
+    """Whether Bedrock players can join this Java server (Geyser)."""
+
+    available: bool
+    unavailable_reason: str | None = None
+    enabled: bool
+    port: int | None = None
+    default_port: int
+    suggested_port: int | None = None
+    username_prefix: str = ""
+    missing_mod: str | None = None
+    ready: bool = False
+    differences: list[str] = []
+    address: str | None = Field(None, description="Only from a measured Tailscale address")
+    address_unknown: str | None = None
+
+
+class CrossplaySaved(Crossplay):
+    ok: bool
+
+
+class DuplicateOptions(Open):
+    name: str
+    directory: str
+    running: bool
+    crossplay: bool
+    world_folders: list[str] = []
+
+
+class DuplicateStarted(Open):
+    ok: bool
+    job: Job

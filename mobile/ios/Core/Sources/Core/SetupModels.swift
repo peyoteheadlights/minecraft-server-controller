@@ -734,3 +734,108 @@ public struct EulaAccepted: Decodable, Equatable, Sendable {
         url = c.value(.url, "")
     }
 }
+
+/// Whether Bedrock players can join this Java server (Geyser).
+public struct CrossplayInfo: Decodable, Equatable, Sendable {
+    public var available: Bool
+    public var unavailableReason: String?
+    public var enabled: Bool
+    public var port: Int?
+    public var defaultPort: Int
+    public var suggestedPort: Int?
+    public var usernamePrefix: String
+    public var missingMod: String?
+    public var ready: Bool
+    public var differences: [String]
+    public var address: String?
+    public var addressUnknown: String?
+
+    enum CodingKeys: String, CodingKey {
+        case available, enabled, port, ready, differences, address
+        case unavailableReason = "unavailable_reason"
+        case defaultPort = "default_port"
+        case suggestedPort = "suggested_port"
+        case usernamePrefix = "username_prefix"
+        case missingMod = "missing_mod"
+        case addressUnknown = "address_unknown"
+    }
+
+    public init(available: Bool = false, unavailableReason: String? = nil, enabled: Bool = false, port: Int? = nil, defaultPort: Int = 19132, suggestedPort: Int? = nil, usernamePrefix: String = "", missingMod: String? = nil, ready: Bool = false, differences: [String] = [], address: String? = nil, addressUnknown: String? = nil) {
+        self.available = available
+        self.unavailableReason = unavailableReason
+        self.enabled = enabled
+        self.port = port
+        self.defaultPort = defaultPort
+        self.suggestedPort = suggestedPort
+        self.usernamePrefix = usernamePrefix
+        self.missingMod = missingMod
+        self.ready = ready
+        self.differences = differences
+        self.address = address
+        self.addressUnknown = addressUnknown
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        available = c.value(.available, false)
+        unavailableReason = c.maybe(.unavailableReason)
+        enabled = c.value(.enabled, false)
+        port = c.maybe(.port)
+        defaultPort = c.value(.defaultPort, 19132)
+        suggestedPort = c.maybe(.suggestedPort)
+        usernamePrefix = c.value(.usernamePrefix, "")
+        missingMod = c.maybe(.missingMod)
+        ready = c.value(.ready, false)
+        differences = c.value(.differences, [])
+        address = c.maybe(.address)
+        addressUnknown = c.maybe(.addressUnknown)
+    }
+}
+
+/// A suggested name and folder for a copy of this server.
+public struct DuplicateOptions: Decodable, Equatable, Sendable {
+    public var name: String
+    public var directory: String
+    public var running: Bool
+    public var crossplay: Bool
+    public var worldFolders: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case name, directory, running, crossplay
+        case worldFolders = "world_folders"
+    }
+
+    public init(name: String = "", directory: String = "", running: Bool = false, crossplay: Bool = false, worldFolders: [String] = []) {
+        self.name = name
+        self.directory = directory
+        self.running = running
+        self.crossplay = crossplay
+        self.worldFolders = worldFolders
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = c.value(.name, "")
+        directory = c.value(.directory, "")
+        running = c.value(.running, false)
+        crossplay = c.value(.crossplay, false)
+        worldFolders = c.value(.worldFolders, [])
+    }
+}
+
+public struct DuplicateStarted: Decodable, Equatable, Sendable {
+    public var job: Job
+
+    enum CodingKeys: String, CodingKey {
+        case job
+    }
+
+    public init(job: Job) {
+        self.job = job
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        job = try c.decode(Job.self, forKey: .job)
+    }
+}

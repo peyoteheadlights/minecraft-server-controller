@@ -18,8 +18,6 @@ GET /api/security
 GET /api/security/audit
 GET /api/security/tls
 GET /api/servers/{server_id}/backups/{backup_id}/download
-GET /api/servers/{server_id}/crossplay
-GET /api/servers/{server_id}/duplicate
 GET /api/servers/{server_id}/info
 GET /api/servers/{server_id}/logs/download
 GET /api/servers/{server_id}/mods/check
@@ -44,7 +42,6 @@ POST /api/push/test
 POST /api/push/unsubscribe
 POST /api/security/revoke-sessions
 POST /api/servers
-POST /api/servers/{server_id}/duplicate
 POST /api/servers/{server_id}/server/cancel-restart
 POST /api/servers/{server_id}/server/clear-crash-block
 POST /api/servers/{server_id}/server/restart-now
@@ -55,6 +52,5 @@ POST /api/servers/{server_id}/world/import/folder
 POST /api/servers/{server_id}/world/import/upload
 PUT /api/account/preferences
 PUT /api/accounts/{username}
-PUT /api/servers/{server_id}/crossplay
 PUT /api/servers/{server_id}/tps
 PUT /api/settings

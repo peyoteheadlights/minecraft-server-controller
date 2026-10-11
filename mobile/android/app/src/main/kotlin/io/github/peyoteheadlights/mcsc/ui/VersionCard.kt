@@ -29,8 +29,8 @@ import androidx.compose.ui.unit.dp
 import io.github.peyoteheadlights.mcsc.core.Display
 import io.github.peyoteheadlights.mcsc.core.VersionChange
 
-/** What the version card asks to confirm. */
-enum class VersionAsk { CHANGE, ROLL_BACK }
+/** What Server settings asks to confirm. */
+enum class SetupAsk { CHANGE, ROLL_BACK, CROSSPLAY_ON }
 
 /**
  * The server's kind and version as its console said them, the EULA when
@@ -39,7 +39,7 @@ enum class VersionAsk { CHANGE, ROLL_BACK }
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun VersionCard(vm: AppViewModel, setup: SetupPages, canEdit: Boolean, ask: (VersionAsk) -> Unit) {
+fun VersionCard(vm: AppViewModel, setup: SetupPages, canEdit: Boolean, ask: (SetupAsk) -> Unit) {
     val colors = LocalColors.current
     val strings = vm.strings
     val context = LocalContext.current
@@ -90,7 +90,7 @@ fun VersionCard(vm: AppViewModel, setup: SetupPages, canEdit: Boolean, ask: (Ver
             )
         }
         if (canEdit && VersionChange.canRollBack(version)) {
-            OutlinedButton(onClick = { ask(VersionAsk.ROLL_BACK) }, enabled = setup.busy == null && task == null) { Text(t("version.back")) }
+            OutlinedButton(onClick = { ask(SetupAsk.ROLL_BACK) }, enabled = setup.busy == null && task == null) { Text(t("version.back")) }
         }
 
         if (!canEdit) return@Column
@@ -146,7 +146,7 @@ fun VersionCard(vm: AppViewModel, setup: SetupPages, canEdit: Boolean, ask: (Ver
             OutlinedButton(onClick = setup::check, enabled = setup.pickedVersion != null && report?.loading != true && setup.busy == null) {
                 Text(t(if (report?.loading == true) "version.checking" else "version.check"))
             }
-            Button(onClick = { ask(VersionAsk.CHANGE) }, enabled = report?.value != null && setup.busy == null && task == null) {
+            Button(onClick = { ask(SetupAsk.CHANGE) }, enabled = report?.value != null && setup.busy == null && task == null) {
                 Text(t(if (setup.busy == "version") "version.changing" else "version.change"))
             }
         }

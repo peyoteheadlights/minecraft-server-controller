@@ -332,4 +332,52 @@ final class SetupTests: XCTestCase {
         XCTAssertEqual(eula.url, "https://aka.ms/MinecraftEULA")
         XCTAssertEqual(path(6), "/api/servers/s/eula")
     }
+
+    // MARK: - Crossplay and duplicate
+
+    func testCrossplayIsOfferedOnlyWhereGeyserIsBuiltWithTheAgentsReason() throws {
+        var off = try decode(CrossplayInfo.self, #"{"available": false, "unavailable_reason": "GeyserMC publishes no build for Forge servers.", "enabled": false, "port": null, "default_port": 19132, "suggested_port": null, "differences": []}"#)
+        XCTAssertEqual(Crossplay.whyNot(s, off), "GeyserMC publishes no build for Forge servers.")
+        off.unavailableReason = nil
+        XCTAssertEqual(Crossplay.whyNot(s, off), s.t("cross.not_for_type"))
+        let on = CrossplayInfo(available: true, enabled: false, suggestedPort: 19133)
+        XCTAssertNil(Crossplay.whyNot(s, on))
+        XCTAssertEqual(Crossplay.port(on), "19133")
+        XCTAssertEqual(Crossplay.port(CrossplayInfo(available: true)), "19132")
+        XCTAssertEqual(Crossplay.typedPort(" 19140 "), 19140)
+        XCTAssertNil(Crossplay.typedPort("99999"))
+        var enabled = on
+        enabled.enabled = true
+        XCTAssertEqual(Crossplay.ready(s, enabled), s.t("cross.files_missing"))
+    }
+
+    func testDuplicateIsForTheOwnerAndOffersTheWorldChoicesThereAre() {
+        XCTAssertFalse(Duplicate.allowed(me(Permissions.SETTINGS_EDIT)))
+        XCTAssertTrue(Duplicate.allowed(me(Permissions.SERVERS_MANAGE)))
+        XCTAssertEqual(Duplicate.worlds(DuplicateOptions(worldFolders: ["world"])), ["copy", "fresh"])
+        XCTAssertEqual(Duplicate.worlds(DuplicateOptions()), ["fresh"])
+        XCTAssertFalse(Duplicate.ready(" ", "D:/mc"))
+        XCTAssertTrue(Duplicate.ready("Copy", "D:/mc"))
+        XCTAssertEqual(Duplicate.progress(Job(id: "j", kind: "duplicate", state: "running", step: "Copying files", serverId: "s"), serverId: "s"), "Copying files")
+        XCTAssertNil(Duplicate.progress(Job(id: "j", kind: "duplicate", state: "succeeded", serverId: "s"), serverId: "s"))
+    }
+
+    func testCrossplayAndDuplicateGoToTheAgentsRoutes() async throws {
+        let c = client()
+        StubAgent.json(#"{"available": true, "enabled": false, "default_port": 19132, "suggested_port": 19132, "username_prefix": ".", "differences": ["a"], "address": null, "address_unknown": null}"#)
+        let info = try await c.crossplay(serverId: "s")
+        XCTAssertTrue(info.available)
+        StubAgent.json(#"{"ok": true, "available": true, "enabled": true, "port": 19132, "default_port": 19132, "ready": true}"#)
+        let turned = try await c.setCrossplay(serverId: "s", enabled: true, port: 19132)
+        XCTAssertTrue(turned.ready)
+        XCTAssertEqual(method(1), "PUT")
+        XCTAssertEqual(body(1), #"{"enabled":true,"port":19132}"#)
+        StubAgent.json(#"{"name": "Survival copy", "directory": "D:/mc/Survival copy", "running": true, "crossplay": false, "world_folders": ["world"]}"#)
+        let options = try await c.duplicateOptions(serverId: "s")
+        XCTAssertEqual(options.name, "Survival copy")
+        StubAgent.json(#"{"ok": true, "job": {"id": "j", "kind": "duplicate", "title": "Copying", "state": "running", "server_id": "s"}}"#)
+        let started = try await c.duplicate(serverId: "s", name: "Copy", directory: "D:/mc/Copy", world: "fresh")
+        XCTAssertEqual(started.job.id, "j")
+        XCTAssertEqual(body(3), #"{"directory":"D:/mc/Copy","name":"Copy","world":"fresh"}"#)
+    }
 }

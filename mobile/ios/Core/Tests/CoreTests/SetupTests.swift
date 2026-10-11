@@ -397,5 +397,50 @@ final class SetupTests: XCTestCase {
         XCTAssertEqual(method(0), "DELETE")
         XCTAssertEqual(path(0), "/api/servers/s")
     }
+
+    func testTheChangeListShowsAddedRemovedAndChangedKeysAndIgnoresComments() {
+        let before = "#Minecraft server properties\nmotd=Hello\npvp=true\nmax-players=20\n"
+        let after = "# my note\r\nmotd = Hi there\r\nmax-players=20\r\nallow-flight=true\r\n"
+        XCTAssertEqual(RawText.propertyChanges(before, after), [
+            RawChange("allow-flight", nil, "true"),
+            RawChange("motd", "Hello", "Hi there"),
+            RawChange("pvp", "true", nil),
+        ])
+        XCTAssertEqual(RawText.propertyChanges(before, "# new comment\n" + before), [])
+    }
+
+    func testPropertiesAreReadTheWayTheAgentReadsThem() {
+        let read = RawText.properties("  a : 1\nb\\\n  c=2\n! old\nmotd=caf\\u00e9\nempty=\na=3\n")
+        XCTAssertEqual(read, ["a": "3", "bc": "2", "motd": "café", "empty": ""])
+    }
+
+    func testJavaOptionsAreComparedByOptionNotByPosition() {
+        let before = ["-Xms1G", "-Xmx4G", "-XX:+UseG1GC", "-Dfile.encoding=UTF-8"]
+        XCTAssertEqual(RawText.args(" -Xms1G  -Xmx6G\n-XX:-UseG1GC "), ["-Xms1G", "-Xmx6G", "-XX:-UseG1GC"])
+        XCTAssertEqual(RawText.argChanges(before, RawText.args("-Xmx6G -Xms1G -XX:-UseG1GC")), [
+            RawChange("-Dfile.encoding", "-Dfile.encoding=UTF-8", nil),
+            RawChange("-XX:UseG1GC", "-XX:+UseG1GC", "-XX:-UseG1GC"),
+            RawChange("-Xmx", "-Xmx4G", "-Xmx6G"),
+        ])
+        XCTAssertEqual(RawText.argChanges(before, before.reversed()), [])
+    }
+
+    func testEachChangeIsSaidInPlainWords() {
+        XCTAssertEqual(RawText.line(s, RawChange("a", nil, "1")), s.t("mobile.raw.added", ["key": "a", "new": "1"]))
+        XCTAssertEqual(RawText.line(s, RawChange("a", "1", nil)), s.t("mobile.raw.removed", ["key": "a", "old": "1"]))
+        XCTAssertEqual(RawText.line(s, RawChange("a", "1", "2")), s.t("mobile.raw.changed", ["key": "a", "old": "1", "new": "2"]))
+        XCTAssertTrue(RawText.allowed(me(Permissions.SETTINGS_EDIT), technical: true))
+        XCTAssertFalse(RawText.allowed(me(Permissions.SETTINGS_EDIT), technical: false))
+        XCTAssertFalse(RawText.allowed(me(Permissions.SETTINGS_VIEW), technical: true))
+    }
+
+    func testRawGameSettingsGoToTheAgentsRoute() async throws {
+        StubAgent.json(#"{"ok": true, "keys": ["motd"], "running": false, "restart_needed": false}"#)
+        let saved = try await client().saveGameSettingsText(serverId: "s", text: "motd=Hi\n")
+        XCTAssertEqual(saved.keys, ["motd"])
+        XCTAssertEqual(method(0), "PUT")
+        XCTAssertEqual(path(0), "/api/servers/s/game-settings/raw")
+        XCTAssertEqual(body(0), #"{"text":"motd=Hi\n"}"#)
+    }
 }
 

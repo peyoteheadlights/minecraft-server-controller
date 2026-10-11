@@ -92,6 +92,19 @@ struct GameSettingsView: View {
                 .disabled(content.busy != nil || !content.gameChanged)
                 Hint(text: model.t("game.copy_kept"), palette: palette)
             }
+            if canEdit && RawText.allowed(model.me, technical: model.technical) && settings.exists {
+                SectionTitle(text: model.t("game.raw_title"), palette: palette)
+                CardBox(palette: palette) {
+                    RawEditorView(
+                        title: model.t("game.raw_label"),
+                        hint: model.t("game.raw_hint", ["file": settings.file]),
+                        saved: settings.text,
+                        changes: { RawText.propertyChanges(settings.text, $0) },
+                        busy: content.busy != nil,
+                        palette: palette
+                    ) { typed in Task { await content.saveGameText(typed, strings) } }
+                }
+            }
             SaidRow(said: content.said, palette: palette)
             if content.gameRestart && model.canControl {
                 Presses(presses: [

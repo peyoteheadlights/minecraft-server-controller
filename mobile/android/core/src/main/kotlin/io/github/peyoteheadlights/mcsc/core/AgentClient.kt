@@ -518,6 +518,13 @@ class AgentClient(
         GameSettingsSaved.serializer(),
     )
 
+    /** Saves the whole server.properties as typed in Technical mode. The
+     * agent still checks the known keys, and writes nothing when one fails. */
+    suspend fun saveGameSettingsText(serverId: String, text: String): GameSettingsSaved = call(
+        request("${server(serverId)}/game-settings/raw").put(buildJsonObject { put("text", text) }.toBody()).build(),
+        GameSettingsSaved.serializer(),
+    )
+
     // ------------------------------------------------------------ setup
     suspend fun serverSettings(serverId: String): ServerSettings =
         get("${server(serverId)}/settings", ServerSettings.serializer())

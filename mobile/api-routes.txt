@@ -86,6 +86,7 @@ PUT /api/servers/{server_id}/addons/{pack_uuid}
 DELETE /api/servers/{server_id}/addons/{pack_uuid}
 GET /api/servers/{server_id}/game-settings
 PUT /api/servers/{server_id}/game-settings
+PUT /api/servers/{server_id}/game-settings/raw
 GET /api/alerts
 GET /api/app/phone
 PUT /api/app/phone

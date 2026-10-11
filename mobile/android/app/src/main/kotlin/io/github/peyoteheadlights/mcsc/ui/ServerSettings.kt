@@ -38,6 +38,7 @@ import io.github.peyoteheadlights.mcsc.core.CpuCores
 import io.github.peyoteheadlights.mcsc.core.Crossplay
 import io.github.peyoteheadlights.mcsc.core.Duplicate
 import io.github.peyoteheadlights.mcsc.core.Memory
+import io.github.peyoteheadlights.mcsc.core.RawText
 import io.github.peyoteheadlights.mcsc.core.RemoveServer
 import io.github.peyoteheadlights.mcsc.core.ServerColors
 import io.github.peyoteheadlights.mcsc.core.ServerForm
@@ -185,6 +186,26 @@ fun ServerSettingsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit,
         item { Card { CrossplayCard(vm, setup, canEdit) { asking = it } } }
         item { SectionTitle(t("memory.title")) }
         item { Card { MemoryCard(vm, setup, canEdit, bedrock = vm.servers.list.firstOrNull { it.id == serverId }?.edition == "bedrock") } }
+        setup.memory.value?.let { memory ->
+            if (RawText.allowed(vm.me, vm.technical)) {
+                item {
+                    Card {
+                        val saved = memory.jvmArgs.joinToString(" ")
+                        var typed by remember(saved) { mutableStateOf(saved) }
+                        RawEditor(
+                            vm,
+                            title = t("mobile.raw.args_title"),
+                            hint = t("mobile.raw.args_hint"),
+                            text = typed,
+                            onText = { typed = it },
+                            changes = { RawText.argChanges(memory.jvmArgs, RawText.args(typed)) },
+                            busy = setup.busy != null,
+                            onSave = { setup.saveJavaOptions(RawText.args(typed), strings) },
+                        )
+                    }
+                }
+            }
+        }
         if (Duplicate.allowed(vm.me)) {
             item { SectionTitle(t("dup.title")) }
             item { Card { DuplicateCard(vm, setup, serverId) } }

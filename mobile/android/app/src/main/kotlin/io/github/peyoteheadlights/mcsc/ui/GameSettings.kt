@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import io.github.peyoteheadlights.mcsc.core.GameForm
 import io.github.peyoteheadlights.mcsc.core.GameSetting
 import io.github.peyoteheadlights.mcsc.core.Permissions
+import io.github.peyoteheadlights.mcsc.core.RawText
 
 /**
  * Game settings: the PC page's fields in its groups, each with its hint.
@@ -95,6 +96,24 @@ fun GameSettingsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit) {
                 }
             }
             item { Note(t("game.copy_kept"), color = LocalColors.current.text3) }
+        }
+        if (canEdit && RawText.allowed(vm.me, vm.technical) && settings.exists) {
+            item { SectionTitle(t("game.raw_title")) }
+            item {
+                Card {
+                    var typed by remember(settings.text) { mutableStateOf(settings.text) }
+                    RawEditor(
+                        vm,
+                        title = t("game.raw_label"),
+                        hint = t("game.raw_hint", "file" to settings.file),
+                        text = typed,
+                        onText = { typed = it },
+                        changes = { RawText.propertyChanges(settings.text, typed) },
+                        busy = content.busy != null,
+                        onSave = { content.saveGameText(typed, strings) },
+                    )
+                }
+            }
         }
         item { SaidNote(content.said) }
         if (content.gameRestart && vm.canControl()) {

@@ -158,6 +158,21 @@ struct ServerSettingsView: View {
             }
             SectionTitle(text: model.t("memory.title"), palette: palette)
             CardBox(palette: palette) { memoryCard(setup, canEdit, palette) }
+            if let memory = setup.memory.value, RawText.allowed(model.me, technical: model.technical) {
+                CardBox(palette: palette) {
+                    RawEditorView(
+                        title: model.t("mobile.raw.args_title"),
+                        hint: model.t("mobile.raw.args_hint"),
+                        saved: memory.jvmArgs.joined(separator: " "),
+                        changes: { RawText.argChanges(memory.jvmArgs, RawText.args($0)) },
+                        busy: setup.busy != nil,
+                        palette: palette
+                    ) { typed in
+                        let strings = model.strings
+                        Task { await setup.saveJavaOptions(RawText.args(typed), strings) }
+                    }
+                }
+            }
             if Duplicate.allowed(model.me) {
                 SectionTitle(text: model.t("dup.title"), palette: palette)
                 CardBox(palette: palette) { DuplicateCardView(setup: setup, serverId: serverId, palette: palette) }

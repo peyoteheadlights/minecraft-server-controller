@@ -368,4 +368,63 @@ class SetupTest {
             assertEquals("/api/servers/s", request.path)
         }
     }
+
+    @Test
+    fun `the change list shows added, removed and changed keys and ignores comments`() {
+        val before = "#Minecraft server properties\nmotd=Hello\npvp=true\nmax-players=20\n"
+        val after = "# my note\nmotd = Hi there\nmax-players=20\nallow-flight=true\n"
+        assertEquals(
+            listOf(
+                RawChange("allow-flight", null, "true"),
+                RawChange("motd", "Hello", "Hi there"),
+                RawChange("pvp", "true", null),
+            ),
+            RawText.propertyChanges(before, after),
+        )
+        assertEquals(emptyList<RawChange>(), RawText.propertyChanges(before, "# new comment\n" + before))
+    }
+
+    @Test
+    fun `properties are read the way the agent reads them`() {
+        val read = RawText.properties("  a : 1\nb\\\n  c=2\n! old\nmotd=caf\\u00e9\nempty=\na=3\n")
+        assertEquals(mapOf("a" to "3", "bc" to "2", "motd" to "café", "empty" to ""), read)
+    }
+
+    @Test
+    fun `java options are compared by option, not by position`() {
+        val before = listOf("-Xms1G", "-Xmx4G", "-XX:+UseG1GC", "-Dfile.encoding=UTF-8")
+        assertEquals(listOf("-Xms1G", "-Xmx6G", "-XX:-UseG1GC"), RawText.args(" -Xms1G  -Xmx6G\n-XX:-UseG1GC "))
+        assertEquals(
+            listOf(
+                RawChange("-Dfile.encoding", "-Dfile.encoding=UTF-8", null),
+                RawChange("-XX:UseG1GC", "-XX:+UseG1GC", "-XX:-UseG1GC"),
+                RawChange("-Xmx", "-Xmx4G", "-Xmx6G"),
+            ),
+            RawText.argChanges(before, RawText.args("-Xmx6G -Xms1G -XX:-UseG1GC")),
+        )
+        assertEquals(emptyList<RawChange>(), RawText.argChanges(before, before.reversed()))
+    }
+
+    @Test
+    fun `each change is said in plain words`() {
+        assertEquals(strings.t("mobile.raw.added", "key" to "a", "new" to "1"), RawText.line(strings, RawChange("a", null, "1")))
+        assertEquals(strings.t("mobile.raw.removed", "key" to "a", "old" to "1"), RawText.line(strings, RawChange("a", "1", null)))
+        assertEquals(strings.t("mobile.raw.changed", "key" to "a", "old" to "1", "new" to "2"), RawText.line(strings, RawChange("a", "1", "2")))
+        assertTrue(RawText.allowed(me(Permissions.SETTINGS_EDIT), technical = true))
+        assertFalse(RawText.allowed(me(Permissions.SETTINGS_EDIT), technical = false))
+        assertFalse(RawText.allowed(me(Permissions.SETTINGS_VIEW), technical = true))
+    }
+
+    @Test
+    fun `raw game settings go to the agent's route`() = runBlocking {
+        TestAgent().use { agent ->
+            agent.server.enqueue(agent.json("""{"ok": true, "keys": ["motd"], "running": false, "restart_needed": false}"""))
+            assertEquals(listOf("motd"), client(agent).saveGameSettingsText("s", "motd=Hi\n").keys)
+            val request = agent.server.takeRequest()
+            assertEquals("PUT", request.method)
+            assertEquals("/api/servers/s/game-settings/raw", request.path)
+            assertEquals("""{"text":"motd=Hi\n"}""", request.body.readUtf8())
+        }
+    }
 }
+

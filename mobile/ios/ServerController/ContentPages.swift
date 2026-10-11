@@ -470,6 +470,31 @@ final class ContentPages {
         }
     }
 
+    /// Saves the whole file as typed in Technical mode. A refused value
+    /// leaves the file as it was, and its reason is shown.
+    func saveGameText(_ text: String, _ strings: Strings) async {
+        guard let client = client(), busy == nil else { return }
+        busy = "game_text"
+        said = nil
+        do {
+            let done = try await client.saveGameSettingsText(serverId: serverId, text: text)
+            said = Said(text: GameForm.saved(strings, done), good: true)
+            gameRestart = done.running && done.nothingChanged != true
+            busy = nil
+            await loadGame()
+        } catch let problem as AgentError {
+            noted(problem)
+            if case .failed(_, _, _, let problems) = problem, !problems.isEmpty {
+                said = Said(text: problems.keys.sorted().compactMap { problems[$0] }.joined(separator: " "), good: false)
+            } else {
+                said = Said(text: problem.message(strings), good: false)
+            }
+            busy = nil
+        } catch {
+            busy = nil
+        }
+    }
+
     // MARK: - Doing
 
     /// One button at a time: says what it did (or the agent's reason it

@@ -24,6 +24,9 @@ import io.github.peyoteheadlights.mcsc.core.VersionChange
 import io.github.peyoteheadlights.mcsc.core.VersionPreflight
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 
 /**
  * Everything the Server settings screen shows for one server: how Command
@@ -534,6 +537,29 @@ class SetupPages(
                 c.removeServer(serverId)
                 onListChanged()
                 onRemoved()
+            } catch (e: AgentException) {
+                noted(e)
+                said = Said(Message.of(e).text(strings), good = false)
+            } finally {
+                busy = null
+            }
+        }
+    }
+
+    /** Saves the Java options typed in Technical mode, then reads the form
+     * and the memory card again so both show them. */
+    fun saveJavaOptions(args: List<String>, strings: Strings) {
+        val c = client() ?: return
+        if (busy != null) return
+        busy = "java"
+        said = null
+        scope.launch {
+            try {
+                val done = c.saveServerSettings(serverId, buildJsonObject { put("server.jvm_args", JsonArray(args.map(::JsonPrimitive))) })
+                val refused = done.rejected["server.jvm_args"]
+                said = Said(refused ?: strings.t("mobile.raw.args_saved"), good = refused == null)
+                loadMemory()
+                loadSettings()
             } catch (e: AgentException) {
                 noted(e)
                 said = Said(Message.of(e).text(strings), good = false)

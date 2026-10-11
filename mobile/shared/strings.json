@@ -7274,5 +7274,49 @@
  "mobile.version.pick": [
   "Pick a version",
   "Select version"
+ ],
+ "mobile.raw.will_change": [
+  "These settings will change",
+  "Changes to apply"
+ ],
+ "mobile.raw.nothing": [
+  "Nothing changed.",
+  "No changes."
+ ],
+ "mobile.raw.added": [
+  "{key} added: {new}",
+  "+ {key}={new}"
+ ],
+ "mobile.raw.removed": [
+  "{key} removed (it was {old})",
+  "- {key}={old}"
+ ],
+ "mobile.raw.changed": [
+  "{key}: {old} becomes {new}",
+  "~ {key}: {old} -> {new}"
+ ],
+ "mobile.raw.check": [
+  "Check changes",
+  "Review diff"
+ ],
+ "mobile.raw.save": [
+  "Save these changes",
+  "Apply"
+ ],
+ "mobile.raw.edit_more": [
+  "Keep editing",
+  "Back"
+ ],
+ "mobile.raw.args_title": [
+  "Java options, as text",
+  "JVM arguments (raw)"
+ ],
+ "mobile.raw.args_hint": [
+  "One option per line or all on one line. The memory slider only changes -Xmx.",
+  "Whitespace-separated. The slider replaces -Xmx only."
+ ],
+ "mobile.raw.args_saved": [
+  "Saved. Used from the next start.",
+  "JVM arguments saved; applied on next start."
  ]
 }

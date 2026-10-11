@@ -12,12 +12,20 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import io.github.peyoteheadlights.mcsc.core.Crossplay
 import io.github.peyoteheadlights.mcsc.core.Duplicate
+import io.github.peyoteheadlights.mcsc.core.RawChange
+import io.github.peyoteheadlights.mcsc.core.RawText
 import io.github.peyoteheadlights.mcsc.core.RemoveServer
 
 /** "Let Bedrock players join": its state, the port, and the agent's reason
@@ -134,6 +142,56 @@ fun RemoveCard(vm: AppViewModel, setup: SetupPages, onAsk: (SetupAsk) -> Unit) {
             onClick = { onAsk(SetupAsk.REMOVE) },
             enabled = setup.busy == null && RemoveServer.blocked(vm.strings, count) == null,
         ) { Text(t("serverset.remove_button"), color = colors.danger) }
+    }
+}
+
+/**
+ * A Technical mode text editor. "Check changes" lists what will change
+ * (added, removed, changed, with old and new values) before anything is
+ * saved; [changes] is computed from the saved text and the typed text.
+ */
+@Composable
+fun RawEditor(
+    vm: AppViewModel,
+    title: String,
+    hint: String,
+    text: String,
+    onText: (String) -> Unit,
+    changes: () -> List<RawChange>,
+    busy: Boolean,
+    onSave: () -> Unit,
+) {
+    val colors = LocalColors.current
+    var review by remember { mutableStateOf<List<RawChange>?>(null) }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Gap) {
+        Text(title, color = colors.text)
+        Text(hint, color = colors.text2)
+        OutlinedTextField(
+            value = text,
+            onValueChange = {
+                review = null
+                onText(it)
+            },
+            textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace),
+            minLines = 6,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        val listed = review
+        if (listed == null) {
+            OutlinedButton(onClick = { review = changes() }, enabled = !busy) { Text(t("mobile.raw.check")) }
+        } else if (listed.isEmpty()) {
+            Text(t("mobile.raw.nothing"), color = colors.text2)
+        } else {
+            Text(t("mobile.raw.will_change"), color = colors.text)
+            for (change in listed) Text(RawText.line(vm.strings, change), color = colors.text, fontFamily = FontFamily.Monospace)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = {
+                    review = null
+                    onSave()
+                }, enabled = !busy) { Text(t("mobile.raw.save")) }
+                OutlinedButton(onClick = { review = null }) { Text(t("mobile.raw.edit_more")) }
+            }
+        }
     }
 }
 

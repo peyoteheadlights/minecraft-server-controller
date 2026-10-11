@@ -148,6 +148,13 @@ extension AgentClient {
         return try await call("PUT", content(serverId) + "/game-settings", body: body, as: GameSettingsSaved.self)
     }
 
+    /// Saves the whole server.properties as typed in Technical mode. The
+    /// agent still checks the known keys, and writes nothing when one fails.
+    public func saveGameSettingsText(serverId: String, text: String) async throws -> GameSettingsSaved {
+        let body = try AgentClient.encode(["text": JSONValue.string(text)])
+        return try await call("PUT", content(serverId) + "/game-settings/raw", body: body, as: GameSettingsSaved.self)
+    }
+
     // MARK: - Plumbing
 
     private func content(_ id: String) -> String {

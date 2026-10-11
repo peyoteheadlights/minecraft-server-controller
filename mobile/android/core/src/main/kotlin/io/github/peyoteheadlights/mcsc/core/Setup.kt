@@ -364,3 +364,112 @@ object RemoveServer {
     /** The line under the heading: what removing does, or why it can't. */
     fun hint(strings: Strings, serverCount: Int): String = blocked(strings, serverCount) ?: strings.t("serverset.remove_hint")
 }
+
+/** One line of "These settings will change": [old] is null for an added
+ * key, [new] is null for a removed one. */
+data class RawChange(val key: String, val old: String?, val new: String?)
+
+/**
+ * The Technical mode editors: server.properties and the Java options as
+ * text. Before saving, the phone lists what will change, read the same way
+ * the agent reads the file, so comments and order never count as changes.
+ */
+object RawText {
+    fun allowed(me: Me?, technical: Boolean): Boolean = technical && ServerForm.editable(me)
+
+    /** Each key's value, as the agent reads server.properties (agent/minecraft/properties.py). */
+    fun properties(text: String): Map<String, String> {
+        val found = LinkedHashMap<String, String>()
+        val lines = text.split("\n").map { it.removeSuffix("\r") }
+        var i = 0
+        while (i < lines.size) {
+            var logical = lines[i]
+            val comment = logical.trimStart(' ', '\t', '\u000c').take(1) in setOf("#", "!")
+            while (!comment && continues(logical) && i + 1 < lines.size) {
+                i++
+                logical = logical.dropLast(1) + lines[i].trimStart(' ', '\t', '\u000c')
+            }
+            i++
+            split(logical)?.let { (key, value) -> found[key] = value }
+        }
+        return found
+    }
+
+    fun propertyChanges(before: String, after: String): List<RawChange> = changes(properties(before), properties(after))
+
+    /** The Java options typed on one line or several. */
+    fun args(text: String): List<String> = text.split(Regex("\\s+")).filter { it.isNotEmpty() }
+
+    /** Options are matched by name (-Xmx, -Dname, -XX:Name), so a moved option isn't a change. */
+    fun argChanges(before: List<String>, after: List<String>): List<RawChange> =
+        changes(before.associateBy(::argKey), after.associateBy(::argKey))
+
+    fun argKey(arg: String): String = when {
+        arg.startsWith("-Xmx") || arg.startsWith("-Xms") || arg.startsWith("-Xss") -> arg.take(4)
+        arg.startsWith("-XX:+") || arg.startsWith("-XX:-") -> "-XX:" + arg.drop(5)
+        "=" in arg -> arg.substringBefore("=")
+        else -> arg
+    }
+
+    fun line(strings: Strings, change: RawChange): String = when {
+        change.old == null -> strings.t("mobile.raw.added", "key" to change.key, "new" to change.new.orEmpty())
+        change.new == null -> strings.t("mobile.raw.removed", "key" to change.key, "old" to change.old)
+        else -> strings.t("mobile.raw.changed", "key" to change.key, "old" to change.old, "new" to change.new)
+    }
+
+    private fun changes(before: Map<String, String>, after: Map<String, String>): List<RawChange> =
+        (before.keys + after.keys).sorted().mapNotNull { key ->
+            val old = before[key]
+            val new = after[key]
+            if (old == new) null else RawChange(key, old, new)
+        }
+
+    private fun continues(line: String): Boolean = (line.length - line.trimEnd('\\').length) % 2 == 1
+
+    private fun split(logical: String): Pair<String, String>? {
+        val text = logical.trimStart(' ', '\t', '\u000c')
+        if (text.isEmpty() || text[0] == '#' || text[0] == '!') return null
+        val key = StringBuilder()
+        var i = 0
+        while (i < text.length) {
+            val c = text[i]
+            if (c == '\\' && i + 1 < text.length) {
+                key.append(text, i, i + 2)
+                i += 2
+                continue
+            }
+            if (c in "=: \t\u000c") break
+            key.append(c)
+            i++
+        }
+        var rest = text.substring(i).trimStart(' ', '\t', '\u000c')
+        if (rest.startsWith("=") || rest.startsWith(":")) rest = rest.drop(1).trimStart(' ', '\t', '\u000c')
+        return unescape(key.toString()) to unescape(rest)
+    }
+
+    private val ESCAPES = mapOf('t' to "\t", 'n' to "\n", 'r' to "\r", 'f' to "\u000c")
+
+    private fun unescape(text: String): String {
+        val out = StringBuilder()
+        var i = 0
+        while (i < text.length) {
+            val c = text[i]
+            if (c != '\\' || i + 1 >= text.length) {
+                out.append(c)
+                i++
+                continue
+            }
+            val next = text[i + 1]
+            val hex = text.substring(i + 2, minOf(i + 6, text.length))
+            if (next == 'u' && hex.length == 4 && hex.all { it.isDigit() || it.lowercaseChar() in 'a'..'f' }) {
+                out.append(hex.toInt(16).toChar())
+                i += 6
+                continue
+            }
+            out.append(ESCAPES[next] ?: next.toString())
+            i += 2
+        }
+        return out.toString()
+    }
+}
+

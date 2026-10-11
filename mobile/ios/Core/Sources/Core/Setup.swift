@@ -394,3 +394,141 @@ public enum RemoveServer {
         blocked(strings, serverCount: serverCount) ?? strings.t("serverset.remove_hint")
     }
 }
+
+/// One line of "These settings will change": `old` is nil for an added
+/// key, `new` is nil for a removed one.
+public struct RawChange: Equatable, Sendable {
+    public var key: String
+    public var old: String?
+    public var new: String?
+
+    public init(_ key: String, _ old: String?, _ new: String?) {
+        self.key = key
+        self.old = old
+        self.new = new
+    }
+}
+
+/// The Technical mode editors: server.properties and the Java options as
+/// text. Before saving, the phone lists what will change, read the same way
+/// the agent reads the file, so comments and order never count as changes.
+public enum RawText {
+    public static func allowed(_ me: Me?, technical: Bool) -> Bool { technical && ServerForm.editable(me) }
+
+    /// Each key's value, as the agent reads server.properties (agent/minecraft/properties.py).
+    public static func properties(_ text: String) -> [String: String] {
+        let lines = text.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+            .components(separatedBy: "\n").map { Array($0.unicodeScalars) }
+        var found: [String: String] = [:]
+        var i = 0
+        while i < lines.count {
+            var logical = lines[i]
+            let first = trimStart(logical).first
+            let comment = first == "#" || first == "!"
+            while !comment && continues(logical) && i + 1 < lines.count {
+                i += 1
+                logical = Array(logical.dropLast()) + trimStart(lines[i])
+            }
+            i += 1
+            if let pair = split(logical) { found[pair.0] = pair.1 }
+        }
+        return found
+    }
+
+    public static func propertyChanges(_ before: String, _ after: String) -> [RawChange] {
+        changes(properties(before), properties(after))
+    }
+
+    /// The Java options typed on one line or several.
+    public static func args(_ text: String) -> [String] {
+        text.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
+    }
+
+    /// Options are matched by name (-Xmx, -Dname, -XX:Name), so a moved option isn't a change.
+    public static func argChanges(_ before: [String], _ after: [String]) -> [RawChange] {
+        changes(byKey(before), byKey(after))
+    }
+
+    public static func argKey(_ arg: String) -> String {
+        if arg.hasPrefix("-Xmx") || arg.hasPrefix("-Xms") || arg.hasPrefix("-Xss") { return String(arg.prefix(4)) }
+        if arg.hasPrefix("-XX:+") || arg.hasPrefix("-XX:-") { return "-XX:" + String(arg.dropFirst(5)) }
+        if let equals = arg.firstIndex(of: "=") { return String(arg[..<equals]) }
+        return arg
+    }
+
+    public static func line(_ strings: Strings, _ change: RawChange) -> String {
+        if change.old == nil { return strings.t("mobile.raw.added", ["key": change.key, "new": change.new ?? ""]) }
+        if change.new == nil { return strings.t("mobile.raw.removed", ["key": change.key, "old": change.old ?? ""]) }
+        return strings.t("mobile.raw.changed", ["key": change.key, "old": change.old ?? "", "new": change.new ?? ""])
+    }
+
+    private static func byKey(_ args: [String]) -> [String: String] {
+        var found: [String: String] = [:]
+        for arg in args { found[argKey(arg)] = arg }
+        return found
+    }
+
+    private static func changes(_ before: [String: String], _ after: [String: String]) -> [RawChange] {
+        Set(before.keys).union(after.keys).sorted().compactMap { key in
+            before[key] == after[key] ? nil : RawChange(key, before[key], after[key])
+        }
+    }
+
+    private static let blank: Set<Unicode.Scalar> = [" ", "\t", "\u{0C}"]
+
+    private static func trimStart(_ line: [Unicode.Scalar]) -> [Unicode.Scalar] {
+        Array(line.drop(while: { blank.contains($0) }))
+    }
+
+    private static func continues(_ line: [Unicode.Scalar]) -> Bool {
+        line.reversed().prefix(while: { $0 == "\\" }).count % 2 == 1
+    }
+
+    private static func split(_ logical: [Unicode.Scalar]) -> (String, String)? {
+        let text = trimStart(logical)
+        guard let first = text.first, first != "#", first != "!" else { return nil }
+        var key: [Unicode.Scalar] = []
+        var i = 0
+        while i < text.count {
+            let c = text[i]
+            if c == "\\" && i + 1 < text.count {
+                key += text[i...(i + 1)]
+                i += 2
+                continue
+            }
+            if c == "=" || c == ":" || blank.contains(c) { break }
+            key.append(c)
+            i += 1
+        }
+        var rest = trimStart(Array(text[i...]))
+        if rest.first == "=" || rest.first == ":" { rest = trimStart(Array(rest.dropFirst())) }
+        return (unescape(key), unescape(rest))
+    }
+
+    private static let escapes: [Unicode.Scalar: Unicode.Scalar] = ["t": "\t", "n": "\n", "r": "\r", "f": "\u{0C}"]
+
+    private static func unescape(_ text: [Unicode.Scalar]) -> String {
+        var out = String.UnicodeScalarView()
+        var i = 0
+        while i < text.count {
+            let c = text[i]
+            if c != "\\" || i + 1 >= text.count {
+                out.append(c)
+                i += 1
+                continue
+            }
+            let next = text[i + 1]
+            if next == "u", i + 6 <= text.count, text[(i + 2)..<(i + 6)].allSatisfy({ $0.properties.isASCIIHexDigit }),
+               let code = UInt32(String(String.UnicodeScalarView(text[(i + 2)..<(i + 6)])), radix: 16),
+               let scalar = Unicode.Scalar(code) {
+                out.append(scalar)
+                i += 6
+                continue
+            }
+            out.append(escapes[next] ?? next)
+            i += 2
+        }
+        return String(out)
+    }
+}
+

@@ -143,3 +143,64 @@ struct RemoveCardView: View {
     }
 }
 
+/// A Technical mode text editor. "Check changes" lists what will change
+/// (added, removed, changed, with old and new values) before anything is
+/// saved; `changes` compares the typed text with the saved one.
+struct RawEditorView: View {
+    let title: String
+    let hint: String
+    let saved: String
+    let changes: (String) -> [RawChange]
+    let busy: Bool
+    let palette: Palette
+    let save: (String) -> Void
+
+    @Environment(AppModel.self) private var model
+    @State private var text = ""
+    @State private var review: [RawChange]?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).foregroundStyle(palette.textPrimary)
+            Hint(text: hint, palette: palette)
+            TextEditor(text: $text)
+                .font(.callout.monospaced())
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .frame(minHeight: 160)
+                .scrollContentBackground(.hidden)
+                .background(palette.sunken, in: RoundedRectangle(cornerRadius: 8))
+                .onChange(of: text) { review = nil }
+            if let listed = review {
+                if listed.isEmpty {
+                    Hint(text: model.t("mobile.raw.nothing"), palette: palette)
+                } else {
+                    Text(model.t("mobile.raw.will_change")).foregroundStyle(palette.textPrimary)
+                    ForEach(listed, id: \.key) { change in
+                        Text(RawText.line(model.strings, change))
+                            .font(.callout.monospaced())
+                            .foregroundStyle(palette.textPrimary)
+                    }
+                    HStack {
+                        Button(model.t("mobile.raw.save")) {
+                            review = nil
+                            save(text)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(palette.accent)
+                        .disabled(busy)
+                        Button(model.t("mobile.raw.edit_more")) { review = nil }
+                            .buttonStyle(.bordered)
+                    }
+                }
+            } else {
+                Button(model.t("mobile.raw.check")) { review = changes(text) }
+                    .buttonStyle(.bordered)
+                    .disabled(busy)
+            }
+        }
+        .onAppear { text = saved }
+        .onChange(of: saved) { text = saved }
+    }
+}
+

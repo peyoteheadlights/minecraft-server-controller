@@ -385,10 +385,13 @@ data class GameSetting(
 
 @Serializable
 data class GameSettings(
+    val file: String = "",
     val exists: Boolean = false,
     val fields: List<GameSetting> = emptyList(),
     val running: Boolean = false,
     @SerialName("restart_needed") val restartNeeded: Boolean = false,
+    /** The whole file as it is now, for the Technical mode editor. */
+    val text: String = "",
 )
 
 @Serializable

@@ -444,5 +444,27 @@ final class SetupPages {
         } catch {}
         return false
     }
+
+    /// Saves the Java options typed in Technical mode, then reads the form
+    /// and the memory card again so both show them.
+    func saveJavaOptions(_ args: [String], _ strings: Strings) async {
+        guard let client = client(), busy == nil else { return }
+        busy = "java"
+        said = nil
+        do {
+            let done = try await client.saveServerSettings(serverId: serverId, updates: ["server.jvm_args": .array(args.map { .string($0) })])
+            let refused = done.rejected["server.jvm_args"]
+            said = Said(text: refused ?? strings.t("mobile.raw.args_saved"), good: refused == nil)
+            busy = nil
+            await loadMemory()
+            await loadSettings()
+        } catch let problem as AgentError {
+            noted(problem)
+            said = Said(text: problem.message(strings), good: false)
+            busy = nil
+        } catch {
+            busy = nil
+        }
+    }
 }
 

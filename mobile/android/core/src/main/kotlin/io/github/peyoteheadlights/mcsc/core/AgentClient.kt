@@ -468,12 +468,12 @@ class AgentClient(
         call(post("${server(serverId)}/mods/dependencies/install", JsonObject(emptyMap())), DependencyInstall.serializer(), slow = true)
 
     /** Adds a mod or plugin file (.jar) picked on the phone. */
-    suspend fun uploadMod(serverId: String, name: String, bytes: ByteArray): ModUploaded =
-        call(upload("${server(serverId)}/mods/upload", name, bytes), ModUploaded.serializer(), slow = true)
+    suspend fun uploadMod(serverId: String, file: PickedFile): ModUploaded =
+        call(upload("${server(serverId)}/mods/upload", file), ModUploaded.serializer(), slow = true)
 
     /** Reads a modpack (.mrpack) and says what importing it here would do. */
-    suspend fun inspectModpack(serverId: String, name: String, bytes: ByteArray): ModpackInspected =
-        call(upload("/api/modpacks/inspect?server_id=${path(serverId)}", name, bytes), ModpackInspected.serializer(), slow = true)
+    suspend fun inspectModpack(serverId: String, file: PickedFile): ModpackInspected =
+        call(upload("/api/modpacks/inspect?server_id=${path(serverId)}", file), ModpackInspected.serializer(), slow = true)
 
     /** Throws away a modpack read but not imported. */
     suspend fun forgetModpack(token: String): Ok =
@@ -490,8 +490,8 @@ class AgentClient(
     /** A Bedrock server's behavior and resource packs. */
     suspend fun addons(serverId: String): AddonList = get("${server(serverId)}/addons", AddonList.serializer())
 
-    suspend fun uploadAddon(serverId: String, name: String, bytes: ByteArray): AddonResult =
-        call(upload("${server(serverId)}/addons/upload", name, bytes), AddonResult.serializer(), slow = true)
+    suspend fun uploadAddon(serverId: String, file: PickedFile): AddonResult =
+        call(upload("${server(serverId)}/addons/upload", file), AddonResult.serializer(), slow = true)
 
     suspend fun setAddonEnabled(serverId: String, uuid: String, enabled: Boolean): AddonResult = call(
         request("${server(serverId)}/addons/${path(uuid)}").put(buildJsonObject { put("enabled", enabled) }.toBody()).build(),
@@ -526,10 +526,10 @@ class AgentClient(
     private fun fileBody(filename: String) = buildJsonObject { put("filename", filename) }
 
     /** A file picked on the phone, sent as the dashboard's upload form does. */
-    private fun upload(path: String, name: String, bytes: ByteArray): Request {
+    private fun upload(path: String, file: PickedFile): Request {
         val form = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
-            .addFormDataPart("file", name, bytes.toRequestBody("application/octet-stream".toMediaType()))
+            .addFormDataPart("file", file.name, file.body())
             .build()
         return request(path).post(form).build()
     }

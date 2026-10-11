@@ -105,6 +105,12 @@ fun Main(vm: AppViewModel) {
             composable("server/{id}/schedules") { back ->
                 SchedulesScreen(vm, back.serverId(), onBack = { nav.popBackStack() })
             }
+            composable("server/{id}/content") { back ->
+                ContentScreen(vm, back.serverId(), onBack = { nav.popBackStack() })
+            }
+            composable("server/{id}/game") { back ->
+                GameSettingsScreen(vm, back.serverId(), onBack = { nav.popBackStack() })
+            }
             composable("server/{id}/events") { back ->
                 EventsScreen(vm, back.serverId(), onBack = { nav.popBackStack() })
             }

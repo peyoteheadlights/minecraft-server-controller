@@ -373,7 +373,7 @@ class ContentTest {
         TestAgent().use { agent ->
             val c = client(agent)
             agent.server.enqueue(agent.json("""{"ok": true, "installed": {"filename": "e.jar", "name": "Epsilon", "version": "3.0"}}"""))
-            assertEquals("Epsilon", c.uploadMod("s", "e.jar", byteArrayOf(80, 75, 3, 4)).installed?.name)
+            assertEquals("Epsilon", c.uploadMod("s", PickedFile.of("e.jar", byteArrayOf(80, 75, 3, 4))).installed?.name)
             val sent = agent.server.takeRequest()
             assertEquals("/api/servers/s/mods/upload", sent.path)
             assertTrue(sent.getHeader("Content-Type")!!.startsWith("multipart/form-data"))
@@ -381,7 +381,7 @@ class ContentTest {
             assertTrue(body, body.contains("name=\"file\"; filename=\"e.jar\""))
 
             agent.server.enqueue(agent.json("""{"token": "tok", "pack": {"name": "Pack", "version": "1.2", "summary": null, "minecraft_version": "1.21.1", "type": "fabric", "type_name": "Fabric", "loader_version": "0.16.5", "files": [{"name": "lithium.jar", "path": "mods/lithium.jar", "size": 10, "status": "download", "reason": null, "env_server": "required"}], "download_count": 1, "download_bytes": 10, "client_only": [], "refused": [], "overrides": 0, "overrides_bytes": 0, "skipped_overrides": [], "problems": [], "can_import": true}, "into": {"version_change": false, "running": false}}"""))
-            val pack = c.inspectModpack("s", "p.mrpack", byteArrayOf(1))
+            val pack = c.inspectModpack("s", PickedFile.of("p.mrpack", byteArrayOf(1)))
             assertEquals("tok", pack.token)
             assertEquals("/api/modpacks/inspect?server_id=s", agent.server.takeRequest().path)
             agent.server.enqueue(agent.json("""{"ok": true, "job_id": "j", "modpack": {"name": "Pack"}, "version_change": false, "undo": null}"""))

@@ -120,6 +120,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     val strings: Strings get() = graph.strings
     val shared get() = graph.shared
+    val icons get() = graph.icons
     val pairing: Pairing? get() = prefs.pairing
     val user: String? get() = prefs.user
 
@@ -480,6 +481,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         is LiveSignal.Console -> signal.serverId?.let { pagesBy[it] }?.onConsoleLine(signal.line)
                         is LiveSignal.Chat -> signal.serverId?.let { pagesBy[it] }?.onChat(signal.message)
                         is LiveSignal.ConsoleTail -> pagesBy[signal.serverId]?.onConsoleTail(signal.lines)
+                        is LiveSignal.Task -> signal.serverId?.let { pagesBy[it] }?.content?.onTask(signal.job)
                         is LiveSignal.Closed -> {
                             live = false
                             // A 401 here signs the app out; anything else, try again.

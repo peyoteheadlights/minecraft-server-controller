@@ -5,6 +5,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.github.peyoteheadlights.mcsc.core.AgentClient
 import io.github.peyoteheadlights.mcsc.core.AgentException
+import io.github.peyoteheadlights.mcsc.core.CpuCores
+import io.github.peyoteheadlights.mcsc.core.Memory
+import io.github.peyoteheadlights.mcsc.core.MemoryOverview
 import io.github.peyoteheadlights.mcsc.core.ServerForm
 import io.github.peyoteheadlights.mcsc.core.ServerSettings
 import io.github.peyoteheadlights.mcsc.core.ServerSettingsSaved
@@ -103,6 +106,118 @@ class SetupPages(
                 // The refused values stay as typed, each with its reason.
                 edits = edits.filterKeys { it in refused }
                 fieldProblems = refused
+            } catch (e: AgentException) {
+                noted(e)
+                said = Said(Message.of(e).text(strings), good = false)
+            } finally {
+                busy = null
+            }
+        }
+    }
+
+    // ------------------------------------------------------------ CPU cores
+    /** Every core ticked; null while it is the saved setting. */
+    var allCores: Boolean? by mutableStateOf(null)
+        private set
+
+    /** The cores ticked; null while they are the saved ones. */
+    var cores: Set<Int>? by mutableStateOf(null)
+        private set
+
+    fun saved(): Set<Int> = settings.value?.cpu?.status?.configured.orEmpty().toSet()
+
+    fun everyCore(): Boolean = allCores ?: settings.value?.cpu?.status?.configured.isNullOrEmpty()
+
+    fun pickedCores(): Set<Int> = cores ?: saved()
+
+    fun setAllCores(on: Boolean) {
+        allCores = on
+        if (on) cores = emptySet()
+    }
+
+    fun toggleCore(core: Int) {
+        allCores = false
+        val now = pickedCores()
+        cores = if (core in now) now - core else now + core
+    }
+
+    fun pickHalf(count: Int) {
+        allCores = false
+        cores = CpuCores.half(count)
+    }
+
+    fun saveCores(strings: Strings) {
+        val c = client() ?: return
+        if (busy != null) return
+        val chosen = CpuCores.toSave(everyCore(), pickedCores())
+        if (chosen == null) {
+            said = Said(strings.t("serverset.pick_a_core"), good = false)
+            return
+        }
+        busy = "cores"
+        said = null
+        scope.launch {
+            try {
+                val result = c.saveServerSettings(serverId, CpuCores.update(chosen))
+                val refused = result.rejected["server.cpu_cores"]
+                said = if (refused != null) Said(refused, good = false) else Said(CpuCores.saved(strings, result), good = result.cpuCores?.ok != false)
+                if (refused == null) {
+                    settings = Read(c.serverSettings(serverId))
+                    allCores = null
+                    cores = null
+                }
+            } catch (e: AgentException) {
+                noted(e)
+                said = Said(Message.of(e).text(strings), good = false)
+            } finally {
+                busy = null
+            }
+        }
+    }
+
+    // ------------------------------------------------------------ memory
+    var memory: Read<MemoryOverview> by mutableStateOf(Read())
+        private set
+
+    /** The slider's position; null while it is the saved limit. */
+    var memoryChoice: Int? by mutableStateOf(null)
+        private set
+
+    fun loadMemory() {
+        val c = client() ?: return
+        memory = memory.copy(loading = true)
+        scope.launch {
+            memory = try {
+                Read(c.memory(serverId)).also { memoryChoice = null }
+            } catch (e: AgentException) {
+                noted(e)
+                Read(problem = Message.of(e))
+            }
+        }
+    }
+
+    fun slideMemory(mb: Float) {
+        val current = memory.value ?: return
+        memoryChoice = Memory.snap(current, mb)
+    }
+
+    fun saveMemory(strings: Strings) {
+        val current = memory.value ?: return
+        val c = client() ?: return
+        if (busy != null) return
+        val mb = memoryChoice ?: Memory.start(current)
+        if (mb == current.limitMb) {
+            said = Said(strings.t("settings.nothing_changed"), good = true)
+            return
+        }
+        busy = "memory"
+        said = null
+        scope.launch {
+            try {
+                val done = c.setMemory(serverId, mb)
+                memory = Read(done)
+                memoryChoice = null
+                said = Said(strings.t(if (done.running) "memory.saved_running" else "memory.saved"), good = true)
             } catch (e: AgentException) {
                 noted(e)
                 said = Said(Message.of(e).text(strings), good = false)

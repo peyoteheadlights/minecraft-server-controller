@@ -1,5 +1,6 @@
 package io.github.peyoteheadlights.mcsc.core
 
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -131,5 +132,119 @@ object ServerForm {
             sleep.stopsIn != null -> strings.t("serverset.sleep_countdown", "duration" to Display.duration(strings, sleep.stopsIn))
             else -> strings.t("serverset.sleep_waiting")
         }
+    }
+}
+
+/** Which CPU cores a server may use. What it really uses is read back from
+ * the running server; the boxes are only the setting. Cores are counted
+ * from 0 here and shown from 1. */
+object CpuCores {
+    /** The other servers set to use each core, by core. */
+    fun sharedBy(cpu: CpuOverview): Map<Int, List<String>> {
+        val used = mutableMapOf<Int, MutableList<String>>()
+        for (other in cpu.others) for (core in other.cores) used.getOrPut(core) { mutableListOf() } += other.name
+        return used
+    }
+
+    /** "1-4, 7": cores as people count them, runs shortened. */
+    fun describe(cores: List<Int>): String {
+        val numbers = cores.sorted().map { it + 1 }
+        if (numbers.isEmpty()) return ""
+        val runs = mutableListOf<String>()
+        var start = numbers[0]
+        var prev = numbers[0]
+        for (n in numbers.drop(1) + listOf<Int?>(null)) {
+            if (n != null && n == prev + 1) {
+                prev = n
+                continue
+            }
+            runs += if (start == prev) "$start" else "$start-$prev"
+            if (n != null) {
+                start = n
+                prev = n
+            }
+        }
+        return runs.joinToString(", ")
+    }
+
+    /** The first half of the cores, rounded up. */
+    fun half(count: Int): Set<Int> = (0 until (count + 1) / 2).toSet()
+
+    /** What the running server uses now, or why that isn't known. */
+    fun nowLine(strings: Strings, cpu: CpuOverview): String {
+        val applied = cpu.status.applied
+        return if (applied != null) {
+            strings.t("serverset.cores_now", "cores" to if (applied.size == cpu.logicalCores) strings.t("serverset.every_core") else describe(applied))
+        } else {
+            strings.t("serverset.cores_unknown", "reason" to (cpu.status.appliedReason ?: strings.t("value.unknown")))
+        }
+    }
+
+    /** What to send: empty for every core. Null when no core is picked. */
+    fun toSave(all: Boolean, picked: Set<Int>): List<Int>? = when {
+        all -> emptyList()
+        picked.isEmpty() -> null
+        else -> picked.sorted()
+    }
+
+    fun update(cores: List<Int>): JsonObject = buildJsonObject { put("server.cpu_cores", JsonArray(cores.map(::JsonPrimitive))) }
+
+    /** After Save: used now, from the next start, or not applied and why. */
+    fun saved(strings: Strings, result: ServerSettingsSaved): String {
+        val live = result.cpuCores
+        return when {
+            live == null -> strings.t("serverset.cores_next_start")
+            !live.ok -> strings.t("serverset.cores_not_applied", "reason" to (live.reason ?: strings.t("value.unknown")))
+            else -> strings.t("serverset.cores_applied")
+        }
+    }
+}
+
+/** The memory slider: only the -Xmx limit, bounded by the PC's memory as
+ * measured; every other Java option stays as it is. */
+object Memory {
+    /** "6 GB", "1.5 GB". */
+    fun gb(mb: Int): String = if (mb % 1024 == 0) "${mb / 1024} GB" else "${Display.fixed(mb / 1024.0, 1)} GB"
+
+    /** No slider when the PC's memory couldn't be read, or the server type
+     * takes no limit (Bedrock). */
+    fun slider(memory: MemoryOverview): Boolean = memory.takesMemoryLimit && memory.totalMb != null
+
+    /** Where the slider starts: the current limit, else 2 GB, kept inside the bounds. */
+    fun start(memory: MemoryOverview): Int {
+        val total = memory.totalMb ?: return memory.limitMb ?: 2048
+        return minOf(total, maxOf(memory.minMb, memory.limitMb ?: 2048))
+    }
+
+    /** A slider position, snapped to the step and kept inside the bounds. */
+    fun snap(memory: MemoryOverview, mb: Float): Int {
+        val total = memory.totalMb ?: return memory.minMb
+        val step = maxOf(1, memory.stepMb)
+        val snapped = memory.minMb + Math.round((mb - memory.minMb) / step) * step
+        return minOf(total, maxOf(memory.minMb, snapped))
+    }
+
+    /** The warning when this server, with the others running, may use more
+     * than the PC has. Null when it fits or the PC's memory isn't known. */
+    fun warning(strings: Strings, memory: MemoryOverview, chosen: Int): String? {
+        val total = memory.totalMb ?: return null
+        val others = memory.servers.filter { !it.`this` && it.running }
+        val together = others.sumOf { it.limitMb ?: 0 } + chosen
+        if (together <= total) return null
+        return if (others.isNotEmpty()) {
+            strings.t("memory.over_together", "names" to others.joinToString(", ") { it.name }, "total" to gb(together), "pc" to gb(total))
+        } else {
+            strings.t("memory.over_alone", "total" to gb(together), "pc" to gb(total))
+        }
+    }
+
+    /** Under the slider: what is set now. */
+    fun nowLine(strings: Strings, memory: MemoryOverview): String =
+        memory.limitMb?.let { strings.t("memory.now", "limit" to gb(it)) } ?: strings.t("memory.unset")
+
+    /** Why there is no slider. */
+    fun noSlider(strings: Strings, memory: MemoryOverview, bedrock: Boolean): String = when {
+        !memory.takesMemoryLimit -> strings.t(if (bedrock) "memory.not_bedrock" else "memory.not_used")
+        else -> strings.t("memory.pc_unknown")
     }
 }

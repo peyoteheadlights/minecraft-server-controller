@@ -1261,13 +1261,47 @@ class ServerSettings(Open):
     sleep: SleepStatus | None = None
 
 
+class CpuApplied(Open):
+    ok: bool
+    applied: list[int] | None = Field(None, description="Read back from the running server")
+    reason: str | None = None
+
+
 class ServerSettingsSaved(Open):
     ok: bool
     applied: dict[str, Any]
     rejected: dict[str, str] = Field(description="Each refused key with the reason, said to the person")
-    cpu_cores: dict[str, Any] | None = Field(None, description="Read back from the running server")
+    cpu_cores: CpuApplied | None = Field(None, description="Only when the server is running")
 
 
 class ColorSaved(Open):
     ok: bool
     color: str
+
+
+class MemoryServer(Open):
+    id: str
+    name: str
+    limit_mb: int | None = Field(None, description="null: no -Xmx set")
+    running: bool
+    this: bool
+
+
+class MemoryOverview(Open):
+    """The memory slider: bounded by the PC's measured memory."""
+
+    total_mb: int | None = Field(None, description="null when it couldn't be measured")
+    limit_mb: int | None = None
+    jvm_args: list[str]
+    takes_memory_limit: bool
+    min_mb: int
+    max_mb: int | None = None
+    step_mb: int
+    together_mb: int
+    servers: list[MemoryServer]
+    over: bool
+    running: bool
+
+
+class MemorySaved(MemoryOverview):
+    ok: bool

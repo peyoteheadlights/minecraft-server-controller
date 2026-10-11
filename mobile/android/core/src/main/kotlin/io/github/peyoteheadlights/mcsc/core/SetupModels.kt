@@ -61,13 +61,41 @@ data class ServerSettings(
     val sleep: SleepStatus? = null,
 )
 
+/** The cores a running server got, read back from it. */
+@Serializable
+data class CpuApplied(val ok: Boolean = false, val applied: List<Int>? = null, val reason: String? = null)
+
 @Serializable
 data class ServerSettingsSaved(
     val applied: Map<String, JsonElement> = emptyMap(),
     /** Each refused key with the agent's reason. */
     val rejected: Map<String, String> = emptyMap(),
-    @SerialName("cpu_cores") val cpuCores: JsonObject? = null,
+    /** Only when the server is running. */
+    @SerialName("cpu_cores") val cpuCores: CpuApplied? = null,
 )
 
 @Serializable
 data class ColorSaved(val color: String)
+
+@Serializable
+data class MemoryServer(
+    val id: String,
+    val name: String = "",
+    @SerialName("limit_mb") val limitMb: Int? = null,
+    val running: Boolean = false,
+    val `this`: Boolean = false,
+)
+
+/** The memory slider: bounded by the PC's measured memory. */
+@Serializable
+data class MemoryOverview(
+    /** Null when it couldn't be measured: the slider is off then. */
+    @SerialName("total_mb") val totalMb: Int? = null,
+    @SerialName("limit_mb") val limitMb: Int? = null,
+    @SerialName("jvm_args") val jvmArgs: List<String> = emptyList(),
+    @SerialName("takes_memory_limit") val takesMemoryLimit: Boolean = false,
+    @SerialName("min_mb") val minMb: Int = 1024,
+    @SerialName("step_mb") val stepMb: Int = 512,
+    val servers: List<MemoryServer> = emptyList(),
+    val running: Boolean = false,
+)

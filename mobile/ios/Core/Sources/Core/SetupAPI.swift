@@ -15,6 +15,16 @@ extension AgentClient {
         return try await call("PUT", setup(serverId) + "/settings", body: body, as: ServerSettingsSaved.self)
     }
 
+    public func memory(serverId: String) async throws -> MemoryOverview {
+        try await call("GET", setup(serverId) + "/memory", as: MemoryOverview.self)
+    }
+
+    /// Sets only the -Xmx limit; used from the next start.
+    public func setMemory(serverId: String, mb: Int) async throws -> MemoryOverview {
+        let body = try AgentClient.encode(["memory_mb": mb])
+        return try await call("PUT", setup(serverId) + "/memory", body: body, as: MemoryOverview.self)
+    }
+
     public func setColor(serverId: String, color: String) async throws -> ColorSaved {
         let body = try AgentClient.encode(["color": color])
         return try await call("PUT", setup(serverId) + "/color", body: body, as: ColorSaved.self)

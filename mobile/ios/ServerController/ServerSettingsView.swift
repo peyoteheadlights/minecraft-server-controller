@@ -24,11 +24,15 @@ struct ServerSettingsView: View {
                 .frame(maxWidth: 640)
                 .frame(maxWidth: .infinity)
             }
-            .refreshable { await setup.loadSettings() }
+            .refreshable {
+                await setup.loadSettings()
+                await setup.loadMemory()
+            }
         }
         .task(id: serverId) {
             setup.said = nil
             await setup.loadSettings()
+            await setup.loadMemory()
         }
     }
 
@@ -87,7 +91,107 @@ struct ServerSettingsView: View {
                 .disabled(setup.busy != nil)
             }
             SaidRow(said: setup.said, palette: palette)
+            SectionTitle(text: model.t("serverset.cpu"), palette: palette)
+            CardBox(palette: palette) { coresCard(setup, settings.cpu, canEdit, palette) }
+            SectionTitle(text: model.t("memory.title"), palette: palette)
+            CardBox(palette: palette) { memoryCard(setup, canEdit, palette) }
         } else if read.problem == nil {
+            ProgressView().frame(maxWidth: .infinity)
+        }
+    }
+}
+
+extension ServerSettingsView {
+    /// Which CPU cores the server may use, who else uses each, and what the
+    /// running server really got; or why this PC can't limit them.
+    @ViewBuilder
+    func coresCard(_ setup: SetupPages, _ cpu: CpuOverview, _ canEdit: Bool, _ palette: Palette) -> some View {
+        if !cpu.supported || (cpu.logicalCores ?? 0) == 0 {
+            Text(cpu.unsupportedReason ?? model.t("serverset.cpu_unreadable"))
+                .foregroundStyle(palette.textSecondary)
+        } else {
+            let count = cpu.logicalCores ?? 0
+            let shared = CpuCores.sharedBy(cpu)
+            Toggle(model.t("serverset.all_cores", ["count": count]), isOn: Binding(get: { setup.everyCore }, set: { setup.setAllCores($0) }))
+                .disabled(!canEdit)
+                .foregroundStyle(palette.textPrimary)
+            if !setup.everyCore {
+                ForEach(0..<count, id: \.self) { core in
+                    Toggle(isOn: Binding(get: { setup.pickedCores.contains(core) }, set: { _ in setup.toggleCore(core) })) {
+                        VStack(alignment: .leading) {
+                            Text(model.t("serverset.core", ["n": core + 1]))
+                            if let names = shared[core] {
+                                Text(model.t("serverset.core_shared", ["names": names.joined(separator: ", ")]))
+                                    .font(.footnote)
+                                    .foregroundStyle(palette.textSecondary)
+                            }
+                        }
+                    }
+                    .disabled(!canEdit)
+                    .foregroundStyle(palette.textPrimary)
+                }
+            }
+            Text(CpuCores.nowLine(model.strings, cpu))
+                .foregroundStyle(palette.textSecondary)
+            if let problem = cpu.status.problems.first {
+                Text(verbatim: problem).foregroundStyle(palette.danger)
+            }
+            if canEdit {
+                HStack {
+                    Button(model.t(setup.busy == "cores" ? "action.saving" : "action.save")) {
+                        let strings = model.strings
+                        Task { await setup.saveCores(strings) }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(palette.accent)
+                    Button(model.t("serverset.half_cores")) { setup.pickHalf(count) }
+                        .buttonStyle(.bordered)
+                }
+                .disabled(setup.busy != nil)
+            }
+        }
+    }
+
+    /// The memory slider: bounded by the PC's memory, with the warning when
+    /// every running server together may use more than the PC has.
+    @ViewBuilder
+    func memoryCard(_ setup: SetupPages, _ canEdit: Bool, _ palette: Palette) -> some View {
+        if let problem = setup.memory.problem {
+            Text(problem.message(model.strings)).foregroundStyle(palette.danger)
+        }
+        if let memory = setup.memory.value {
+            let bedrock = model.servers.first(where: { $0.id == serverId })?.edition == "bedrock"
+            Text(model.t("memory.label")).foregroundStyle(palette.textPrimary)
+            Text(memory.totalMb.map { model.t("memory.pc_has", ["total": Memory.gb($0)]) } ?? model.t("memory.pc_unknown"))
+                .foregroundStyle(palette.textSecondary)
+            if Memory.slider(memory) {
+                let chosen = setup.memoryChoice ?? Memory.start(memory)
+                HStack {
+                    Slider(
+                        value: Binding(get: { Double(chosen) }, set: { setup.slideMemory($0) }),
+                        in: Double(memory.minMb)...Double(max(memory.minMb, memory.totalMb ?? memory.minMb))
+                    )
+                    .disabled(!canEdit)
+                    .accessibilityValue(Memory.gb(chosen))
+                    Text(Memory.gb(chosen)).foregroundStyle(palette.textPrimary).monospacedDigit()
+                }
+                Text(Memory.nowLine(model.strings, memory)).foregroundStyle(palette.textSecondary)
+                if let warning = Memory.warning(model.strings, memory, chosen) {
+                    Text(warning).foregroundStyle(palette.tone(.warning))
+                }
+                if canEdit {
+                    Button(model.t(setup.busy == "memory" ? "action.saving" : "memory.save")) {
+                        let strings = model.strings
+                        Task { await setup.saveMemory(strings) }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(palette.accent)
+                    .disabled(setup.busy != nil)
+                }
+            } else if !memory.takesMemoryLimit {
+                Text(Memory.noSlider(model.strings, memory, bedrock: bedrock)).foregroundStyle(palette.textSecondary)
+            }
+        } else if setup.memory.problem == nil {
             ProgressView().frame(maxWidth: .infinity)
         }
     }

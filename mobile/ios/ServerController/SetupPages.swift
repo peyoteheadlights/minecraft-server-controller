@@ -97,4 +97,103 @@ final class SetupPages {
             said = Said(text: problem.message(strings), good: false)
         } catch {}
     }
+
+    // MARK: - CPU cores
+
+    /// Every core ticked; nil while it is the saved setting.
+    private(set) var allCores: Bool? = nil
+    /// The cores ticked; nil while they are the saved ones.
+    private(set) var cores: Set<Int>? = nil
+
+    var everyCore: Bool { allCores ?? (settings.value?.cpu.status.configured ?? []).isEmpty }
+
+    var pickedCores: Set<Int> { cores ?? Set(settings.value?.cpu.status.configured ?? []) }
+
+    func setAllCores(_ on: Bool) {
+        allCores = on
+        if on { cores = [] }
+    }
+
+    func toggleCore(_ core: Int) {
+        allCores = false
+        var now = pickedCores
+        if now.contains(core) { now.remove(core) } else { now.insert(core) }
+        cores = now
+    }
+
+    func pickHalf(_ count: Int) {
+        allCores = false
+        cores = CpuCores.half(count)
+    }
+
+    func saveCores(_ strings: Strings) async {
+        guard let client = client(), busy == nil else { return }
+        guard let chosen = CpuCores.toSave(all: everyCore, picked: pickedCores) else {
+            said = Said(text: strings.t("serverset.pick_a_core"), good: false)
+            return
+        }
+        busy = "cores"
+        said = nil
+        defer { busy = nil }
+        do {
+            let result = try await client.saveServerSettings(serverId: serverId, updates: CpuCores.update(chosen))
+            if let refused = result.rejected["server.cpu_cores"] {
+                said = Said(text: refused, good: false)
+                return
+            }
+            said = Said(text: CpuCores.saved(strings, result), good: result.cpuCores?.ok != false)
+            settings = PageRead(value: try await client.serverSettings(serverId: serverId))
+            allCores = nil
+            cores = nil
+        } catch let problem as AgentError {
+            noted(problem)
+            said = Said(text: problem.message(strings), good: false)
+        } catch {}
+    }
+
+    // MARK: - Memory
+
+    private(set) var memory = PageRead<MemoryOverview>()
+    /// The slider's position; nil while it is the saved limit.
+    private(set) var memoryChoice: Int? = nil
+
+    func loadMemory() async {
+        guard let client = client() else { return }
+        memory.loading = true
+        do {
+            memory = PageRead(value: try await client.memory(serverId: serverId))
+            memoryChoice = nil
+        } catch let problem as AgentError {
+            noted(problem)
+            memory = PageRead(problem: problem)
+        } catch {
+            memory.loading = false
+        }
+    }
+
+    func slideMemory(_ mb: Double) {
+        guard let current = memory.value else { return }
+        memoryChoice = Memory.snap(current, mb)
+    }
+
+    func saveMemory(_ strings: Strings) async {
+        guard let current = memory.value, let client = client(), busy == nil else { return }
+        let mb = memoryChoice ?? Memory.start(current)
+        if mb == current.limitMb {
+            said = Said(text: strings.t("settings.nothing_changed"), good: true)
+            return
+        }
+        busy = "memory"
+        said = nil
+        defer { busy = nil }
+        do {
+            let done = try await client.setMemory(serverId: serverId, mb: mb)
+            memory = PageRead(value: done)
+            memoryChoice = nil
+            said = Said(text: strings.t(done.running ? "memory.saved_running" : "memory.saved"), good: true)
+        } catch let problem as AgentError {
+            noted(problem)
+            said = Said(text: problem.message(strings), good: false)
+        } catch {}
+    }
 }

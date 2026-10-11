@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -31,6 +34,8 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import io.github.peyoteheadlights.mcsc.core.CpuCores
+import io.github.peyoteheadlights.mcsc.core.Memory
 import io.github.peyoteheadlights.mcsc.core.ServerColors
 import io.github.peyoteheadlights.mcsc.core.ServerForm
 
@@ -49,6 +54,7 @@ fun ServerSettingsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit)
     LaunchedEffect(serverId) {
         setup.clearSaid()
         setup.loadSettings()
+        setup.loadMemory()
     }
 
     ServerFrame(
@@ -56,7 +62,10 @@ fun ServerSettingsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit)
         title = t("page.server_settings"),
         onBack = onBack,
         refreshing = setup.settings.loading,
-        onRefresh = setup::loadSettings,
+        onRefresh = {
+            setup.loadSettings()
+            setup.loadMemory()
+        },
     ) {
         val read = setup.settings
         val settings = read.value
@@ -117,6 +126,88 @@ fun ServerSettingsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit)
             }
         }
         item { SaidNote(setup.said) }
+        item { SectionTitle(t("serverset.cpu")) }
+        item { Card { CoresCard(vm, setup, canEdit) } }
+        item { SectionTitle(t("memory.title")) }
+        item { Card { MemoryCard(vm, setup, canEdit, bedrock = vm.servers.list.firstOrNull { it.id == serverId }?.edition == "bedrock") } }
+    }
+}
+
+/** Which CPU cores the server may use, who else uses each, and what the
+ * running server really got; or why this PC can't limit them. */
+@Composable
+private fun CoresCard(vm: AppViewModel, setup: SetupPages, canEdit: Boolean) {
+    val colors = LocalColors.current
+    val cpu = setup.settings.value?.cpu ?: return
+    val count = cpu.logicalCores
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+        if (!cpu.supported || count == null || count == 0) {
+            Text(cpu.unsupportedReason ?: t("serverset.cpu_unreadable"), color = colors.text2)
+            return@Column
+        }
+        val all = setup.everyCore()
+        val picked = setup.pickedCores()
+        val shared = CpuCores.sharedBy(cpu)
+        SettingField(t("serverset.all_cores", "count" to count), "bool", all.toString(), locked = !canEdit, problem = null) {
+            setup.setAllCores(it == "true")
+        }
+        if (!all) {
+            for (core in 0 until count) {
+                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = core in picked, onCheckedChange = { setup.toggleCore(core) }, enabled = canEdit)
+                    Column {
+                        Text(t("serverset.core", "n" to core + 1), color = colors.text)
+                        shared[core]?.let { Text(t("serverset.core_shared", "names" to it.joinToString(", ")), color = colors.text2) }
+                    }
+                }
+            }
+        }
+        Text(CpuCores.nowLine(vm.strings, cpu), color = colors.text2, modifier = Modifier.padding(top = 8.dp))
+        cpu.status.problems.firstOrNull()?.let { Text(it, color = colors.danger, modifier = Modifier.padding(top = 4.dp)) }
+        if (canEdit) {
+            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { setup.saveCores(vm.strings) }, enabled = setup.busy == null) {
+                    Text(t(if (setup.busy == "cores") "action.saving" else "action.save"))
+                }
+                OutlinedButton(onClick = { setup.pickHalf(count) }, enabled = setup.busy == null) { Text(t("serverset.half_cores")) }
+            }
+        }
+    }
+}
+
+/** The memory slider: bounded by the PC's memory, with the warning when
+ * every running server together may use more than the PC has. */
+@Composable
+private fun MemoryCard(vm: AppViewModel, setup: SetupPages, canEdit: Boolean, bedrock: Boolean) {
+    val colors = LocalColors.current
+    val read = setup.memory
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+        read.problem?.let { Text(it.text(vm.strings), color = colors.danger) }
+        val memory = read.value ?: return@Column
+        Text(t("memory.label"), color = colors.text)
+        Text(memory.totalMb?.let { t("memory.pc_has", "total" to Memory.gb(it)) } ?: t("memory.pc_unknown"), color = colors.text2)
+        if (!Memory.slider(memory)) {
+            if (!memory.takesMemoryLimit) Text(Memory.noSlider(vm.strings, memory, bedrock), color = colors.text2, modifier = Modifier.padding(top = 4.dp))
+            return@Column
+        }
+        val chosen = setup.memoryChoice ?: Memory.start(memory)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Slider(
+                value = chosen.toFloat(),
+                onValueChange = setup::slideMemory,
+                valueRange = memory.minMb.toFloat()..(memory.totalMb ?: memory.minMb).toFloat(),
+                enabled = canEdit,
+                modifier = Modifier.weight(1f),
+            )
+            Text(Memory.gb(chosen), color = colors.text, modifier = Modifier.padding(start = 8.dp))
+        }
+        Text(Memory.nowLine(vm.strings, memory), color = colors.text2)
+        Memory.warning(vm.strings, memory, chosen)?.let { Text(it, color = colors.warning, modifier = Modifier.padding(top = 4.dp)) }
+        if (canEdit) {
+            Button(onClick = { setup.saveMemory(vm.strings) }, enabled = setup.busy == null, modifier = Modifier.padding(top = 8.dp)) {
+                Text(t(if (setup.busy == "memory") "action.saving" else "memory.save"))
+            }
+        }
     }
 }
 

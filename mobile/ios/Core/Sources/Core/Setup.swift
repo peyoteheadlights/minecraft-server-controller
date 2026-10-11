@@ -134,3 +134,119 @@ public enum ServerForm {
         return strings.t("serverset.sleep_waiting")
     }
 }
+
+/// Which CPU cores a server may use. What it really uses is read back from
+/// the running server; the boxes are only the setting. Cores are counted
+/// from 0 here and shown from 1.
+public enum CpuCores {
+    /// The other servers set to use each core, by core.
+    public static func sharedBy(_ cpu: CpuOverview) -> [Int: [String]] {
+        var used: [Int: [String]] = [:]
+        for other in cpu.others {
+            for core in other.cores { used[core, default: []].append(other.name) }
+        }
+        return used
+    }
+
+    /// "1-4, 7": cores as people count them, runs shortened.
+    public static func describe(_ cores: [Int]) -> String {
+        let numbers = cores.sorted().map { $0 + 1 }
+        guard var start = numbers.first else { return "" }
+        var prev = start
+        var runs: [String] = []
+        for n in numbers.dropFirst().map(Optional.some) + [nil] {
+            if let n, n == prev + 1 {
+                prev = n
+                continue
+            }
+            runs.append(start == prev ? "\(start)" : "\(start)-\(prev)")
+            if let n {
+                start = n
+                prev = n
+            }
+        }
+        return runs.joined(separator: ", ")
+    }
+
+    /// The first half of the cores, rounded up.
+    public static func half(_ count: Int) -> Set<Int> { Set(0..<((count + 1) / 2)) }
+
+    /// What the running server uses now, or why that isn't known.
+    public static func nowLine(_ strings: Strings, _ cpu: CpuOverview) -> String {
+        if let applied = cpu.status.applied {
+            let cores = applied.count == cpu.logicalCores ? strings.t("serverset.every_core") : describe(applied)
+            return strings.t("serverset.cores_now", ["cores": cores])
+        }
+        return strings.t("serverset.cores_unknown", ["reason": cpu.status.appliedReason ?? strings.t("value.unknown")])
+    }
+
+    /// What to send: empty for every core. nil when no core is picked.
+    public static func toSave(all: Bool, picked: Set<Int>) -> [Int]? {
+        if all { return [] }
+        if picked.isEmpty { return nil }
+        return picked.sorted()
+    }
+
+    public static func update(_ cores: [Int]) -> [String: JSONValue] {
+        ["server.cpu_cores": .array(cores.map { .number(Double($0)) })]
+    }
+
+    /// After Save: used now, from the next start, or not applied and why.
+    public static func saved(_ strings: Strings, _ result: ServerSettingsSaved) -> String {
+        guard let live = result.cpuCores else { return strings.t("serverset.cores_next_start") }
+        if !live.ok { return strings.t("serverset.cores_not_applied", ["reason": live.reason ?? strings.t("value.unknown")]) }
+        return strings.t("serverset.cores_applied")
+    }
+}
+
+/// The memory slider: only the -Xmx limit, bounded by the PC's memory as
+/// measured; every other Java option stays as it is.
+public enum Memory {
+    /// "6 GB", "1.5 GB".
+    public static func gb(_ mb: Int) -> String {
+        mb % 1024 == 0 ? "\(mb / 1024) GB" : "\(Display.fixed(Double(mb) / 1024.0, 1)) GB"
+    }
+
+    /// No slider when the PC's memory couldn't be read, or the server type
+    /// takes no limit (Bedrock).
+    public static func slider(_ memory: MemoryOverview) -> Bool { memory.takesMemoryLimit && memory.totalMb != nil }
+
+    /// Where the slider starts: the current limit, else 2 GB, kept inside the bounds.
+    public static func start(_ memory: MemoryOverview) -> Int {
+        guard let total = memory.totalMb else { return memory.limitMb ?? 2048 }
+        return min(total, max(memory.minMb, memory.limitMb ?? 2048))
+    }
+
+    /// A slider position, snapped to the step and kept inside the bounds.
+    public static func snap(_ memory: MemoryOverview, _ mb: Double) -> Int {
+        guard let total = memory.totalMb else { return memory.minMb }
+        let step = Double(max(1, memory.stepMb))
+        let snapped = memory.minMb + Int(((mb - Double(memory.minMb)) / step).rounded()) * Int(step)
+        return min(total, max(memory.minMb, snapped))
+    }
+
+    /// The warning when this server, with the others running, may use more
+    /// than the PC has. nil when it fits or the PC's memory isn't known.
+    public static func warning(_ strings: Strings, _ memory: MemoryOverview, _ chosen: Int) -> String? {
+        guard let total = memory.totalMb else { return nil }
+        let others = memory.servers.filter { !$0.isThis && $0.running }
+        let together = others.reduce(0) { $0 + ($1.limitMb ?? 0) } + chosen
+        if together <= total { return nil }
+        if !others.isEmpty {
+            return strings.t("memory.over_together", ["names": others.map(\.name).joined(separator: ", "), "total": gb(together), "pc": gb(total)])
+        }
+        return strings.t("memory.over_alone", ["total": gb(together), "pc": gb(total)])
+    }
+
+    /// Under the slider: what is set now.
+    public static func nowLine(_ strings: Strings, _ memory: MemoryOverview) -> String {
+        guard let limit = memory.limitMb else { return strings.t("memory.unset") }
+        return strings.t("memory.now", ["limit": gb(limit)])
+    }
+
+    /// Why there is no slider.
+    public static func noSlider(_ strings: Strings, _ memory: MemoryOverview, bedrock: Bool) -> String {
+        if !memory.takesMemoryLimit { return strings.t(bedrock ? "memory.not_bedrock" : "memory.not_used") }
+        return strings.t("memory.pc_unknown")
+    }
+}

@@ -63,3 +63,13 @@ def test_color_answer_is_typed(signed_in):
     body = signed_in.put("/api/servers/test/color", json={"color": "#3366cc"}).json()
     assert body["ok"] is True
     assert body["color"].lower() == "#3366cc"
+
+
+def test_memory_answer_is_typed_and_bounded_by_the_pc(signed_in):
+    body = signed_in.get("/api/servers/test/memory").json()
+    assert body["min_mb"] == 1024
+    assert body["max_mb"] == body["total_mb"]
+    assert body["servers"][0]["this"] is True
+    saved = signed_in.put("/api/servers/test/memory", json={"memory_mb": 2048}).json()
+    assert saved["ok"] is True
+    assert saved["limit_mb"] == 2048

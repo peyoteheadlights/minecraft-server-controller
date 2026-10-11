@@ -135,4 +135,92 @@ final class SetupTests: XCTestCase {
         XCTAssertEqual(path(2), "/api/servers/s/color")
         XCTAssertEqual(body(2), #"{"color":"#3366CC"}"#)
     }
+
+    // MARK: - CPU cores and memory
+
+    func testCpuCoresShowWhoElseUsesEachCoreAndWhatTheServerGot() {
+        let cpu = CpuOverview(
+            logicalCores: 8, supported: true,
+            others: [CpuOther(id: "b", name: "Creative", cores: [0, 1]), CpuOther(id: "c", name: "Modded", cores: [1])],
+            status: CpuStatus(configured: [0, 1, 2, 3], applied: [0, 1, 2, 3])
+        )
+        XCTAssertEqual(CpuCores.sharedBy(cpu), [0: ["Creative"], 1: ["Creative", "Modded"]])
+        XCTAssertEqual(CpuCores.describe([6, 3, 0, 1, 2]), "1-4, 7")
+        XCTAssertEqual(CpuCores.half(7), [0, 1, 2, 3])
+        XCTAssertEqual(CpuCores.nowLine(s, cpu), "Using 1-4 now.")
+        var every = cpu
+        every.status = CpuStatus(applied: Array(0...7))
+        XCTAssertEqual(CpuCores.nowLine(s, every), "Using all cores now.")
+        var unknown = cpu
+        unknown.status = CpuStatus(appliedReason: "The server is not running")
+        XCTAssertEqual(CpuCores.nowLine(s, unknown), "Cores in use now unknown: The server is not running")
+        XCTAssertEqual(CpuCores.toSave(all: true, picked: [2]), [])
+        XCTAssertNil(CpuCores.toSave(all: false, picked: []))
+        XCTAssertEqual(CpuCores.toSave(all: false, picked: [3, 1]), [1, 3])
+    }
+
+    func testAfterSavingCoresThePhoneSaysWhetherTheRunningServerGotThem() throws {
+        XCTAssertEqual(CpuCores.saved(s, ServerSettingsSaved()), s.t("serverset.cores_next_start"))
+        XCTAssertEqual(CpuCores.saved(s, ServerSettingsSaved(cpuCores: CpuApplied(ok: true, applied: [0]))), s.t("serverset.cores_applied"))
+        XCTAssertEqual(CpuCores.saved(s, ServerSettingsSaved(cpuCores: CpuApplied(ok: false, reason: "Access denied"))), "Saved, but not applied yet: Access denied")
+        let decoded = try JSONDecoder().decode(ServerSettingsSaved.self, from: Data(#"{"ok": true, "applied": {"server.cpu_cores": [0]}, "rejected": {}, "cpu_cores": {"ok": true, "applied": [0], "reason": null}}"#.utf8))
+        XCTAssertEqual(decoded.cpuCores?.applied, [0])
+    }
+
+    private let memoryJSON = #"""
+    {"total_mb": 16384, "total_source": "measured (psutil)", "limit_mb": 6144, "jvm_args": ["-Xmx6G"],
+     "takes_memory_limit": true, "min_mb": 1024, "max_mb": 16384, "step_mb": 512, "together_mb": 14336,
+     "servers": [{"id": "s", "name": "Survival", "limit_mb": 6144, "running": false, "this": true},
+                 {"id": "b", "name": "Creative", "limit_mb": 8192, "running": true, "this": false}], "over": false, "running": false}
+    """#
+
+    private func memory() throws -> MemoryOverview {
+        try JSONDecoder().decode(MemoryOverview.self, from: Data(memoryJSON.utf8))
+    }
+
+    func testTheMemorySliderKeepsToWhatThePcHas() throws {
+        let memory = try memory()
+        XCTAssertTrue(Memory.slider(memory))
+        XCTAssertEqual(Memory.start(memory), 6144)
+        XCTAssertEqual(Memory.snap(memory, 100), 1024)
+        XCTAssertEqual(Memory.snap(memory, 99999), 16384)
+        XCTAssertEqual(Memory.snap(memory, 2700), 2560)
+        XCTAssertEqual(Memory.gb(6144), "6 GB")
+        XCTAssertEqual(Memory.gb(1536), "1.5 GB")
+        XCTAssertEqual(Memory.nowLine(s, memory), "Now: up to 6 GB. Changes apply on the next start.")
+        var unmeasured = memory
+        unmeasured.totalMb = nil
+        XCTAssertFalse(Memory.slider(unmeasured))
+        XCTAssertEqual(Memory.noSlider(s, unmeasured, bedrock: false), s.t("memory.pc_unknown"))
+    }
+
+    func testMemoryWarnsWhenEveryServerTogetherWouldUseMoreThanThePcHas() throws {
+        let memory = try memory()
+        XCTAssertNil(Memory.warning(s, memory, 8192))
+        XCTAssertEqual(Memory.warning(s, memory, 8704), "With Creative running, servers may use 16.5 GB, more than this PC has (16 GB).")
+        var alone = memory
+        alone.servers = Array(memory.servers.prefix(1))
+        XCTAssertEqual(Memory.warning(s, alone, 17408), "17 GB is more than this PC has (16 GB). Windows may slow down or the server may crash.")
+        var unmeasured = memory
+        unmeasured.totalMb = nil
+        XCTAssertNil(Memory.warning(s, unmeasured, 99999))
+    }
+
+    func testBedrockServersHaveNoMemorySetting() {
+        let bedrock = MemoryOverview(totalMb: 16384, takesMemoryLimit: false)
+        XCTAssertFalse(Memory.slider(bedrock))
+        XCTAssertEqual(Memory.noSlider(s, bedrock, bedrock: true), s.t("memory.not_bedrock"))
+    }
+
+    func testMemoryGoesToTheAgentsRoute() async throws {
+        let c = client()
+        StubAgent.json(memoryJSON)
+        let read = try await c.memory(serverId: "s")
+        XCTAssertEqual(read.limitMb, 6144)
+        XCTAssertEqual(path(0), "/api/servers/s/memory")
+        StubAgent.json(memoryJSON)
+        _ = try await c.setMemory(serverId: "s", mb: 4096)
+        XCTAssertEqual(method(1), "PUT")
+        XCTAssertEqual(body(1), #"{"memory_mb":4096}"#)
+    }
 }

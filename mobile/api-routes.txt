@@ -95,3 +95,5 @@ GET /api/version
 GET /api/servers/{server_id}/settings
 PUT /api/servers/{server_id}/settings
 PUT /api/servers/{server_id}/color
+GET /api/servers/{server_id}/memory
+PUT /api/servers/{server_id}/memory

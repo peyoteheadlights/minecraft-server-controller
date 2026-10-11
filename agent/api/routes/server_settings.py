@@ -12,7 +12,7 @@ from ...minecraft import cpu
 from ...security.auth import Principal
 from ...security.permissions import SETTINGS_EDIT, SETTINGS_VIEW, require
 from ..deps import audit, get_server
-from ..responses import ColorSaved, ServerSettings, ServerSettingsSaved
+from ..responses import ColorSaved, MemoryOverview, MemorySaved, ServerSettings, ServerSettingsSaved
 from .models import MemoryRequest, ServerColorRequest, ServerSettingsRequest
 
 router = APIRouter()
@@ -173,7 +173,7 @@ async def _announce_change(ctx, message: str) -> None:
     )
 
 
-@router.get("/memory")
+@router.get("/memory", response_model=MemoryOverview)
 async def get_memory(
     principal: Principal = Depends(require(SETTINGS_VIEW)), ctx=Depends(get_server)
 ):
@@ -181,7 +181,7 @@ async def get_memory(
     return memory.overview(ctx)
 
 
-@router.put("/memory")
+@router.put("/memory", response_model=MemorySaved)
 async def set_memory(
     payload: MemoryRequest,
     request: Request,

@@ -185,18 +185,41 @@ public struct ServerSettings: Decodable, Equatable, Sendable {
     }
 }
 
+/// The cores a running server got, read back from it.
+public struct CpuApplied: Decodable, Equatable, Sendable {
+    public var ok: Bool
+    public var applied: [Int]?
+    public var reason: String?
+
+    enum CodingKeys: String, CodingKey { case ok, applied, reason }
+
+    public init(ok: Bool = false, applied: [Int]? = nil, reason: String? = nil) {
+        self.ok = ok
+        self.applied = applied
+        self.reason = reason
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        ok = c.value(.ok, false)
+        applied = c.maybe(.applied)
+        reason = c.maybe(.reason)
+    }
+}
+
 public struct ServerSettingsSaved: Decodable, Equatable, Sendable {
     public var applied: [String: JSONValue]
     /// Each refused key with the agent's reason.
     public var rejected: [String: String]
-    public var cpuCores: [String: JSONValue]?
+    /// Only when the server is running.
+    public var cpuCores: CpuApplied?
 
     enum CodingKeys: String, CodingKey {
         case applied, rejected
         case cpuCores = "cpu_cores"
     }
 
-    public init(applied: [String: JSONValue] = [:], rejected: [String: String] = [:], cpuCores: [String: JSONValue]? = nil) {
+    public init(applied: [String: JSONValue] = [:], rejected: [String: String] = [:], cpuCores: CpuApplied? = nil) {
         self.applied = applied
         self.rejected = rejected
         self.cpuCores = cpuCores
@@ -216,4 +239,82 @@ public struct ColorSaved: Decodable, Equatable, Sendable {
     enum CodingKeys: String, CodingKey { case color }
 
     public init(color: String) { self.color = color }
+}
+
+public struct MemoryServer: Decodable, Equatable, Sendable {
+    public var id: String
+    public var name: String
+    public var limitMb: Int?
+    public var running: Bool
+    public var isThis: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, running
+        case limitMb = "limit_mb"
+        case isThis = "this"
+    }
+
+    public init(id: String, name: String = "", limitMb: Int? = nil, running: Bool = false, isThis: Bool = false) {
+        self.id = id
+        self.name = name
+        self.limitMb = limitMb
+        self.running = running
+        self.isThis = isThis
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        name = c.value(.name, "")
+        limitMb = c.maybe(.limitMb)
+        running = c.value(.running, false)
+        isThis = c.value(.isThis, false)
+    }
+}
+
+/// The memory slider: bounded by the PC's measured memory.
+public struct MemoryOverview: Decodable, Equatable, Sendable {
+    /// nil when it couldn't be measured: the slider is off then.
+    public var totalMb: Int?
+    public var limitMb: Int?
+    public var jvmArgs: [String]
+    public var takesMemoryLimit: Bool
+    public var minMb: Int
+    public var stepMb: Int
+    public var servers: [MemoryServer]
+    public var running: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case servers, running
+        case totalMb = "total_mb"
+        case limitMb = "limit_mb"
+        case jvmArgs = "jvm_args"
+        case takesMemoryLimit = "takes_memory_limit"
+        case minMb = "min_mb"
+        case stepMb = "step_mb"
+    }
+
+    public init(totalMb: Int? = nil, limitMb: Int? = nil, jvmArgs: [String] = [], takesMemoryLimit: Bool = false,
+                minMb: Int = 1024, stepMb: Int = 512, servers: [MemoryServer] = [], running: Bool = false) {
+        self.totalMb = totalMb
+        self.limitMb = limitMb
+        self.jvmArgs = jvmArgs
+        self.takesMemoryLimit = takesMemoryLimit
+        self.minMb = minMb
+        self.stepMb = stepMb
+        self.servers = servers
+        self.running = running
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        totalMb = c.maybe(.totalMb)
+        limitMb = c.maybe(.limitMb)
+        jvmArgs = c.value(.jvmArgs, [])
+        takesMemoryLimit = c.value(.takesMemoryLimit, false)
+        minMb = c.value(.minMb, 1024)
+        stepMb = c.value(.stepMb, 512)
+        servers = c.each(.servers)
+        running = c.value(.running, false)
+    }
 }

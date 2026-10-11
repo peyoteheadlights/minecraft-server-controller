@@ -529,6 +529,15 @@ class AgentClient(
         ServerSettingsSaved.serializer(),
     )
 
+    suspend fun memory(serverId: String): MemoryOverview =
+        get("${server(serverId)}/memory", MemoryOverview.serializer())
+
+    /** Sets only the -Xmx limit; used from the next start. */
+    suspend fun setMemory(serverId: String, mb: Int): MemoryOverview = call(
+        request("${server(serverId)}/memory").put(buildJsonObject { put("memory_mb", mb) }.toBody()).build(),
+        MemoryOverview.serializer(),
+    )
+
     suspend fun setColor(serverId: String, color: String): ColorSaved = call(
         request("${server(serverId)}/color").put(buildJsonObject { put("color", color) }.toBody()).build(),
         ColorSaved.serializer(),

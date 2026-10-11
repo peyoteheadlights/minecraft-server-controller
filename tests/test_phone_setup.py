@@ -153,3 +153,53 @@ def test_the_folder_picker_lists_drives_then_folders_and_refuses_with_a_reason(s
     refused = signed_in.get("/api/folders", params={"path": "not/whole"})
     assert refused.status_code == 400
     assert refused.json()["detail"] == "Choose the whole path to a folder."
+
+
+def test_new_server_options_and_creating_one_are_typed(signed_in, tmp_path, monkeypatch):
+    import httpx
+
+    from agent import downloads
+    from agent.servertypes import create as create_module
+
+    from .test_server_types import MC, fake_sources
+
+    monkeypatch.setattr(downloads, "TRANSPORT", httpx.MockTransport(fake_sources()))
+    monkeypatch.setattr(create_module, "java_problem", lambda *args, **kwargs: None)
+    options = signed_in.get("/api/new-server/options").json()
+    assert options["types"] and options["palette"]
+    assert options["bedrock"]["privacy_url"]
+    refused = signed_in.post(
+        "/api/new-server",
+        json={
+            "name": "Fresh",
+            "directory": str(tmp_path / "fresh"),
+            "type": "vanilla",
+            "minecraft_version": MC,
+        },
+    )
+    assert refused.status_code == 400
+    assert "EULA" in refused.json()["detail"]
+    made = signed_in.post(
+        "/api/new-server",
+        json={
+            "name": "Fresh",
+            "directory": str(tmp_path / "fresh"),
+            "type": "vanilla",
+            "minecraft_version": MC,
+            "eula_accepted": True,
+        },
+    ).json()
+    assert made["server"]["id"] == made["server_id"]
+    assert made["job_id"]
+
+
+def test_adding_a_server_already_on_the_pc_says_the_agents_warnings(signed_in, tmp_path):
+    folder = tmp_path / "skyblock"
+    folder.mkdir()
+    (folder / "server.jar").write_bytes(b"jar")
+    added = signed_in.post(
+        "/api/servers", json={"name": "Skyblock", "directory": str(folder), "type": "vanilla"}
+    ).json()
+    assert added["ok"] is True
+    assert added["server"]["name"] == "Skyblock"
+    assert isinstance(added["warnings"], list) and added["warnings"]

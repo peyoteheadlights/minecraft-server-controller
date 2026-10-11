@@ -37,6 +37,12 @@ final class AppModel {
     @ObservationIgnored private var watchers: [String] = []
     @ObservationIgnored private var watching: String? = nil
     @ObservationIgnored private var pagesById: [String: ServerPages] = [:]
+    /// The "+" on All servers, kept while the app runs so setting up shows its progress again.
+    @ObservationIgnored private(set) lazy var adding = AddServerPages(
+        client: { [weak self] in self?.client },
+        noted: { [weak self] problem in self?.note(problem) },
+        listChanged: { [weak self] in await self?.refreshServers() }
+    )
 
     // Settings.
     var technical: Bool
@@ -426,6 +432,7 @@ final class AppModel {
                 case .consoleTail(let serverId, let lines):
                     self.pagesById[serverId]?.onConsoleTail(lines)
                 case .task(let serverId, let job):
+                    self.adding.onTask(job)
                     if let serverId = serverId {
                         self.pagesById[serverId]?.content.onTask(job)
                         self.pagesById[serverId]?.world.onTask(job)

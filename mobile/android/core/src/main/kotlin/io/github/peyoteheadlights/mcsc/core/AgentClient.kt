@@ -297,6 +297,48 @@ class AgentClient(
         OffsiteSaved.serializer(),
     )
 
+    suspend fun newServerOptions(): NewServerOptions = get("/api/new-server/options", NewServerOptions.serializer())
+
+    /** Downloads and sets up a new server as a task; it isn't started. */
+    suspend fun createServer(new: NewServerRequest): ServerCreated = call(
+        post("/api/new-server", buildJsonObject {
+            put("name", new.name)
+            put("directory", new.directory)
+            put("type", new.type)
+            put("minecraft_version", new.minecraft)
+            new.loader?.let { put("loader_version", it) }
+            new.memoryMb?.let { put("memory_mb", it) }
+            new.color?.let { put("color", it) }
+            put("eula_accepted", new.eulaAccepted)
+        }),
+        ServerCreated.serializer(),
+        slow = true,
+    )
+
+    /** Puts a server folder already on the PC on the list; nothing in it changes. */
+    suspend fun addServer(name: String, directory: String, type: String, jar: String): ServerAdded = call(
+        post("/api/servers", buildJsonObject {
+            put("name", name)
+            put("directory", directory)
+            put("type", type)
+            put("jar", jar)
+        }),
+        ServerAdded.serializer(),
+    )
+
+    /** Makes a new server from a pack already read by [inspectModpack]. */
+    suspend fun modpackServer(token: String, name: String, directory: String, memoryMb: Int?, color: String?, eulaAccepted: Boolean): ServerCreated = call(
+        post("/api/modpacks/${path(token)}/new-server", buildJsonObject {
+            put("name", name)
+            put("directory", directory)
+            memoryMb?.let { put("memory_mb", it) }
+            color?.let { put("color", it) }
+            put("eula_accepted", eulaAccepted)
+        }),
+        ServerCreated.serializer(),
+        slow = true,
+    )
+
     /** The folders inside [path] on the PC, or the drives and shortcuts when null. */
     suspend fun folders(path: String?): FolderListing =
         get(if (path.isNullOrEmpty()) "/api/folders" else "/api/folders?path=${path(path)}", FolderListing.serializer())
@@ -373,6 +415,9 @@ class AgentClient(
     }
 
     /** This server's recent tasks, newest first. */
+    /** Every server's tasks running now, including a new server being set up. */
+    suspend fun runningJobs(): JobList = get("/api/jobs?running=true", JobList.serializer())
+
     suspend fun jobs(serverId: String, limit: Int = 20): JobList =
         get("/api/jobs?server_id=${path(serverId)}&limit=${limit.coerceIn(1, 200)}", JobList.serializer())
 
@@ -491,8 +536,12 @@ class AgentClient(
         call(upload("${server(serverId)}/mods/upload", file), ModUploaded.serializer(), slow = true)
 
     /** Reads a modpack (.mrpack) and says what importing it here would do. */
-    suspend fun inspectModpack(serverId: String, file: PickedFile): ModpackInspected =
-        call(upload("/api/modpacks/inspect?server_id=${path(serverId)}", file), ModpackInspected.serializer(), slow = true)
+    /** Reads a pack; with [serverId], also what importing it there would do. */
+    suspend fun inspectModpack(serverId: String?, file: PickedFile): ModpackInspected = call(
+        upload(if (serverId == null) "/api/modpacks/inspect" else "/api/modpacks/inspect?server_id=${path(serverId)}", file),
+        ModpackInspected.serializer(),
+        slow = true,
+    )
 
     /** Throws away a modpack read but not imported. */
     suspend fun forgetModpack(token: String): Ok =

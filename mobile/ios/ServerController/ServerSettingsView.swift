@@ -325,7 +325,7 @@ struct SettingField: View {
 
 /// The palette as dots, and a box for any color typed as #RRGGBB. The
 /// preview is the server's badge, so its text is checked to stay readable.
-private struct ServerColorPicker: View {
+struct ServerColorPicker: View {
     let colors: [PaletteColor]
     let current: String?
     let locked: Bool

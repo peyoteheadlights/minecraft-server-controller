@@ -476,5 +476,110 @@ class SetupTest {
             assertEquals("""{"directory":"D:\\Backups"}""", agent.server.takeRequest().body.readUtf8())
         }
     }
+
+    private val optionsJson = """{"types": [
+        {"id": "vanilla", "name": "Vanilla", "edition": "java", "ease": "easy", "snapshots": true, "version_source": "Mojang version list"},
+        {"id": "fabric", "name": "Fabric", "edition": "java", "content": "mods", "ease": "easy", "modrinth": true, "picks_loader": true, "loader_name": "Fabric Loader", "metadata_files": ["fabric.mod.json"], "recommended": true},
+        {"id": "bedrock", "name": "Bedrock", "edition": "bedrock", "takes_memory_limit": false, "latest_only": true}
+      ], "recommended": "fabric", "memory_mb": 4096, "memory_reason": null, "port": 25566, "color": "#F87906",
+      "palette": [{"id": "orange", "name": "Orange", "hex": "#F87906"}], "eula_url": "https://aka.ms/MinecraftEULA",
+      "bedrock": {"port": 19132, "port_v6": 19133, "eula_url": "https://minecraft.net/eula", "privacy_url": "https://privacy", "terms": null}}"""
+
+    @Test
+    fun `new servers are the owner's, and Bedrock skips the table of kinds`() {
+        val options = AgentJson.decodeFromString<NewServerOptions>(optionsJson)
+        assertFalse(AddServer.allowed(me(Permissions.SETTINGS_EDIT)))
+        assertTrue(AddServer.allowed(me(Permissions.SERVERS_MANAGE)))
+        assertEquals(listOf("vanilla", "fabric"), AddServer.kinds(options).map { it.id })
+        assertEquals(listOf(AddServer.EDITION, AddServer.KIND, AddServer.VERSION, AddServer.DETAILS, AddServer.RULES), AddServer.steps("java"))
+        assertEquals(listOf(AddServer.EDITION, AddServer.VERSION, AddServer.DETAILS, AddServer.RULES), AddServer.steps("bedrock"))
+        assertEquals("bedrock", AddServer.bedrockType(options)?.id)
+        assertTrue(AddServer.memoryShown(options.types[1]))
+        assertFalse(AddServer.memoryShown(options.types[2]))
+    }
+
+    @Test
+    fun `the table of kinds comes from the agent's types`() {
+        val fabric = AgentJson.decodeFromString<NewServerOptions>(optionsJson).types[1]
+        val rows = AddServer.rows(strings, fabric, technical = false)
+        assertEquals(
+            listOf(
+                strings.t("new.col_best_for") to strings.t("types.fabric.best"),
+                strings.t("new.col_content") to strings.t("new.content_mods"),
+                strings.t("new.col_modrinth") to strings.t("value.yes"),
+                strings.t("new.col_crossplay") to strings.t("value.no"),
+                strings.t("new.col_ease") to strings.t("new.ease_easy"),
+            ),
+            rows,
+        )
+        val technical = AddServer.rows(strings, fabric, technical = true)
+        assertEquals(strings.t("new.col_loader") to "Fabric Loader", technical[5])
+        assertEquals(strings.t("new.col_metadata") to "fabric.mod.json", technical[6])
+    }
+
+    @Test
+    fun `the newest finished version is picked first`() {
+        val versions = AgentJson.decodeFromString<TypeVersions>(
+            """{"type": "vanilla", "type_name": "Vanilla", "versions": [{"minecraft": "25w01a", "stable": false}, {"minecraft": "1.21.4", "latest": true}, {"minecraft": "1.21.3"}]}"""
+        )
+        assertEquals("1.21.4", AddServer.firstVersion(versions)?.minecraft)
+        assertNull(AddServer.firstVersion(TypeVersions()))
+    }
+
+    @Test
+    fun `the folder is a new one named after the server, inside the one picked`() {
+        assertEquals("D:\\Minecraft\\Survival", AddServer.folderFor("D:\\Minecraft", " Survival "))
+        assertEquals("D:\\Survival", AddServer.folderFor("D:\\", "Survival"))
+        assertEquals("/srv/mc/My world", AddServer.folderFor("/srv/mc/", "My: world?"))
+        assertEquals("D:\\Minecraft", AddServer.folderFor("D:\\Minecraft", "  "))
+    }
+
+    @Test
+    fun `create waits for the rules to be ticked`() {
+        assertFalse(AddServer.ready(name = "A", folder = "D:\\A", version = "1.21.4", ruled = false))
+        assertFalse(AddServer.ready(name = "A", folder = "", version = "1.21.4", ruled = true))
+        assertFalse(AddServer.ready(name = "A", folder = "D:\\A", version = null, ruled = true))
+        assertTrue(AddServer.ready(name = "A", folder = "D:\\A", version = "1.21.4", ruled = true))
+        assertEquals("new.eula_tick", AddServer.ruleKey("java"))
+        assertEquals("new.bedrock_tick", AddServer.ruleKey("bedrock"))
+    }
+
+    @Test
+    fun `a creation still running is found again, and the agent's warnings are said after adding`() {
+        val running = Job("j", kind = "server_create", state = "running", step = "Downloading")
+        assertEquals(running, AddServer.creating(listOf(Job("k", kind = "backup", state = "running"), running)))
+        assertNull(AddServer.creating(listOf(running.copy(state = "succeeded"))))
+        val added = AgentJson.decodeFromString<ServerAdded>(
+            """{"ok": true, "server": {"id": "sky", "name": "Skyblock", "state": "OFFLINE"}, "warnings": ["No port is set."]}"""
+        )
+        assertEquals(listOf(strings.t("add.added", "name" to "Skyblock"), "No port is set."), AddServer.addedLines(strings, added))
+    }
+
+    @Test
+    fun `adding and creating go to the agent's routes`() = runBlocking {
+        TestAgent().use { agent ->
+            val c = client(agent)
+            agent.server.enqueue(agent.json(optionsJson))
+            assertEquals("fabric", c.newServerOptions().recommended)
+            assertEquals("/api/new-server/options", agent.server.takeRequest().path)
+            agent.server.enqueue(agent.json("""{"ok": true, "server_id": "fresh", "name": "Fresh", "directory": "D:/Fresh", "job_id": "j", "server": {"id": "fresh", "name": "Fresh", "state": "OFFLINE"}}"""))
+            assertEquals("fresh", c.createServer(NewServerRequest("Fresh", "D:/Fresh", "fabric", "1.21.4", null, 4096, "#F87906", eulaAccepted = true)).serverId)
+            assertEquals(
+                """{"name":"Fresh","directory":"D:/Fresh","type":"fabric","minecraft_version":"1.21.4","memory_mb":4096,"color":"#F87906","eula_accepted":true}""",
+                agent.server.takeRequest().body.readUtf8(),
+            )
+            agent.server.enqueue(agent.json("""{"ok": true, "server": {"id": "sky", "name": "Sky", "state": "OFFLINE"}, "warnings": []}"""))
+            assertEquals("sky", c.addServer("Sky", "D:/Sky", "paper", jar = "").server.id)
+            assertEquals("""{"name":"Sky","directory":"D:/Sky","type":"paper","jar":""}""", agent.server.takeRequest().body.readUtf8())
+            agent.server.enqueue(agent.json("""{"ok": true, "server_id": "pack", "name": "Pack", "directory": "D:/Pack", "job_id": "j", "server": {"id": "pack", "name": "Pack", "state": "OFFLINE"}}"""))
+            c.modpackServer("abc", "Pack", "D:/Pack", null, null, eulaAccepted = true)
+            val made = agent.server.takeRequest()
+            assertEquals("/api/modpacks/abc/new-server", made.path)
+            assertEquals("""{"name":"Pack","directory":"D:/Pack","eula_accepted":true}""", made.body.readUtf8())
+            agent.server.enqueue(agent.json("""{"jobs": []}"""))
+            c.runningJobs()
+            assertEquals("/api/jobs?running=true", agent.server.takeRequest().path)
+        }
+    }
 }
 

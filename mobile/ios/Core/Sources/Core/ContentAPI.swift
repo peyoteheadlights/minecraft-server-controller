@@ -105,8 +105,10 @@ extension AgentClient {
     }
 
     /// Reads a modpack (.mrpack) and says what importing it here would do.
-    public func inspectModpack(serverId: String, file: PickedFile) async throws -> ModpackInspected {
-        try await upload("/api/modpacks/inspect?server_id=" + AgentClient.pathSegment(serverId), file, as: ModpackInspected.self)
+    /// Reads a pack; with `serverId`, also what importing it there would do.
+    public func inspectModpack(serverId: String?, file: PickedFile) async throws -> ModpackInspected {
+        let path = serverId.map { "/api/modpacks/inspect?server_id=" + AgentClient.pathSegment($0) } ?? "/api/modpacks/inspect"
+        return try await upload(path, file, as: ModpackInspected.self)
     }
 
     /// Throws away a modpack read but not imported.

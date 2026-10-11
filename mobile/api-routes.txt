@@ -112,3 +112,7 @@ POST /api/servers/{server_id}/duplicate
 DELETE /api/servers/{server_id}
 # Part 5b: the PC folder picker, new servers and world import
 GET /api/folders
+POST /api/servers
+GET /api/new-server/options
+POST /api/new-server
+POST /api/modpacks/{token}/new-server

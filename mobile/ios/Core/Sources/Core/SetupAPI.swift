@@ -90,6 +90,36 @@ extension AgentClient {
         try await call("DELETE", setup(serverId), as: ServerRemoved.self)
     }
 
+    public func newServerOptions() async throws -> NewServerOptions {
+        try await call("GET", "/api/new-server/options", as: NewServerOptions.self)
+    }
+
+    /// Downloads and sets up a new server as a task; it isn't started.
+    public func createServer(_ new: NewServerRequest) async throws -> ServerCreated {
+        var body: [String: JSONValue] = [
+            "name": .string(new.name), "directory": .string(new.directory), "type": .string(new.type),
+            "minecraft_version": .string(new.minecraft), "eula_accepted": .bool(new.eulaAccepted),
+        ]
+        if let loader = new.loader { body["loader_version"] = .string(loader) }
+        if let memory = new.memoryMb { body["memory_mb"] = .number(Double(memory)) }
+        if let color = new.color { body["color"] = .string(color) }
+        return try await call("POST", "/api/new-server", body: try AgentClient.encode(body), slow: true, as: ServerCreated.self)
+    }
+
+    /// Puts a server folder already on the PC on the list; nothing in it changes.
+    public func addServer(name: String, directory: String, type: String, jar: String) async throws -> ServerAdded {
+        let body = try AgentClient.encode(["name": .string(name), "directory": .string(directory), "type": .string(type), "jar": .string(jar)])
+        return try await call("POST", "/api/servers", body: body, as: ServerAdded.self)
+    }
+
+    /// Makes a new server from a pack already read by `inspectModpack`.
+    public func modpackServer(token: String, name: String, directory: String, memoryMb: Int?, color: String?, eulaAccepted: Bool) async throws -> ServerCreated {
+        var body: [String: JSONValue] = ["name": .string(name), "directory": .string(directory), "eula_accepted": .bool(eulaAccepted)]
+        if let memory = memoryMb { body["memory_mb"] = .number(Double(memory)) }
+        if let color { body["color"] = .string(color) }
+        return try await call("POST", "/api/modpacks/" + AgentClient.pathSegment(token) + "/new-server", body: try AgentClient.encode(body), slow: true, as: ServerCreated.self)
+    }
+
     /// The folders inside `path` on the PC, or the drives and shortcuts when nil.
     public func folders(path: String?) async throws -> FolderListing {
         guard let path, !path.isEmpty else { return try await call("GET", "/api/folders", as: FolderListing.self) }

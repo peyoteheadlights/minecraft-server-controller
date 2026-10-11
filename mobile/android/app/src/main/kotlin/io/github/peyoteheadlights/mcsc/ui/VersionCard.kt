@@ -155,7 +155,7 @@ fun VersionCard(vm: AppViewModel, setup: SetupPages, canEdit: Boolean, ask: (Set
 
 /** A button showing the pick, opening the list to choose from. */
 @Composable
-private fun Picker(label: String, shown: String, options: List<Pair<String, String>>, onPick: (String) -> Unit) {
+internal fun Picker(label: String, shown: String, options: List<Pair<String, String>>, onPick: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Column {
         Text(label, color = LocalColors.current.text)

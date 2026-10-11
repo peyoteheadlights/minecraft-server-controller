@@ -333,16 +333,21 @@ public struct ServerTypeInfo: Decodable, Equatable, Sendable {
     public var takesMemoryLimit: Bool
     public var crossplay: Bool
     public var recommended: Bool
+    public var modrinth: Bool
+    public var metadataFiles: [String]
+    public var versionSource: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, name, edition, content, ease, snapshots, crossplay, recommended
+        case id, name, edition, content, ease, snapshots, crossplay, recommended, modrinth
         case picksLoader = "picks_loader"
         case loaderName = "loader_name"
         case latestOnly = "latest_only"
         case takesMemoryLimit = "takes_memory_limit"
+        case metadataFiles = "metadata_files"
+        case versionSource = "version_source"
     }
 
-    public init(id: String, name: String = "", edition: String = "java", content: String? = nil, ease: String? = nil, snapshots: Bool = false, picksLoader: Bool = false, loaderName: String? = nil, latestOnly: Bool = false, takesMemoryLimit: Bool = true, crossplay: Bool = false, recommended: Bool = false) {
+    public init(id: String, name: String = "", edition: String = "java", content: String? = nil, ease: String? = nil, snapshots: Bool = false, picksLoader: Bool = false, loaderName: String? = nil, latestOnly: Bool = false, takesMemoryLimit: Bool = true, crossplay: Bool = false, recommended: Bool = false, modrinth: Bool = false, metadataFiles: [String] = [], versionSource: String? = nil) {
         self.id = id
         self.name = name
         self.edition = edition
@@ -355,6 +360,9 @@ public struct ServerTypeInfo: Decodable, Equatable, Sendable {
         self.takesMemoryLimit = takesMemoryLimit
         self.crossplay = crossplay
         self.recommended = recommended
+        self.modrinth = modrinth
+        self.metadataFiles = metadataFiles
+        self.versionSource = versionSource
     }
 
     public init(from decoder: Decoder) throws {
@@ -371,6 +379,9 @@ public struct ServerTypeInfo: Decodable, Equatable, Sendable {
         takesMemoryLimit = c.value(.takesMemoryLimit, true)
         crossplay = c.value(.crossplay, false)
         recommended = c.value(.recommended, false)
+        modrinth = c.value(.modrinth, false)
+        metadataFiles = c.value(.metadataFiles, [])
+        versionSource = c.maybe(.versionSource)
     }
 }
 
@@ -440,11 +451,12 @@ public struct TypeVersions: Decodable, Equatable, Sendable {
     public var picksLoader: Bool
     public var loaderName: String?
     public var latestStable: String?
+    public var source: String?
     public var versions: [OfferedVersion]
     public var sourceProblem: String?
 
     enum CodingKeys: String, CodingKey {
-        case type, snapshots, versions
+        case type, snapshots, source, versions
         case typeName = "type_name"
         case latestOnly = "latest_only"
         case picksLoader = "picks_loader"
@@ -453,7 +465,7 @@ public struct TypeVersions: Decodable, Equatable, Sendable {
         case sourceProblem = "source_problem"
     }
 
-    public init(type: String = "", typeName: String = "", latestOnly: Bool = false, snapshots: Bool = false, picksLoader: Bool = false, loaderName: String? = nil, latestStable: String? = nil, versions: [OfferedVersion] = [], sourceProblem: String? = nil) {
+    public init(type: String = "", typeName: String = "", latestOnly: Bool = false, snapshots: Bool = false, picksLoader: Bool = false, loaderName: String? = nil, latestStable: String? = nil, source: String? = nil, versions: [OfferedVersion] = [], sourceProblem: String? = nil) {
         self.type = type
         self.typeName = typeName
         self.latestOnly = latestOnly
@@ -461,6 +473,7 @@ public struct TypeVersions: Decodable, Equatable, Sendable {
         self.picksLoader = picksLoader
         self.loaderName = loaderName
         self.latestStable = latestStable
+        self.source = source
         self.versions = versions
         self.sourceProblem = sourceProblem
     }
@@ -474,6 +487,7 @@ public struct TypeVersions: Decodable, Equatable, Sendable {
         picksLoader = c.value(.picksLoader, false)
         loaderName = c.maybe(.loaderName)
         latestStable = c.maybe(.latestStable)
+        source = c.maybe(.source)
         versions = c.each(.versions)
         sourceProblem = c.maybe(.sourceProblem)
     }
@@ -977,5 +991,138 @@ public struct OffsiteSaved: Decodable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         directory = c.value(.directory, "")
+    }
+}
+
+/// A server folder already on the PC, now on the list.
+public struct ServerAdded: Decodable, Equatable, Sendable {
+    public var server: ServerRow
+    public var warnings: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case server, warnings
+    }
+
+    public init(server: ServerRow, warnings: [String] = []) {
+        self.server = server
+        self.warnings = warnings
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        server = try c.decode(ServerRow.self, forKey: .server)
+        warnings = c.value(.warnings, [])
+    }
+}
+
+public struct BedrockNewOptions: Decodable, Equatable, Sendable {
+    public var port: Int?
+    public var eulaUrl: String
+    public var privacyUrl: String
+
+    enum CodingKeys: String, CodingKey {
+        case port
+        case eulaUrl = "eula_url"
+        case privacyUrl = "privacy_url"
+    }
+
+    public init(port: Int? = nil, eulaUrl: String = "", privacyUrl: String = "") {
+        self.port = port
+        self.eulaUrl = eulaUrl
+        self.privacyUrl = privacyUrl
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        port = c.maybe(.port)
+        eulaUrl = c.value(.eulaUrl, "")
+        privacyUrl = c.value(.privacyUrl, "")
+    }
+}
+
+/// What the New server steps need before anything is chosen.
+public struct NewServerOptions: Decodable, Equatable, Sendable {
+    public var types: [ServerTypeInfo]
+    public var recommended: String
+    public var memoryMb: Int?
+    public var color: String?
+    public var palette: [PaletteColor]
+    public var eulaUrl: String
+    public var bedrock: BedrockNewOptions
+
+    enum CodingKeys: String, CodingKey {
+        case types, recommended, color, palette, bedrock
+        case memoryMb = "memory_mb"
+        case eulaUrl = "eula_url"
+    }
+
+    public init(types: [ServerTypeInfo] = [], recommended: String = "", memoryMb: Int? = nil, color: String? = nil, palette: [PaletteColor] = [], eulaUrl: String = "", bedrock: BedrockNewOptions = BedrockNewOptions()) {
+        self.types = types
+        self.recommended = recommended
+        self.memoryMb = memoryMb
+        self.color = color
+        self.palette = palette
+        self.eulaUrl = eulaUrl
+        self.bedrock = bedrock
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        types = c.each(.types)
+        recommended = c.value(.recommended, "")
+        memoryMb = c.maybe(.memoryMb)
+        color = c.maybe(.color)
+        palette = c.each(.palette)
+        eulaUrl = c.value(.eulaUrl, "")
+        bedrock = c.value(.bedrock, BedrockNewOptions())
+    }
+}
+
+/// A brand-new server, set up and not started.
+public struct ServerCreated: Decodable, Equatable, Sendable {
+    public var serverId: String
+    public var name: String
+    public var jobId: String?
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case serverId = "server_id"
+        case jobId = "job_id"
+    }
+
+    public init(serverId: String, name: String = "", jobId: String? = nil) {
+        self.serverId = serverId
+        self.name = name
+        self.jobId = jobId
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        serverId = try c.decode(String.self, forKey: .serverId)
+        name = c.value(.name, "")
+        jobId = c.maybe(.jobId)
+    }
+}
+
+/// What "Create server" sends; only the person's own tick accepts the rules.
+public struct NewServerRequest: Equatable, Sendable {
+    public var name: String
+    public var directory: String
+    public var type: String
+    public var minecraft: String
+    public var loader: String?
+    public var memoryMb: Int?
+    public var color: String?
+    public var eulaAccepted: Bool
+
+    public init(name: String, directory: String, type: String, minecraft: String, loader: String?, memoryMb: Int?, color: String?, eulaAccepted: Bool) {
+        self.name = name
+        self.directory = directory
+        self.type = type
+        self.minecraft = minecraft
+        self.loader = loader
+        self.memoryMb = memoryMb
+        self.color = color
+        self.eulaAccepted = eulaAccepted
     }
 }

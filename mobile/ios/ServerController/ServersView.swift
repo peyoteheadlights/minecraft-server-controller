@@ -45,6 +45,16 @@ struct ServersListView: View {
                 await model.refreshServers()
             }
             .navigationTitle(model.t("mobile.servers.title"))
+            .toolbar {
+                if AddServer.allowed(model.me) {
+                    ToolbarItem(placement: .primaryAction) {
+                        NavigationLink(value: ServerRoute.add) {
+                            Image(systemName: "plus")
+                        }
+                        .accessibilityLabel(model.t("mobile.add.title"))
+                    }
+                }
+            }
             .navigationDestination(for: ServerRoute.self) { route in
                 switch route {
                 case .server(let id):
@@ -75,6 +85,8 @@ struct ServersListView: View {
                     GameSettingsView(serverId: id)
                 case .settings(let id):
                     ServerSettingsView(serverId: id)
+                case .add:
+                    AddServerView()
                 }
             }
         }

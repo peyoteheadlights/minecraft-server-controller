@@ -626,7 +626,7 @@ struct ContentView: View {
 }
 
 /// The picked file's own copy in the app's temporary folder.
-private enum PickedCopy {
+enum PickedCopy {
     static func make(_ url: URL) throws -> PickedFile {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }

@@ -1328,6 +1328,9 @@ class ServerType(Open):
     crossplay: bool = False
     has_content: bool = False
     recommended: bool = False
+    modrinth: bool = False
+    metadata_files: list[str] = []
+    version_source: str | None = None
 
 
 class ServerTypes(Open):
@@ -1504,3 +1507,55 @@ class FolderListing(Open):
     shortcuts: list[PcShortcut] = []
     truncated: bool = False
     world: bool = False
+
+
+# ------------------------------------------------------------ adding a server
+class ServerAdded(Open):
+    """A server folder already on the PC, now on the list. Nothing in it changed."""
+
+    ok: bool
+    server: ServerRow
+    warnings: list[str] = Field(
+        [], description="Said in the agent's own words: no port set, a shared port"
+    )
+
+
+class BedrockNewOptions(Open):
+    port: int | None = Field(None, description="null when no free pair of UDP ports was found")
+    port_v6: int | None = None
+    eula_url: str
+    privacy_url: str
+    terms: dict[str, Any] | None = Field(
+        None, description="Who accepted Mojang's terms and when; null before anyone did"
+    )
+
+
+class NewServerOptions(Open):
+    types: list[ServerType]
+    recommended: str
+    memory_mb: int | None = Field(
+        None, description="The suggested memory; null when the PC's memory couldn't be read"
+    )
+    memory_reason: str | None = None
+    port: int
+    color: str
+    palette: list[PaletteColor]
+    eula_url: str
+    bedrock: BedrockNewOptions
+
+
+class ServerCreated(Open):
+    """A brand-new server, set up and not started."""
+
+    ok: bool
+    server_id: str
+    name: str
+    directory: str
+    port: int | None = None
+    memory_mb: int | None = None
+    job_id: str
+    server: ServerRow
+    next: str | None = None
+    modpack: dict[str, Any] | None = Field(
+        None, description="Only for a server made from a modpack"
+    )

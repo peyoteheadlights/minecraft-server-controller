@@ -23,6 +23,8 @@ enum ServerRoute: Hashable {
     case content(String)
     case game(String)
     case settings(String)
+    /// The "+" on All servers.
+    case add
 }
 
 /// A server's own screens, with the dashboard's titles for them.

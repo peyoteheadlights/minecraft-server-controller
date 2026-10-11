@@ -573,3 +573,90 @@ public enum FolderPicker {
     }
 }
 
+/// The "+" on All servers (pages/add-server.js, panels/newserver.js): a new
+/// server, one from a modpack, or one already on the PC. The owner's alone.
+public enum AddServer {
+    public static let NEW = "new"
+    public static let MODPACK = "modpack"
+    public static let HAVE = "have"
+    public static let WAYS = [NEW, MODPACK, HAVE]
+
+    public static let EDITION = "edition"
+    public static let KIND = "kind"
+    public static let VERSION = "version"
+    public static let DETAILS = "details"
+    public static let RULES = "rules"
+
+    public static func allowed(_ me: Me?) -> Bool { me?.can(Permissions.SERVERS_MANAGE) == true }
+
+    /// Bedrock has one kind of server, so it skips the table.
+    public static func steps(_ edition: String) -> [String] {
+        edition == "bedrock" ? [EDITION, VERSION, DETAILS, RULES] : [EDITION, KIND, VERSION, DETAILS, RULES]
+    }
+
+    /// The Java kinds for the table, as the agent lists them.
+    public static func kinds(_ options: NewServerOptions) -> [ServerTypeInfo] { options.types.filter { $0.edition == "java" } }
+
+    public static func bedrockType(_ options: NewServerOptions) -> ServerTypeInfo? { options.types.first { $0.edition == "bedrock" } }
+
+    public static func memoryShown(_ type: ServerTypeInfo) -> Bool { type.takesMemoryLimit && type.edition != "bedrock" }
+
+    /// One kind's column of the table, as label and value; Technical mode
+    /// adds the loader, files and source.
+    public static func rows(_ strings: Strings, _ type: ServerTypeInfo, technical: Bool) -> [(String, String)] {
+        func yesNo(_ value: Bool) -> String { strings.t(value ? "value.yes" : "value.no") }
+        let content: String
+        switch type.content {
+        case nil: content = "new.content_none"
+        case "plugins": content = "new.content_plugins"
+        default: content = "new.content_mods"
+        }
+        var rows: [(String, String)] = [
+            (strings.t("new.col_best_for"), strings.t("types.\(type.id).best")),
+            (strings.t("new.col_content"), strings.t(content)),
+            (strings.t("new.col_modrinth"), yesNo(type.modrinth)),
+            (strings.t("new.col_crossplay"), yesNo(type.crossplay)),
+            (strings.t("new.col_ease"), type.ease.map { strings.t("new.ease_\($0)") } ?? strings.t("value.unknown")),
+        ]
+        if technical {
+            rows.append((strings.t("new.col_loader"), type.loaderName ?? strings.t("new.content_none")))
+            rows.append((strings.t("new.col_metadata"), type.metadataFiles.isEmpty ? "—" : type.metadataFiles.joined(separator: ", ")))
+            rows.append((strings.t("new.col_source"), type.versionSource ?? strings.t("value.unknown")))
+        }
+        return rows
+    }
+
+    /// The newest finished version, picked for the person.
+    public static func firstVersion(_ versions: TypeVersions) -> OfferedVersion? {
+        versions.versions.first { $0.minecraft == versions.latestStable }
+            ?? versions.versions.first { $0.latest && $0.stable }
+            ?? versions.versions.first { $0.stable }
+    }
+
+    /// A new folder named after the server inside the one picked on the PC.
+    public static func folderFor(_ parent: String, _ name: String) -> String {
+        let bad = Set("<>:\"/\\|?*")
+        let safe = String(name.filter { !bad.contains($0) }).trimmingCharacters(in: .whitespaces)
+        if safe.isEmpty { return parent }
+        let slash = parent.contains("\\") ? "\\" : "/"
+        var base = parent
+        while base.hasSuffix("\\") || base.hasSuffix("/") { base.removeLast() }
+        return base + slash + safe
+    }
+
+    public static func ready(name: String, folder: String, version: String?, ruled: Bool) -> Bool {
+        !name.trimmingCharacters(in: .whitespaces).isEmpty && !folder.trimmingCharacters(in: .whitespaces).isEmpty && version != nil && ruled
+    }
+
+    /// The tick box: Minecraft's rules, and for Bedrock the Privacy Policy too.
+    public static func ruleKey(_ edition: String) -> String { edition == "bedrock" ? "new.bedrock_tick" : "new.eula_tick" }
+
+    /// A new server still being set up, to show its progress again.
+    public static func creating(_ jobs: [Job]) -> Job? { jobs.first { $0.kind == "server_create" && $0.state == "running" } }
+
+    /// What adding said: the server's name, then the agent's own warnings.
+    public static func addedLines(_ strings: Strings, _ added: ServerAdded) -> [String] {
+        [strings.t("add.added", ["name": added.server.name])] + added.warnings
+    }
+}
+

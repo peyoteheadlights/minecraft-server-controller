@@ -8,7 +8,6 @@ GET /api/export
 GET /api/export/{token}
 GET /api/help-bundle
 GET /api/help-bundle/{token}
-GET /api/new-server/options
 GET /api/ports/suggest
 GET /api/power
 GET /api/push
@@ -32,14 +31,11 @@ POST /api/auth/rotate
 POST /api/export
 POST /api/help-bundle
 POST /api/maintenance
-POST /api/modpacks/{token}/new-server
-POST /api/new-server
 POST /api/notifications/test
 POST /api/push/subscribe
 POST /api/push/test
 POST /api/push/unsubscribe
 POST /api/security/revoke-sessions
-POST /api/servers
 POST /api/servers/{server_id}/server/cancel-restart
 POST /api/servers/{server_id}/server/clear-crash-block
 POST /api/servers/{server_id}/server/restart-now

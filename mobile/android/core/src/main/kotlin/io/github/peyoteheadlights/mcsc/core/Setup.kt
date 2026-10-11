@@ -513,3 +513,83 @@ object FolderPicker {
     )
 }
 
+/**
+ * The "+" on All servers (pages/add-server.js, panels/newserver.js): a new
+ * server, one from a modpack, or one already on the PC. The owner's alone.
+ */
+object AddServer {
+    const val NEW = "new"
+    const val MODPACK = "modpack"
+    const val HAVE = "have"
+    val WAYS = listOf(NEW, MODPACK, HAVE)
+
+    const val EDITION = "edition"
+    const val KIND = "kind"
+    const val VERSION = "version"
+    const val DETAILS = "details"
+    const val RULES = "rules"
+
+    fun allowed(me: Me?): Boolean = me?.can(Permissions.SERVERS_MANAGE) == true
+
+    /** Bedrock has one kind of server, so it skips the table. */
+    fun steps(edition: String): List<String> =
+        if (edition == "bedrock") listOf(EDITION, VERSION, DETAILS, RULES) else listOf(EDITION, KIND, VERSION, DETAILS, RULES)
+
+    /** The Java kinds for the table, as the agent lists them. */
+    fun kinds(options: NewServerOptions): List<ServerTypeInfo> = options.types.filter { it.edition == "java" }
+
+    fun bedrockType(options: NewServerOptions): ServerTypeInfo? = options.types.firstOrNull { it.edition == "bedrock" }
+
+    fun memoryShown(type: ServerTypeInfo): Boolean = type.takesMemoryLimit && type.edition != "bedrock"
+
+    /** One kind's column of the table, as label and value; Technical mode adds the loader, files and source. */
+    fun rows(strings: Strings, type: ServerTypeInfo, technical: Boolean): List<Pair<String, String>> {
+        fun yesNo(value: Boolean) = strings.t(if (value) "value.yes" else "value.no")
+        val content = when (type.content) {
+            null -> "new.content_none"
+            "plugins" -> "new.content_plugins"
+            else -> "new.content_mods"
+        }
+        val rows = mutableListOf(
+            strings.t("new.col_best_for") to strings.t("types.${type.id}.best"),
+            strings.t("new.col_content") to strings.t(content),
+            strings.t("new.col_modrinth") to yesNo(type.modrinth),
+            strings.t("new.col_crossplay") to yesNo(type.crossplay),
+            strings.t("new.col_ease") to (type.ease?.let { strings.t("new.ease_$it") } ?: strings.t("value.unknown")),
+        )
+        if (technical) {
+            rows += strings.t("new.col_loader") to (type.loaderName ?: strings.t("new.content_none"))
+            rows += strings.t("new.col_metadata") to type.metadataFiles.joinToString(", ").ifEmpty { "—" }
+            rows += strings.t("new.col_source") to (type.versionSource ?: strings.t("value.unknown"))
+        }
+        return rows
+    }
+
+    /** The newest finished version, picked for the person. */
+    fun firstVersion(versions: TypeVersions): OfferedVersion? =
+        versions.versions.firstOrNull { it.minecraft == versions.latestStable }
+            ?: versions.versions.firstOrNull { it.latest && it.stable }
+            ?: versions.versions.firstOrNull { it.stable }
+
+    /** A new folder named after the server inside the one picked on the PC. */
+    fun folderFor(parent: String, name: String): String {
+        val safe = name.filterNot { it in "<>:\"/\\|?*" }.trim()
+        if (safe.isEmpty()) return parent
+        val slash = if ('\\' in parent) '\\' else '/'
+        return parent.trimEnd('\\', '/') + slash + safe
+    }
+
+    fun ready(name: String, folder: String, version: String?, ruled: Boolean): Boolean =
+        name.isNotBlank() && folder.isNotBlank() && version != null && ruled
+
+    /** The tick box: Minecraft's rules, and for Bedrock the Privacy Policy too. */
+    fun ruleKey(edition: String): String = if (edition == "bedrock") "new.bedrock_tick" else "new.eula_tick"
+
+    /** A new server still being set up, to show its progress again. */
+    fun creating(jobs: List<Job>): Job? = jobs.firstOrNull { it.kind == "server_create" && it.state == "running" }
+
+    /** What adding said: the server's name, then the agent's own warnings. */
+    fun addedLines(strings: Strings, added: ServerAdded): List<String> =
+        listOf(strings.t("add.added", "name" to added.server.name)) + added.warnings
+}
+

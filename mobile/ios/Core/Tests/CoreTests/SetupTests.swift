@@ -481,5 +481,96 @@ final class SetupTests: XCTestCase {
         _ = try await c.setOffsite(serverId: "s", directory: "D:\\Backups")
         XCTAssertEqual(body(2), #"{"directory":"D:\\Backups"}"#)
     }
+
+    private let optionsJSON = #"""
+    {"types": [
+      {"id": "vanilla", "name": "Vanilla", "edition": "java", "ease": "easy", "snapshots": true, "version_source": "Mojang version list"},
+      {"id": "fabric", "name": "Fabric", "edition": "java", "content": "mods", "ease": "easy", "modrinth": true, "picks_loader": true, "loader_name": "Fabric Loader", "metadata_files": ["fabric.mod.json"], "recommended": true},
+      {"id": "bedrock", "name": "Bedrock", "edition": "bedrock", "takes_memory_limit": false, "latest_only": true}
+    ], "recommended": "fabric", "memory_mb": 4096, "memory_reason": null, "port": 25566, "color": "#F87906",
+    "palette": [{"id": "orange", "name": "Orange", "hex": "#F87906"}], "eula_url": "https://aka.ms/MinecraftEULA",
+    "bedrock": {"port": 19132, "port_v6": 19133, "eula_url": "https://minecraft.net/eula", "privacy_url": "https://privacy", "terms": null}}
+    """#
+
+    private func options() throws -> NewServerOptions {
+        try JSONDecoder().decode(NewServerOptions.self, from: Data(optionsJSON.utf8))
+    }
+
+    func testNewServersAreTheOwnersAndBedrockSkipsTheTableOfKinds() throws {
+        let read = try options()
+        XCTAssertFalse(AddServer.allowed(me(Permissions.SETTINGS_EDIT)))
+        XCTAssertTrue(AddServer.allowed(me(Permissions.SERVERS_MANAGE)))
+        XCTAssertEqual(AddServer.kinds(read).map(\.id), ["vanilla", "fabric"])
+        XCTAssertEqual(AddServer.steps("java"), [AddServer.EDITION, AddServer.KIND, AddServer.VERSION, AddServer.DETAILS, AddServer.RULES])
+        XCTAssertEqual(AddServer.steps("bedrock"), [AddServer.EDITION, AddServer.VERSION, AddServer.DETAILS, AddServer.RULES])
+        XCTAssertEqual(AddServer.bedrockType(read)?.id, "bedrock")
+        XCTAssertTrue(AddServer.memoryShown(read.types[1]))
+        XCTAssertFalse(AddServer.memoryShown(read.types[2]))
+        XCTAssertEqual(read.bedrock.privacyUrl, "https://privacy")
+    }
+
+    func testTheTableOfKindsComesFromTheAgentsTypes() throws {
+        let fabric = try options().types[1]
+        let rows = AddServer.rows(s, fabric, technical: false)
+        XCTAssertEqual(rows.map(\.0), [s.t("new.col_best_for"), s.t("new.col_content"), s.t("new.col_modrinth"), s.t("new.col_crossplay"), s.t("new.col_ease")])
+        XCTAssertEqual(rows.map(\.1), [s.t("types.fabric.best"), s.t("new.content_mods"), s.t("value.yes"), s.t("value.no"), s.t("new.ease_easy")])
+        let technical = AddServer.rows(s, fabric, technical: true)
+        XCTAssertEqual(technical[5].1, "Fabric Loader")
+        XCTAssertEqual(technical[6].1, "fabric.mod.json")
+    }
+
+    func testTheNewestFinishedVersionIsPickedFirst() throws {
+        let versions = try JSONDecoder().decode(TypeVersions.self, from: Data(#"{"type": "vanilla", "type_name": "Vanilla", "source": "Mojang version list", "versions": [{"minecraft": "25w01a", "stable": false}, {"minecraft": "1.21.4", "latest": true}, {"minecraft": "1.21.3"}]}"#.utf8))
+        XCTAssertEqual(AddServer.firstVersion(versions)?.minecraft, "1.21.4")
+        XCTAssertEqual(versions.source, "Mojang version list")
+        XCTAssertNil(AddServer.firstVersion(TypeVersions()))
+    }
+
+    func testTheFolderIsANewOneNamedAfterTheServerInsideTheOnePicked() {
+        XCTAssertEqual(AddServer.folderFor("D:\\Minecraft", " Survival "), "D:\\Minecraft\\Survival")
+        XCTAssertEqual(AddServer.folderFor("D:\\", "Survival"), "D:\\Survival")
+        XCTAssertEqual(AddServer.folderFor("/srv/mc/", "My: world?"), "/srv/mc/My world")
+        XCTAssertEqual(AddServer.folderFor("D:\\Minecraft", "  "), "D:\\Minecraft")
+    }
+
+    func testCreateWaitsForTheRulesToBeTicked() {
+        XCTAssertFalse(AddServer.ready(name: "A", folder: "D:\\A", version: "1.21.4", ruled: false))
+        XCTAssertFalse(AddServer.ready(name: "A", folder: "", version: "1.21.4", ruled: true))
+        XCTAssertFalse(AddServer.ready(name: "A", folder: "D:\\A", version: nil, ruled: true))
+        XCTAssertTrue(AddServer.ready(name: "A", folder: "D:\\A", version: "1.21.4", ruled: true))
+        XCTAssertEqual(AddServer.ruleKey("java"), "new.eula_tick")
+        XCTAssertEqual(AddServer.ruleKey("bedrock"), "new.bedrock_tick")
+    }
+
+    func testACreationStillRunningIsFoundAgainAndTheAgentsWarningsAreSaid() throws {
+        let running = Job(id: "j", kind: "server_create", state: "running", step: "Downloading")
+        XCTAssertEqual(AddServer.creating([Job(id: "k", kind: "backup", state: "running"), running])?.id, "j")
+        XCTAssertNil(AddServer.creating([Job(id: "j", kind: "server_create", state: "succeeded")]))
+        let added = try JSONDecoder().decode(ServerAdded.self, from: Data(#"{"ok": true, "server": {"id": "sky", "name": "Skyblock", "state": "OFFLINE"}, "warnings": ["No port is set."]}"#.utf8))
+        XCTAssertEqual(AddServer.addedLines(s, added), [s.t("add.added", ["name": "Skyblock"]), "No port is set."])
+    }
+
+    func testAddingAndCreatingGoToTheAgentsRoutes() async throws {
+        let c = client()
+        StubAgent.json(optionsJSON)
+        let read = try await c.newServerOptions()
+        XCTAssertEqual(read.recommended, "fabric")
+        XCTAssertEqual(path(0), "/api/new-server/options")
+        StubAgent.json(#"{"ok": true, "server_id": "fresh", "name": "Fresh", "directory": "D:/Fresh", "job_id": "j", "server": {"id": "fresh", "name": "Fresh", "state": "OFFLINE"}}"#)
+        let made = try await c.createServer(NewServerRequest(name: "Fresh", directory: "D:/Fresh", type: "fabric", minecraft: "1.21.4", loader: nil, memoryMb: 4096, color: "#F87906", eulaAccepted: true))
+        XCTAssertEqual(made.serverId, "fresh")
+        XCTAssertEqual(body(1), #"{"color":"#F87906","directory":"D:/Fresh","eula_accepted":true,"memory_mb":4096,"minecraft_version":"1.21.4","name":"Fresh","type":"fabric"}"#)
+        StubAgent.json(#"{"ok": true, "server": {"id": "sky", "name": "Sky", "state": "OFFLINE"}, "warnings": []}"#)
+        let added = try await c.addServer(name: "Sky", directory: "D:/Sky", type: "paper", jar: "")
+        XCTAssertEqual(added.server.id, "sky")
+        XCTAssertEqual(body(2), #"{"directory":"D:/Sky","jar":"","name":"Sky","type":"paper"}"#)
+        StubAgent.json(#"{"ok": true, "server_id": "pack", "name": "Pack", "directory": "D:/Pack", "job_id": "j", "server": {"id": "pack", "name": "Pack", "state": "OFFLINE"}}"#)
+        _ = try await c.modpackServer(token: "abc", name: "Pack", directory: "D:/Pack", memoryMb: nil, color: nil, eulaAccepted: true)
+        XCTAssertEqual(path(3), "/api/modpacks/abc/new-server")
+        XCTAssertEqual(body(3), #"{"directory":"D:/Pack","eula_accepted":true,"name":"Pack"}"#)
+        StubAgent.json(#"{"jobs": []}"#)
+        _ = try await c.runningJobs()
+        XCTAssertEqual(StubAgent.requests[4].request.url?.query, "running=true")
+    }
 }
 

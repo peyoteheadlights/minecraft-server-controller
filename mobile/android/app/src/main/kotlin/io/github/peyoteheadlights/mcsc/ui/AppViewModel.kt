@@ -134,6 +134,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** The PC folder picker's listing, shared by every screen that chooses a folder. */
     val folders by lazy { FolderBrowser(viewModelScope, { client() }, { prefs.lastProblem = it.key }) }
+
+    /** The "+" on All servers, kept while the app runs so setting up shows its progress again. */
+    val adding by lazy { AddServerPages(viewModelScope, { client() }, { prefs.lastProblem = it.key }, ::refreshServers) }
     private var feed: LiveFeed? = null
     private var liveJob: Job? = null
     private var refreshJob: Job? = null
@@ -484,10 +487,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         is LiveSignal.Console -> signal.serverId?.let { pagesBy[it] }?.onConsoleLine(signal.line)
                         is LiveSignal.Chat -> signal.serverId?.let { pagesBy[it] }?.onChat(signal.message)
                         is LiveSignal.ConsoleTail -> pagesBy[signal.serverId]?.onConsoleTail(signal.lines)
-                        is LiveSignal.Task -> signal.serverId?.let { pagesBy[it] }?.let { pages ->
-                            pages.content.onTask(signal.job)
-                            pages.world.onTask(signal.job)
-                            pages.setup.onTask(signal.job)
+                        is LiveSignal.Task -> {
+                            adding.onTask(signal.job)
+                            signal.serverId?.let { pagesBy[it] }?.let { pages ->
+                                pages.content.onTask(signal.job)
+                                pages.world.onTask(signal.job)
+                                pages.setup.onTask(signal.job)
+                            }
                         }
                         is LiveSignal.Closed -> {
                             live = false

@@ -31,6 +31,8 @@ from ..responses import (
     Crossplay,
     CrossplaySaved,
     EulaAccepted,
+    NewServerOptions,
+    ServerCreated,
     ServerTypes,
     ServerVersion,
     TypeVersions,
@@ -69,7 +71,7 @@ async def type_versions(type_id: str, principal: Principal = Depends(require(SER
     return await versions_module.report(servertypes.get(type_id).id)
 
 
-@global_router.get("/new-server/options")
+@global_router.get("/new-server/options", response_model=NewServerOptions)
 async def new_server_options(
     principal: Principal = Depends(require(SERVERS_MANAGE)), core=Depends(get_core)
 ):
@@ -77,7 +79,7 @@ async def new_server_options(
     return await create_module.options(core)
 
 
-@global_router.post("/new-server")
+@global_router.post("/new-server", response_model=ServerCreated)
 async def create_server(
     payload: CreateServerRequest,
     request: Request,
@@ -86,7 +88,7 @@ async def create_server(
 ):
     """Create a brand-new server: folder, settings, download and set-up.
     Minecraft is not started; the person presses Start themselves."""
-    return await create_module.create_server(
+    result = await create_module.create_server(
         core,
         name=payload.name,
         directory=payload.directory,
@@ -98,6 +100,7 @@ async def create_server(
         eula_accepted=payload.eula_accepted,
         user=principal.user,
     )
+    return {"ok": True, **result}
 
 
 # ---------------------------------------------------------------- Bedrock

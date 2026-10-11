@@ -335,7 +335,7 @@ fun SettingField(
  * preview is the server's badge, so its text is checked to stay readable. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ColorPicker(palette: List<Pair<String, String>>, current: String?, locked: Boolean, onPick: (String) -> Unit) {
+internal fun ColorPicker(palette: List<Pair<String, String>>, current: String?, locked: Boolean, onPick: (String) -> Unit) {
     val colors = LocalColors.current
     var typed by remember(current) { mutableStateOf(current.orEmpty()) }
     val typedColor = ServerForm.color(typed)

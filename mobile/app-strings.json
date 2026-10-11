@@ -290,5 +290,19 @@
   "mobile.raw.args_saved": ["Saved. Used from the next start.", "JVM arguments saved; applied on next start."],
 
   "mobile.folders.type_path": ["Type the path", "Path"],
-  "mobile.folders.open": ["Open", "Go"]
+  "mobile.folders.open": ["Open", "Go"],
+
+  "mobile.add.title": ["Add a server", "Add server"],
+  "mobile.add.way_new_hint": ["Download and set up a new server on your PC.", "Install a new server into an empty folder."],
+  "mobile.add.way_modpack_hint": ["Make a server from a Modrinth modpack file on this phone.", "Create a server from a .mrpack."],
+  "mobile.add.way_have_hint": ["A server folder that's already on your PC. Nothing in it changes.", "Register an existing server folder; no files change."],
+  "mobile.add.pick_folder": ["Choose a folder on the PC", "Browse"],
+  "mobile.add.new_folder": ["The server's own folder is made inside it: {folder}", "Target: {folder}"],
+  "mobile.add.no_folder": ["No folder chosen yet.", "No folder."],
+  "mobile.add.less": ["Less", "-512 MB"],
+  "mobile.add.more": ["More", "+512 MB"],
+  "mobile.add.working": ["Setting up… {step}", "Running: {step}"],
+  "mobile.add.leave_ok": ["You can leave this screen or close the app. Setting up carries on, and the new server shows on All servers when it's ready.", "The task continues on the PC."],
+  "mobile.add.pack_name": ["Modpack: {name}", "Pack: {name}"],
+  "mobile.add.start_over": ["Start again", "Reset"]
 }

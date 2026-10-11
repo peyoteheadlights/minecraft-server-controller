@@ -117,6 +117,9 @@ data class ServerTypeInfo(
     @SerialName("takes_memory_limit") val takesMemoryLimit: Boolean = true,
     val crossplay: Boolean = false,
     val recommended: Boolean = false,
+    val modrinth: Boolean = false,
+    @SerialName("metadata_files") val metadataFiles: List<String> = emptyList(),
+    @SerialName("version_source") val versionSource: String? = null,
 )
 
 @Serializable
@@ -146,6 +149,8 @@ data class TypeVersions(
     @SerialName("picks_loader") val picksLoader: Boolean = false,
     @SerialName("loader_name") val loaderName: String? = null,
     @SerialName("latest_stable") val latestStable: String? = null,
+    /** Where the versions come from, like "Mojang version list". */
+    val source: String? = null,
     val versions: List<OfferedVersion> = emptyList(),
     @SerialName("source_problem") val sourceProblem: String? = null,
 )
@@ -278,4 +283,48 @@ data class FolderListing(
 
 @Serializable
 data class OffsiteSaved(val directory: String = "")
+
+/** A server folder already on the PC, now on the list. */
+@Serializable
+data class ServerAdded(val server: ServerRow, val warnings: List<String> = emptyList())
+
+@Serializable
+data class BedrockNewOptions(
+    val port: Int? = null,
+    @SerialName("eula_url") val eulaUrl: String = "",
+    @SerialName("privacy_url") val privacyUrl: String = "",
+)
+
+/** What the New server steps need before anything is chosen. */
+@Serializable
+data class NewServerOptions(
+    val types: List<ServerTypeInfo> = emptyList(),
+    val recommended: String = "",
+    /** Null when the PC's memory couldn't be read: nothing is suggested then. */
+    @SerialName("memory_mb") val memoryMb: Int? = null,
+    val color: String? = null,
+    val palette: List<PaletteColor> = emptyList(),
+    @SerialName("eula_url") val eulaUrl: String = "",
+    val bedrock: BedrockNewOptions = BedrockNewOptions(),
+)
+
+/** A brand-new server, set up and not started. */
+@Serializable
+data class ServerCreated(
+    @SerialName("server_id") val serverId: String,
+    val name: String = "",
+    @SerialName("job_id") val jobId: String? = null,
+)
+
+/** What "Create server" sends; only the person's own tick accepts the rules. */
+data class NewServerRequest(
+    val name: String,
+    val directory: String,
+    val type: String,
+    val minecraft: String,
+    val loader: String?,
+    val memoryMb: Int?,
+    val color: String?,
+    val eulaAccepted: Boolean,
+)
 

@@ -17,6 +17,7 @@ mod jar is the Minecraft server itself, when the operator starts it.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import shutil
 import time
@@ -46,6 +47,8 @@ from .modrinth import ModrinthClient, ModrinthError
 log = logging.getLogger("msc.mods")
 
 JAR_EXT = {".jar"}
+# How many mods Update all asks Modrinth about at the same time.
+PLAN_CHECKS_AT_ONCE = 6
 
 
 class ModError(RuntimeError):
@@ -702,56 +705,73 @@ class ModManager:
         for mod in self.scan():
             if not mod.enabled:
                 continue
-            source = self.db.get_setting(f"mod_source:{mod.mod_id}") or {}
-            project = source.get("modrinth_project") or mod.modrinth_project or mod.mod_id
+            project = self._project(mod)
             try:
                 latest = await self.modrinth.latest_for(project, mc_version)
             except ModrinthError:
                 continue
             if not latest:
                 continue
-            if latest["version_number"] and latest["version_number"] != mod.version:
-                entry = {
-                    "mod_id": mod.mod_id,
-                    "name": mod.name,
-                    "filename": mod.filename,
-                    "installed_version": mod.version,
-                    "latest_version": latest["version_number"],
-                    "version_id": latest["version_id"],
-                    "release_type": latest["release_type"],
-                    "game_versions": latest["game_versions"],
-                    "project": project,
-                    "changelog": latest.get("changelog", "")[:400],
-                }
+            entry = self._note_update(mod, project, latest)
+            if entry:
                 updates.append(entry)
-                self.db.set_setting(f"mod_update:{mod.mod_id}", entry)
-            else:
-                self.db.set_setting(f"mod_update:{mod.mod_id}", None)
         self.db.set_setting("mod_updates_checked_at", time.time())
         return updates
+
+    def _project(self, mod: ModInfo) -> str:
+        source = self.db.get_setting(f"mod_source:{mod.mod_id}") or {}
+        return source.get("modrinth_project") or mod.modrinth_project or mod.mod_id
+
+    def _note_update(
+        self, mod: ModInfo, project: str, latest: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        """Save what Modrinth said about ``mod`` for the Mods list; returns
+        the update, or None when it is up to date."""
+        if not latest["version_number"] or latest["version_number"] == mod.version:
+            self.db.set_setting(f"mod_update:{mod.mod_id}", None)
+            return None
+        entry = {
+            "mod_id": mod.mod_id,
+            "name": mod.name,
+            "filename": mod.filename,
+            "installed_version": mod.version,
+            "latest_version": latest["version_number"],
+            "version_id": latest["version_id"],
+            "release_type": latest.get("release_type"),
+            "game_versions": latest.get("game_versions", []),
+            "project": project,
+            "changelog": (latest.get("changelog") or "")[:400],
+        }
+        self.db.set_setting(f"mod_update:{mod.mod_id}", entry)
+        return entry
 
     async def update_plan(self) -> dict[str, Any]:
         """What "Update all" would change: every mod or plugin, turned off
         ones too, that Modrinth has a newer version of. One Modrinth can't
         be asked about is listed in ``unchecked`` with the reason, never
-        left out as if it were up to date."""
+        left out as if it were up to date. What it finds is saved for the
+        Mods list too, as a check for updates would."""
         mc_version = self._target_version()
+        mods = self.scan()
+        asking = asyncio.Semaphore(PLAN_CHECKS_AT_ONCE)
+
+        async def ask(mod: ModInfo) -> tuple[str, dict[str, Any] | None | ModrinthError]:
+            project = self._project(mod)
+            async with asking:
+                try:
+                    return project, await self.modrinth.latest_for(project, mc_version)
+                except ModrinthError as exc:
+                    return project, exc
+
+        answers = await asyncio.gather(*(ask(mod) for mod in mods))
         updates: list[dict[str, Any]] = []
         unchecked: list[dict[str, Any]] = []
-        for mod in self.scan():
-            source = self.db.get_setting(f"mod_source:{mod.mod_id}") or {}
-            project = source.get("modrinth_project") or mod.modrinth_project or mod.mod_id
+        for mod, (project, latest) in zip(mods, answers, strict=True):
             row = {"mod_id": mod.mod_id, "name": mod.name or mod.mod_id, "filename": mod.filename}
-            try:
-                latest = await self.modrinth.latest_for(project, mc_version)
-            except ModrinthError as exc:
-                unchecked.append({**row, "reason": str(exc)})
+            if isinstance(latest, ModrinthError):
+                unchecked.append({**row, "reason": str(latest)})
                 continue
-            if (
-                not latest
-                or not latest["version_number"]
-                or latest["version_number"] == mod.version
-            ):
+            if not latest or not self._note_update(mod, project, latest):
                 continue
             updates.append(
                 {
@@ -763,7 +783,9 @@ class ModManager:
                     "project": project,
                 }
             )
-        return {"updates": updates, "unchecked": unchecked, "checked_at": time.time()}
+        checked_at = time.time()
+        self.db.set_setting("mod_updates_checked_at", checked_at)
+        return {"updates": updates, "unchecked": unchecked, "checked_at": checked_at}
 
     async def update(
         self, filename: str, user: str, version_id: str | None = None

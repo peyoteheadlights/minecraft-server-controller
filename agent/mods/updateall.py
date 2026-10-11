@@ -30,13 +30,16 @@ async def update_all(
     ``version_id``). Raises before anything changes when the server runs,
     another task holds it, or a file isn't in the folder."""
     mods = ctx.mods
-    if ctx.server.held_by:
-        raise JobConflict(
-            f"Wait for '{ctx.server.held_by}' to finish first. A server runs one "
-            "change like this at a time."
-        )
+    ctx.require_free()
     mods._require_server_offline(f"update {mods.word}s")
-    targets = [(mods.find(item["filename"]), item.get("version_id")) for item in wanted]
+    # The same file twice would fail the second time (it was renamed by the first).
+    unique: dict[str, dict[str, Any]] = {}
+    for item in wanted:
+        unique.setdefault(item["filename"], item)
+    targets = [(mods.find(item["filename"]), item.get("version_id")) for item in unique.values()]
+    # What the agent notes about each mod (where it came from, its update),
+    # put back with the files if one update fails.
+    noted = [f"mod_{kind}:{mod.mod_id}" for mod, _ in targets for kind in ("source", "update")]
     try:
         folder = ctx.config.mods_dir.resolve().relative_to(ctx.config.server_dir.resolve()).parts[0]
     except (ValueError, IndexError):
@@ -48,6 +51,7 @@ async def update_all(
         ) from None
 
     async def change(job: JobHandle | None) -> dict[str, Any]:
+        before = {key: mods.db.get_setting(key) for key in noted}
         updated = []
         for number, (mod, version_id) in enumerate(targets, start=1):
             if job:
@@ -58,6 +62,8 @@ async def update_all(
                     # A turned-off mod is updated, and stays off.
                     await mods.set_enabled(result["updated"]["filename"], False, user=user)
             except Exception as exc:
+                for key, value in before.items():
+                    mods.db.set_setting(key, value)
                 raise ModError(f"Updating {mod.name} failed: {exc}") from exc
             updated.append(
                 {
@@ -81,6 +87,9 @@ async def update_all(
     )
 
     async def run(job: JobHandle | None) -> dict[str, Any]:
+        # Asked again just before: it may have been started while this waited
+        # its turn, and Update all never stops a running server.
+        mods._require_server_offline(f"update {mods.word}s")
         return await run_safe_change(ctx.server, ctx.backups, plan, job=job, user=user)
 
     names = ", ".join(mod.name for mod, _ in targets)

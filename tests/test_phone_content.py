@@ -159,6 +159,39 @@ def test_a_failed_update_puts_every_mod_back_and_names_the_one_that_failed(clien
     assert history[0]["action"] == "update_all" and history[0]["result"] == "failed"
 
 
+def test_the_plan_saves_what_it_found_for_the_installed_list(client, mods_dir):
+    use(client, FakeModrinth(PROJECTS))
+    headers = auth(token_for(client))
+    client.get("/api/mods/update-all", headers=headers)
+    mods = {m["mod_id"]: m for m in client.get("/api/mods", headers=headers).json()["mods"]}
+    assert mods["alpha"]["update_available"]["latest_version"] == "2.0"
+    assert mods["beta"]["update_available"]["latest_version"] == "2.0"
+    assert mods["gamma"]["update_available"] is None
+
+
+def test_a_failed_update_all_puts_back_what_the_agent_noted_about_each_mod(client, mods_dir):
+    core = use(client, BrokenModrinth(PROJECTS, broken={"beta"}))
+    headers = auth(token_for(client))
+    client.get("/api/mods/update-all", headers=headers)
+    source_before = core.db.get_setting("mod_source:alpha")
+    body = {"mods": [{"filename": "alpha.jar"}, {"filename": "beta.jar.disabled"}]}
+    assert client.post("/api/mods/update-all", json=body, headers=headers).status_code == 400
+    # Alpha is 1.0 again, so its update to 2.0 is still offered.
+    mods = {m["mod_id"]: m for m in client.get("/api/mods", headers=headers).json()["mods"]}
+    assert mods["alpha"]["version"] == "1.0"
+    assert mods["alpha"]["update_available"]["latest_version"] == "2.0"
+    assert core.db.get_setting("mod_source:alpha") == source_before
+
+
+def test_the_same_mod_ticked_twice_is_updated_once(client, mods_dir):
+    use(client, FakeModrinth(PROJECTS))
+    headers = auth(token_for(client))
+    body = {"mods": [{"filename": "alpha.jar"}, {"filename": "alpha.jar"}]}
+    response = client.post("/api/mods/update-all", json=body, headers=headers)
+    assert response.status_code == 200, response.text
+    assert [u["name"] for u in response.json()["updated"]] == ["Alpha"]
+
+
 def test_update_all_is_refused_while_the_server_runs(client, mods_dir):
     core = use(client, FakeModrinth(PROJECTS))
     headers = auth(token_for(client))

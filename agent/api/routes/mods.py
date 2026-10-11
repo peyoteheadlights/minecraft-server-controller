@@ -255,7 +255,7 @@ async def update_all_mods(
 ):
     """Update the ticked ones as one change: one backup first, and all of
     them put back from it if any update fails."""
-    with audit_failure(ctx, request, "mod_update_all"):
+    with respond_as(400), audit_failure(ctx, request, "mod_update_all"):
         result = await update_all(
             ctx, [item.model_dump() for item in payload.mods], user=principal.user
         )

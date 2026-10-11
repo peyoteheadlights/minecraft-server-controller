@@ -447,6 +447,10 @@
   "Crashed",
   "Crashed"
  ],
+ "state.failed_to_start": [
+  "Failed to start",
+  "Failed to start"
+ ],
  "state.unknown": [
   "Unknown",
   "Unknown"
@@ -625,11 +629,11 @@
  ],
  "jobs.running.one": [
   "{count} task running",
-  "{count} job running"
+  "{count} task running"
  ],
  "jobs.running.other": [
   "{count} tasks running",
-  "{count} jobs running"
+  "{count} tasks running"
  ],
  "live.connected": [
   "Live",
@@ -675,6 +679,14 @@
   "The server crashed (code {code}).",
   "The server crashed (exit code {code})."
  ],
+ "event.server_failed_to_start": [
+  "The server failed to start.",
+  "The server failed to start."
+ ],
+ "event.server_failed_to_start_code": [
+  "The server failed to start (code {code}).",
+  "The server failed to start (exit code {code})."
+ ],
  "event.crash_loop": [
   "The server keeps crashing. Auto restarts are paused.",
   "Crash loop detected: automatic restarts are paused."
@@ -686,6 +698,10 @@
  "event.other_crashed": [
   "{name} crashed.",
   "{name} crashed."
+ ],
+ "event.other_failed_to_start": [
+  "{name} failed to start.",
+  "{name} failed to start."
  ],
  "event.other_crash_loop": [
   "{name} keeps crashing. Auto restarts are paused.",
@@ -722,6 +738,10 @@
  "hero.crashed": [
   "The server crashed.",
   "The server crashed."
+ ],
+ "hero.failed_to_start": [
+  "The server failed to start.",
+  "The server failed to start."
  ],
  "hero.exit_code": [
   "Exit code {code}.",
@@ -805,7 +825,7 @@
  ],
  "notice.maintenance_detail": [
   "Auto restarts and schedules are paused.",
-  "Auto-restart, crash recovery and scheduled tasks are suspended."
+  "Auto-restart, crash recovery and schedules are suspended."
  ],
  "notice.turn_off": [
   "Turn off",
@@ -912,8 +932,8 @@
   "Last backup"
  ],
  "overview.next_task": [
-  "Next task",
-  "Next scheduled job"
+  "Next schedule",
+  "Next schedule"
  ],
  "overview.players_online": [
   "Players online",
@@ -1512,8 +1532,8 @@
   "The server stopped"
  ],
  "alert_event.server_crashed": [
-  "Server crashed",
-  "The server crashed"
+  "Server crashed or failed to start",
+  "The server crashed or failed to start"
  ],
  "alert_event.server_restarted": [
   "Server restarted",
@@ -1600,7 +1620,7 @@
   "server.properties changed"
  ],
  "alert_event.player_managed": [
-  "Player whitelisted, made operator, kicked or banned",
+  "Player whitelisted, made op, kicked or banned",
   "Whitelist, op, kick or ban confirmed by the console"
  ],
  "alert_event.modpack_imported": [
@@ -2799,18 +2819,6 @@
   "Install {count} mods?",
   "Install {count} mods?"
  ],
- "backups.last_change": [
-  "Last change",
-  "Last change"
- ],
- "backups.last_change_body": [
-  "{title}, {when}. Undo restores the copy {backup} made just before.",
-  "{title}, {when}. Undo restores the safety copy {backup} taken just before it."
- ],
- "backups.undo_change": [
-  "Undo change",
-  "Undo this change"
- ],
  "backups.started": [
   "Backing up. Big worlds take longer.",
   "Backup started. Large worlds take a while."
@@ -2880,8 +2888,80 @@
   "scheduled"
  ],
  "backups.kind_safety": [
-  "Safety copy",
-  "safety"
+  "Before a change",
+  "before a change"
+ ],
+ "changes.title": [
+  "Undo and Redo",
+  "Undo and Redo"
+ ],
+ "changes.next_undo": [
+  "Newest change: {title}, {when}, by {who}.",
+  "Top of the undo stack: {title}, {when}, by {who}."
+ ],
+ "changes.nothing_to_undo": [
+  "Nothing left to undo.",
+  "The undo stack is empty."
+ ],
+ "changes.next_redo": [
+  "Undone last: {title}, {when}.",
+  "Top of the redo stack: {title}, undone {when}."
+ ],
+ "changes.then": [
+  "Pressing Undo again goes on to:",
+  "Further down the undo stack:"
+ ],
+ "changes.later_item": [
+  "{title}, {when}",
+  "{title}, {when}"
+ ],
+ "changes.undo": [
+  "Undo",
+  "Undo"
+ ],
+ "changes.redo": [
+  "Redo",
+  "Redo"
+ ],
+ "changes.everything": [
+  "everything in the backup",
+  "everything in the backup"
+ ],
+ "changes.undo_title": [
+  "Undo {title}?",
+  "Undo {title}?"
+ ],
+ "changes.redo_title": [
+  "Redo {title}?",
+  "Redo {title}?"
+ ],
+ "changes.undo_body": [
+  "This puts {what} back to how it was {when}, just before this change. Anything changed there since then is lost.",
+  "Restores {what} from the backup made {when}, before this change. Later changes to those files are lost."
+ ],
+ "changes.redo_body": [
+  "This puts {what} back to how it was {when}, just before you undid it. Anything changed there since then is lost.",
+  "Restores {what} from the backup made {when}, when it was undone. Later changes to those files are lost."
+ ],
+ "changes.server_stops": [
+  "The server stops first, and a backup of how things are now is made, so Redo or Undo can go back again.",
+  "The server is stopped first and a backup is taken, which Redo or Undo uses."
+ ],
+ "changes.undo_working": [
+  "Undoing. Stopping the server first.",
+  "Undoing. The server will stop first."
+ ],
+ "changes.redo_working": [
+  "Redoing. Stopping the server first.",
+  "Redoing. The server will stop first."
+ ],
+ "changes.undo_done": [
+  "Undone: {title}.",
+  "Undone: {title}."
+ ],
+ "changes.redo_done": [
+  "Redone: {title}.",
+  "Redone: {title}."
  ],
  "backups.verify": [
   "Check",
@@ -2964,32 +3044,8 @@
   "Restoring. The server will stop first."
  ],
  "backups.restored": [
-  "{name} restored. The old world was saved as {safety}.",
-  "Restored {name}. Safety copy: {safety}"
- ],
- "backups.restore_job": [
-  "Restoring {name}",
-  "Restoring {name}"
- ],
- "backups.undo": [
-  "Undo",
-  "Undo"
- ],
- "backups.undo_title": [
-  "Undo change?",
-  "Undo this change?"
- ],
- "backups.undo_body": [
-  "{title} will be undone by restoring {backup}. The server stops first, and a new safety copy is made.",
-  "{title} will be undone by restoring {backup}. The server stops first, and a new safety copy is taken, so this can be undone too."
- ],
- "backups.undoing": [
-  "Undoing. Stopping the server first.",
-  "Undoing. The server will stop first."
- ],
- "backups.undone": [
-  "Undone. {name} is back.",
-  "Undone: {name} is back."
+  "{name} restored.",
+  "Restored {name}."
  ],
  "players.online": [
   "Online now ({count} of {max})",
@@ -3057,7 +3113,7 @@
  ],
  "schedules.task": [
   "What to do",
-  "Task"
+  "What it does"
  ],
  "schedules.repeat": [
   "Repeat",
@@ -3104,8 +3160,8 @@
   "Name"
  ],
  "schedules.col_task": [
-  "Task",
-  "Task"
+  "What it does",
+  "What it does"
  ],
  "schedules.col_when": [
   "When",
@@ -3828,11 +3884,11 @@
   "Apply"
  ],
  "version.back": [
-  "Go back a version",
+  "Roll back",
   "Roll back"
  ],
  "version.back_title": [
-  "Put the previous version back?",
+  "Roll back to the previous version?",
   "Roll back to the previous version?"
  ],
  "version.back_body": [
@@ -3840,7 +3896,7 @@
   "The previous server software is restored. World data is untouched."
  ],
  "version.back_button": [
-  "Put it back",
+  "Roll back",
   "Roll back"
  ],
  "version.going_back": [
@@ -4044,8 +4100,8 @@
   "allow-cheats"
  ],
  "game.cheats_hint": [
-  "When on, operators can use commands like /give and /time.",
-  "Enables cheat commands for operators."
+  "When on, ops can use commands like /give and /time.",
+  "Enables cheat commands for ops."
  ],
  "game.server_name": [
   "Server name",
@@ -4136,8 +4192,8 @@
   "Save"
  ],
  "game.copy_kept": [
-  "A copy of the old file is kept. Undo it from Backups.",
-  "A safety backup of the old file is taken; undo from Backups."
+  "A backup of the old file is made first. Undo it from Backups.",
+  "A backup of the old file is taken; undo from Backups."
  ],
  "game.saved": [
   "Saved. The server uses them next time it starts.",
@@ -4208,11 +4264,11 @@
   "whitelist remove"
  ],
  "players.do_op": [
-  "Make operator",
+  "Make op",
   "op"
  ],
  "players.do_deop": [
-  "Remove operator",
+  "Remove op",
   "deop"
  ],
  "players.do_kick": [
@@ -4272,7 +4328,7 @@
   "Invalid gamertag: letters, digits and single spaces, up to 20."
  ],
  "players.bedrock_op_online": [
-  "On Bedrock, a player has to be online to be made an operator.",
+  "On Bedrock, a player has to be online to be made an op.",
   "BDS op/deop target online players only."
  ],
  "players.xuid_only": [
@@ -4288,7 +4344,7 @@
   "Whitelisted"
  ],
  "players.tag_op": [
-  "Operator",
+  "Op",
   "Op"
  ],
  "players.tag_banned": [
@@ -4304,11 +4360,11 @@
   "whitelist.json is empty"
  ],
  "players.ops": [
-  "Operators",
-  "Operators"
+  "Ops",
+  "Ops"
  ],
  "players.ops_empty": [
-  "No operators",
+  "No ops",
   "ops.json is empty"
  ],
  "players.banned": [
@@ -4485,7 +4541,7 @@
  ],
  "dup.started": [
   "Copying into {name}. Its tab appears when the copy is checked.",
-  "Duplicate job started for {name}."
+  "Duplicate task started for {name}."
  ],
  "dup.after": [
   "The new server isn't started.",
@@ -4637,7 +4693,7 @@
  ],
  "pack.step_backup": [
   "A backup is taken and checked first. If anything fails, it is put back.",
-  "Take and verify a safety backup; restore it on failure."
+  "Take and verify a backup; restore it on failure."
  ],
  "pack.step_version": [
   "The server is set up as {type} {version} first.",
@@ -5004,15 +5060,15 @@
   "The server has to be online to send chat."
  ],
  "world.title": [
-  "Go back in time",
-  "Restore the world"
+  "Restore world",
+  "Restore world"
  ],
  "world.lead": [
   "Put the world back to how it was at a point in time.",
   "Restore a verified backup that holds the world folders."
  ],
  "world.none": [
-  "No points to go back to",
+  "No backups to restore the world from",
   "No world backup to restore"
  ],
  "world.none_hint": [
@@ -5056,7 +5112,7 @@
   "{duration} with players online would be lost"
  ],
  "world.go_back": [
-  "Go back to this",
+  "Restore this",
   "Restore this"
  ],
  "world.not_offered": [
@@ -5064,11 +5120,11 @@
   "Unverified, so not offered"
  ],
  "world.tag_safety": [
-  "Safety copy",
-  "Safety copy"
+  "Before a change",
+  "Before a change"
  ],
  "world.confirm_title": [
-  "Go back to {when}?",
+  "Restore the world to {when}?",
   "Restore the world to {when}?"
  ],
  "world.confirm_body": [
@@ -5076,15 +5132,15 @@
   "The current world folders are replaced; mods, config and server.properties are left as they are. {loss}"
  ],
  "world.confirm_safety": [
-  "A backup of the world as it is now is taken first, so this can be undone.",
-  "A verified safety backup is taken first; undo it from Backups."
+  "A backup of the world as it is now is made first, so this can be undone.",
+  "A verified backup is taken first; Undo on Backups reverses it."
  ],
  "world.confirm_action": [
-  "Go back",
+  "Restore",
   "Restore"
  ],
  "world.working": [
-  "Going back…",
+  "Restoring…",
   "Restoring…"
  ],
  "world.done": [
@@ -5092,8 +5148,8 @@
   "The world was restored and checked."
  ],
  "world.done_with_undo": [
-  "The world was put back. Undo it from Backups ({name}).",
-  "Restored. The safety backup {name} undoes it."
+  "The world was restored. Undo it from Backups.",
+  "Restored. Undo on Backups reverses it."
  ],
  "world.stop_first": [
   "Stop the server first. The world can only be put back while it is off.",
@@ -5204,8 +5260,8 @@
   "This browser has no Push API, or the page is not on a secure origin."
  ],
  "push.blocked": [
-  "This phone refused notifications. Allow them in the browser's settings.",
-  "Notification permission was not granted."
+  "This phone blocked alerts. Allow notifications for this site in the browser's settings.",
+  "Notification permission was not granted, so alerts can't be shown."
  ],
  "push.not_set_up": [
   "Phone alerts aren't set up yet. On the PC, run setup again: {command}",
@@ -5248,8 +5304,8 @@
   "Web Push (RFC 8291) to each subscribed browser, with the same events and cooldowns as Discord and email."
  ],
  "help.world_undo": [
-  "Puts the world back to how it was at a point in time, using a backup. What the world is like now is saved first.",
-  "Restores a verified backup of the world folders through the safe-change routine, after a safety backup."
+  "Restores the world to how it was at a point in time, using a backup. What the world is like now is backed up first.",
+  "Restores a verified backup of the world folders through the safe-change routine, after a backup."
  ],
  "help.keep_backups": [
   "How many daily, weekly and monthly backups are kept. Older ones are deleted to save disk space.",
@@ -5278,6 +5334,10 @@
  "feed.server_crashed": [
   "The server crashed.",
   "Server crashed."
+ ],
+ "feed.server_failed_to_start": [
+  "The server failed to start.",
+  "Server failed to start."
  ],
  "feed.server_restarted": [
   "The server restarted.",
@@ -5552,7 +5612,7 @@
   "mods.manage, servers.manage"
  ],
  "helpers.cannot_console": [
-  "Type console commands or make players operators",
+  "Type console commands or make players ops",
   "console.send, players.op"
  ],
  "helpers.cannot_users": [
@@ -5693,7 +5753,7 @@
  ],
  "export.failed": [
   "The export didn't finish.",
-  "The export job failed."
+  "The export task failed."
  ],
  "export.other_side": [
   "Without passwords and keys, you choose a new password on the new PC and add helpers again.",
@@ -5944,8 +6004,8 @@
   "World imported."
  ],
  "import.done_with_undo": [
-  "World imported. The old one is in Backups if you want it back.",
-  "World imported; undo restores the safety backup."
+  "World imported. Undo it from Backups if you want the old one back.",
+  "World imported; Undo on Backups puts the old one back."
  ],
  "download.title": [
   "Take the world home",
@@ -6169,7 +6229,7 @@
  ],
  "guide.alerts": [
   "Get alerts",
-  "Notifications"
+  "Alerts"
  ],
  "guide.alerts_text": [
   "Get told on your phone, Discord or email when the server crashes or the PC needs attention.",
@@ -6220,8 +6280,8 @@
   "Servers"
  ],
  "mobile.tab.notifications": [
-  "Notifications",
-  "Notifications"
+  "Alerts",
+  "Alerts"
  ],
  "mobile.tab.settings": [
   "Settings",
@@ -6487,6 +6547,10 @@
   "{name} restored.",
   "Restored {name}."
  ],
+ "mobile.backups.restored_backup": [
+  "{name} restored. The old world was saved as {safety}.",
+  "Restored {name}. Backup: {safety}"
+ ],
  "mobile.backups.saved_file": [
   "Saved {name}.",
   "Saved {name}."
@@ -6532,8 +6596,32 @@
   "{title}: latest {latest}, min {low}, max {high}. Touch or drag to read each point."
  ],
  "mobile.alerts.title": [
-  "Notifications",
-  "Notifications"
+  "Alerts",
+  "Alerts"
+ ],
+ "mobile.backups.last_change": [
+  "Newest change",
+  "Newest change"
+ ],
+ "mobile.backups.last_change_body": [
+  "{title}, {when}. Undo puts back the backup {backup} made just before it.",
+  "{title}, {when}. Undo restores the backup {backup} taken just before it."
+ ],
+ "mobile.backups.undo_change": [
+  "Undo",
+  "Undo"
+ ],
+ "mobile.backups.undo_title": [
+  "Undo this change?",
+  "Undo this change?"
+ ],
+ "mobile.backups.undo_body": [
+  "{title} is undone by restoring {backup}. The server stops first, and a backup of how things are now is made.",
+  "{title} is undone by restoring {backup}. The server is stopped first and a backup is taken."
+ ],
+ "mobile.backups.undone": [
+  "Undone. {name} is back.",
+  "Undone: {name} is back."
  ],
  "mobile.alerts.empty": [
   "Nothing yet. Alerts about your servers show up here.",
@@ -6608,16 +6696,16 @@
   "Notification permission denied."
  ],
  "mobile.settings.lock_alerts_not_in_build": [
-  "This copy of the app was built without lock-screen alerts. The Notifications tab still works.",
-  "Built without google-services.json; FCM is off. The Notifications tab still works."
+  "This copy of the app was built without lock-screen alerts. The Alerts tab still works.",
+  "Built without google-services.json; FCM is off. The Alerts tab still works."
  ],
  "mobile.settings.lock_alerts_no_play": [
-  "This phone has no Google Play services, so lock-screen alerts can't reach it. The Notifications tab still works.",
+  "This phone has no Google Play services, so lock-screen alerts can't reach it. The Alerts tab still works.",
   "Google Play services unavailable; FCM cannot deliver."
  ],
  "mobile.settings.lock_alerts_ios_later": [
-  "Not on iPhone yet: these need Apple's push service, which isn't set up for this app yet. The Notifications tab catches up whenever you open the app.",
-  "Not available on iOS yet (requires APNs via FCM). The Notifications tab syncs from /api/alerts on launch and over the live feed."
+  "Not on iPhone yet: these need Apple's push service, which isn't set up for this app yet. The Alerts tab catches up whenever you open the app.",
+  "Not available on iOS yet (requires APNs via FCM). The Alerts tab syncs from /api/alerts on launch and over the live feed."
  ],
  "mobile.settings.this_pc": [
   "This PC",
@@ -6837,7 +6925,7 @@
  ],
  "mobile.error.still_working": [
   "No answer from your PC yet. It may still be working on it; this screen updates when it's done.",
-  "No answer within 30 minutes; the job may still be running on the agent."
+  "No answer within 30 minutes; the task may still be running on the agent."
  ],
  "mobile.widget.name": [
   "Servers",

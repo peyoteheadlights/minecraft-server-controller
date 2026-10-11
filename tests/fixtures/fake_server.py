@@ -231,6 +231,10 @@ def main() -> int:
         while True:
             time.sleep(1)
     out(stamp("Server thread", "INFO", 'Done (1.234s)! For help, type "help"'))
+    if os.environ.get("FAKE_CRASH_WHEN_ONLINE") == "1":
+        time.sleep(0.2)
+        out(stamp("Server thread", "ERROR", "java.lang.OutOfMemoryError: Java heap space"))
+        return 1
 
     players: list[str] = []
     for raw in sys.stdin:

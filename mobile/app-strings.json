@@ -1,7 +1,7 @@
 {
   "mobile.app_name": ["Server Controller", "Server Controller"],
   "mobile.tab.servers": ["Servers", "Servers"],
-  "mobile.tab.notifications": ["Notifications", "Notifications"],
+  "mobile.tab.notifications": ["Alerts", "Alerts"],
   "mobile.tab.settings": ["Settings", "Settings"],
 
   "mobile.welcome.title": ["Control your Minecraft servers from your phone", "Control your Minecraft servers from your phone"],
@@ -80,6 +80,7 @@
   "mobile.crash.log_gone": ["The saved log isn't on the PC anymore.", "Saved log file no longer exists."],
 
   "mobile.backups.restored": ["{name} restored.", "Restored {name}."],
+  "mobile.backups.restored_backup": ["{name} restored. The old world was saved as {safety}.", "Restored {name}. Backup: {safety}"],
   "mobile.backups.saved_file": ["Saved {name}.", "Saved {name}."],
   "mobile.backups.save_failed": ["The backup couldn't be saved on this phone: {reason}", "Writing the file failed: {reason}"],
   "mobile.backups.downloading": ["Downloading {name}…", "Downloading {name}…"],
@@ -92,7 +93,13 @@
   "mobile.perf.point": ["{value} at {time}", "{value} at {time}"],
   "mobile.perf.summary": ["{title}: latest {latest}, lowest {low}, highest {high}. Touch or drag along the graph to read each point.", "{title}: latest {latest}, min {low}, max {high}. Touch or drag to read each point."],
 
-  "mobile.alerts.title": ["Notifications", "Notifications"],
+  "mobile.alerts.title": ["Alerts", "Alerts"],
+  "mobile.backups.last_change": ["Newest change", "Newest change"],
+  "mobile.backups.last_change_body": ["{title}, {when}. Undo puts back the backup {backup} made just before it.", "{title}, {when}. Undo restores the backup {backup} taken just before it."],
+  "mobile.backups.undo_change": ["Undo", "Undo"],
+  "mobile.backups.undo_title": ["Undo this change?", "Undo this change?"],
+  "mobile.backups.undo_body": ["{title} is undone by restoring {backup}. The server stops first, and a backup of how things are now is made.", "{title} is undone by restoring {backup}. The server is stopped first and a backup is taken."],
+  "mobile.backups.undone": ["Undone. {name} is back.", "Undone: {name} is back."],
   "mobile.alerts.empty": ["Nothing yet. Alerts about your servers show up here.", "No alerts since pairing."],
   "mobile.alerts.empty_hint": ["The PC decides which alerts are sent, in the dashboard's Settings, under Alerts.", "Events and cooldowns are set in the dashboard (notifications.*)."],
   "mobile.alerts.mark_read": ["Mark all as read", "Mark all read"],
@@ -112,9 +119,9 @@
   "mobile.settings.lock_alerts_hint": ["Google only carries a nudge with no words in it. The phone then reads the alert from your PC.", "Content-free FCM data messages; the text is fetched from the agent over Tailscale."],
   "mobile.settings.lock_alerts_not_set_up": ["Your PC isn't set up to send these yet. The owner can set it up on the PC; see Help.", "The agent has no Firebase service account. See docs/notifications.md."],
   "mobile.settings.lock_alerts_blocked": ["Notifications are turned off for this app in your phone's settings.", "Notification permission denied."],
-  "mobile.settings.lock_alerts_not_in_build": ["This copy of the app was built without lock-screen alerts. The Notifications tab still works.", "Built without google-services.json; FCM is off. The Notifications tab still works."],
-  "mobile.settings.lock_alerts_no_play": ["This phone has no Google Play services, so lock-screen alerts can't reach it. The Notifications tab still works.", "Google Play services unavailable; FCM cannot deliver."],
-  "mobile.settings.lock_alerts_ios_later": ["Not on iPhone yet: these need Apple's push service, which isn't set up for this app yet. The Notifications tab catches up whenever you open the app.", "Not available on iOS yet (requires APNs via FCM). The Notifications tab syncs from /api/alerts on launch and over the live feed."],
+  "mobile.settings.lock_alerts_not_in_build": ["This copy of the app was built without lock-screen alerts. The Alerts tab still works.", "Built without google-services.json; FCM is off. The Alerts tab still works."],
+  "mobile.settings.lock_alerts_no_play": ["This phone has no Google Play services, so lock-screen alerts can't reach it. The Alerts tab still works.", "Google Play services unavailable; FCM cannot deliver."],
+  "mobile.settings.lock_alerts_ios_later": ["Not on iPhone yet: these need Apple's push service, which isn't set up for this app yet. The Alerts tab catches up whenever you open the app.", "Not available on iOS yet (requires APNs via FCM). The Alerts tab syncs from /api/alerts on launch and over the live feed."],
   "mobile.settings.this_pc": ["This PC", "Agent"],
   "mobile.settings.pc_address": ["Address", "Address"],
   "mobile.settings.pc_version": ["App on the PC", "Agent version"],
@@ -173,7 +180,7 @@
   "mobile.error.not_allowed": ["Your account isn't allowed to do that.", "Forbidden (403)."],
   "mobile.error.failed": ["That didn't work: {reason}", "Failed: {reason}"],
   "mobile.error.failed_no_reason": ["That didn't work. Error number {status}.", "Failed ({status})."],
-  "mobile.error.still_working": ["No answer from your PC yet. It may still be working on it; this screen updates when it's done.", "No answer within 30 minutes; the job may still be running on the agent."],
+  "mobile.error.still_working": ["No answer from your PC yet. It may still be working on it; this screen updates when it's done.", "No answer within 30 minutes; the task may still be running on the agent."],
 
   "mobile.widget.name": ["Servers", "Server status"],
   "mobile.widget.description": ["See whether your servers are running and who's playing.", "State and player count per server."],

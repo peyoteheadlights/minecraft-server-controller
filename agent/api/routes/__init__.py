@@ -23,6 +23,7 @@ from . import (
     addons,
     auth,
     backups,
+    changes,
     chat,
     console,
     duplicate,
@@ -63,6 +64,7 @@ PER_SERVER = (
     chat,
     world,
     addons,
+    changes,
 )
 GLOBAL = (
     auth,

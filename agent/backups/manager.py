@@ -28,6 +28,7 @@ import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from ..changes import ChangeHistory
 from ..events import Event, EventBus
 from ..minecraft.properties import world_folders
 from ..safechange import SafeChange, run_safe_change
@@ -67,6 +68,20 @@ def _unique(path: Path) -> Path:
         number += 1
 
 
+def label(row: dict[str, Any]) -> str | None:
+    """How the Backups list names a backup made before a change: by what it
+    came before ("Before changing game settings"). Older backups' notes said
+    "Automatic safety copy before: ..." and read the same way."""
+    if row.get("kind") != "safety":
+        return None
+    note = (row.get("note") or "").strip()
+    at = note.lower().find("before")
+    if at < 0:
+        return "Before a change"
+    rest = note[at + len("before") :].lstrip(": ").strip()
+    return f"Before {rest}" if rest else "Before a change"
+
+
 class BackupManager:
     def __init__(self, config, bus: EventBus, db, server, jobs: JobTracker | None = None):
         self.config = config
@@ -75,6 +90,8 @@ class BackupManager:
         self.server = server
         self.jobs = jobs
         self._running = False
+        # Undo and Redo for this server: run_safe_change records changes here.
+        self.changes = ChangeHistory(db, server.server_id, self)
 
     @property
     def directory(self) -> Path:
@@ -508,6 +525,7 @@ class BackupManager:
         for row in rows:
             row["exists"] = Path(row["path"]).is_file()
             row["copy"] = offsite.copy_status(row, root)
+            row["label"] = label(row)
         return rows
 
     def get(self, backup_id: int) -> dict[str, Any]:
@@ -557,6 +575,8 @@ class BackupManager:
         start_after: bool = False,
         safety_backup: bool = True,
         only: set[str] | None = None,
+        history: str = "push",
+        note: str | None = None,
     ) -> dict[str, Any]:
         """Stop, verify, safety-backup, restore, check. The current world is
         never removed before the safety backup exists, and a restore whose
@@ -586,8 +606,10 @@ class BackupManager:
             start_after=start_after,
             take_backup=safety_backup,
             backup_name="pre-restore",
-            backup_note=f"Automatic safety copy before restoring {row['name']}",
+            backup_note=note or f"Before restoring {row['name']}",
             undo_on_change_error=False,
+            history=history,
+            undo_scope=sorted(only) if only is not None else None,
         )
 
         async def run(job: JobHandle | None) -> dict[str, Any]:

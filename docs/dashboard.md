@@ -223,15 +223,19 @@ mod, say Unknown and explain why rather than showing a made-up number.
 **Back up now** and **Save world** at the top, then the backup list
 with buttons to check, download, restore and delete each one, and the worlds
 with their sizes and last backup. Each backup is labelled **Manual**,
-**Scheduled** or **Safety copy** (taken automatically before a restore or
-other change). Restore shows a full list of what it is about to do before it
+**Scheduled**, or by the change it was made before ("Before changing game
+settings"), when the app made it automatically. Restore shows a full list of what it is about to do before it
 does any of it. See [backups.md](backups.md).
 
-**Last change** at the top shows the newest restore (or other safe change) on
-this server with an **Undo change** button. Undo restores the safety copy
-taken just before that change; it is a change of its own, with its own safety
-copy, so it can be undone too. The toast after a restore has the same Undo
-button.
+**Undo and Redo** at the top work like an editor's. Undo reverses the newest
+change on this server (game settings, a restore, an imported world or
+modpack) by putting back the backup made just before it; pressing it again
+reverses the one before, as far back as those backups are kept (14 days).
+Redo puts back the change undone last, until a new change is made. Before
+either runs, it says what goes back, from when, and how much play would be
+lost. Undo and Redo are not changes themselves, so they don't stack up. Mods
+and server versions have their own **Roll back** instead. The toast after a
+restore has an Undo button too.
 
 While a restore runs, the server cannot be started from anywhere (the button,
 a schedule, another device), and mod changes wait: a server runs one change
@@ -244,8 +248,8 @@ first, each saying when it was and what going back would lose ("3 hours ago ·
 about 2 hours of play lost"). Where no play was recorded it says so rather
 than claiming nobody played.
 
-Going back always takes a fresh backup of the world as it is now first, so
-the undo can itself be undone from Backups. The server has to be off; while
+Restoring always takes a fresh backup of the world as it is now first, so
+Undo on Backups reverses it. The server has to be off; while
 it is running the page says so with a button to Overview. A backup that was
 not checked is listed but not offered. See `docs/backups.md`.
 

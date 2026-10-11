@@ -20,6 +20,7 @@ from .. import requestid
 from ..addons import AddonError
 from ..backups.hold import HoldError
 from ..backups.manager import BackupError
+from ..changes import ChangeError
 from ..config import ConfigError
 from ..core import UnknownServer
 from ..crossplay import CrossplayError
@@ -76,6 +77,7 @@ ERROR_STATUS: dict[type[Exception], int] = {
     ModpackError: 400,
     ChatError: 400,
     WorldUndoError: 409,  # the server has to be off first
+    ChangeError: 409,  # nothing to undo or redo now
     PushError: 400,
     WorldImportError: 400,
     MemoryLimitError: 400,

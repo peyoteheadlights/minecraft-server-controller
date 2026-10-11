@@ -283,7 +283,12 @@ async def start_duplicate(
             return await asyncio.to_thread(_check_copy, files, folder)
 
         plan = SafeChange(
-            title=title, change=copy, check=check, stop_server=False, take_backup=False
+            title=title,
+            change=copy,
+            check=check,
+            stop_server=False,
+            take_backup=False,
+            history="none",
         )
         registered = False
         try:

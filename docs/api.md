@@ -47,7 +47,10 @@ an estimate. A server runs one risky job at a time; a second gets 409.
 | --- | --- | --- |
 | GET | `/api/jobs?server_id=&running=&limit=` | Recent jobs, newest first |
 | GET | `/api/jobs/{id}` | One job, with its result |
-| POST | `/api/jobs/{id}/undo` | Undo a finished change by restoring the safety backup it took first (itself undoable) |
+| POST | `/api/jobs/{id}/undo` | Deprecated: undo a job's change while it is still the newest one (409 otherwise). Use `changes/undo` |
+| GET | `/api/servers/{id}/changes` | The undo stack (newest first) and the redo stack (undone last first), with what each would put back and the play since |
+| POST | `/api/servers/{id}/changes/undo` | `{"start_after": false}`. Reverse the newest change; again for the one before. 409 when there is nothing to undo |
+| POST | `/api/servers/{id}/changes/redo` | Put back the change undone last. A new change empties the redo stack |
 
 ## Authentication
 

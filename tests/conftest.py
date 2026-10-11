@@ -271,6 +271,7 @@ def isolated_app_data(tmp_path_factory, monkeypatch):
 def clean_fake_env():
     keys = [
         "FAKE_CRASH_ON_START",
+        "FAKE_CRASH_WHEN_ONLINE",
         "FAKE_MIXIN_CRASH",
         "FAKE_HANG",
         "FAKE_BOOT_DELAY",

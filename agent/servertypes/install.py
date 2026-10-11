@@ -35,6 +35,7 @@ from typing import TYPE_CHECKING, Any
 from .. import downloads, servertypes
 from ..downloads import DownloadError
 from ..safechange import SafeChange, run_safe_change
+from ..safechange import before as before_change
 from ..security.paths import is_inside
 from . import ServerType
 from .versions import Plan, VersionError, list_versions, make_plan
@@ -577,7 +578,8 @@ async def change_version(
         start_after=start_after,
         take_backup=True,
         backup_name="pre-version-change",
-        backup_note=f"Automatic safety copy before: {title}",
+        backup_note=before_change(title),
+        history="clear_redo",
     )
 
     async def run(job: JobHandle | None) -> dict[str, Any]:
@@ -733,7 +735,8 @@ async def roll_back(ctx: ServerContext, user: str = "system") -> dict[str, Any]:
         stop_server=True,
         take_backup=True,
         backup_name="pre-rollback",
-        backup_note=f"Automatic safety copy before: {title}",
+        backup_note=before_change(title),
+        history="clear_redo",
     )
 
     async def run(job: JobHandle | None) -> dict[str, Any]:

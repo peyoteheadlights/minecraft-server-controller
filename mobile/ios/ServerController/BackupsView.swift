@@ -223,19 +223,19 @@ struct BackupsView: View {
     @ViewBuilder
     private func lastChange(_ world: WorldPages, _ job: Job, _ undo: Undo, _ busy: String?, _ palette: Palette, now: Double) -> some View {
         let strings = model.strings
-        SectionTitle(text: model.t("backups.last_change"), palette: palette)
+        SectionTitle(text: model.t("mobile.backups.last_change"), palette: palette)
         CardBox(palette: palette) {
-            Text(model.t("backups.last_change_body", [
+            Text(model.t("mobile.backups.last_change_body", [
                 "title": job.title, "when": Display.ago(strings, job.finishedAt, now: now), "backup": undo.backup,
             ]))
             .foregroundStyle(palette.textPrimary)
             if model.can(Permissions.BACKUPS_RESTORE) {
                 Presses(presses: [
-                    Press(title: model.t("backups.undo_change"), danger: true, enabled: busy == nil) {
+                    Press(title: model.t("mobile.backups.undo_change"), danger: true, enabled: busy == nil) {
                         asking = Confirming(
-                            title: model.t("backups.undo_title"),
-                            body: model.t("backups.undo_body", ["title": job.title, "backup": undo.backup]),
-                            confirm: model.t("backups.undo")
+                            title: model.t("mobile.backups.undo_title"),
+                            body: model.t("mobile.backups.undo_body", ["title": job.title, "backup": undo.backup]),
+                            confirm: model.t("mobile.backups.undo_change")
                         ) {
                             Task { await world.undo(job, strings) }
                         }

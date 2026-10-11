@@ -332,6 +332,29 @@ MIGRATIONS: list[tuple[int, str]] = [
         CREATE INDEX app_phones_session ON app_phones(session);
         """,
     ),
+    (
+        12,
+        # Undo and Redo: each server's two stacks of changes (agent/changes.py).
+        # scope is a JSON list of what Undo puts back, NULL for everything the
+        # backup holds.
+        """
+        CREATE TABLE changes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            server_id TEXT NOT NULL,
+            job_id TEXT,
+            title TEXT NOT NULL,
+            user TEXT,
+            scope TEXT,
+            before_backup_id INTEGER NOT NULL,
+            after_backup_id INTEGER,
+            undone INTEGER NOT NULL DEFAULT 0,
+            created_at REAL NOT NULL,
+            moved_at REAL,
+            moved_by TEXT
+        );
+        CREATE INDEX changes_server ON changes(server_id, undone, id);
+        """,
+    ),
 ]
 
 

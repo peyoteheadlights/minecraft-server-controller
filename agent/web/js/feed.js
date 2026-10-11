@@ -78,8 +78,11 @@ function values(event) {
 
 /* One plain sentence for an event, or the agent's own message. */
 export function sentence(event) {
-  const key = FEED[event.type];
+  let key = FEED[event.type];
   if (!key) return event.message || event.type;
+  if (event.type === "server_crashed" && eventData(event).reason === "startup_failure") {
+    key = "feed.server_failed_to_start";
+  }
   const filled = values(event);
   // A player who left without a measured session length gets the shorter
   // line, rather than a sentence with a gap in it.

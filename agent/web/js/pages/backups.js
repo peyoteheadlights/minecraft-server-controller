@@ -4,21 +4,38 @@ import { pickFolder } from "../panels/folders.js";
 import { can, renderers, state } from "../state.js";
 import { t, technical } from "../strings.js";
 import { busy, card, confirmDialog, el, emptyState, fmt, loadInto, table, toast, withHelp } from "../ui.js";
+import { lossLine } from "./world.js";
 
 const KINDS = { manual: ["ok", "backups.kind_manual"], scheduled: ["", "backups.kind_scheduled"],
   safety: ["warn", "backups.kind_safety"] };
 
-function kindTag(kind) {
-  const [tone, key] = KINDS[kind] || ["", null];
-  return el("span", { class: `tag ${tone}` }, key ? t(key) : kind);
+/* A backup made before a change is named by that change ("Before changing
+   game settings"); the agent words that label. */
+function kindTag(b) {
+  const [tone, key] = KINDS[b.kind] || ["", null];
+  return el("span", { class: `tag ${tone}` }, b.label || (key ? t(key) : b.kind));
 }
 
-function lastChangeCard(last) {
-  return card(t("backups.last_change"),
-    el("p", {}, t("backups.last_change_body", {
-      title: last.title, when: fmt.ago(last.finished_at), backup: last.result.undo.backup })),
-    el("div", { class: "btn-row mt-10" },
-      el("button", { class: "btn", type: "button", onclick: () => undoChange(last) }, t("backups.undo_change"))));
+/* Undo and Redo: the server's two stacks of changes. Undo reverses the
+   newest change, and pressing it again reverses the one before. */
+function changesCard(changes) {
+  const nextUndo = changes.undo[0];
+  const nextRedo = changes.redo[0];
+  if (!nextUndo && !nextRedo) return null;
+  const blocked = Boolean(changes.blocked_by);
+  const later = changes.undo.slice(1, 4);
+  return card(t("changes.title"),
+    nextUndo ? el("p", {}, t("changes.next_undo", { title: nextUndo.title, when: fmt.ago(nextUndo.made_at),
+      who: nextUndo.user || t("value.unknown") })) : el("p", {}, t("changes.nothing_to_undo")),
+    nextRedo ? el("p", {}, t("changes.next_redo", { title: nextRedo.title, when: fmt.ago(nextRedo.undone_at) })) : null,
+    later.length ? el("div", { class: "hint" }, t("changes.then"),
+      el("ul", {}, later.map((c) => el("li", {}, t("changes.later_item", { title: c.title, when: fmt.ago(c.made_at) }))))) : null,
+    blocked ? el("p", { class: "hint" }, t("world.busy", { job: changes.blocked_by })) : null,
+    can("backups.restore") ? el("div", { class: "btn-row mt-10" },
+      el("button", { class: "btn", type: "button", disabled: !nextUndo || blocked,
+        onclick: () => moveChange("undo", nextUndo) }, t("changes.undo")),
+      el("button", { class: "btn", type: "button", disabled: !nextRedo || blocked,
+        onclick: () => moveChange("redo", nextRedo) }, t("changes.redo"))) : null);
 }
 
 function worldsCard(worlds) {
@@ -97,7 +114,7 @@ function offsiteCard(offsite) {
 function backupRow(b, offsite) {
   return [
     technical() ? el("span", { class: "mono" }, b.name) : fmt.time(b.created_at),
-    kindTag(b.kind),
+    kindTag(b),
     ...(technical() ? [fmt.time(b.created_at)] : []),
     fmt.bytes(b.size_bytes),
     copyCell(b, offsite),
@@ -147,9 +164,9 @@ function backupsCard(data, offsite) {
 }
 
 renderers.backups = (page) => loadInto(page, async () => {
-  const [data, worlds, jobs, offsite] = await Promise.all([
+  const [data, worlds, changes, offsite] = await Promise.all([
     api("/backups"), api("/worlds"),
-    api(`/jobs?server_id=${encodeURIComponent(state.serverId)}&limit=20`).catch(() => ({ jobs: [] })),
+    api("/changes").catch(() => ({ undo: [], redo: [] })),
     api("/backups/offsite").catch(() => ({ directory: "", unavailable: null })),
   ]);
   const holder = el("div", { class: "stack" });
@@ -176,8 +193,8 @@ renderers.backups = (page) => loadInto(page, async () => {
       },
     }, t("backups.save_world"))));
 
-  const last = lastUndoable(jobs.jobs || []);
-  if (last) holder.append(lastChangeCard(last));
+  const history = changesCard(changes);
+  if (history) holder.append(history);
   holder.append(backupsCard(data, offsite));
   holder.append(offsiteCard(offsite));
   holder.append(worldsCard(worlds.worlds));
@@ -219,33 +236,47 @@ export async function restoreBackup(backup) {
       method: "POST",
       body: { confirm: true, start_after: startAfter.checked, safety_backup: true },
     });
-    const job = { id: result.job_id, title: t("backups.restore_job", { name: result.restored }),
-      result: { undo: result.undo } };
-    toast(t("backups.restored", { name: result.restored, safety: result.safety_backup.name }), "success", 15000,
-      result.job_id && result.undo ? { label: t("backups.undo"), onClick: () => undoChange(job) } : null);
+    toast(t("backups.restored", { name: result.restored }), "success", 15000,
+      result.undo ? { label: t("changes.undo"), onClick: undoNewest } : null);
     render();
   } catch (err) { toast(err.message, "error"); }
 }
 
-/* The newest finished change on this server that can be undone. */
-function lastUndoable(jobs) {
-  return jobs.find((job) => job.state === "succeeded" && job.result && job.result.undo) || null;
-}
+const MOVE = {
+  undo: { title: "changes.undo_title", body: "changes.undo_body", button: "changes.undo",
+    working: "changes.undo_working", done: "changes.undo_done" },
+  redo: { title: "changes.redo_title", body: "changes.redo_body", button: "changes.redo",
+    working: "changes.redo_working", done: "changes.redo_done" },
+};
 
-/* One-click undo of a safe change: restores the safety copy it took first.
-   The undo is a change of its own, so it can be undone too. */
-export async function undoChange(job) {
+/* Undo the newest change, or Redo the one undone last, after saying what
+   goes back and what would be lost. */
+export async function moveChange(direction, change) {
+  const keys = MOVE[direction];
+  const loss = lossLine({ age_seconds: Date.now() / 1000 - change.backup_at, played_seconds: change.played_seconds });
+  const what = change.scope ? change.scope.join(", ") : t("changes.everything");
   const ok = await confirmDialog({
-    title: t("backups.undo_title"),
-    body: t("backups.undo_body", { title: job.title, backup: job.result.undo.backup }),
-    confirmLabel: t("backups.undo"), danger: true,
+    title: t(keys.title, { title: change.title }),
+    body: el("div", {},
+      el("p", {}, t(keys.body, { what, when: fmt.time(change.backup_at) })),
+      el("p", {}, loss),
+      el("p", {}, t("changes.server_stops"))),
+    confirmLabel: t(keys.button), danger: true,
   });
   if (!ok) return;
-  toast(t("backups.undoing"));
+  toast(t(keys.working));
   try {
-    const result = await api(`/jobs/${encodeURIComponent(job.id)}/undo`, { method: "POST" });
-    toast(t("backups.undone", { name: result.restored }), "success");
+    await api(`/changes/${direction}`, { method: "POST", body: {} });
+    toast(t(keys.done, { title: change.title }), "success");
     render();
   } catch (err) { toast(err.message, "error"); }
 }
 
+/* Undo straight after a change, from its toast: the change is the newest
+   one, so this is the same as pressing Undo on the Backups page. */
+export async function undoNewest() {
+  try {
+    const changes = await api("/changes");
+    if (changes.undo[0]) await moveChange("undo", changes.undo[0]);
+  } catch (err) { toast(err.message, "error"); }
+}

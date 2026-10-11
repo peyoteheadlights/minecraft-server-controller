@@ -694,10 +694,11 @@ async def test_a_version_change_backs_up_first_and_stays_pending(ctx, network):
     (ctx.config.server_dir / "server.jar").write_bytes(b"old jar")
     result = await install_module.change_version(ctx, "vanilla", MC, user="tester")
 
-    # A verified backup was taken before anything changed, and is the undo.
+    # A verified backup was taken before anything changed. A version change
+    # is reversed with Roll back, so it doesn't go on the undo stack.
     assert result["safety_backup"]["verified"] is True
-    assert result["undo"]["backup_id"] == result["safety_backup"]["id"]
-    assert result["undo"]["kind"] == "restore_backup"
+    assert result["undo"] is None
+    assert ctx.backups.changes.undo_stack() == []
     backups = ctx.backups.list_backups()
     assert backups and backups[-1]["kind"] == "safety"
     assert backups[-1]["created_at"] <= os.path.getmtime(ctx.config.server_dir / "server.jar")

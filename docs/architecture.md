@@ -57,7 +57,7 @@ supervisor tracks intent, not just the exit code:
 
 | Situation | Classified as | Alert? |
 | --- | --- | --- |
-| Operator pressed Stop | `user_stop` | stopped |
+| Someone pressed Stop | `user_stop` | stopped |
 | Scheduled stop ran | `scheduled_stop` | stopped |
 | `/stop` typed in game, clean shutdown lines seen | `clean_exit` | stopped |
 | Graceful stop timed out, process terminated | `force_killed` | stopped |
@@ -108,8 +108,11 @@ dashboard filters by the selected one.
   agent stopped are marked interrupted.
 - **Safe change** (`agent/safechange.py`): stop if needed, take and verify a
   backup, make the change, check it, put the backup back if the change or the
-  check fails, start again if asked. The backup is the change's one-click undo.
-  Undo is `POST /api/jobs/<id>/undo`, the Undo button on Backups.
+  check fails, start again if asked. A change that succeeds goes on the
+  server's undo stack (`agent/changes.py`), and Undo puts its backup back.
+  Undo and Redo are two stacks per server in one table: Undo moves the top
+  change to the redo stack, Redo moves it back, and any new change empties
+  Redo. Version changes only empty Redo (they have their own Roll back).
   Restoring a backup runs through it; later phases' risky changes will too.
   From the stop until the result is checked, the server is held: every
   start is refused with what it is waiting for.
@@ -208,6 +211,7 @@ agent/
   jobs.py              long operations with real progress
   ports.py             game ports and start conflicts between servers
   safechange.py        backup, change, check, undo
+  changes.py           Undo and Redo: each server's two stacks of changes
   events.py            event bus
   logging_setup.py     rotating agent logs
   main.py              FastAPI app, security headers, error handlers, entrypoint

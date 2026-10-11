@@ -864,11 +864,21 @@ class MinecraftServer:
                 context = await self.crash_hook(code, reason) or context
             except Exception:
                 log.exception("crash hook failed")
+        crashed = reason == ExitReason.CRASH
         await self.bus.publish(
-            Event(type="server_crashed", message="Server crashed", level="error", data=context)
+            Event(
+                type="server_crashed",
+                message="Server crashed" if crashed else "Server failed to start",
+                level="error",
+                data=context,
+            )
         )
         self._exited_event.set()
-        self._restart_task = asyncio.create_task(self._maybe_auto_restart())
+        # Only a crash is restarted. A server that failed to start would
+        # almost always fail the same way again (a bad mod, a port in use),
+        # so it waits for someone to look; the alert still goes out.
+        if crashed:
+            self._restart_task = asyncio.create_task(self._maybe_auto_restart())
 
     def recent_crash_count(self) -> int:
         window = self.config.monitor.crash_window_minutes * 60

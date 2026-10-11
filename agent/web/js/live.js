@@ -94,9 +94,15 @@ export function friendly(event) {
   switch (event.type) {
     case "server_started": return t("event.server_started");
     case "server_stopped": return t("event.server_stopped");
-    case "server_crashed":
+    case "server_crashed": {
+      // Dying while starting is "failed to start", not a crash.
+      if (data.reason === "startup_failure") {
+        return known(data.exit_code) ? t("event.server_failed_to_start_code", { code: data.exit_code })
+          : t("event.server_failed_to_start");
+      }
       return known(data.exit_code) ? t("event.server_crashed_code", { code: data.exit_code })
         : t("event.server_crashed");
+    }
     case "server_recovered": return t("event.server_recovered");
     case "crash_loop": return t("event.crash_loop");
     default: return event.message || event.type;
@@ -114,7 +120,9 @@ function otherServerEvent(event) {
   if (event.type === "server_crashed" || event.type === "crash_loop") {
     state.crashedElsewhere.add(event.server_id);
     const name = serverName(event.server_id);
-    toast(t(event.type === "crash_loop" ? "event.other_crash_loop" : "event.other_crashed", { name }),
+    const failed = (event.data || {}).reason === "startup_failure";
+    toast(t(event.type === "crash_loop" ? "event.other_crash_loop"
+      : failed ? "event.other_failed_to_start" : "event.other_crashed", { name }),
       "error", 9000, { label: t("event.show_server", { name }), onClick: () => selectServer(event.server_id, "dashboard") });
     renderRail();
   }
@@ -234,7 +242,7 @@ export function renderStatus() { updateStatusViews(); }
 /* The sheet's status line: the state, and while it runs, who is on. */
 export function updateStatusViews() {
   const status = state.status || {};
-  const info = stateInfo(status.state);
+  const info = stateInfo(status.state, status.last_exit_reason);
   const line = $("#sheet-state");
   if (line) {
     const parts = [el("span", { class: `status-dot tone-${info.tone}${info.busy ? " pulse" : ""}` }),

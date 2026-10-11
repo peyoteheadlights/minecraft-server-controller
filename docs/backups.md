@@ -95,8 +95,8 @@ Three things are different from the Backups page:
   point in time. Stop it from Overview first.
 - **A backup that was not checked is not offered**, and the page says why.
 
-Everything else is the ordinary restore above, safety backup and all, so
-going back can itself be undone from the Backups page.
+Everything else is the ordinary restore above, backup first and all, so
+Undo on the Backups page reverses it.
 
 ## Retention
 

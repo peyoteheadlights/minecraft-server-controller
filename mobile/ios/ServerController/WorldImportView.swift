@@ -95,6 +95,7 @@ struct WorldImportCards: View {
 }
 
 /// "Sending w.zip… 40%": the name, then the share done or the bytes so far.
+@MainActor
 func progressText(_ model: AppModel, _ key: String, _ progress: Downloading) -> String {
     let share: String
     if let size = progress.size, size > 0 {

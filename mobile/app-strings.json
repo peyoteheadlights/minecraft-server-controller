@@ -305,6 +305,7 @@
   "mobile.add.working": ["Setting up… {step}", "Running: {step}"],
   "mobile.add.leave_ok": ["You can leave this screen or close the phone app. Setting up carries on, and the new server shows on All servers when it's ready.", "The task continues on the PC."],
   "mobile.add.pack_name": ["Modpack: {name}", "Pack: {name}"],
+  "mobile.add.open": ["Open {name}", "Open {name}"],
   "mobile.add.start_over": ["Start again", "Reset"],
 
   "mobile.import.not_a_world": ["Choose a world saved as a .zip (or a .mcworld for a Bedrock server).", "Expected .zip, .mcworld or .mctemplate."],

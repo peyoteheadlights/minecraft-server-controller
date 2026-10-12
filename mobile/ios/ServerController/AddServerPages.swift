@@ -43,6 +43,8 @@ final class AddServerPages {
     /// Shown after adding a server already on the PC: its name and the agent's warnings.
     private(set) var addedLines: [String] = []
     private(set) var opened: String?
+    /// A server already on the PC that came with warnings: it opens when the person is ready.
+    private(set) var added: ServerAdded?
 
     /// The folder that will be sent: the typed one, or a new one inside the picked one.
     var folder: String {
@@ -60,6 +62,7 @@ final class AddServerPages {
         way = chosen
         said = nil
         addedLines = []
+        added = nil
         if options.value == nil { await loadOptions() }
     }
 
@@ -78,6 +81,17 @@ final class AddServerPages {
         jar = ""
         said = nil
         addedLines = []
+        added = nil
+    }
+
+    /// Leaving the screen: a pack read but not used is thrown away, unless it is being made into a server now.
+    func leave() async {
+        if busy != "create" { await dropPack() }
+    }
+
+    /// Opens the server added with warnings, once they've been read.
+    func openAdded() {
+        opened = added?.server.id
     }
 
     func loadOptions() async {
@@ -178,13 +192,14 @@ final class AddServerPages {
         said = nil
         defer { busy = nil }
         do {
-            let added = try await client.addServer(
+            let result = try await client.addServer(
                 name: name.trimmingCharacters(in: .whitespaces), directory: folder, type: kind.id,
                 jar: jar.trimmingCharacters(in: .whitespaces)
             )
-            addedLines = AddServer.addedLines(strings, added)
+            addedLines = AddServer.addedLines(strings, result)
             await listChanged()
-            opened = added.server.id
+            // Warnings stay on screen so they can be fixed before starting.
+            if result.warnings.isEmpty { opened = result.server.id } else { added = result }
         } catch let problem as AgentError {
             noted(problem)
             said = Said(text: problem.message(strings), good: false)

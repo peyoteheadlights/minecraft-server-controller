@@ -40,6 +40,9 @@ struct AddServerView: View {
                     default: alreadyThere(adding, options)
                     }
                     ForEach(adding.addedLines, id: \.self) { line in Text(line) }
+                    if let added = adding.added {
+                        Button(model.t("mobile.add.open", ["name": added.server.name])) { adding.openAdded() }
+                    }
                 } else {
                     Section(model.t("add.ways")) {
                         wayButton(adding, AddServer.NEW, "add.way_new", "mobile.add.way_new_hint")
@@ -58,6 +61,10 @@ struct AddServerView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             if adding.options.value == nil { await adding.loadOptions() } else { await adding.resume() }
+        }
+        .onDisappear {
+            // Leaving half way: an uploaded pack isn't left on the PC.
+            Task { await adding.leave() }
         }
         .onChange(of: adding.opened) {
             guard let id = adding.opened else { return }

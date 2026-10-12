@@ -7391,6 +7391,10 @@
   "Modpack: {name}",
   "Pack: {name}"
  ],
+ "mobile.add.open": [
+  "Open {name}",
+  "Open {name}"
+ ],
  "mobile.add.start_over": [
   "Start again",
   "Reset"

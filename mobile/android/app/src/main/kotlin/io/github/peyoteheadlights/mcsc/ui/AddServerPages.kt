@@ -12,6 +12,7 @@ import io.github.peyoteheadlights.mcsc.core.NewServerOptions
 import io.github.peyoteheadlights.mcsc.core.NewServerRequest
 import io.github.peyoteheadlights.mcsc.core.OfferedVersion
 import io.github.peyoteheadlights.mcsc.core.PickedFile
+import io.github.peyoteheadlights.mcsc.core.ServerAdded
 import io.github.peyoteheadlights.mcsc.core.ServerTypeInfo
 import io.github.peyoteheadlights.mcsc.core.Strings
 import io.github.peyoteheadlights.mcsc.core.TypeVersions
@@ -69,6 +70,9 @@ class AddServerPages(
         private set
     var opened: String? by mutableStateOf(null)
         private set
+    /** A server already on the PC that came with warnings: it opens when the person is ready. */
+    var added: ServerAdded? by mutableStateOf(null)
+        private set
 
     /** The folder that will be sent: the typed one, or a new one inside the picked one. */
     val folder: String
@@ -78,6 +82,7 @@ class AddServerPages(
         way = chosen
         said = null
         addedLines = emptyList()
+        added = null
         if (options.value == null) loadOptions()
     }
 
@@ -96,6 +101,17 @@ class AddServerPages(
         jar = ""
         said = null
         addedLines = emptyList()
+        added = null
+    }
+
+    /** Leaving the screen: a pack read but not used is thrown away, unless it is being made into a server now. */
+    fun leave() {
+        if (busy != "create") dropPack()
+    }
+
+    /** Opens the server added with warnings, once they've been read. */
+    fun openAdded() {
+        opened = added?.server?.id
     }
 
     fun loadOptions() {
@@ -213,10 +229,11 @@ class AddServerPages(
         said = null
         scope.launch {
             try {
-                val added = c.addServer(name.trim(), folder, kind.id, jar.trim())
-                addedLines = AddServer.addedLines(strings, added)
+                val result = c.addServer(name.trim(), folder, kind.id, jar.trim())
+                addedLines = AddServer.addedLines(strings, result)
                 onListChanged()
-                opened = added.server.id
+                // Warnings stay on screen so they can be fixed before starting.
+                if (result.warnings.isEmpty()) opened = result.server.id else added = result
             } catch (e: AgentException) {
                 noted(e)
                 said = Said(Message.of(e).text(strings), good = false)

@@ -124,3 +124,14 @@ DELETE /api/servers/{server_id}/world/import/{token}
 POST /api/servers/{server_id}/world/download
 # The packed world is a zip, not JSON, so it has no typed answer; the apps
 # download it from GET /api/servers/{server_id}/world/download/{token}.
+GET /api/accounts
+POST /api/accounts
+PUT /api/accounts/{username}
+DELETE /api/accounts/{username}
+POST /api/accounts/{username}/invite
+DELETE /api/accounts/{username}/invite
+POST /api/invite/check
+POST /api/invite/accept
+POST /api/account/password
+GET /api/sessions
+DELETE /api/sessions/{session_id}

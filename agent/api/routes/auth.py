@@ -150,7 +150,7 @@ async def me(principal: Principal = Depends(require(ACCOUNT)), core=Depends(get_
     }
 
 
-@router.post("/account/password")
+@router.post("/account/password", response_model=Ok)
 async def change_password(
     payload: PasswordChangeRequest,
     request: Request,

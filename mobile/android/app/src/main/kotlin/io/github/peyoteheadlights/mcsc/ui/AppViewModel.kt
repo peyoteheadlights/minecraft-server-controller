@@ -11,8 +11,11 @@ import io.github.peyoteheadlights.mcsc.core.AgentException
 import io.github.peyoteheadlights.mcsc.core.AlertState
 import io.github.peyoteheadlights.mcsc.core.AlertSync
 import io.github.peyoteheadlights.mcsc.core.Compatibility
+import io.github.peyoteheadlights.mcsc.core.Invite
+import io.github.peyoteheadlights.mcsc.core.InviteLink
 import io.github.peyoteheadlights.mcsc.core.LiveFeed
 import io.github.peyoteheadlights.mcsc.core.LiveSignal
+import io.github.peyoteheadlights.mcsc.core.LoginResult
 import io.github.peyoteheadlights.mcsc.core.Me
 import io.github.peyoteheadlights.mcsc.core.PairResult
 import io.github.peyoteheadlights.mcsc.core.Pairing
@@ -42,6 +45,9 @@ sealed interface Stage {
     data class Switch(val pairing: Pairing, val current: Pairing) : Stage
     data class Problem(val message: Message, val retry: Pairing? = null) : Stage
     data class SignIn(val problem: Message? = null, val busy: Boolean = false) : Stage
+
+    /** A moderator's invite: their name is filled in, they choose a password. */
+    data class Invite(val invite: io.github.peyoteheadlights.mcsc.core.Invite, val problem: Message? = null, val busy: Boolean = false) : Stage
     data object Ready : Stage
 }
 
@@ -140,6 +146,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** The "+" on All servers, kept while the app runs so setting up shows its progress again. */
     val adding by lazy { AddServerPages(viewModelScope, { client() }, { prefs.lastProblem = it.key }, ::refreshServers) }
+    /** Settings > Moderators (owner only). */
+    val moderators by lazy { ModeratorPages(viewModelScope, { client() }, { prefs.lastProblem = it.key }) }
+
+    /** Settings > Your account. */
+    val yourAccount by lazy { AccountPages(viewModelScope, { client() }, { prefs.lastProblem = it.key }) }
+
+    /** An invite scanned or pasted: opened once the phone is paired with its PC. */
+    private var pendingInvite: Invite? = null
     private var feed: LiveFeed? = null
     private var liveJob: Job? = null
     private var refreshJob: Job? = null
@@ -163,10 +177,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         stage = next
     }
 
-    /** A scanned code or a typed address. */
+    /** A scanned code or a typed address, either of which can be a moderator's invite. */
     fun submit(text: String, scanned: Boolean) {
+        pendingInvite = InviteLink.parse(text)
         val pairing = try {
-            PairingLink.parse(text)
+            PairingLink.parse(if (pendingInvite != null) InviteLink.url(text)!! else text)
         } catch (e: PairingParseException) {
             stage = if (scanned) Stage.Problem(Message("mobile.scan.not_ours")) else Stage.Type(Message(e.problem.key))
             return
@@ -183,6 +198,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         check(pairing)
     }
 
+    /** "Paste invite link" on the welcome screen. */
+    fun pasteInvite(text: String?) {
+        if (text == null || InviteLink.parse(text) == null) {
+            stage = Stage.Type(Message("mobile.invite.paste_empty"))
+            return
+        }
+        submit(text, scanned = false)
+    }
+
     /** "Scan the code again" in Settings: for a renewed certificate. */
     fun rescan() {
         stopLive()
@@ -192,8 +216,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Back from a pairing screen: to the app when rescanning, else to the start. */
     fun back() {
-        val signedIn = rescanning && prefs.pairing != null && graph.vault.token() != null
+        // Rescanning, or an invite opened while signed in: back to the app as it was.
+        val signedIn = (rescanning || stage is Stage.Invite) && prefs.pairing != null && graph.vault.token() != null
         rescanning = false
+        pendingInvite = null
         stage = if (signedIn) Stage.Ready else Stage.Welcome
         if (signedIn) afterSignIn()
     }
@@ -217,7 +243,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             if ((before == null || !before.samePc(result.pairing)) && graph.vault.token() != null) leaveOldPc()
             prefs.pairing = result.pairing
             rescanning = false
-            if (graph.vault.token() != null) {
+            val invite = pendingInvite
+            if (invite != null) {
+                openInvite(invite)
+            } else if (graph.vault.token() != null) {
                 stage = Stage.Ready
                 afterSignIn()
             } else {
@@ -247,18 +276,54 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         stage = Stage.SignIn(busy = true)
         viewModelScope.launch {
             try {
-                val result = client.login(username.trim(), password, graph.deviceLabel())
-                graph.vault.save(result.token)
-                prefs.user = result.user ?: username.trim()
-                // A new sign-in starts the Notifications tab from now.
-                graph.alerts.write(AlertState())
-                alerts = AlertState()
-                locked = false
-                stage = Stage.Ready
-                afterSignIn()
+                signedIn(client.login(username.trim(), password, graph.deviceLabel()), username.trim())
             } catch (e: AgentException) {
                 prefs.lastProblem = e.key
                 stage = Stage.SignIn(Message.of(e))
+            }
+        }
+    }
+
+    private fun signedIn(result: LoginResult, username: String) {
+        graph.vault.save(result.token)
+        prefs.user = result.user ?: username
+        // A new sign-in starts the Notifications tab from now.
+        graph.alerts.write(AlertState())
+        alerts = AlertState()
+        locked = false
+        stage = Stage.Ready
+        afterSignIn()
+    }
+
+    /** Asks the PC who the invite is for; a used, cancelled or run-out one says so. */
+    private suspend fun openInvite(invite: Invite) {
+        val client = graph.client() ?: return go(Stage.Welcome)
+        stage = Stage.Checking
+        try {
+            client.checkInvite(invite.token)
+            stage = Stage.Invite(invite)
+        } catch (e: AgentException) {
+            prefs.lastProblem = e.key
+            pendingInvite = null
+            stage = Stage.Problem(Message.of(e))
+        }
+    }
+
+    /** The invited moderator chose a password: the account is theirs, and this phone signs in as them. */
+    fun acceptInvite(password: String) {
+        val current = stage as? Stage.Invite ?: return
+        val client = graph.client() ?: return go(Stage.Welcome)
+        stage = current.copy(busy = true, problem = null)
+        viewModelScope.launch {
+            try {
+                val result = client.acceptInvite(current.invite.token, password, graph.deviceLabel())
+                // Signed in as someone else before: that sign-in ends here.
+                if (graph.vault.token() != null) leaveOldPc()
+                pendingInvite = null
+                signedIn(result, current.invite.username)
+            } catch (e: AgentException) {
+                prefs.lastProblem = e.key
+                stage = current.copy(problem = Message.of(e), busy = false)
             }
         }
     }

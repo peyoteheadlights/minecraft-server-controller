@@ -44,6 +44,19 @@ final class AppModel {
         listChanged: { [weak self] in await self?.refreshServers() }
     )
 
+    /// Settings > Moderators (owner only).
+    @ObservationIgnored private(set) lazy var moderators = ModeratorPages(
+        client: { [weak self] in self?.client },
+        noted: { [weak self] problem in self?.note(problem) },
+        strings: strings
+    )
+    /// Settings > Your account.
+    @ObservationIgnored private(set) lazy var yourAccount = AccountPages(
+        client: { [weak self] in self?.client },
+        noted: { [weak self] problem in self?.note(problem) },
+        strings: strings
+    )
+
     // Settings.
     var technical: Bool
     var theme: ThemeChoice
@@ -54,6 +67,9 @@ final class AppModel {
     var signedIn: Bool
     var locked: Bool
     var signInNotice: String? = nil
+    /// A moderator's invite scanned or pasted: once the phone is paired with
+    /// its PC, they choose a password instead of signing in.
+    var pendingInvite: Invite? = nil
     /// The signed-in account, from /auth/me.
     private var account: Me? = nil
     /// The account on the server whose screen is open: what it may do there.
@@ -161,7 +177,8 @@ final class AppModel {
     /// (a renewed certificate) keeps the sign-in; for any other address the
     /// app signs out of this PC first, so the sign-in is never sent there.
     func rescanned(_ next: Pairing) async {
-        if let current = pairing, current.samePc(next), signedIn {
+        // An invite is another account: this one signs out first.
+        if pendingInvite == nil, let current = pairing, current.samePc(next), signedIn {
             store.pairing = next
             pairing = next
             client = makeClient(next)
@@ -202,6 +219,17 @@ final class AppModel {
         locked = false
         signInNotice = nil
         // The main screen appears and reads everything (afterSignIn).
+        signedIn = true
+    }
+
+    /// The invited moderator chose a password: the account is theirs, and this phone signs in as them.
+    func acceptInvite(password: String) async throws {
+        guard let client = client, let invite = pendingInvite else { throw AgentError.unreachable }
+        let result = try await client.acceptInvite(token: invite.token, password: password, device: deviceLabel)
+        TokenStore.save(result.token)
+        pendingInvite = nil
+        locked = false
+        signInNotice = nil
         signedIn = true
     }
 
@@ -250,6 +278,7 @@ final class AppModel {
         TokenStore.delete()
         store.forgetPC()
         clearSignedIn()
+        pendingInvite = nil
         pairing = nil
         client = nil
         alertState = AlertState()

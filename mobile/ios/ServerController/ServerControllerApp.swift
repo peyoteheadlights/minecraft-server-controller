@@ -46,6 +46,8 @@ struct RootView: View {
     private var content: some View {
         if model.pairing == nil {
             PairingFlowView()
+        } else if !model.signedIn, model.pendingInvite != nil {
+            InviteAccountView()
         } else if !model.signedIn {
             SignInView()
         } else {

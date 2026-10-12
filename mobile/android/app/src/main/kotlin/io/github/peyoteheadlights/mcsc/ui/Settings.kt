@@ -28,7 +28,7 @@ import io.github.peyoteheadlights.mcsc.BuildConfig
 private val THEMES = listOf("system", "light", "dark", "graphite", "contrast")
 
 @Composable
-fun SettingsScreen(vm: AppViewModel, onAbout: () -> Unit) {
+fun SettingsScreen(vm: AppViewModel, onAbout: () -> Unit, onAccount: () -> Unit, onModerators: () -> Unit) {
     val colors = LocalColors.current
     val context = LocalContext.current
     var asking by rememberSaveable { mutableStateOf<String?>(null) }
@@ -43,6 +43,13 @@ fun SettingsScreen(vm: AppViewModel, onAbout: () -> Unit) {
 
     Scaffold(containerColor = colors.sheet, topBar = { Bar(t("mobile.settings.title")) }) { padding ->
         LazyColumn(contentPadding = ScreenPadding, modifier = Modifier.padding(padding).fillMaxSize()) {
+            item { SectionTitle(t("mobile.settings.people")) }
+            item {
+                Card {
+                    Item(t("account.title"), subtitle = vm.me?.user ?: vm.user, onClick = onAccount)
+                    if (vm.me?.isOwner == true) Item(t("mobile.mod.title"), onClick = onModerators)
+                }
+            }
             item { SectionTitle(t("mobile.settings.theme")) }
             item {
                 Card(Modifier.selectableGroup()) {

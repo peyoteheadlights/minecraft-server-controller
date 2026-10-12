@@ -28,6 +28,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -81,6 +82,10 @@ fun Onboarding(vm: AppViewModel) {
             )
         }
         is Stage.SignIn -> SignIn(vm, stage)
+        is Stage.Invite -> {
+            BackHandler { vm.back() }
+            InviteAccount(vm, stage)
+        }
         Stage.Ready -> Unit
     }
 }
@@ -112,6 +117,7 @@ private fun Lead(text: String) {
 @Composable
 private fun Welcome(vm: AppViewModel) {
     val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
     Page {
         Spacer(Modifier.height(24.dp))
         Text(
@@ -136,6 +142,41 @@ private fun Welcome(vm: AppViewModel) {
         TextButton(onClick = { vm.go(Stage.Type()) }, modifier = Modifier.fillMaxWidth()) {
             Text(t("mobile.welcome.type"))
         }
+        OutlinedButton(onClick = { vm.pasteInvite(clipboard.getText()?.text) }, modifier = Modifier.fillMaxWidth()) {
+            Text(t("mobile.welcome.paste"))
+        }
+        Note(t("mobile.welcome.paste_hint"), modifier = Modifier.padding(horizontal = 0.dp))
+    }
+}
+
+/** An invite opened: the name the owner chose is filled in; they choose the password. */
+@Composable
+private fun InviteAccount(vm: AppViewModel, stage: Stage.Invite) {
+    var password by rememberSaveable { mutableStateOf("") }
+    var repeat by rememberSaveable { mutableStateOf("") }
+    val short = password.isNotEmpty() && password.length < 10
+    val mismatch = repeat.isNotEmpty() && password != repeat
+    val ready = !stage.busy && password.length >= 10 && password == repeat
+    Page(t("mobile.invite.title"), onBack = { vm.back() }) {
+        Lead(t("mobile.invite.lead"))
+        vm.pairing?.let { Note(t("mobile.signin.pc", "host" to it.host), modifier = Modifier.padding(horizontal = 0.dp)) }
+        stage.problem?.let { Text(it.text(), color = LocalColors.current.danger) }
+        OutlinedTextField(
+            value = stage.invite.username,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(t("mobile.invite.name")) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        PasswordField(password, { password = it }, t("mobile.invite.password"), error = if (short) t("mobile.invite.too_short") else null, hint = t("mobile.invite.hint"))
+        PasswordField(repeat, { repeat = it }, t("mobile.invite.repeat"), error = if (mismatch) t("mobile.invite.mismatch") else null)
+        Button(
+            onClick = { if (ready) vm.acceptInvite(password) },
+            enabled = ready,
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+        ) { Text(t(if (stage.busy) "mobile.invite.going" else "mobile.invite.go")) }
+        Note(t("mobile.signin.stays"), modifier = Modifier.padding(horizontal = 0.dp))
     }
 }
 

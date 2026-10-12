@@ -39,7 +39,7 @@ import io.github.peyoteheadlights.mcsc.core.RawText
 fun GameSettingsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit) {
     val content = vm.pages(serverId).content
     val strings = vm.strings
-    val canEdit = vm.canDo(Permissions.SETTINGS_EDIT)
+    val canEdit = vm.canDo(Permissions.SETTINGS_GAME)
     var restarting by remember { mutableStateOf(false) }
     LaunchedEffect(serverId) {
         content.clearSaid()
@@ -97,7 +97,7 @@ fun GameSettingsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit) {
             }
             item { Note(t("game.copy_kept"), color = LocalColors.current.text3) }
         }
-        if (canEdit && RawText.allowed(vm.me, vm.technical) && settings.exists) {
+        if (canEdit && RawText.allowed(vm.me, vm.technical, Permissions.SETTINGS_GAME) && settings.exists) {
             item { SectionTitle(t("game.raw_title")) }
             item {
                 Card {

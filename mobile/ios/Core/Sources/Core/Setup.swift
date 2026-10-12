@@ -79,7 +79,7 @@ public enum ServerForm {
     public static func visible(_ me: Me?) -> Bool { me?.can(Permissions.SETTINGS_VIEW) == true }
 
     /// Change it: only with settings.edit; anyone else sees it read-only.
-    public static func editable(_ me: Me?) -> Bool { me?.can(Permissions.SETTINGS_EDIT) == true }
+    public static func editable(_ me: Me?) -> Bool { me?.can(Permissions.SETTINGS_SERVER) == true }
 
     /// Only what changed, typed as the agent takes it: on and off as true
     /// or false, numbers as numbers when they read as one (the agent checks
@@ -413,7 +413,11 @@ public struct RawChange: Equatable, Sendable {
 /// text. Before saving, the phone lists what will change, read the same way
 /// the agent reads the file, so comments and order never count as changes.
 public enum RawText {
-    public static func allowed(_ me: Me?, technical: Bool) -> Bool { technical && ServerForm.editable(me) }
+    /// Technical mode, with the permission for that file: Game settings for
+    /// server.properties, Server settings for Java options.
+    public static func allowed(_ me: Me?, technical: Bool, permission: String = Permissions.SETTINGS_SERVER) -> Bool {
+        technical && me?.can(permission) == true
+    }
 
     /// Each key's value, as the agent reads server.properties (agent/minecraft/properties.py).
     public static func properties(_ text: String) -> [String: String] {

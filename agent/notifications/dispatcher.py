@@ -113,8 +113,8 @@ EVENT_MAP: dict[str, tuple[str, str, int, str]] = {
         "{server}: backup's second copy failed",
     ),
     "world_imported": ("world_imported", "🌍", 0x3BA55D, "{server}: world imported"),
-    "helper_added": ("helper_added", "👤", 0x5865F2, "Helper added"),
-    "helper_removed": ("helper_removed", "👤", 0xFAA61A, "Helper removed"),
+    "helper_added": ("helper_added", "👤", 0x5865F2, "Moderator added"),
+    "helper_removed": ("helper_removed", "👤", 0xFAA61A, "Moderator removed"),
 }
 
 

@@ -656,9 +656,20 @@ class Me(Open):
     user: str
     kind: str
     expires_at: float | None = None
-    role: str = Field(description="owner or helper")
-    servers: list[str] | None = Field(None, description="A helper's servers; null for the owner")
-    permissions: list[str]
+    role: str = Field(description="owner or helper (a moderator)")
+    servers: list[str] | None = Field(
+        None, description="A moderator's servers; null for every server"
+    )
+    permissions: list[str] = Field(
+        description="Every permission held on at least one server, plus the account's own; "
+        "the list apps released before per-server permissions read"
+    )
+    account_permissions: list[str] = Field(
+        description="Permissions that don't belong to one server"
+    )
+    server_permissions: dict[str, list[str]] = Field(
+        description="What this account may do on each server it can see, by server id"
+    )
     preferences: dict[str, Any]
 
 

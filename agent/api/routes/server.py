@@ -15,7 +15,7 @@ from ...security.permissions import (
     CONSOLE_SEND,
     SERVER_CONTROL,
     SERVER_VIEW,
-    SETTINGS_EDIT,
+    SETTINGS_SERVER,
     require,
 )
 from ..deps import audit, get_server
@@ -302,7 +302,7 @@ async def tps_detect(
 async def tps_set_command(
     payload: TpsCommandRequest,
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(SETTINGS_SERVER)),
     ctx=Depends(get_server),
 ):
     try:

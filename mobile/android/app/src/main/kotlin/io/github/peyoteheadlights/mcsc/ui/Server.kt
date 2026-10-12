@@ -43,7 +43,7 @@ fun ServerScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit, onOpen:
     val state = if (ui.problem != null) States.UNKNOWN else status?.state ?: row?.state
     val now = rememberNow()
     var asking by rememberSaveable { mutableStateOf<String?>(null) }
-    val canEdit = vm.canDo(Permissions.SETTINGS_EDIT)
+    val canEdit = vm.canDo(Permissions.SETTINGS_SERVER)
     LaunchedEffect(serverId) { pages.loadCards() }
 
     ServerFrame(

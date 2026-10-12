@@ -9,7 +9,7 @@ from fastapi.responses import PlainTextResponse
 
 from ...events import OWNER_ONLY_EVENTS
 from ...security.auth import Principal
-from ...security.permissions import CONSOLE_SEND, SERVER_VIEW, require
+from ...security.permissions import CONSOLE_READ, CONSOLE_SEND, require
 from ..deps import audit, get_server
 from ..responses import ConsoleLog, CrashDetail, CrashList, EventList, Ok
 
@@ -22,7 +22,7 @@ async def logs(
     since: int = 0,
     search: str = "",
     level: str = "",
-    principal: Principal = Depends(require(SERVER_VIEW)),
+    principal: Principal = Depends(require(CONSOLE_READ)),
     ctx=Depends(get_server),
 ):
     lines = max(1, min(int(lines), 500))
@@ -43,7 +43,7 @@ async def logs(
 
 @router.get("/logs/download", response_class=PlainTextResponse)
 async def download_logs(
-    principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
+    principal: Principal = Depends(require(CONSOLE_READ)), ctx=Depends(get_server)
 ):
     body = "\n".join(ctx.server.console.all_raw())
     filename = f"console-{time.strftime('%Y%m%d-%H%M%S')}.log"
@@ -64,7 +64,7 @@ async def clear_console(
 
 @router.get("/events", response_model=EventList)
 async def events(
-    limit: int = 100, principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
+    limit: int = 100, principal: Principal = Depends(require(CONSOLE_READ)), ctx=Depends(get_server)
 ):
     limit = max(1, min(int(limit), 500))
     await ctx.core.events.flush()
@@ -76,14 +76,14 @@ async def events(
 
 @router.get("/crashes", response_model=CrashList)
 async def crashes(
-    limit: int = 50, principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
+    limit: int = 50, principal: Principal = Depends(require(CONSOLE_READ)), ctx=Depends(get_server)
 ):
     return {"crashes": ctx.crashes.list_crashes(max(1, min(limit, 200)))}
 
 
 @router.get("/crashes/{crash_id}", response_model=CrashDetail)
 async def crash_detail(
-    crash_id: int, principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
+    crash_id: int, principal: Principal = Depends(require(CONSOLE_READ)), ctx=Depends(get_server)
 ):
     row = ctx.crashes.get_crash(crash_id)
     if not row:

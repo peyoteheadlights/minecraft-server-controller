@@ -22,6 +22,15 @@ public struct AlertState: Codable, Equatable, Sendable {
 
     public var unread: Int { alerts.filter { $0.id > readUpTo }.count }
 
+    /// Only the servers this account can see now: a server taken from a
+    /// moderator takes its alerts with it.
+    public func onlyFor(_ me: Me) -> AlertState {
+        if me.isOwner { return self }
+        var copy = self
+        copy.alerts = alerts.filter { me.sees($0.serverId) }
+        return copy
+    }
+
     public func markAllRead() -> AlertState {
         var copy = self
         let newest = alerts.map { $0.id }.max() ?? 0

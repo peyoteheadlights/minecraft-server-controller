@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ...config import ConfigError
 from ...security.auth import Principal
-from ...security.permissions import SETTINGS_EDIT, SETTINGS_VIEW, require
+from ...security.permissions import PC_SETTINGS, SETTINGS_VIEW, can_see_server, require
 from ..deps import audit, get_core
 from ..responses import AlertHistory
 from .models import MaintenanceRequest, SettingsRequest
@@ -45,10 +45,10 @@ async def get_settings(
     principal: Principal = Depends(require(SETTINGS_VIEW)), core=Depends(get_core)
 ):
     config = core.config.as_dict(redact_secrets=True)
-    if principal.servers is not None:
-        # A helper limited to some servers isn't shown the others.
+    if not principal.is_owner:
+        # A moderator isn't shown the servers they can't see.
         config["servers"] = [
-            s for s in config.get("servers", []) if s.get("id") in principal.servers
+            s for s in config.get("servers", []) if can_see_server(principal, s.get("id"))
         ]
     return {
         "config": config,
@@ -65,7 +65,7 @@ async def get_settings(
 async def update_settings(
     payload: SettingsRequest,
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(PC_SETTINGS)),
     core=Depends(get_core),
 ):
     applied, rejected = {}, {}
@@ -101,7 +101,7 @@ async def update_settings(
 async def set_maintenance(
     payload: MaintenanceRequest,
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(PC_SETTINGS)),
     core=Depends(get_core),
 ):
     result = core.set_maintenance(payload.enabled, user=principal.user)
@@ -113,7 +113,7 @@ async def set_maintenance(
 async def test_notification(
     channel: str,
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(PC_SETTINGS)),
     core=Depends(get_core),
 ):
     try:

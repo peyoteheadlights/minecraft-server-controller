@@ -96,8 +96,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var lockAlerts: Boolean by mutableStateOf(prefs.lockAlerts)
         private set
 
-    var me: Me? by mutableStateOf(null)
-        private set
+    /** The signed-in account, from /auth/me. */
+    private var account: Me? by mutableStateOf(null)
+
+    /** The account on the server whose screen is open: what it may do there. */
+    val me: Me? get() = account?.forServer(watching)
     var servers: ServersUi by mutableStateOf(ServersUi())
         private set
     var server: Map<String, ServerUi> by mutableStateOf(emptyMap())
@@ -125,7 +128,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val user: String? get() = prefs.user
 
     private var foreground = false
-    private var watching: String? = null
+    private var watching: String? by mutableStateOf(null)
 
     /** The server screens open now, newest last; the same server can be
      * open twice (its home and its Console) while one replaces the other. */
@@ -147,7 +150,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 // The widget stops showing servers at once, not at its next refresh.
                 Widgets.refresh(getApplication())
                 stopLive()
-                me = null
+                account = null
                 lockAlerts = false
                 pagesBy.clear()
                 stage = Stage.SignIn(Message("error.session_ended"))
@@ -273,7 +276,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             stopLive()
             graph.forgetSignIn()
             Widgets.refresh(getApplication())
-            me = null
+            account = null
             lockAlerts = false
             alerts = AlertState()
             pagesBy.clear()
@@ -289,7 +292,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         Push.stop(getApplication())
         graph.forgetSignIn()
         Widgets.refresh(getApplication())
-        me = null
+        account = null
         lockAlerts = false
         alerts = AlertState()
         servers = ServersUi()
@@ -308,7 +311,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             Push.stop(getApplication())
             graph.forgetPc()
             Widgets.refresh(getApplication())
-            me = null
+            account = null
             lockAlerts = false
             alerts = AlertState()
             servers = ServersUi()
@@ -437,8 +440,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val client = client() ?: return
         viewModelScope.launch {
             runCatching { client.me() }.onSuccess {
-                me = it
+                account = it
                 prefs.user = it.user
+                alerts = graph.alerts.update { state -> state.onlyFor(it) }
             }
             runCatching { client.version() }.onSuccess {
                 agentVersion = it.version
@@ -452,7 +456,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val client = client() ?: return
         viewModelScope.launch {
             try {
-                val next = AlertSync { after, limit -> client.alerts(after, limit) }.catchUp(graph.alerts.read())
+                val caughtUp = AlertSync { after, limit -> client.alerts(after, limit) }.catchUp(graph.alerts.read())
+                val next = account?.let(caughtUp::onlyFor) ?: caughtUp
                 graph.alerts.write(next)
                 alerts = next
             } catch (e: AgentException) {

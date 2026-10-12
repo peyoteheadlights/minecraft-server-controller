@@ -155,7 +155,7 @@ struct SuggestionsCard: View {
 
     var body: some View {
         if pages.suggestions.problem == nil, let list = pages.suggestions.value {
-            let canEdit = model.can(Permissions.SETTINGS_EDIT)
+            let canEdit = model.can(Permissions.SETTINGS_SERVER)
             CardBox(palette: palette) {
                 Text(model.t("overview.recommendations"))
                     .font(.headline)
@@ -238,7 +238,7 @@ struct ChecklistCard: View {
                         .font(.headline)
                         .foregroundStyle(palette.textPrimary)
                     Spacer()
-                    if model.can(Permissions.SETTINGS_EDIT) {
+                    if model.can(Permissions.SETTINGS_SERVER) {
                         Button(model.t("start.hide")) {
                             Task { await pages.hideChecklist(model.strings) }
                         }

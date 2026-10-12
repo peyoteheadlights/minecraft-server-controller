@@ -35,7 +35,7 @@ final class AppModel {
     /// The server screens open now, newest last; the same server can be
     /// open twice (its home and its Console) while one replaces the other.
     @ObservationIgnored private var watchers: [String] = []
-    @ObservationIgnored private var watching: String? = nil
+    private var watching: String? = nil
     @ObservationIgnored private var pagesById: [String: ServerPages] = [:]
     /// The "+" on All servers, kept while the app runs so setting up shows its progress again.
     @ObservationIgnored private(set) lazy var adding = AddServerPages(
@@ -54,7 +54,10 @@ final class AppModel {
     var signedIn: Bool
     var locked: Bool
     var signInNotice: String? = nil
-    var me: Me? = nil
+    /// The signed-in account, from /auth/me.
+    private var account: Me? = nil
+    /// The account on the server whose screen is open: what it may do there.
+    var me: Me? { account?.forServer(watching) }
     var agentVersion: String?
     var lastProblem: String? = nil
 
@@ -214,7 +217,10 @@ final class AppModel {
     func loadAccount() async {
         guard let client = client, signedIn else { return }
         do {
-            me = try await client.me()
+            let found = try await client.me()
+            account = found
+            alertState = alertState.onlyFor(found)
+            store.alertState = alertState
         } catch let problem as AgentError {
             note(problem)
         } catch {}
@@ -268,7 +274,7 @@ final class AppModel {
         WidgetCenter.shared.reloadAllTimelines()
         signedIn = false
         locked = false
-        me = nil
+        account = nil
         servers = []
         serversLoaded = false
         serversFresh = false
@@ -315,7 +321,8 @@ final class AppModel {
             try await client.alerts(after: after, limit: limit)
         }
         do {
-            let next = try await sync.catchUp(alertState)
+            let caughtUp = try await sync.catchUp(alertState)
+            let next = account.map(caughtUp.onlyFor) ?? caughtUp
             alertState = next
             store.alertState = next
         } catch let problem as AgentError {

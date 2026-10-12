@@ -20,6 +20,10 @@ data class AlertState(
 
     fun markAllRead(): AlertState = copy(readUpTo = maxOf(readUpTo, alerts.maxOfOrNull { it.id } ?: 0))
 
+    /** Only the servers this account can see now: a server taken from a moderator takes its alerts with it. */
+    fun onlyFor(me: Me): AlertState =
+        if (me.isOwner) this else copy(alerts = alerts.filter { me.sees(it.serverId) })
+
     companion object {
         /** The agent keeps its newest 200 (APP_ALERTS_KEPT); so does the phone. */
         const val KEPT = 200

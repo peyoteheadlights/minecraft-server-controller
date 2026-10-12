@@ -55,7 +55,15 @@ SKIP_FILES = {"session.lock"}
 SECRET_PROPERTIES = ("rcon.password", "management-server-secret")
 # Database tables carried over, with the columns that identify a row.
 DATA_TABLES = ("servers", "players", "schedules", "settings", "mod_versions", "mod_history")
-ACCOUNT_COLUMNS = ("username", "role", "servers", "created_at", "created_by")
+ACCOUNT_COLUMNS = (
+    "username",
+    "role",
+    "servers",
+    "grants",
+    "new_server_grants",
+    "created_at",
+    "created_by",
+)
 MAGIC = b"MCSC-SECRETS-1"
 AAD = b"minecraft-server-control export secrets"
 MIN_PASSPHRASE = 10

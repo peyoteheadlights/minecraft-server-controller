@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
 from ... import modpack
 from ...security.auth import Principal
-from ...security.permissions import MODS_MANAGE, SERVERS_MANAGE, SETTINGS_EDIT, require
+from ...security.permissions import MODS_MANAGE, SERVERS_MANAGE, SETTINGS_SERVER, require
 from ..deps import audit, get_core, get_server
 from ..responses import ModpackImported, ModpackInspected, Ok, ServerCreated
 from .models import ModpackIntoRequest, ModpackNewRequest
@@ -93,7 +93,7 @@ async def modpack_new_server(
 async def modpack_into_server(
     payload: ModpackIntoRequest,
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(SETTINGS_SERVER)),
     ctx=Depends(get_server),
 ):
     """Import an uploaded pack into this server: stopped, backed up, its old

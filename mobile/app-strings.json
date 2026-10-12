@@ -54,7 +54,7 @@
   "mobile.servers.checked": ["Checked {when}", "Updated {when}"],
   "mobile.servers.live": ["Live", "Live"],
   "mobile.servers.none": ["No servers yet. Add one in the dashboard on your PC.", "No servers configured. Create one in the dashboard."],
-  "mobile.servers.helper_none": ["The owner hasn't given your account any servers yet.", "No servers are assigned to this helper account."],
+  "mobile.servers.helper_none": ["The owner hasn't given your account any servers yet.", "No servers are assigned to this moderator account."],
   "mobile.servers.more_on_pc": ["More of what the dashboard does is coming to the app. Until then, use the dashboard on your PC.", "Other pages are dashboard-only for now."],
 
   "mobile.server.players_now": ["Playing now", "Online players"],
@@ -64,7 +64,7 @@
   "mobile.server.done_start": ["Starting.", "Start requested."],
   "mobile.server.done_stop": ["Stopping. The world is saving.", "Stop requested."],
   "mobile.server.done_restart": ["Restarting.", "Restart requested."],
-  "mobile.server.not_allowed": ["Your account can see this server but not start or stop it.", "This helper lacks server.control."],
+  "mobile.server.not_allowed": ["Your account can see this server but not start or stop it.", "This moderator lacks server.control."],
 
   "mobile.console.level_all": ["All", "All"],
   "mobile.console.level_warnings": ["Warnings", "WARN"],

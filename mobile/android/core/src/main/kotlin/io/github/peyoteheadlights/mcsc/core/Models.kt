@@ -36,11 +36,35 @@ data class Me(
     val user: String,
     val role: String = "owner",
     val servers: List<String>? = null,
+    /** Everything held on at least one server, plus the account's own. */
     val permissions: List<String> = emptyList(),
+    /** What doesn't belong to one server. Null from an agent older than part 6. */
+    @SerialName("account_permissions") val accountPermissions: List<String>? = null,
+    /** What this account may do on each server it can see, by server id. */
+    @SerialName("server_permissions") val serverPermissions: Map<String, List<String>>? = null,
     val preferences: Map<String, String> = emptyMap(),
 ) {
     val isOwner: Boolean get() = role == "owner"
-    fun can(permission: String): Boolean = permission in permissions
+
+    fun can(permission: String): Boolean =
+        permission in permissions ||
+            // An agent older than part 6 has one settings permission for all three.
+            (serverPermissions == null && permission in Permissions.SPLIT_SETTINGS && Permissions.SETTINGS_EDIT in permissions)
+
+    /**
+     * This account on one server: what it may do there and nothing it may
+     * only do on others. Unchanged for no server, or an agent that doesn't
+     * say per server.
+     */
+    fun forServer(serverId: String?): Me {
+        val perServer = serverPermissions ?: return this
+        if (serverId == null) return this
+        return copy(permissions = (accountPermissions.orEmpty() + perServer[serverId].orEmpty()).distinct())
+    }
+
+    /** Whether this account can see that server now (a moderator's servers change). */
+    fun sees(serverId: String?): Boolean =
+        serverId == null || serverPermissions?.containsKey(serverId) ?: (servers == null || serverId in servers)
 }
 
 @Serializable
@@ -171,7 +195,14 @@ object Permissions {
     const val PLAYERS_OP = "players.op"
     const val CHAT_SEND = "chat.send"
     const val SETTINGS_VIEW = "settings.view"
+    /** The one settings permission of agents older than part 6. */
     const val SETTINGS_EDIT = "settings.edit"
+    const val SETTINGS_GAME = "settings.game"
+    const val SETTINGS_SERVER = "settings.server"
+    const val PC_SETTINGS = "pc.settings"
+    const val CONSOLE_READ = "console.read"
+    const val USERS_MANAGE = "users.manage"
+    val SPLIT_SETTINGS = setOf(SETTINGS_GAME, SETTINGS_SERVER, PC_SETTINGS)
     const val BACKUPS_CREATE = "backups.create"
     const val BACKUPS_DOWNLOAD = "backups.download"
     const val BACKUPS_RESTORE = "backups.restore"

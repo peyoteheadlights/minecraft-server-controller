@@ -57,18 +57,31 @@ public struct Me: Codable, Equatable, Sendable {
     public var user: String
     public var role: String
     public var servers: [String]?
+    /// Everything held on at least one server, plus the account's own.
     public var permissions: [String]
+    /// What doesn't belong to one server. Nil from an agent older than part 6.
+    public var accountPermissions: [String]?
+    /// What this account may do on each server it can see, by server id.
+    public var serverPermissions: [String: [String]]?
     public var preferences: [String: String]
 
     enum CodingKeys: String, CodingKey {
         case user, role, servers, permissions, preferences
+        case accountPermissions = "account_permissions"
+        case serverPermissions = "server_permissions"
     }
 
-    public init(user: String, role: String = "owner", servers: [String]? = nil, permissions: [String] = [], preferences: [String: String] = [:]) {
+    public init(
+        user: String, role: String = "owner", servers: [String]? = nil, permissions: [String] = [],
+        accountPermissions: [String]? = nil, serverPermissions: [String: [String]]? = nil,
+        preferences: [String: String] = [:]
+    ) {
         self.user = user
         self.role = role
         self.servers = servers
         self.permissions = permissions
+        self.accountPermissions = accountPermissions
+        self.serverPermissions = serverPermissions
         self.preferences = preferences
     }
 
@@ -78,6 +91,8 @@ public struct Me: Codable, Equatable, Sendable {
         role = try c.decodeIfPresent(String.self, forKey: .role) ?? "owner"
         servers = try c.decodeIfPresent([String].self, forKey: .servers)
         permissions = try c.decodeIfPresent([String].self, forKey: .permissions) ?? []
+        accountPermissions = try c.decodeIfPresent([String].self, forKey: .accountPermissions)
+        serverPermissions = try c.decodeIfPresent([String: [String]].self, forKey: .serverPermissions)
         // The dashboard keeps other kinds of values here too; the app only
         // reads text ones and never fails over the rest.
         preferences = (try? c.decodeIfPresent([String: String].self, forKey: .preferences)) ?? [:]
@@ -85,7 +100,30 @@ public struct Me: Codable, Equatable, Sendable {
 
     public var isOwner: Bool { role == "owner" }
 
-    public func can(_ permission: String) -> Bool { permissions.contains(permission) }
+    public func can(_ permission: String) -> Bool {
+        if permissions.contains(permission) { return true }
+        // An agent older than part 6 has one settings permission for all three.
+        return serverPermissions == nil && Permissions.SPLIT_SETTINGS.contains(permission)
+            && permissions.contains(Permissions.SETTINGS_EDIT)
+    }
+
+    /// This account on one server: what it may do there and nothing it may
+    /// only do on others. Unchanged for no server, or an agent that doesn't
+    /// say per server.
+    public func forServer(_ serverId: String?) -> Me {
+        guard let perServer = serverPermissions, let serverId = serverId else { return self }
+        var copy = self
+        var seen = Set<String>()
+        copy.permissions = ((accountPermissions ?? []) + (perServer[serverId] ?? [])).filter { seen.insert($0).inserted }
+        return copy
+    }
+
+    /// Whether this account can see that server now (a moderator's servers change).
+    public func sees(_ serverId: String?) -> Bool {
+        guard let serverId = serverId else { return true }
+        if let perServer = serverPermissions { return perServer[serverId] != nil }
+        return servers.map { $0.contains(serverId) } ?? true
+    }
 }
 
 public struct Capabilities: Codable, Equatable, Sendable {
@@ -430,7 +468,14 @@ public enum Permissions {
     public static let PLAYERS_OP = "players.op"
     public static let CHAT_SEND = "chat.send"
     public static let SETTINGS_VIEW = "settings.view"
+    /// The one settings permission of agents older than part 6.
     public static let SETTINGS_EDIT = "settings.edit"
+    public static let SETTINGS_GAME = "settings.game"
+    public static let SETTINGS_SERVER = "settings.server"
+    public static let PC_SETTINGS = "pc.settings"
+    public static let CONSOLE_READ = "console.read"
+    public static let USERS_MANAGE = "users.manage"
+    public static let SPLIT_SETTINGS: Set<String> = [SETTINGS_GAME, SETTINGS_SERVER, PC_SETTINGS]
     public static let BACKUPS_CREATE = "backups.create"
     public static let BACKUPS_DOWNLOAD = "backups.download"
     public static let BACKUPS_RESTORE = "backups.restore"

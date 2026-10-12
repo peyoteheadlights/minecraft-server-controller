@@ -10,7 +10,7 @@ from ...config import SERVER_OVERRIDES, ConfigError
 from ...events import Event
 from ...minecraft import cpu
 from ...security.auth import Principal
-from ...security.permissions import SETTINGS_EDIT, SETTINGS_VIEW, require
+from ...security.permissions import SETTINGS_SERVER, SETTINGS_VIEW, require
 from ..deps import audit, get_server
 from ..responses import ColorSaved, MemoryOverview, MemorySaved, ServerSettings, ServerSettingsSaved
 from .models import MemoryRequest, ServerColorRequest, ServerSettingsRequest
@@ -82,7 +82,7 @@ def _cpu_overview(ctx) -> dict:
 async def update_server_settings(
     payload: ServerSettingsRequest,
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(SETTINGS_SERVER)),
     ctx=Depends(get_server),
 ):
     applied, rejected = {}, {}
@@ -152,7 +152,7 @@ def _where(ctx, key: str):
 async def set_color(
     payload: ServerColorRequest,
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(SETTINGS_SERVER)),
     ctx=Depends(get_server),
 ):
     """Set this server's color: a palette color or the person's own hex."""
@@ -185,7 +185,7 @@ async def get_memory(
 async def set_memory(
     payload: MemoryRequest,
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(SETTINGS_SERVER)),
     ctx=Depends(get_server),
 ):
     """Set the -Xmx limit, leaving every other launch flag as it is. Takes

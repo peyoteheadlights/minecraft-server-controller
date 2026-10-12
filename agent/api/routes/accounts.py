@@ -1,4 +1,5 @@
-"""Helper accounts: friends' own logins with limited access.
+"""Moderator accounts ("helpers" in code until Phase 12): friends' own
+logins, with the permissions the owner ticked on each server.
 
 Only the owner manages them (users.manage). A helper changes their own
 password through /account/password in auth.py. The owner's own password is
@@ -11,7 +12,14 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ...events import Event
 from ...security.auth import AccountError, Principal
-from ...security.permissions import HELPER, HELPER_PERMISSIONS, USERS_MANAGE, require
+from ...security.permissions import (
+    HELPER,
+    USERS_MANAGE,
+    catalogue,
+    grant,
+    level_of,
+    require,
+)
 from ..deps import audit, get_core
 from .models import AccountCreateRequest, AccountUpdateRequest
 
@@ -29,14 +37,40 @@ def _servers(core, ids: list[str] | None) -> list[str] | None:
     return sorted(set(ids))
 
 
+def _grant(permissions: list[str]) -> frozenset[str]:
+    try:
+        return grant(permissions)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _described(permissions: frozenset[str]) -> dict:
+    return {"permissions": sorted(permissions), "level": level_of(permissions)}
+
+
+def _moderator(core, account: dict) -> dict:
+    """One moderator as the owner's screens show them: what they may do on
+    each server, and what new servers give them."""
+    access = account.pop("access")
+    return {
+        **account,
+        "all_servers": access.all_servers,
+        "new_server": _described(access.new_server),
+        "access": [
+            {"id": ctx.server_id, "name": ctx.name, **_described(access.on(ctx.server_id))}
+            for ctx in core.servers.values()
+        ],
+    }
+
+
 @router.get("/accounts")
 async def list_accounts(
     principal: Principal = Depends(require(USERS_MANAGE)), core=Depends(get_core)
 ):
     return {
         "owner": core.auth.owner_username,
-        "helpers": core.auth.accounts(),
-        "helper_can": sorted(HELPER_PERMISSIONS),
+        "helpers": [_moderator(core, account) for account in core.auth.accounts()],
+        "permissions": catalogue(),
         "servers": [{"id": ctx.server_id, "name": ctx.name} for ctx in core.servers.values()],
     }
 
@@ -49,9 +83,12 @@ async def add_account(
     core=Depends(get_core),
 ):
     servers = _servers(core, payload.servers)
+    given = _grant(payload.permissions) if payload.permissions is not None else None
+    if given is not None and not given:
+        raise HTTPException(status_code=400, detail="Tick at least one thing they may do.")
     try:
         account = core.auth.create_account(
-            payload.username, payload.password, servers, by=principal.user
+            payload.username, payload.password, servers, by=principal.user, permissions=given
         )
     except AccountError as exc:
         audit(
@@ -63,7 +100,7 @@ async def add_account(
         Event(
             type="helper_added",
             level="info",
-            message=f"{principal.user} added the helper {account['username']}",
+            message=f"{principal.user} added the moderator {account['username']}",
             data={"username": account["username"], "role": HELPER},
         )
     )
@@ -78,14 +115,28 @@ async def change_account(
     principal: Principal = Depends(require(USERS_MANAGE)),
     core=Depends(get_core),
 ):
+    """Change a moderator. Their next request already follows the change:
+    nobody is signed out, except by a new password."""
     servers: list[str] | None | bool = False
-    if payload.all_servers is True:
-        servers = None
-    elif payload.servers is not None:
+    if payload.servers is not None:
         servers = _servers(core, payload.servers)
+    elif payload.all_servers is True and payload.grants is None and payload.new_server is None:
+        servers = None  # the older form: every server
+    grants = None
+    if payload.grants is not None:
+        if payload.grants:
+            _servers(core, list(payload.grants))
+        grants = {sid: _grant(perms) for sid, perms in payload.grants.items()}
+    new_server = _grant(payload.new_server) if payload.new_server is not None else None
     try:
         account = core.auth.update_account(
-            username, by=principal.user, servers=servers, password=payload.password
+            username,
+            by=principal.user,
+            servers=servers,
+            password=payload.password,
+            grants=grants,
+            all_servers=payload.all_servers if servers is False else None,
+            new_server=new_server,
         )
     except AccountError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -109,7 +160,7 @@ async def remove_account(
         Event(
             type="helper_removed",
             level="warn",
-            message=f"{principal.user} removed the helper {name}",
+            message=f"{principal.user} removed the moderator {name}",
             data={"username": name},
         )
     )

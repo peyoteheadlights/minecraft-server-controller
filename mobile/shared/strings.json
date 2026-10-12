@@ -5420,20 +5420,20 @@
   "World imported over the server's world"
  ],
  "alert_event.helper_added": [
-  "Helper added",
-  "Helper account created"
+  "Moderator added",
+  "Moderator account created"
  ],
  "alert_event.app_updates": [
   "New version of this app, and how its update went",
   "App update available, finished or failed"
  ],
  "alert_event.helper_removed": [
-  "Helper removed",
-  "Helper account deleted"
+  "Moderator removed",
+  "Moderator account deleted"
  ],
  "page.helpers": [
-  "Helpers",
-  "Helper accounts"
+  "Moderators",
+  "Moderator accounts"
  ],
  "page.getting_started": [
   "Getting started",
@@ -5457,15 +5457,15 @@
  ],
  "helpers.lead": [
   "Give friends their own sign-in. They can run the server and look after players, but can't change how it's set up.",
-  "Helper accounts: own credentials, the Helper role, optionally limited to some servers. Every action is checked on the agent."
+  "Moderator accounts: own credentials, the Moderator role, optionally limited to some servers. Every action is checked on the agent."
  ],
  "helpers.list": [
-  "Helpers",
-  "Helper accounts"
+  "Moderators",
+  "Moderator accounts"
  ],
  "helpers.none": [
-  "No helpers yet",
-  "No helper accounts"
+  "No moderators yet",
+  "No moderator accounts"
  ],
  "helpers.none_hint": [
   "Add one below to let a friend start and stop the server.",
@@ -5500,12 +5500,12 @@
   "Delete"
  ],
  "helpers.owner_note": [
-  "You sign in as {owner}, the owner. Only the owner can change settings and manage helpers.",
+  "You sign in as {owner}, the owner. Only the owner can change settings and manage moderators.",
   "Owner account: {owner} (from .env). The owner holds every permission."
  ],
  "helpers.add": [
-  "Add a helper",
-  "Create a helper account"
+  "Add a moderator",
+  "Create a moderator account"
  ],
  "helpers.username": [
   "Name to sign in with",
@@ -5528,12 +5528,12 @@
   "Creating…"
  ],
  "helpers.add_button": [
-  "Add helper",
+  "Add moderator",
   "Create account"
  ],
  "helpers.added": [
   "{name} can sign in now.",
-  "Helper {name} created."
+  "Moderator {name} created."
  ],
  "helpers.pick_a_server": [
   "Pick at least one server, or every server.",
@@ -5561,7 +5561,7 @@
  ],
  "helpers.remove_title": [
   "Remove {name}?",
-  "Delete helper {name}?"
+  "Delete moderator {name}?"
  ],
  "helpers.remove_body": [
   "They're signed out at once and can't sign in again.",
@@ -5569,11 +5569,11 @@
  ],
  "helpers.removed": [
   "{name} was removed.",
-  "Helper {name} deleted."
+  "Moderator {name} deleted."
  ],
  "helpers.what": [
-  "What helpers can do",
-  "Helper role"
+  "What moderators can do",
+  "Moderator role"
  ],
  "helpers.can": [
   "Can",
@@ -5601,11 +5601,11 @@
  ],
  "helpers.can_view": [
   "See every page",
-  "server.view, settings.view, system.view"
+  "server.view, console.read, settings.view, system.view"
  ],
  "helpers.cannot_settings": [
   "Change settings",
-  "settings.edit"
+  "settings.game, settings.server, pc.settings"
  ],
  "helpers.cannot_backups": [
   "Restore, download or delete backups",
@@ -5620,7 +5620,7 @@
   "console.send, players.op"
  ],
  "helpers.cannot_users": [
-  "Manage helpers or see sign-ins",
+  "Manage moderators or see sign-ins",
   "users.manage, security.view"
  ],
  "account.title": [
@@ -5636,8 +5636,8 @@
   "The owner password is only reset on the PC, never over the network:"
  ],
  "account.helper": [
-  "You're signed in as {name}, a helper.",
-  "Signed in as {name} (helper)."
+  "You're signed in as {name}, a moderator.",
+  "Signed in as {name} (moderator)."
  ],
  "account.current": [
   "Current password",
@@ -5733,7 +5733,7 @@
  ],
  "export.secrets": [
   "Passwords and keys, locked with a passphrase",
-  "Secrets (.env values, helper hashes, push subscriptions), AES-GCM with a scrypt key"
+  "Secrets (.env values, moderator hashes, push subscriptions), AES-GCM with a scrypt key"
  ],
  "export.passphrase": [
   "Passphrase",
@@ -5760,8 +5760,8 @@
   "The export task failed."
  ],
  "export.other_side": [
-  "Without passwords and keys, you choose a new password on the new PC and add helpers again.",
-  "Without secrets, run setup.ps1 on the new PC for a new owner password; helpers are recreated by hand."
+  "Without passwords and keys, you choose a new password on the new PC and add moderators again.",
+  "Without secrets, run setup.ps1 on the new PC for a new owner password; moderators are recreated by hand."
  ],
  "gethelp.title": [
   "Get help",
@@ -6244,16 +6244,16 @@
   "App settings"
  ],
  "guide.helpers": [
-  "Add helpers",
-  "Helper accounts"
+  "Add moderators",
+  "Moderator accounts"
  ],
  "guide.helpers_text": [
   "Give a friend their own sign-in to start and stop the server without changing settings.",
-  "Accounts with the Helper role."
+  "Accounts with the Moderator role."
  ],
  "guide.helpers_button": [
-  "Open Helpers",
-  "Helpers"
+  "Open Moderators",
+  "Moderators"
  ],
  "guide.trouble": [
   "If something goes wrong",
@@ -6469,7 +6469,7 @@
  ],
  "mobile.servers.helper_none": [
   "The owner hasn't given your account any servers yet.",
-  "No servers are assigned to this helper account."
+  "No servers are assigned to this moderator account."
  ],
  "mobile.servers.more_on_pc": [
   "More of what the dashboard does is coming to the app. Until then, use the dashboard on your PC.",
@@ -6505,7 +6505,7 @@
  ],
  "mobile.server.not_allowed": [
   "Your account can see this server but not start or stop it.",
-  "This helper lacks server.control."
+  "This moderator lacks server.control."
  ],
  "mobile.console.level_all": [
   "All",

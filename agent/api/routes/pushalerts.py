@@ -8,7 +8,7 @@ from ...events import Event
 from ...notifications import push
 from ...notifications.dispatcher import PUSH_TEST_TITLE
 from ...security.auth import Principal
-from ...security.permissions import SETTINGS_EDIT, SETTINGS_VIEW, require
+from ...security.permissions import PC_SETTINGS, SETTINGS_VIEW, require
 from ..deps import audit, get_core
 from .models import PushSubscribeRequest, PushUnsubscribeRequest
 
@@ -44,7 +44,7 @@ async def push_status(
 async def subscribe(
     payload: PushSubscribeRequest,
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(PC_SETTINGS)),
     core=Depends(get_core),
 ):
     """Remember a browser's push subscription, so alerts can reach it."""
@@ -63,7 +63,7 @@ async def subscribe(
 async def unsubscribe(
     payload: PushUnsubscribeRequest,
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(PC_SETTINGS)),
     core=Depends(get_core),
 ):
     removed = push.forget(core.db, payload.endpoint)
@@ -74,7 +74,7 @@ async def unsubscribe(
 @router.post("/push/test")
 async def test_push(
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(PC_SETTINGS)),
     core=Depends(get_core),
 ):
     """Send one test alert to every phone signed up."""

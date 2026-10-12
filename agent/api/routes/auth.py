@@ -9,7 +9,15 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ... import API_VERSION
 from ...security.auth import AccountError, Principal
-from ...security.permissions import ACCOUNT, permissions_for, require
+from ...security.permissions import (
+    ACCOUNT,
+    SERVER_PERMISSIONS,
+    can_see_server,
+    held_anywhere,
+    legacy_names,
+    on_server,
+    require,
+)
 from ..deps import audit, client_ip, get_core
 from ..responses import DeviceList, Health, LoginResult, Me, Ok
 from .models import LoginRequest, PasswordChangeRequest, PreferencesRequest
@@ -80,9 +88,16 @@ async def sign_out_device(
 
 @router.get("/auth/me", response_model=Me)
 async def me(principal: Principal = Depends(require(ACCOUNT)), core=Depends(get_core)):
+    held = held_anywhere(principal)
     return {
         **principal.to_dict(),
-        "permissions": sorted(permissions_for(principal)),
+        "permissions": legacy_names(held),
+        "account_permissions": sorted(held - SERVER_PERMISSIONS),
+        "server_permissions": {
+            sid: sorted(on_server(principal, sid) & SERVER_PERMISSIONS)
+            for sid in core.servers
+            if can_see_server(principal, sid)
+        },
         "preferences": core.auth.preferences(principal.user),
     }
 

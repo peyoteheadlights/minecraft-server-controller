@@ -74,8 +74,8 @@ object ServerForm {
     /** View it: everyone the agent lets read settings. */
     fun visible(me: Me?): Boolean = me?.can(Permissions.SETTINGS_VIEW) == true
 
-    /** Change it: only with settings.edit; anyone else sees it read-only. */
-    fun editable(me: Me?): Boolean = me?.can(Permissions.SETTINGS_EDIT) == true
+    /** Change it: only with Server settings; anyone else sees it read-only. */
+    fun editable(me: Me?): Boolean = me?.can(Permissions.SETTINGS_SERVER) == true
 
     /**
      * Only what changed, typed as the agent takes it: on and off as true
@@ -375,7 +375,9 @@ data class RawChange(val key: String, val old: String?, val new: String?)
  * the agent reads the file, so comments and order never count as changes.
  */
 object RawText {
-    fun allowed(me: Me?, technical: Boolean): Boolean = technical && ServerForm.editable(me)
+    /** Technical mode, with the permission for that file: Game settings for server.properties, Server settings for Java options. */
+    fun allowed(me: Me?, technical: Boolean, permission: String = Permissions.SETTINGS_SERVER): Boolean =
+        technical && me?.can(permission) == true
 
     /** Each key's value, as the agent reads server.properties (agent/minecraft/properties.py). */
     fun properties(text: String): Map<String, String> {

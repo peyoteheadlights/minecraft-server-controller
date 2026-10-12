@@ -340,7 +340,7 @@ struct BackupsView: View {
 
     @ViewBuilder
     private func offsiteCard(_ world: WorldPages, _ busy: String?, _ palette: Palette) -> some View {
-        let canEdit = model.can(Permissions.SETTINGS_EDIT)
+        let canEdit = model.can(Permissions.PC_SETTINGS)
         let offsite = world.offsite
         let folder = offsite?.directory ?? ""
         SectionTitle(text: model.t("offsite.title"), palette: palette)

@@ -10,6 +10,7 @@ from ...security.permissions import (
     BACKUPS_RESTORE,
     SERVER_VIEW,
     can_see_server,
+    check,
     check_server,
     require,
 )
@@ -58,6 +59,7 @@ async def undo_job(
     one change at a time."""
     job = core.jobs.get(job_id)
     check_server(principal, job.server_id)
+    check(principal, BACKUPS_RESTORE, job.server_id)
     if job.state != "succeeded" or not (job.result or {}).get("undo"):
         raise HTTPException(status_code=400, detail="This job has nothing to undo")
     ctx = core.get_server(job.server_id)

@@ -364,6 +364,18 @@ MIGRATIONS: list[tuple[int, str]] = [
         ALTER TABLE sessions ADD COLUMN until_signed_out INTEGER NOT NULL DEFAULT 0;
         """,
     ),
+    (
+        14,
+        # Moderators' permissions per server (Phase 9 part 6). grants is a
+        # JSON object of server id to the permissions ticked there;
+        # new_server_grants is what an "All servers" moderator gets on the
+        # servers grants doesn't name. Helpers from before keep NULL, read
+        # as what helpers could do then (agent/security/auth.py).
+        """
+        ALTER TABLE accounts ADD COLUMN grants TEXT;
+        ALTER TABLE accounts ADD COLUMN new_server_grants TEXT;
+        """,
+    ),
 ]
 
 

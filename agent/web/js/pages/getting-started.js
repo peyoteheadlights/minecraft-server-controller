@@ -14,7 +14,7 @@ const STEPS = [
   ["guide.friends", "guide.friends_text", "guide.friends_button", "dashboard"],
   ["guide.world", "guide.world_text", "guide.world_button", "world", "world.replace"],
   ["guide.backups", "guide.backups_text", "guide.backups_button", "backups"],
-  ["guide.alerts", "guide.alerts_text", "guide.alerts_button", "app-settings", "settings.edit"],
+  ["guide.alerts", "guide.alerts_text", "guide.alerts_button", "app-settings", "pc.settings"],
   ["guide.helpers", "guide.helpers_text", "guide.helpers_button", "helpers", "users.manage"],
   ["guide.trouble", "guide.trouble_text", "guide.trouble_button", "crashes"],
 ];

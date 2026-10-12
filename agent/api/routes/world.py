@@ -14,7 +14,7 @@ from ...security.permissions import (
     BACKUPS_DOWNLOAD,
     BACKUPS_RESTORE,
     SERVER_VIEW,
-    SETTINGS_EDIT,
+    SETTINGS_SERVER,
     WORLD_REPLACE,
     require,
 )
@@ -74,7 +74,7 @@ async def getting_started(
 @router.post("/getting-started/dismiss", response_model=Checklist)
 async def dismiss_getting_started(
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(SETTINGS_SERVER)),
     ctx=Depends(get_server),
 ):
     audit(ctx, request, "getting_started_dismiss")

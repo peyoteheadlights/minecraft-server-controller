@@ -207,7 +207,7 @@ object ChangeList {
             "changes.next_undo",
             "title" to change.title,
             "when" to Display.ago(strings, change.madeAt, now),
-            "who" to (change.user ?: strings.t("value.unknown")),
+            "who" to who(strings, change),
         )
     }
 
@@ -220,8 +220,16 @@ object ChangeList {
     /** The changes after the newest, for "Pressing Undo again goes on to". */
     fun later(strings: Strings, changes: UndoRedo, now: Double): List<String> =
         changes.undo.drop(1).take(LATER).map {
-            strings.t("changes.later_item", "title" to it.title, "when" to Display.ago(strings, it.madeAt, now))
+            strings.t("mobile.changes.later_item", "title" to it.title, "when" to Display.ago(strings, it.madeAt, now), "who" to who(strings, it))
         }
+
+    /** The undone changes after the one Redo puts back, for "Pressing Redo again goes on to". */
+    fun laterRedo(strings: Strings, changes: UndoRedo, now: Double): List<String> =
+        changes.redo.drop(1).take(LATER).map {
+            strings.t("mobile.changes.later_redo_item", "title" to it.title, "when" to Display.ago(strings, it.undoneAt, now), "who" to who(strings, it))
+        }
+
+    private fun who(strings: Strings, change: Change): String = change.user ?: strings.t("value.unknown")
 
     /** The question before Undo or Redo: what goes back, and what would be lost. */
     fun ask(strings: Strings, direction: String, change: Change, now: Double): Pair<String, String> {

@@ -1045,6 +1045,8 @@ public struct NewServerOptions: Decodable, Equatable, Sendable {
     public var types: [ServerTypeInfo]
     public var recommended: String
     public var memoryMb: Int?
+    /// The PC's measured memory; nil when it couldn't be read.
+    public var totalMb: Int?
     public var color: String?
     public var palette: [PaletteColor]
     public var eulaUrl: String
@@ -1053,13 +1055,15 @@ public struct NewServerOptions: Decodable, Equatable, Sendable {
     enum CodingKeys: String, CodingKey {
         case types, recommended, color, palette, bedrock
         case memoryMb = "memory_mb"
+        case totalMb = "total_mb"
         case eulaUrl = "eula_url"
     }
 
-    public init(types: [ServerTypeInfo] = [], recommended: String = "", memoryMb: Int? = nil, color: String? = nil, palette: [PaletteColor] = [], eulaUrl: String = "", bedrock: BedrockNewOptions = BedrockNewOptions()) {
+    public init(types: [ServerTypeInfo] = [], recommended: String = "", memoryMb: Int? = nil, totalMb: Int? = nil, color: String? = nil, palette: [PaletteColor] = [], eulaUrl: String = "", bedrock: BedrockNewOptions = BedrockNewOptions()) {
         self.types = types
         self.recommended = recommended
         self.memoryMb = memoryMb
+        self.totalMb = totalMb
         self.color = color
         self.palette = palette
         self.eulaUrl = eulaUrl
@@ -1071,6 +1075,7 @@ public struct NewServerOptions: Decodable, Equatable, Sendable {
         types = c.each(.types)
         recommended = c.value(.recommended, "")
         memoryMb = c.maybe(.memoryMb)
+        totalMb = c.maybe(.totalMb)
         color = c.maybe(.color)
         palette = c.each(.palette)
         eulaUrl = c.value(.eulaUrl, "")

@@ -330,6 +330,10 @@ object Crossplay {
     /** The typed port to send; null lets the agent pick a free one. */
     fun typedPort(text: String): Int? = text.trim().toIntOrNull()?.takeIf { it in 1..65535 }
 
+    /** The "turn it on" question names the typed port, or says the agent picks one. */
+    fun confirm(strings: Strings, text: String): String =
+        typedPort(text)?.let { strings.t("cross.on_body", "port" to it) } ?: strings.t("mobile.cross.on_body_free")
+
     /** Whether it is ready, only when both files are really there. */
     fun ready(strings: Strings, info: CrossplayInfo): String =
         strings.t(if (info.ready) "cross.ready_yes" else "cross.files_missing")
@@ -524,6 +528,10 @@ object AddServer {
     const val MODPACK = "modpack"
     const val HAVE = "have"
     val WAYS = listOf(NEW, MODPACK, HAVE)
+
+    /** Memory after More or Less: at least 1 GB, and no more than the PC has (64 GB when that's unknown). */
+    fun nudged(memoryMb: Int, stepMb: Int, totalMb: Int?): Int =
+        (memoryMb + stepMb).coerceIn(1024, maxOf(1024, totalMb ?: (64 * 1024)))
 
     const val EDITION = "edition"
     const val KIND = "kind"

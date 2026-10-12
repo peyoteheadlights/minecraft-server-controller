@@ -193,6 +193,7 @@ def java_problem(minecraft: str, java_executable: str = "java") -> dict[str, Any
 async def options(core: AgentCore) -> dict[str, Any]:
     """What the New server panel needs: the types, the default memory, the
     next free port and color, and Minecraft's rules link."""
+    from ..memory import total_ram_mb
     from . import bedrock
 
     memory_mb, memory_reason = default_memory_mb()
@@ -202,6 +203,7 @@ async def options(core: AgentCore) -> dict[str, Any]:
         "recommended": servertypes.RECOMMENDED,
         "memory_mb": memory_mb,
         "memory_reason": memory_reason,
+        "total_mb": total_ram_mb(),
         "port": core.ports.suggest() or 25565,
         "color": colors.next_unused(ctx.color for ctx in core.servers.values()),
         "palette": colors.palette(),

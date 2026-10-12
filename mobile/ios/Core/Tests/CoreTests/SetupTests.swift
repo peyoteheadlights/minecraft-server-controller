@@ -346,6 +346,9 @@ final class SetupTests: XCTestCase {
         XCTAssertEqual(Crossplay.port(CrossplayInfo(available: true)), "19132")
         XCTAssertEqual(Crossplay.typedPort(" 19140 "), 19140)
         XCTAssertNil(Crossplay.typedPort("99999"))
+        XCTAssertTrue(Crossplay.confirm(s, "19140").contains("19140"))
+        XCTAssertEqual(Crossplay.confirm(s, ""), s.t("mobile.cross.on_body_free"))
+        XCTAssertEqual(Crossplay.confirm(s, "99999"), s.t("mobile.cross.on_body_free"))
         var enabled = on
         enabled.enabled = true
         XCTAssertEqual(Crossplay.ready(s, enabled), s.t("cross.files_missing"))
@@ -531,6 +534,13 @@ final class SetupTests: XCTestCase {
         XCTAssertEqual(AddServer.folderFor("D:\\", "Survival"), "D:\\Survival")
         XCTAssertEqual(AddServer.folderFor("/srv/mc/", "My: world?"), "/srv/mc/My world")
         XCTAssertEqual(AddServer.folderFor("D:\\Minecraft", "  "), "D:\\Minecraft")
+    }
+
+    func testANewServersMemoryStaysWithinWhatThePCHas() {
+        XCTAssertEqual(AddServer.nudged(7680, 512, totalMb: 8192), 8192)
+        XCTAssertEqual(AddServer.nudged(8192, 512, totalMb: 8192), 8192)
+        XCTAssertEqual(AddServer.nudged(1024, -512, totalMb: 8192), 1024)
+        XCTAssertEqual(AddServer.nudged(65536, 512, totalMb: nil), 65536)
     }
 
     func testCreateWaitsForTheRulesToBeTicked() {

@@ -350,6 +350,12 @@ public enum Crossplay {
         return port
     }
 
+    /// The "turn it on" question names the typed port, or says the agent picks one.
+    public static func confirm(_ strings: Strings, _ text: String) -> String {
+        guard let port = typedPort(text) else { return strings.t("mobile.cross.on_body_free") }
+        return strings.t("cross.on_body", ["port": port])
+    }
+
     /// Whether it is ready, only when both files are really there.
     public static func ready(_ strings: Strings, _ info: CrossplayInfo) -> String {
         strings.t(info.ready ? "cross.ready_yes" : "cross.files_missing")
@@ -584,6 +590,11 @@ public enum AddServer {
     public static let MODPACK = "modpack"
     public static let HAVE = "have"
     public static let WAYS = [NEW, MODPACK, HAVE]
+
+    /// Memory after More or Less: at least 1 GB, and no more than the PC has (64 GB when that's unknown).
+    public static func nudged(_ memoryMb: Int, _ stepMb: Int, totalMb: Int?) -> Int {
+        Swift.min(Swift.max(memoryMb + stepMb, 1024), Swift.max(1024, totalMb ?? 64 * 1024))
+    }
 
     public static let EDITION = "edition"
     public static let KIND = "kind"

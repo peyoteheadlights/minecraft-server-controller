@@ -1141,7 +1141,7 @@ public enum ChangeList {
         return strings.t("changes.next_undo", [
             "title": change.title,
             "when": Display.ago(strings, change.madeAt, now: now),
-            "who": change.user ?? strings.t("value.unknown"),
+            "who": who(strings, change),
         ])
     }
 
@@ -1154,9 +1154,18 @@ public enum ChangeList {
     /// The changes after the newest, for "Pressing Undo again goes on to".
     public static func later(_ strings: Strings, _ changes: UndoRedo, now: Double) -> [String] {
         changes.undo.dropFirst().prefix(LATER).map {
-            strings.t("changes.later_item", ["title": $0.title, "when": Display.ago(strings, $0.madeAt, now: now)])
+            strings.t("mobile.changes.later_item", ["title": $0.title, "when": Display.ago(strings, $0.madeAt, now: now), "who": who(strings, $0)])
         }
     }
+
+    /// The undone changes after the one Redo puts back, for "Pressing Redo again goes on to".
+    public static func laterRedo(_ strings: Strings, _ changes: UndoRedo, now: Double) -> [String] {
+        changes.redo.dropFirst().prefix(LATER).map {
+            strings.t("mobile.changes.later_redo_item", ["title": $0.title, "when": Display.ago(strings, $0.undoneAt, now: now), "who": who(strings, $0)])
+        }
+    }
+
+    private static func who(_ strings: Strings, _ change: Change) -> String { change.user ?? strings.t("value.unknown") }
 
     /// The question before Undo or Redo: its title, and what goes back and what would be lost.
     public static func ask(_ strings: Strings, _ direction: String, _ change: Change, now: Double) -> (title: String, body: String) {

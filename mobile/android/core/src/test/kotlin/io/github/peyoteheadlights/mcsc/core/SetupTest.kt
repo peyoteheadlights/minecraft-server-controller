@@ -312,6 +312,9 @@ class SetupTest {
         assertEquals("19132", Crossplay.port(CrossplayInfo(available = true)))
         assertEquals(19140, Crossplay.typedPort(" 19140 "))
         assertNull(Crossplay.typedPort("99999"))
+        assertTrue(Crossplay.confirm(strings, "19140").contains("19140"))
+        assertEquals(strings.t("mobile.cross.on_body_free"), Crossplay.confirm(strings, ""))
+        assertEquals(strings.t("mobile.cross.on_body_free"), Crossplay.confirm(strings, "99999"))
         assertEquals(strings.t("cross.files_missing"), Crossplay.ready(strings, on.copy(enabled = true)))
     }
 
@@ -532,6 +535,14 @@ class SetupTest {
         assertEquals("D:\\Survival", AddServer.folderFor("D:\\", "Survival"))
         assertEquals("/srv/mc/My world", AddServer.folderFor("/srv/mc/", "My: world?"))
         assertEquals("D:\\Minecraft", AddServer.folderFor("D:\\Minecraft", "  "))
+    }
+
+    @Test
+    fun `a new server's memory stays within what the PC has`() {
+        assertEquals(8192, AddServer.nudged(7680, 512, totalMb = 8192))
+        assertEquals(8192, AddServer.nudged(8192, 512, totalMb = 8192))
+        assertEquals(1024, AddServer.nudged(1024, -512, totalMb = 8192))
+        assertEquals(65536, AddServer.nudged(65536, 512, totalMb = null))
     }
 
     @Test

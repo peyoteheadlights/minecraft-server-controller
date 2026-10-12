@@ -302,6 +302,8 @@ data class NewServerOptions(
     val recommended: String = "",
     /** Null when the PC's memory couldn't be read: nothing is suggested then. */
     @SerialName("memory_mb") val memoryMb: Int? = null,
+    /** The PC's measured memory; null when it couldn't be read. */
+    @SerialName("total_mb") val totalMb: Int? = null,
     val color: String? = null,
     val palette: List<PaletteColor> = emptyList(),
     @SerialName("eula_url") val eulaUrl: String = "",

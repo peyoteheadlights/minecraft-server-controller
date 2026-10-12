@@ -1,5 +1,6 @@
 package io.github.peyoteheadlights.mcsc.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -45,6 +46,11 @@ fun AddServerScreen(vm: AppViewModel, onBack: () -> Unit, onOpen: (String) -> Un
     val adding = vm.adding
     val colors = LocalColors.current
     var picking by remember { mutableStateOf(false) }
+    val leave = {
+        adding.leave()
+        onBack()
+    }
+    BackHandler(onBack = leave)
     LaunchedEffect(Unit) {
         if (adding.options.value == null) adding.loadOptions() else adding.resume()
     }
@@ -61,7 +67,7 @@ fun AddServerScreen(vm: AppViewModel, onBack: () -> Unit, onOpen: (String) -> Un
             adding.typedFolder = null
         }, onDismiss = { picking = false })
     }
-    Scaffold(containerColor = colors.sheet, topBar = { Bar(t("mobile.add.title"), onBack = onBack) }) { padding ->
+    Scaffold(containerColor = colors.sheet, topBar = { Bar(t("mobile.add.title"), onBack = leave) }) { padding ->
         LazyColumn(contentPadding = ScreenPadding, verticalArrangement = Gap, modifier = Modifier.padding(padding).fillMaxSize()) {
             adding.task?.let { job ->
                 item { Note(t("mobile.add.working", "step" to (job.step ?: job.title)), color = colors.text, modifier = Modifier.padding(top = 8.dp)) }
@@ -94,6 +100,9 @@ fun AddServerScreen(vm: AppViewModel, onBack: () -> Unit, onOpen: (String) -> Un
                 else -> alreadyThere(vm, adding, options) { picking = true }
             }
             adding.addedLines.forEach { line -> item { Note(line, color = colors.text) } }
+            adding.added?.let { added ->
+                item { Button(onClick = adding::openAdded) { Text(t("mobile.add.open", "name" to added.server.name)) } }
+            }
             item { SaidNote(adding.said) }
         }
     }

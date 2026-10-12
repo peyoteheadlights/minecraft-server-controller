@@ -479,7 +479,7 @@ class ContentPages(
                 loadGame()
             } catch (e: AgentException.Failed) {
                 noted(e)
-                said = Said(e.problems.values.joinToString(" ").ifBlank { Message.of(e).text(strings) }, good = false)
+                said = Said(e.problems.entries.sortedBy { it.key }.joinToString(" ") { "${it.key}: ${it.value}" }.ifBlank { Message.of(e).text(strings) }, good = false)
             } catch (e: AgentException) {
                 noted(e)
                 said = Said(Message.of(e).text(strings), good = false)

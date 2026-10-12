@@ -251,6 +251,10 @@ struct BackupsView: View {
             if !later.isEmpty {
                 Hint(text: ([model.t("changes.then")] + later.map { "• " + $0 }).joined(separator: "\n"), palette: palette)
             }
+            let laterRedo = ChangeList.laterRedo(strings, lists, now: now)
+            if !laterRedo.isEmpty {
+                Hint(text: ([model.t("mobile.changes.then_redo")] + laterRedo.map { "• " + $0 }).joined(separator: "\n"), palette: palette)
+            }
             if let job = lists.blockedBy {
                 Text(model.t("world.busy", ["job": job])).foregroundStyle(palette.tone(.warning))
             }

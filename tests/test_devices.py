@@ -176,3 +176,43 @@ def test_a_phone_sign_in_stays_until_signed_out_when_its_key_is_renewed(multi_cl
     _, phone = sign_in(multi_client, **PHONE)
     rotated = multi_client.post("/api/auth/rotate", headers=phone).json()
     assert rotated["expires_at"] is None
+
+
+def test_a_new_owner_password_on_the_pc_ends_the_owners_phone_sign_ins(
+    multi_client, tmp_path, monkeypatch
+):
+    from agent.security import auth
+
+    config = multi_client.app.state.core.auth.config
+    old = auth.hash_password(PASSWORD)
+    env = tmp_path / ".env"
+    env.write_text(f"MCSC_ADMIN_USERNAME=admin\nMCSC_ADMIN_PASSWORD_HASH={old}\n")
+    monkeypatch.setenv("MCSC_ADMIN_PASSWORD_HASH", old)
+    config.env_path = env
+    _, phone = sign_in(multi_client, **PHONE)
+    add_helper(multi_client, phone)
+    _, sams = sign_in(multi_client, "sam", HELPER_PASSWORD, **PHONE)
+    # .env being written again with the same password changes nothing.
+    env.write_text(f"MCSC_ADMIN_USERNAME=admin\nMCSC_ADMIN_PASSWORD_HASH={old}\n# saved\n")
+    assert multi_client.get("/api/servers", headers=phone).status_code == 200
+
+    new = auth.hash_password("a brand new owner password 7")
+    env.write_text(f"MCSC_ADMIN_USERNAME=admin\nMCSC_ADMIN_PASSWORD_HASH={new}\n")
+    assert multi_client.get("/api/servers", headers=phone).status_code == 401
+    assert multi_client.get("/api/servers", headers=sams).status_code == 200
+    sign_in(multi_client, password="a brand new owner password 7")
+
+
+def test_a_moderators_phone_counts_as_signed_in_after_a_long_time(multi_client):
+    core = multi_client.app.state.core
+    owner = dict(multi_client.headers)
+    add_helper(multi_client, owner)
+    signed, _ = sign_in(multi_client, "sam", HELPER_PASSWORD, **PHONE)
+
+    def count():
+        rows = multi_client.get("/api/accounts", headers=owner).json()["helpers"]
+        return next(r for r in rows if r["username"] == "sam")["active_sessions"]
+
+    before = count()
+    _age(core, signed["token"], (core.config.security.remember_days + 30) * 86400)
+    assert before >= 1 and count() == before

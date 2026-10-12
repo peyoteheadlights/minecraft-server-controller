@@ -273,7 +273,11 @@
 
   "mobile.version.working": ["Changing… {step}", "Running: {step}"],
   "mobile.version.working_plain": ["Changing… The server is stopped while this runs.", "Running."],
-  "mobile.version.leave_ok": ["You can leave this screen or close the app. The change carries on, and this screen shows it when you come back.", "The task continues on the PC; progress is shown here when you return."],
+  "mobile.cross.on_body_free": ["Geyser and Floodgate are downloaded into this server's files and set to use a free port the agent picks. The server has to be stopped.", "Geyser and Floodgate are installed into the add-on folder and configured on a free UDP port chosen by the agent. The server must be stopped."],
+  "mobile.changes.later_item": ["{title}, {when}, by {who}", "{title}, {when}, by {who}"],
+  "mobile.changes.then_redo": ["Pressing Redo again goes on to:", "Further down the redo stack:"],
+  "mobile.changes.later_redo_item": ["{title}, by {who}, undone {when}", "{title}, by {who}, undone {when}"],
+  "mobile.version.leave_ok": ["You can leave this screen or close the phone app. The change carries on, and this screen shows it when you come back.", "The task continues on the PC; progress is shown here when you return."],
   "mobile.version.pick": ["Pick a version", "Select version"],
 
   "mobile.raw.will_change": ["These settings will change", "Changes to apply"],
@@ -302,8 +306,9 @@
   "mobile.add.less": ["Less", "-512 MB"],
   "mobile.add.more": ["More", "+512 MB"],
   "mobile.add.working": ["Setting up… {step}", "Running: {step}"],
-  "mobile.add.leave_ok": ["You can leave this screen or close the app. Setting up carries on, and the new server shows on All servers when it's ready.", "The task continues on the PC."],
+  "mobile.add.leave_ok": ["You can leave this screen or close the phone app. Setting up carries on, and the new server shows on All servers when it's ready.", "The task continues on the PC."],
   "mobile.add.pack_name": ["Modpack: {name}", "Pack: {name}"],
+  "mobile.add.open": ["Open {name}", "Open {name}"],
   "mobile.add.start_over": ["Start again", "Reset"],
 
   "mobile.import.not_a_world": ["Choose a world saved as a .zip (or a .mcworld for a Bedrock server).", "Expected .zip, .mcworld or .mctemplate."],

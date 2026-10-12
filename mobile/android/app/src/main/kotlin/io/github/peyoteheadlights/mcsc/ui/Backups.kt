@@ -204,6 +204,8 @@ private fun UndoRedoCard(vm: AppViewModel, world: WorldPages, lists: UndoRedo, b
             ChangeList.nextRedo(strings, lists, now)?.let { Note(it, color = colors.text) }
             val later = ChangeList.later(strings, lists, now)
             if (later.isNotEmpty()) Note(t("changes.then") + "\n" + later.joinToString("\n") { "• $it" })
+            val laterRedo = ChangeList.laterRedo(strings, lists, now)
+            if (laterRedo.isNotEmpty()) Note(t("mobile.changes.then_redo") + "\n" + laterRedo.joinToString("\n") { "• $it" })
             lists.blockedBy?.let { Note(t("world.busy", "job" to it), color = colors.warning) }
             if (canRestore) {
                 Presses(

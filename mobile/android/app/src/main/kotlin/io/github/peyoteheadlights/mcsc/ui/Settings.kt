@@ -15,6 +15,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -28,7 +29,7 @@ import io.github.peyoteheadlights.mcsc.BuildConfig
 private val THEMES = listOf("system", "light", "dark", "graphite", "contrast")
 
 @Composable
-fun SettingsScreen(vm: AppViewModel, onAbout: () -> Unit, onAccount: () -> Unit, onModerators: () -> Unit) {
+fun SettingsScreen(vm: AppViewModel, onAbout: () -> Unit, onAccount: () -> Unit, onModerators: () -> Unit, onPc: () -> Unit) {
     val colors = LocalColors.current
     val context = LocalContext.current
     var asking by rememberSaveable { mutableStateOf<String?>(null) }
@@ -41,13 +42,25 @@ fun SettingsScreen(vm: AppViewModel, onAbout: () -> Unit, onAccount: () -> Unit,
         if (needsAsking) notifications.launch(Manifest.permission.POST_NOTIFICATIONS) else vm.chooseLockAlerts(true)
     }
 
+    val owner = vm.me?.isOwner == true
+    LaunchedEffect(owner) { if (owner) vm.pcSettings.loadUpdate() }
+
     Scaffold(containerColor = colors.sheet, topBar = { Bar(t("mobile.settings.title")) }) { padding ->
         LazyColumn(contentPadding = ScreenPadding, modifier = Modifier.padding(padding).fillMaxSize()) {
             item { SectionTitle(t("mobile.settings.people")) }
             item {
                 Card {
                     Item(t("account.title"), subtitle = vm.me?.user ?: vm.user, onClick = onAccount)
-                    if (vm.me?.isOwner == true) Item(t("mobile.mod.title"), onClick = onModerators)
+                    if (vm.me?.isOwner == true) {
+                        Item(t("mobile.mod.title"), onClick = onModerators)
+                        // A new version shows here too, so the owner sees it without opening PC settings.
+                        val update = vm.pcSettings.update?.takeIf { it.available }?.latest?.version
+                        Item(
+                            t("mobile.pc.title"),
+                            subtitle = update?.let { t("update.available", "version" to it) } ?: t("mobile.pc.hint"),
+                            onClick = onPc,
+                        )
+                    }
                 }
             }
             item { SectionTitle(t("mobile.settings.theme")) }

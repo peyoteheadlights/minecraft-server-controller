@@ -122,7 +122,24 @@ struct SettingsView: View {
                     ModeratorsView()
                 }
                 .frame(minHeight: 44)
+                NavigationLink {
+                    PcSettingsScreen()
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(model.t("mobile.pc.title"))
+                        // A new version shows here too, so the owner sees it without opening PC settings.
+                        if let update = model.pcSettings.update, update.available, let version = update.latest?.version {
+                            Text(model.t("update.available", ["version": version])).font(.footnote).foregroundStyle(.secondary)
+                        } else {
+                            Text(model.t("mobile.pc.hint")).font(.footnote).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .frame(minHeight: 44)
             }
+        }
+        .task(id: model.me?.isOwner == true) {
+            if model.me?.isOwner == true { await model.pcSettings.loadUpdate() }
         }
     }
 

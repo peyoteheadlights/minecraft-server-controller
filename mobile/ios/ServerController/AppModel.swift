@@ -56,6 +56,12 @@ final class AppModel {
         noted: { [weak self] problem in self?.note(problem) },
         strings: strings
     )
+    /// Settings > PC settings (owner only).
+    @ObservationIgnored private(set) lazy var pcSettings = PcPages(
+        client: { [weak self] in self?.client },
+        noted: { [weak self] problem in self?.note(problem) },
+        strings: strings
+    )
 
     // Settings.
     var technical: Bool
@@ -297,6 +303,14 @@ final class AppModel {
         alertState = AlertState()
         agentVersion = nil
         WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    /// Everyone was signed out from PC settings, this phone too: its
+    /// sign-in is already gone on the PC.
+    func signedOutEverywhere() {
+        stopLive()
+        TokenStore.delete()
+        clearSignedIn()
     }
 
     /// The PC ended the sign-in (signed out on its Security page, a helper

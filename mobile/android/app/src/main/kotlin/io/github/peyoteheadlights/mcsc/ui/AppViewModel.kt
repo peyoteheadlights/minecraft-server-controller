@@ -152,6 +152,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Settings > Your account. */
     val yourAccount by lazy { AccountPages(viewModelScope, { client() }, { prefs.lastProblem = it.key }) }
 
+    /** Settings > PC settings (owner only). */
+    val pcSettings by lazy { PcPages(viewModelScope, { client() }, { prefs.lastProblem = it.key }) }
+
     /** An invite scanned or pasted: opened once the phone is paired with its PC. */
     private var pendingInvite: Invite? = null
     private var feed: LiveFeed? = null
@@ -338,6 +341,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             if (prefs.lockAlerts) runCatching { client?.forgetPhone() }
             client?.logout()
+            stopLive()
+            graph.forgetSignIn()
+            Widgets.refresh(getApplication())
+            account = null
+            lockAlerts = false
+            alerts = AlertState()
+            pagesBy.clear()
+            stage = Stage.SignIn()
+        }
+    }
+
+    /** Everyone was signed out from PC settings, this phone too: its sign-in is already gone on the PC. */
+    fun signedOutEverywhere() {
+        viewModelScope.launch {
             stopLive()
             graph.forgetSignIn()
             Widgets.refresh(getApplication())

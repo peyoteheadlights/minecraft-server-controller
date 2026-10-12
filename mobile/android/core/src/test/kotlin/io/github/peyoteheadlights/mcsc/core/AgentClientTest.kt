@@ -126,6 +126,7 @@ class AgentClientTest {
             assertNull(signedIn.expiresAt)
             val body = agent.server.takeRequest().body.readUtf8()
             assertTrue(body, body.contains("\"remember\":true"))
+            assertTrue(body, body.contains("\"phone\":true"))
             assertTrue(body, body.contains("\"device\":\"Server Controller on Pixel 9\""))
         }
     }

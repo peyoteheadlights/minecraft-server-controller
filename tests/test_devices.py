@@ -101,7 +101,7 @@ def test_a_bad_device_id_is_refused(multi_client):
 
 
 # ------------------------------------------------------------ phones: sign in once
-PHONE = {"device": "Server Controller on Pixel 9", "remember": True}
+PHONE = {"device": "Server Controller on Pixel 9", "remember": True, "phone": True}
 
 
 def _age(core, token: str, seconds: float) -> None:
@@ -135,7 +135,8 @@ def test_a_phone_stays_signed_in_until_it_is_signed_out(multi_client):
 
 def test_a_browsers_keep_me_signed_in_still_ends(multi_client):
     core = multi_client.app.state.core
-    kept, browser = sign_in(multi_client, label="Firefox", remember=True)
+    # The dashboard names its device too; only the phone apps say "phone".
+    kept, browser = sign_in(multi_client, label="Firefox", device="Mark's PC", remember=True)
     assert kept["expires_at"] is not None
     _age(core, kept["token"], (core.config.security.remember_days + 1) * 86400)
     assert multi_client.get("/api/servers", headers=browser).status_code == 401
@@ -153,6 +154,11 @@ def test_a_phone_sign_in_still_ends_when_signed_out_or_its_account_goes(multi_cl
     phone_id = next(r["id"] for r in rows if r["label"] == PHONE["device"])
     assert multi_client.delete(f"/api/sessions/{phone_id}", headers=owner).status_code == 200
     assert multi_client.get("/api/servers", headers=phone).status_code == 401
+    # "Sign out everywhere" on the Security page.
+    _, phone = sign_in(multi_client, **PHONE)
+    assert multi_client.post("/api/security/revoke-sessions", headers=owner).status_code == 200
+    assert multi_client.get("/api/servers", headers=phone).status_code == 401
+    owner = sign_in(multi_client)[1]
     # A helper whose password the owner changes, then a removed helper.
     add_helper(multi_client, owner)
     _, sams = sign_in(multi_client, "sam", HELPER_PASSWORD, **PHONE)

@@ -15,6 +15,9 @@ class LoginRequest(BaseModel):
     # the Security page (the phone app sends its name; else label is used).
     remember: bool = False
     device: str = Field(default="", max_length=80)
+    # Only the phone apps send this: their kept sign-in lasts until signed
+    # out. A browser's "Keep me signed in" still ends after remember_days.
+    phone: bool = False
 
 
 class CommandRequest(BaseModel):

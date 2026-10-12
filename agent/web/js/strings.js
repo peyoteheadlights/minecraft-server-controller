@@ -1295,6 +1295,7 @@ export const STRINGS = /* strings-table */ {
   "security.device_unknown": ["Unknown device", "Unnamed session"],
   "security.this_device": ["This device", "This session"],
   "security.kept": ["Kept signed in", "Remembered"],
+  "security.until_signed_out": ["Until signed out", "No expiry"],
   "security.kept_note": ["A browser kept signed in stays signed in until you sign it out here, or until it isn't used for {days} days. The phone app stays signed in until you sign it out.", "Remembered browser sessions last {days} days from their last use (security.remember_days); phone app sessions last until revoked. Revoke them here."],
   "security.device_out": ["Sign out", "Revoke"],
   "security.device_out_title": ["Sign out {device}?", "Revoke the session on {device}?"],

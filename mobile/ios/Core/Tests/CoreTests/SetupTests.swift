@@ -423,6 +423,11 @@ final class SetupTests: XCTestCase {
             RawChange("-Xmx", "-Xmx4G", "-Xmx6G"),
         ])
         XCTAssertEqual(RawText.argChanges(before, before.reversed()), [])
+        // An option given twice: taking one out is a change, not "nothing changed".
+        XCTAssertEqual(
+            RawText.argChanges(RawText.args("-Dx=1 -Dx=2"), RawText.args("-Dx=1")),
+            [RawChange("-Dx (2)", "-Dx=2", nil)]
+        )
     }
 
     func testEachChangeIsSaidInPlainWords() {

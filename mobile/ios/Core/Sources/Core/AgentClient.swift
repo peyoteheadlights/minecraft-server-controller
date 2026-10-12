@@ -145,7 +145,7 @@ public final class AgentClient: @unchecked Sendable {
 
     public func login(username: String, password: String, device: String) async throws -> LoginResult {
         // The app always keeps the sign-in, behind its own unlock.
-        let body = LoginBody(username: username, password: password, device: device, label: device, remember: true)
+        let body = LoginBody(username: username, password: password, device: device, label: device, remember: true, phone: true)
         return try await call("POST", "/api/auth/login", body: try AgentClient.encode(body), signedIn: false, as: LoginResult.self)
     }
 
@@ -219,6 +219,8 @@ public final class AgentClient: @unchecked Sendable {
         let device: String
         let label: String
         let remember: Bool
+        /// Kept until signed out, not for the browser's set number of days.
+        let phone: Bool
     }
 
     private struct PhoneBody: Encodable {

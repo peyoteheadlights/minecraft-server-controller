@@ -317,14 +317,18 @@ class SetupPages(
         report = null
         versions = Read(loading = true)
         scope.launch {
-            versions = try {
-                val read = c.typeVersions(id)
-                pickedVersion = read.latestStable ?: read.versions.firstOrNull()?.minecraft
-                pickedLoader = read.versions.firstOrNull { it.minecraft == pickedVersion }?.loaders?.firstOrNull()
-                Read(read)
+            val answer: Read<TypeVersions> = try {
+                Read(c.typeVersions(id))
             } catch (e: AgentException) {
                 noted(e)
                 Read(problem = Message.of(e))
+            }
+            // Another kind was tapped meanwhile: its own answer is the one shown.
+            if (pickedType != id) return@launch
+            versions = answer
+            answer.value?.let { read ->
+                pickedVersion = read.latestStable ?: read.versions.firstOrNull()?.minecraft
+                pickedLoader = read.versions.firstOrNull { it.minecraft == pickedVersion }?.loaders?.firstOrNull()
             }
         }
     }

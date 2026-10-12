@@ -69,7 +69,8 @@ function devicesCard(devices, rememberDays) {
           t("security.col_last_used"), t("security.col_from"), ""], devices.map((row) => [
           el("span", {}, (row.label || t("security.device_unknown")).slice(0, 40),
             row.current ? el("span", { class: "tag ok ml-6" }, t("security.this_device")) : null,
-            row.remember ? el("span", { class: "tag ml-6" }, t("security.kept")) : null),
+            row.remember ? el("span", { class: "tag ml-6" },
+              t(row.expires_at == null ? "security.until_signed_out" : "security.kept")) : null),
           row.user, fmt.ago(row.created_at), fmt.ago(row.last_used),
           el("span", { class: "mono" }, row.source_ip || "—"),
           el("button", { class: "btn small", type: "button", onclick: () => signOutDevice(row) },

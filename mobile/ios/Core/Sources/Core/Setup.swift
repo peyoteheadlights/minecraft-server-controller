@@ -444,7 +444,8 @@ public enum RawText {
         text.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
     }
 
-    /// Options are matched by name (-Xmx, -Dname, -XX:Name), so a moved option isn't a change.
+    /// Options are matched by name (-Xmx, -Dname, -XX:Name), so a moved option
+    /// isn't a change. A name given more than once is counted: "-Dx (2)".
     public static func argChanges(_ before: [String], _ after: [String]) -> [RawChange] {
         changes(byKey(before), byKey(after))
     }
@@ -464,7 +465,13 @@ public enum RawText {
 
     private static func byKey(_ args: [String]) -> [String: String] {
         var found: [String: String] = [:]
-        for arg in args { found[argKey(arg)] = arg }
+        var seen: [String: Int] = [:]
+        for arg in args {
+            let key = argKey(arg)
+            let count = (seen[key] ?? 0) + 1
+            seen[key] = count
+            found[count == 1 ? key : "\(key) (\(count))"] = arg
+        }
         return found
     }
 

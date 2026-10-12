@@ -360,6 +360,7 @@ def test_a_phone_signed_in_until_signed_out_is_woken_however_long_it_sat(multi_c
             "password": "correct horse battery",
             "device": "Pixel",
             "remember": True,
+            "phone": True,
         },
     ).json()
     register_phone(multi_client, headers={"Authorization": f"Bearer {phone['token']}"})

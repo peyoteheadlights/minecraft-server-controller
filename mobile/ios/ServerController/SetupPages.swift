@@ -263,14 +263,16 @@ final class SetupPages {
         versions = PageRead(loading: true)
         do {
             let read = try await client.typeVersions(typeId: id)
+            // Another kind was tapped meanwhile: its own answer is the one shown.
+            guard pickedType == id else { return }
             pickedVersion = read.latestStable ?? read.versions.first?.minecraft
             pickedLoader = read.versions.first { $0.minecraft == pickedVersion }?.loaders.first
             versions = PageRead(value: read)
         } catch let problem as AgentError {
             noted(problem)
-            versions = PageRead(problem: problem)
+            if pickedType == id { versions = PageRead(problem: problem) }
         } catch {
-            versions.loading = false
+            if pickedType == id { versions.loading = false }
         }
     }
 

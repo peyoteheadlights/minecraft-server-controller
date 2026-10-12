@@ -400,9 +400,18 @@ object RawText {
     /** The Java options typed on one line or several. */
     fun args(text: String): List<String> = text.split(Regex("\\s+")).filter { it.isNotEmpty() }
 
-    /** Options are matched by name (-Xmx, -Dname, -XX:Name), so a moved option isn't a change. */
-    fun argChanges(before: List<String>, after: List<String>): List<RawChange> =
-        changes(before.associateBy(::argKey), after.associateBy(::argKey))
+    /** Options are matched by name (-Xmx, -Dname, -XX:Name), so a moved option
+     * isn't a change. A name given more than once is counted: "-Dx (2)". */
+    fun argChanges(before: List<String>, after: List<String>): List<RawChange> = changes(byKey(before), byKey(after))
+
+    private fun byKey(args: List<String>): Map<String, String> {
+        val seen = mutableMapOf<String, Int>()
+        return args.associateBy { arg ->
+            val key = argKey(arg)
+            val count = seen.merge(key, 1, Int::plus)!!
+            if (count == 1) key else "$key ($count)"
+        }
+    }
 
     fun argKey(arg: String): String = when {
         arg.startsWith("-Xmx") || arg.startsWith("-Xms") || arg.startsWith("-Xss") -> arg.take(4)

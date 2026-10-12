@@ -403,6 +403,11 @@ class SetupTest {
             RawText.argChanges(before, RawText.args("-Xmx6G -Xms1G -XX:-UseG1GC")),
         )
         assertEquals(emptyList<RawChange>(), RawText.argChanges(before, before.reversed()))
+        // An option given twice: taking one out is a change, not "nothing changed".
+        assertEquals(
+            listOf(RawChange("-Dx (2)", "-Dx=2", null)),
+            RawText.argChanges(RawText.args("-Dx=1 -Dx=2"), RawText.args("-Dx=1")),
+        )
     }
 
     @Test

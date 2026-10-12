@@ -123,6 +123,8 @@ class AgentClient(
             put("label", device)
             // The app always keeps the sign-in, behind its own unlock.
             put("remember", true)
+            // Kept until signed out, not for the browser's set number of days.
+            put("phone", true)
         }
         return call(post("/api/auth/login", body), LoginResult.serializer(), signedIn = false)
     }

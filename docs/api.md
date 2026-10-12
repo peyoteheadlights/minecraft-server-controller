@@ -111,7 +111,7 @@ moderator gets 403 from each of these. See [security.md](security.md#permissions
 | GET | `/api/folders?path=` | The folder picker: folder names in one folder, or drives and shortcuts |
 | GET | `/api/power` | Keep awake: on or off, active now, what can still sleep the PC |
 | GET | `/api/export` | Measured sizes of each part, before exporting |
-| POST | `/api/export` | `{worlds, backups, secrets, passphrase?, folder?}` starts a job; its result has the token. With `folder` (a PC folder, checked like the folder picker) the file is saved there instead, never over an existing file |
+| POST | `/api/export` | `{worlds, backups, secrets, passphrase?, folder?}` starts a job; its result has the token. With `folder` (a PC folder, checked like the folder picker) the file is saved there instead, never over an existing file, and the result has `saved_to` and no token |
 | GET | `/api/export/{token}` | The export file |
 | GET | `/api/help-bundle` | The Get help file's list of files, before it is made |
 | POST | `/api/help-bundle` | `{confirm: true}` makes it; returns a token |
@@ -316,10 +316,10 @@ counting down; `restart_at` in `/api/status` is the deadline (Unix time).
 `POST /api/schedules/{id}/run`,
 `GET|PUT /api/settings`, `POST /api/maintenance`,
 `POST /api/notifications/test?channel=` (`discord`, `email` or `push`),
-`GET /api/notifications/history`,
+`GET /api/notifications/history` (owner only, like `GET /api/settings`),
 `GET /api/security`, `GET /api/security/tls`, `GET /api/security/audit`,
 `POST /api/security/revoke-sessions`. The phones' PC settings use the
-owner-only ones (`/api/settings` PUT, maintenance, the test alert, power,
+owner-only ones (`/api/settings`, maintenance, the test alert, power,
 startup, updates, export, Get help, revoke-sessions); each declares its
 answer's shape.
 

@@ -474,9 +474,10 @@ def test_an_export_can_be_saved_in_a_folder_on_the_pc(secret_client, tmp_path):
     saved = Path(job["result"]["saved_to"])
     assert saved.parent == folder and saved.is_file()
     assert zipfile.is_zipfile(saved)
-    # Nothing is left behind to download.
+    # Nothing is left behind to download, and no token is given for it.
+    assert "token" not in job["result"]
     core = secret_client.app.state.core
-    assert not (transfer.folder(core.config) / f"{job['result']['token']}.zip").exists()
+    assert not list(transfer.folder(core.config).glob("*.zip"))
     # A second one never writes over the first.
     again = wait_for_job(
         secret_client,

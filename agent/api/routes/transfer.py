@@ -83,6 +83,7 @@ async def start_export(
         if save_in is not None:
             saved = await asyncio.to_thread(transfer.move_to, target, save_in, filename)
             result["saved_to"] = str(saved)
+            del result["token"]  # nothing is left to download
         return result
 
     job = core.jobs.start("export", "Exporting everything", run, user=principal.user)

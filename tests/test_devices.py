@@ -201,3 +201,18 @@ def test_a_new_owner_password_on_the_pc_ends_the_owners_phone_sign_ins(
     assert multi_client.get("/api/servers", headers=phone).status_code == 401
     assert multi_client.get("/api/servers", headers=sams).status_code == 200
     sign_in(multi_client, password="a brand new owner password 7")
+
+
+def test_a_moderators_phone_counts_as_signed_in_after_a_long_time(multi_client):
+    core = multi_client.app.state.core
+    owner = dict(multi_client.headers)
+    add_helper(multi_client, owner)
+    signed, _ = sign_in(multi_client, "sam", HELPER_PASSWORD, **PHONE)
+
+    def count():
+        rows = multi_client.get("/api/accounts", headers=owner).json()["helpers"]
+        return next(r for r in rows if r["username"] == "sam")["active_sessions"]
+
+    before = count()
+    _age(core, signed["token"], (core.config.security.remember_days + 30) * 86400)
+    assert before >= 1 and count() == before

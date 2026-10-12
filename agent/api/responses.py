@@ -1641,7 +1641,8 @@ class NewServerOptions(Open):
     )
     memory_reason: str | None = None
     total_mb: int | None = Field(
-        None, description="The PC's measured memory, the most a new server can be given; null when it couldn't be read"
+        None,
+        description="The PC's measured memory, the most a new server can be given; null when it couldn't be read",
     )
     port: int
     color: str

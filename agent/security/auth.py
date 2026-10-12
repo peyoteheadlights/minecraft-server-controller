@@ -88,6 +88,12 @@ def needs_rehash(encoded: str) -> bool:
         return False
 
 
+def live_session(alias: str = "") -> str:
+    """The SQL test for a sign-in still in force (one parameter, now): not
+    yet expired, or a phone's, which lasts until it is signed out."""
+    return f"({alias}expires_at > ? OR {alias}until_signed_out = 1)"
+
+
 def token_hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
@@ -564,7 +570,7 @@ class AuthManager:
             account = self._account_row(row)
             sessions = self.db.query_one(
                 "SELECT COUNT(*) AS n, MAX(last_used) AS last FROM sessions "
-                "WHERE user = ? AND expires_at > ?",
+                f"WHERE user = ? AND {live_session()}",
                 (account["username"], time.time()),
             ) or {"n": 0, "last": None}
             last_login = self.db.query_one(
@@ -964,7 +970,7 @@ class AuthManager:
         rows = self.db.query(
             "SELECT token_hash, user, created_at, expires_at, last_used, source_ip, label, "
             "remember, until_signed_out FROM sessions "
-            "WHERE expires_at > ? OR until_signed_out = 1 ORDER BY last_used DESC",
+            f"WHERE {live_session()} ORDER BY last_used DESC",
             (time.time(),),
         )
         out = []
@@ -1002,7 +1008,7 @@ class AuthManager:
     def active_sessions(self) -> list[dict[str, Any]]:
         rows = self.db.query(
             "SELECT user, created_at, expires_at, last_used, source_ip, label FROM sessions "
-            "WHERE expires_at > ? OR until_signed_out = 1 ORDER BY last_used DESC",
+            f"WHERE {live_session()} ORDER BY last_used DESC",
             (time.time(),),
         )
         return rows

@@ -485,7 +485,7 @@ final class ContentPages {
         } catch let problem as AgentError {
             noted(problem)
             if case .failed(_, _, _, let problems) = problem, !problems.isEmpty {
-                said = Said(text: problems.keys.sorted().compactMap { problems[$0] }.joined(separator: " "), good: false)
+                said = Said(text: problems.keys.sorted().compactMap { key in problems[key].map { "\(key): \($0)" } }.joined(separator: " "), good: false)
             } else {
                 said = Said(text: problem.message(strings), good: false)
             }

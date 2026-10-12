@@ -799,6 +799,98 @@ class Ok(Open):
     ok: bool
 
 
+# ------------------------------------------------------------ moderators
+class Described(Open):
+    permissions: list[str]
+    level: str = Field(description="start_and_stop, look_after_it, run_it, custom or none")
+
+
+class ServerAccess(Described):
+    id: str
+    name: str
+
+
+class OpenInvite(Open):
+    created_at: float
+    expires_at: float
+
+
+class Moderator(Open):
+    username: str
+    role: str
+    servers: list[str] | None = Field(None, description="null: every server, now and later")
+    all_servers: bool
+    new_server: Described = Field(description="What a new server gives an all-servers moderator")
+    access: list[ServerAccess] = Field(description="What they may do on each server")
+    invite_waiting: bool = Field(description="True until they choose a password with an invite")
+    invite: OpenInvite | None = None
+    created_at: float
+    active_sessions: int
+    last_used: float | None = None
+    last_sign_in: float | None = None
+
+
+class PermissionLevel(Open):
+    id: str
+    permissions: list[str]
+
+
+class PermissionGroup(Open):
+    id: str
+    permissions: list[str]
+
+
+class PermissionCatalogue(Open):
+    levels: list[PermissionLevel] = Field(description="Smallest first")
+    default_level: str
+    groups: list[PermissionGroup] = Field(description="The switches, as the apps group them")
+    technical: list[str] = Field(description="Switches shown only in Technical mode")
+    warn: list[str] = Field(description="Switches that let someone do anything in the game")
+    needs: dict[str, list[str]] = Field(description="A switch brings these along")
+
+
+class ServerName(Open):
+    id: str
+    name: str
+
+
+class ModeratorList(Open):
+    owner: str
+    helpers: list[Moderator]
+    permissions: PermissionCatalogue
+    servers: list[ServerName]
+
+
+class InviteCode(Open):
+    ok: bool = Field(description="False when the PC has no pairing code; reason says why")
+    username: str
+    expires_at: float
+    url: str | None = Field(None, description="The pairing link with the one-time invite")
+    qr: list[str] | None = Field(None, description="QR rows, 1 = dark square, no border")
+    reason: str | None = None
+
+
+class ModeratorAdded(Open):
+    ok: bool
+    username: str
+    invite: InviteCode | None = Field(None, description="Present when no password was given")
+
+
+class ModeratorChanged(Open):
+    ok: bool
+    username: str
+
+
+class ModeratorRemoved(Open):
+    ok: bool
+    removed: str
+
+
+class InviteCheck(Open):
+    username: str
+    expires_at: float
+
+
 # ------------------------------------------------------------ Bedrock
 class BedrockTerms(Open):
     """Whether Mojang's EULA and Privacy Policy were accepted (needed before

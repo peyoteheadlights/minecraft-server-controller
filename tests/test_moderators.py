@@ -293,3 +293,157 @@ def test_no_screen_says_helper_any_more():
             said.append(key)
     said += [entry[3] for entry in EVENT_MAP.values() if word.search(entry[3])]
     assert not said, said
+
+
+# ------------------------------------------------------------------ invites
+def invite_sam(client, owner, **body):
+    response = client.post(
+        "/api/accounts",
+        json={"username": "sam", "servers": ["survival"], **body},
+        headers=owner,
+    )
+    assert response.status_code == 200, response.text
+    return response.json()["invite"]
+
+
+def token_of(invite):
+    from urllib.parse import parse_qs, urlparse
+
+    query = parse_qs(urlparse(invite["url"]).query)
+    assert query["user"] == ["sam"]
+    return query["invite"][0]
+
+
+@pytest.fixture
+def paired(monkeypatch):
+    """A PC with a pairing code (the test config has no Tailscale name)."""
+    from agent import pairing
+
+    def code(config):
+        url = "https://pc.example.ts.net:8443/?pair=1&fp=ab&api=1"
+        return {"ok": True, "url": url, "qr": ["1"], "reason": None}
+
+    monkeypatch.setattr(pairing, "pairing_code", code)
+
+
+def accept(client, token, password="sam's own password", device="Pixel 8"):
+    return client.post(
+        "/api/invite/accept", json={"token": token, "password": password, "device": device}
+    )
+
+
+def test_an_invite_lets_a_new_moderator_choose_a_password(multi_client, owner, paired):
+    invite = invite_sam(multi_client, owner, permissions=sorted(P.START_AND_STOP))
+    assert invite["ok"] and invite["qr"]
+    listed = multi_client.get("/api/accounts", headers=owner).json()["helpers"][0]
+    assert listed["invite_waiting"] is True and listed["invite"]
+    token = token_of(invite)
+    checked = multi_client.post("/api/invite/check", json={"token": token})
+    assert checked.status_code == 200 and checked.json()["username"] == "sam"
+    signed_in = accept(multi_client, token)
+    assert signed_in.status_code == 200, signed_in.text
+    assert signed_in.json()["expires_at"] is None  # a phone's sign-in: until signed out
+    headers = {"Authorization": f"Bearer {signed_in.json()['token']}"}
+    assert me(multi_client, headers)["server_permissions"] == {"survival": sorted(P.START_AND_STOP)}
+    assert sign_in(multi_client, "sam", "sam's own password")
+    listed = multi_client.get("/api/accounts", headers=owner).json()["helpers"][0]
+    assert listed["invite_waiting"] is False and listed["invite"] is None
+
+
+def test_an_invite_works_once(multi_client, owner, paired):
+    token = token_of(invite_sam(multi_client, owner))
+    assert accept(multi_client, token).status_code == 200
+    again = accept(multi_client, token, password="someone else's 123")
+    assert again.status_code == 410
+    assert "used" in again.json()["detail"]
+
+
+def test_an_invite_ends_after_a_day(multi_client, owner, paired, monkeypatch):
+    import time
+
+    token = token_of(invite_sam(multi_client, owner))
+    later = time.time() + 25 * 3600
+    monkeypatch.setattr(time, "time", lambda: later)
+    response = accept(multi_client, token)
+    assert response.status_code == 410
+    assert "run out" in response.json()["detail"]
+
+
+def test_a_new_invite_ends_the_old_one_and_cancel_ends_it(multi_client, owner, paired):
+    first = token_of(invite_sam(multi_client, owner))
+    second = multi_client.post("/api/accounts/sam/invite", json={}, headers=owner).json()
+    assert accept(multi_client, first).status_code == 410
+    assert multi_client.delete("/api/accounts/sam/invite", headers=owner).status_code == 200
+    response = accept(multi_client, token_of(second))
+    assert response.status_code == 410 and "cancelled" in response.json()["detail"]
+
+
+def test_a_wrong_invite_counts_as_a_failed_sign_in(multi_client, owner):
+    for _ in range(12):
+        response = accept(multi_client, "not-a-real-invite")
+    assert response.status_code == 429
+    assert multi_client.post("/api/invite/check", json={"token": "x"}).status_code == 429
+
+
+def test_an_invite_needs_a_good_password(multi_client, owner, paired):
+    token = token_of(invite_sam(multi_client, owner))
+    assert accept(multi_client, token, password="short").status_code == 400
+    assert accept(multi_client, token).status_code == 200
+
+
+def test_an_invited_moderator_cant_sign_in_before_choosing(multi_client, owner, paired):
+    invite_sam(multi_client, owner)
+    response = multi_client.post("/api/auth/login", json={"username": "sam", "password": ""})
+    assert response.status_code in (401, 422)
+
+
+def test_using_an_invite_tells_the_owner(multi_client, owner, paired):
+    token = token_of(invite_sam(multi_client, owner))
+    accept(multi_client, token, device="Pixel 8")
+    core = multi_client.app.state.core
+    multi_client.portal.call(core.events.flush)
+    rows = core.db.query("SELECT type, message FROM events WHERE type = 'helper_invite_used'")
+    assert rows and rows[0]["message"] == "sam set up their account on Pixel 8"
+    from agent.events import OWNER_ONLY_EVENTS
+
+    assert "helper_invite_used" in OWNER_ONLY_EVENTS
+
+
+def test_reset_password_signs_out_and_makes_an_invite(multi_client, owner, paired):
+    sam = add_helper(multi_client, owner)
+    invite = multi_client.post(
+        "/api/accounts/sam/invite", json={"forget_password": True}, headers=owner
+    ).json()
+    assert multi_client.get("/api/auth/me", headers=sam).status_code == 401
+    bad = multi_client.post(
+        "/api/auth/login", json={"username": "sam", "password": HELPER_PASSWORD}
+    )
+    assert bad.status_code == 401
+    assert accept(multi_client, token_of(invite), password="a fresh one 4567").status_code == 200
+    sign_in(multi_client, "sam", "a fresh one 4567")
+
+
+def test_a_moderator_with_a_password_gets_no_invite_without_a_reset(multi_client, owner):
+    add_helper(multi_client, owner)
+    response = multi_client.post("/api/accounts/sam/invite", json={}, headers=owner)
+    assert response.status_code == 400
+
+
+def test_moderators_cant_make_invites(multi_client, owner):
+    sam = add_helper(multi_client, owner)
+    response = multi_client.post("/api/accounts/sam/invite", json={}, headers=sam)
+    assert response.status_code == 403
+
+
+def test_the_invite_token_is_only_stored_hashed(multi_client, owner, paired):
+    token = token_of(invite_sam(multi_client, owner))
+    core = multi_client.app.state.core
+    stored = core.db.query("SELECT * FROM invites")
+    assert stored and token not in str(stored)
+    audit = core.db.query("SELECT * FROM audit_log")
+    assert token not in str(audit)
+
+
+def test_without_a_pairing_code_the_invite_says_why(multi_client, owner):
+    invite = invite_sam(multi_client, owner)
+    assert invite["ok"] is False and invite["reason"] and invite["url"] is None

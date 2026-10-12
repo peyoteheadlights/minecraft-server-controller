@@ -27,7 +27,13 @@ AGENT_SCOPE = "_agent"
 # the certificate, new helper accounts. Only the owner sees them, in the
 # event history and on the live feed, as with the alerts about the PC.
 OWNER_ONLY_EVENTS = frozenset(
-    {"auth_failure", "certificate_expiring", "certificate_problem", "helper_added"}
+    {
+        "auth_failure",
+        "certificate_expiring",
+        "certificate_problem",
+        "helper_added",
+        "helper_invite_used",
+    }
 )
 
 

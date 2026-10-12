@@ -234,7 +234,8 @@ class AppPhoneRequest(BaseModel):
 
 class AccountCreateRequest(BaseModel):
     username: str = Field(min_length=2, max_length=32)
-    password: str = Field(min_length=1, max_length=256)
+    # Left out: the moderator chooses it with the invite the answer carries.
+    password: str | None = Field(default=None, min_length=1, max_length=256)
     # The server ids this moderator may use; None means every server, now
     # and later.
     servers: list[str] | None = None
@@ -257,6 +258,22 @@ class AccountUpdateRequest(BaseModel):
     new_server: list[str] | None = None
     # A new password, which signs the helper out everywhere.
     password: str | None = Field(default=None, max_length=256)
+
+
+class InviteRequest(BaseModel):
+    # Also clear the password they have and sign them out ("Reset password").
+    forget_password: bool = False
+
+
+class InviteCheckRequest(BaseModel):
+    token: str = Field(min_length=1, max_length=128)
+
+
+class InviteAcceptRequest(BaseModel):
+    token: str = Field(min_length=1, max_length=128)
+    password: str = Field(max_length=256)
+    # The phone's name, shown with the other signed-in devices.
+    device: str = Field(default="", max_length=80)
 
 
 class PasswordChangeRequest(BaseModel):

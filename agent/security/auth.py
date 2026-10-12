@@ -171,6 +171,16 @@ class AccountError(ValueError):
     """A helper account can't be made or changed as asked."""
 
 
+class InviteError(Exception):
+    """An invite that can't be used: ``reason`` is unknown, used, cancelled
+    or expired, so the app can say which."""
+
+    def __init__(self, reason: str, message: str):
+        super().__init__(message)
+        self.reason = reason
+        self.message = message
+
+
 class AuthError(Exception):
     def __init__(self, message: str, status: int = 401, retry_after: int | None = None):
         super().__init__(message)
@@ -363,6 +373,24 @@ class AuthManager:
 
         self._record_attempt(username, source_ip, True)
         self._upgrade_hash(username, password, account)
+        return self._new_session(
+            username,
+            account["role"] if account else "owner",
+            source_ip=source_ip,
+            label=label,
+            remember=remember,
+            until_signed_out=until_signed_out,
+        )
+
+    def _new_session(
+        self,
+        username: str,
+        role: str,
+        source_ip: str,
+        label: str,
+        remember: bool,
+        until_signed_out: bool,
+    ) -> dict[str, Any]:
         token = secrets.token_urlsafe(TOKEN_BYTES)
         expires = time.time() + self._lifetime(remember)
         self.db.insert(
@@ -385,7 +413,7 @@ class AuthManager:
             "token": token,
             "user": username,
             "expires_at": None if until_signed_out else expires,
-            "role": account["role"] if account else "owner",
+            "role": role,
             "remember": bool(remember),
         }
 
@@ -547,6 +575,9 @@ class AuthManager:
                     if account["servers"] is not None
                     else None,
                     "access": account["access"],
+                    # No password yet: they haven't used their invite.
+                    "invite_waiting": not account["password_hash"],
+                    "invite": self.open_invite(account["username"]),
                     "created_at": account["created_at"],
                     "created_by": account["created_by"],
                     "password_changed_at": account["password_changed_at"],
@@ -567,7 +598,7 @@ class AuthManager:
     def create_account(
         self,
         username: str,
-        password: str,
+        password: str | None,
         servers: list[str] | None,
         by: str,
         permissions: frozenset[str] | None = None,
@@ -589,7 +620,8 @@ class AuthManager:
         count = self.db.query_one("SELECT COUNT(*) AS n FROM accounts") or {"n": 0}
         if int(count["n"]) >= MAX_HELPERS:
             raise AccountError(f"There can be at most {MAX_HELPERS} moderators.")
-        encoded = hash_password(self._check_new_password(password))
+        # No password: the moderator chooses one with an invite.
+        encoded = hash_password(self._check_new_password(password)) if password is not None else ""
         now = time.time()
         given = LOOK_AFTER_IT if permissions is None else permissions
         self.db.insert(
@@ -676,6 +708,134 @@ class AuthManager:
             self.db.audit("helper_password_set", user=by, target=name)
         return self.account(name) or {}
 
+    # -- invites ---------------------------------------------------------
+    # An invite lets a new moderator choose their password (or one who forgot
+    # theirs choose a new one) and sign in. It works once, for INVITE_HOURS;
+    # only its hash is stored, and a new invite ends the older ones.
+    INVITE_HOURS = 24
+
+    def invite(self, username: str, by: str, forget_password: bool = False) -> dict[str, Any]:
+        """A new invite for a moderator. ``forget_password`` also clears the
+        password they have and signs them out everywhere (the owner's
+        "Reset password")."""
+        account = self.account(username)
+        if not account:
+            raise AccountError(f"There is no moderator called {username}.")
+        name = account["username"]
+        now = time.time()
+        if forget_password:
+            self.db.execute("UPDATE accounts SET password_hash = '' WHERE username = ?", (name,))
+            self.db.execute("DELETE FROM sessions WHERE user = ?", (name,))
+            self.db.audit("helper_password_forgotten", user=by, target=name)
+        elif account["password_hash"]:
+            raise AccountError(f"{name} has a password already. Reset it to send a new invite.")
+        self._end_invites(name, now)
+        token = secrets.token_urlsafe(TOKEN_BYTES)
+        expires = now + self.INVITE_HOURS * 3600
+        self.db.insert(
+            "invites",
+            {
+                "token_hash": token_hash(token),
+                "username": name,
+                "created_at": now,
+                "created_by": by,
+                "expires_at": expires,
+            },
+        )
+        self.db.audit("helper_invited", user=by, target=name)
+        return {"token": token, "username": name, "expires_at": expires}
+
+    def _end_invites(self, name: str, now: float) -> int:
+        cur = self.db.execute(
+            "UPDATE invites SET cancelled_at = ? "
+            "WHERE username = ? AND used_at IS NULL AND cancelled_at IS NULL",
+            (now, name),
+        )
+        return cur.rowcount
+
+    def cancel_invite(self, username: str, by: str) -> int:
+        account = self.account(username)
+        if not account:
+            raise AccountError(f"There is no moderator called {username}.")
+        ended = self._end_invites(account["username"], time.time())
+        self.db.audit("helper_invite_cancelled", user=by, target=account["username"])
+        return ended
+
+    def open_invite(self, username: str) -> dict[str, Any] | None:
+        """The invite a moderator hasn't used yet, if there is one."""
+        return self.db.query_one(
+            "SELECT created_at, expires_at FROM invites WHERE username = ? AND used_at IS NULL "
+            "AND cancelled_at IS NULL AND expires_at > ? ORDER BY created_at DESC LIMIT 1",
+            (username, time.time()),
+        )
+
+    def _usable_invite(self, token: str, source_ip: str) -> dict[str, Any]:
+        """The invite a token belongs to, or why it can't be used. Wrong
+        tokens count as failed sign-ins, so guessing is locked out."""
+        self.login_rate.check(f"login:{source_ip or 'unknown'}")
+        remaining = self._locked_out("invite", source_ip)
+        if remaining:
+            raise AuthError(
+                f"Too many failed attempts. Try again in {int(remaining / 60) + 1} minutes.",
+                status=429,
+                retry_after=int(remaining),
+            )
+        row = self.db.query_one(
+            "SELECT * FROM invites WHERE token_hash = ?", (token_hash(token or ""),)
+        )
+        if row is None:
+            self._record_attempt("invite", source_ip, False)
+            raise InviteError("unknown", "That invite isn't right. Ask the owner for a new one.")
+        if row["used_at"] is not None:
+            raise InviteError(
+                "used", "This invite has been used already. Ask the owner for a new one."
+            )
+        if row["cancelled_at"] is not None:
+            raise InviteError(
+                "cancelled", "The owner cancelled this invite. Ask them for a new one."
+            )
+        if row["expires_at"] < time.time():
+            raise InviteError("expired", "This invite has run out. Ask the owner for a new one.")
+        if not self.account(row["username"]):
+            raise InviteError(
+                "cancelled", "The owner cancelled this invite. Ask them for a new one."
+            )
+        return row
+
+    def check_invite(self, token: str, source_ip: str = "") -> dict[str, Any]:
+        row = self._usable_invite(token, source_ip)
+        return {"username": row["username"], "expires_at": row["expires_at"]}
+
+    def accept_invite(
+        self, token: str, password: str, source_ip: str = "", label: str = ""
+    ) -> dict[str, Any]:
+        """Set the password an invite is for and sign in, until signed out
+        (only the phone app opens invites)."""
+        row = self._usable_invite(token, source_ip)
+        try:
+            encoded = hash_password(self._check_new_password(password))
+        except ValueError as exc:
+            raise AccountError(str(exc)) from exc
+        now = time.time()
+        name = row["username"]
+        cur = self.db.execute(
+            "UPDATE invites SET used_at = ? WHERE token_hash = ? AND used_at IS NULL",
+            (now, row["token_hash"]),
+        )
+        if cur.rowcount != 1:  # used by someone else a moment ago
+            raise InviteError(
+                "used", "This invite has been used already. Ask the owner for a new one."
+            )
+        self.db.execute(
+            "UPDATE accounts SET password_hash = ?, password_changed_at = ? WHERE username = ?",
+            (encoded, now, name),
+        )
+        self.db.audit("helper_invite_used", user=name, source_ip=source_ip, detail=label[:80])
+        self._record_attempt(name, source_ip, True)
+        return self._new_session(
+            name, "helper", source_ip=source_ip, label=label, remember=True, until_signed_out=True
+        )
+
     def delete_account(self, username: str, by: str) -> str:
         account = self.account(username)
         if not account:
@@ -683,6 +843,7 @@ class AuthManager:
         name = account["username"]
         self.db.execute("DELETE FROM accounts WHERE username = ?", (name,))
         self.db.execute("DELETE FROM sessions WHERE user = ?", (name,))
+        self.db.execute("DELETE FROM invites WHERE username = ?", (name,))
         self.db.audit("helper_removed", user=by, target=name)
         return name
 

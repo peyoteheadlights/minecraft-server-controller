@@ -126,7 +126,13 @@ async function startApp(me) {
   registerServiceWorker();
 }
 
-if (state.token) {
+// A moderator's invite opened in a browser: only the app can use it.
+const invited = new URLSearchParams(location.search).has("invite");
+if (invited) {
+  const line = document.createElement("h1");
+  line.textContent = t("invite.open_in_app");
+  $("#login-form").replaceChildren(line);
+} else if (state.token) {
   // Unreachable is not signed out: the offline screen waits for the PC and
   // then loads the page again, still signed in.
   api("/auth/me").then(startApp).catch((err) => (err.offline ? showOffline({ reload: true }) : signOut(true)));

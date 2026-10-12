@@ -1,7 +1,7 @@
 """REST API, one router per area.
 
-Every route except /api/health and /api/auth/login requires a bearer token,
-and every route declares the permission it needs (see
+Every route except /api/health, /api/auth/login and /api/invite/* requires a
+bearer token, and every route declares the permission it needs (see
 agent/security/permissions.py). No route accepts a shell string or a command
 line: the only free text that reaches the operating system is a Minecraft
 console command, validated by agent.minecraft.commands first. The one route

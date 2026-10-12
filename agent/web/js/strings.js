@@ -50,6 +50,7 @@ export const STRINGS = /* strings-table */ {
   "update.not_rolled_back": ["The previous version couldn't be put back by itself. Run the setup from the Start menu.", "Rollback incomplete; run setup from the Start menu to repair."],
 
   "pair.title": ["Open on your phone", "Phone pairing code"],
+  "invite.open_in_app": ["Open this with Command Block", "Open this invite in the Command Block app"],
   "pair.scan": ["Scan this with your phone's camera, or type:", "Scan, or open:"],
   "pair.not_ready": ["The code for your phone isn't ready yet.", "No pairing code."],
   "pair.no_secret": ["The code holds this PC's address and how to recognise it. No password.", "Contains address, port, certificate SHA-256 and API version; no credentials."],

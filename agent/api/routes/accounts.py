@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from ... import pairing
 from ...events import Event
 from ...security.auth import AccountError, Principal
 from ...security.permissions import (
@@ -21,7 +22,15 @@ from ...security.permissions import (
     require,
 )
 from ..deps import audit, get_core
-from .models import AccountCreateRequest, AccountUpdateRequest
+from ..responses import (
+    InviteCode,
+    ModeratorAdded,
+    ModeratorChanged,
+    ModeratorList,
+    ModeratorRemoved,
+    Ok,
+)
+from .models import AccountCreateRequest, AccountUpdateRequest, InviteRequest
 
 router = APIRouter()
 
@@ -63,7 +72,7 @@ def _moderator(core, account: dict) -> dict:
     }
 
 
-@router.get("/accounts")
+@router.get("/accounts", response_model=ModeratorList)
 async def list_accounts(
     principal: Principal = Depends(require(USERS_MANAGE)), core=Depends(get_core)
 ):
@@ -75,7 +84,7 @@ async def list_accounts(
     }
 
 
-@router.post("/accounts")
+@router.post("/accounts", response_model=ModeratorAdded)
 async def add_account(
     payload: AccountCreateRequest,
     request: Request,
@@ -104,10 +113,62 @@ async def add_account(
             data={"username": account["username"], "role": HELPER},
         )
     )
-    return {"ok": True, "username": account["username"]}
+    invite = None
+    if payload.password is None:
+        invite = _invite_code(core, core.auth.invite(account["username"], by=principal.user))
+    return {"ok": True, "username": account["username"], "invite": invite}
 
 
-@router.put("/accounts/{username}")
+def _invite_code(core, made: dict) -> dict:
+    code = pairing.invite_code(core.config, made["token"], made["username"])
+    return {
+        "ok": code["ok"],
+        "username": made["username"],
+        "expires_at": made["expires_at"],
+        "url": code.get("url"),
+        "qr": code.get("qr"),
+        "reason": code.get("reason"),
+    }
+
+
+@router.post("/accounts/{username}/invite", response_model=InviteCode)
+async def new_invite(
+    username: str,
+    request: Request,
+    payload: InviteRequest | None = None,
+    principal: Principal = Depends(require(USERS_MANAGE)),
+    core=Depends(get_core),
+):
+    """A new invite for a moderator who hasn't chosen a password, or, with
+    ``forget_password``, for one who forgot theirs: that also signs them
+    out everywhere. Older invites stop working."""
+    forget = bool(payload and payload.forget_password)
+    try:
+        made = core.auth.invite(username, by=principal.user, forget_password=forget)
+    except AccountError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    audit(
+        core, request, "helper_invite", target=made["username"], detail="reset" if forget else None
+    )
+    return _invite_code(core, made)
+
+
+@router.delete("/accounts/{username}/invite", response_model=Ok)
+async def cancel_invite(
+    username: str,
+    request: Request,
+    principal: Principal = Depends(require(USERS_MANAGE)),
+    core=Depends(get_core),
+):
+    try:
+        core.auth.cancel_invite(username, by=principal.user)
+    except AccountError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    audit(core, request, "helper_invite_cancel", target=username)
+    return {"ok": True}
+
+
+@router.put("/accounts/{username}", response_model=ModeratorChanged)
 async def change_account(
     username: str,
     payload: AccountUpdateRequest,
@@ -144,7 +205,7 @@ async def change_account(
     return {"ok": True, "username": account["username"]}
 
 
-@router.delete("/accounts/{username}")
+@router.delete("/accounts/{username}", response_model=ModeratorRemoved)
 async def remove_account(
     username: str,
     request: Request,

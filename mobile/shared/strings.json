@@ -131,6 +131,10 @@
   "Open on your phone",
   "Phone pairing code"
  ],
+ "invite.open_in_app": [
+  "Open this with Command Block",
+  "Open this invite in the Command Block app"
+ ],
  "pair.scan": [
   "Scan this with your phone's camera, or type:",
   "Scan, or open:"

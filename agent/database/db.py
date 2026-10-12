@@ -370,10 +370,21 @@ MIGRATIONS: list[tuple[int, str]] = [
         # JSON object of server id to the permissions ticked there;
         # new_server_grants is what an "All servers" moderator gets on the
         # servers grants doesn't name. Helpers from before keep NULL, read
-        # as what helpers could do then (agent/security/auth.py).
+        # as what helpers could do then (agent/security/auth.py). An invite
+        # lets a new moderator choose their password; only its hash is kept.
         """
         ALTER TABLE accounts ADD COLUMN grants TEXT;
         ALTER TABLE accounts ADD COLUMN new_server_grants TEXT;
+        CREATE TABLE invites (
+            token_hash TEXT PRIMARY KEY,
+            username TEXT NOT NULL COLLATE NOCASE,
+            created_at REAL NOT NULL,
+            created_by TEXT,
+            expires_at REAL NOT NULL,
+            used_at REAL,
+            cancelled_at REAL
+        );
+        CREATE INDEX invites_user ON invites(username);
         """,
     ),
 ]

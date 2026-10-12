@@ -256,7 +256,7 @@ async def test_port_suggestions_skip_ports_servers_use(core):
 def test_every_route_declares_its_permission():
     from agent.api.routes import api_routes
 
-    public = {"/api/health", "/api/auth/login"}
+    public = {"/api/health", "/api/auth/login", "/api/invite/check", "/api/invite/accept"}
     missing = []
     routes = api_routes()
     # The routers' own list holds included routers rather than routes in this

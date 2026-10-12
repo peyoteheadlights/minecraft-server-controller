@@ -1,5 +1,6 @@
 """Liveness probe and sign-in. The only routes that need no token are
-/api/health and /api/auth/login."""
+/api/health, /api/auth/login and the two invite routes (an invite is what
+lets a new moderator in)."""
 
 from __future__ import annotations
 
@@ -8,7 +9,8 @@ import time
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ... import API_VERSION
-from ...security.auth import AccountError, Principal
+from ...events import Event
+from ...security.auth import AccountError, InviteError, Principal
 from ...security.permissions import (
     ACCOUNT,
     SERVER_PERMISSIONS,
@@ -19,8 +21,14 @@ from ...security.permissions import (
     require,
 )
 from ..deps import audit, client_ip, get_core
-from ..responses import DeviceList, Health, LoginResult, Me, Ok
-from .models import LoginRequest, PasswordChangeRequest, PreferencesRequest
+from ..responses import DeviceList, Health, InviteCheck, LoginResult, Me, Ok
+from .models import (
+    InviteAcceptRequest,
+    InviteCheckRequest,
+    LoginRequest,
+    PasswordChangeRequest,
+    PreferencesRequest,
+)
 
 router = APIRouter()
 
@@ -49,6 +57,46 @@ async def login(payload: LoginRequest, request: Request, core=Depends(get_core))
         # in once after scanning the code.
         until_signed_out=payload.remember and payload.phone,
     )
+
+
+@router.post("/invite/check", response_model=InviteCheck)
+async def check_invite(payload: InviteCheckRequest, request: Request, core=Depends(get_core)):
+    """Who an invite is for, before they choose a password. No sign-in: the
+    invite is what lets them in. A wrong one counts as a failed sign-in."""
+    try:
+        return core.auth.check_invite(payload.token, source_ip=client_ip(request))
+    except InviteError as exc:
+        raise _invite_problem(exc) from exc
+
+
+@router.post("/invite/accept", response_model=LoginResult)
+async def accept_invite(payload: InviteAcceptRequest, request: Request, core=Depends(get_core)):
+    """Choose the password an invite is for, and sign this phone in."""
+    ip = client_ip(request)
+    try:
+        result = core.auth.accept_invite(
+            payload.token, payload.password, source_ip=ip, label=payload.device
+        )
+    except InviteError as exc:
+        raise _invite_problem(exc) from exc
+    except AccountError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    device = payload.device or "a phone"
+    await core.bus.publish(
+        Event(
+            type="helper_invite_used",
+            level="info",
+            message=f"{result['user']} set up their account on {device}",
+            data={"username": result["user"], "device": payload.device},
+        )
+    )
+    return result
+
+
+def _invite_problem(exc: InviteError) -> HTTPException:
+    # 410 Gone for an invite that was real once; 404 for one that never was.
+    status = 404 if exc.reason == "unknown" else 410
+    return HTTPException(status_code=status, detail=exc.message)
 
 
 @router.post("/auth/logout", response_model=Ok)

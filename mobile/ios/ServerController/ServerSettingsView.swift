@@ -85,7 +85,7 @@ struct ServerSettingsView: View {
     private func askBody(_ setup: SetupPages) -> String {
         switch asking {
         case .rollBack: return model.t("version.back_body")
-        case .crossplayOn: return model.t("cross.on_body", ["port": Crossplay.typedPort(setup.crossPort) ?? 19132])
+        case .crossplayOn: return Crossplay.confirm(model.strings, setup.crossPort)
         case .remove: return model.t("serverset.remove_body")
         default: return model.t("version.confirm_body")
         }

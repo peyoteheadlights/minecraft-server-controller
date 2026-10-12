@@ -99,7 +99,7 @@ fun ServerSettingsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit,
                     onDismiss = { asking = null },
                 )
                 SetupAsk.CROSSPLAY_ON -> Confirm(
-                    t("cross.on_title"), t("cross.on_body", "port" to (Crossplay.typedPort(setup.crossPort) ?: 19132)), t("cross.on_button"), danger = false,
+                    t("cross.on_title"), Crossplay.confirm(strings, setup.crossPort), t("cross.on_button"), danger = false,
                     onConfirm = {
                         asking = null
                         setup.setCrossplay(true, strings)

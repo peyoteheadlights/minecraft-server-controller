@@ -7279,8 +7279,12 @@
   "Changing… The server is stopped while this runs.",
   "Running."
  ],
+ "mobile.cross.on_body_free": [
+  "Geyser and Floodgate are downloaded into this server's files and set to use a free port the agent picks. The server has to be stopped.",
+  "Geyser and Floodgate are installed into the add-on folder and configured on a free UDP port chosen by the agent. The server must be stopped."
+ ],
  "mobile.version.leave_ok": [
-  "You can leave this screen or close the app. The change carries on, and this screen shows it when you come back.",
+  "You can leave this screen or close the phone app. The change carries on, and this screen shows it when you come back.",
   "The task continues on the PC; progress is shown here when you return."
  ],
  "mobile.version.pick": [
@@ -7380,7 +7384,7 @@
   "Running: {step}"
  ],
  "mobile.add.leave_ok": [
-  "You can leave this screen or close the app. Setting up carries on, and the new server shows on All servers when it's ready.",
+  "You can leave this screen or close the phone app. Setting up carries on, and the new server shows on All servers when it's ready.",
   "The task continues on the PC."
  ],
  "mobile.add.pack_name": [

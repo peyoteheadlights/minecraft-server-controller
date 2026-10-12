@@ -330,6 +330,10 @@ object Crossplay {
     /** The typed port to send; null lets the agent pick a free one. */
     fun typedPort(text: String): Int? = text.trim().toIntOrNull()?.takeIf { it in 1..65535 }
 
+    /** The "turn it on" question names the typed port, or says the agent picks one. */
+    fun confirm(strings: Strings, text: String): String =
+        typedPort(text)?.let { strings.t("cross.on_body", "port" to it) } ?: strings.t("mobile.cross.on_body_free")
+
     /** Whether it is ready, only when both files are really there. */
     fun ready(strings: Strings, info: CrossplayInfo): String =
         strings.t(if (info.ready) "cross.ready_yes" else "cross.files_missing")

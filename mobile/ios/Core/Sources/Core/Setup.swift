@@ -350,6 +350,12 @@ public enum Crossplay {
         return port
     }
 
+    /// The "turn it on" question names the typed port, or says the agent picks one.
+    public static func confirm(_ strings: Strings, _ text: String) -> String {
+        guard let port = typedPort(text) else { return strings.t("mobile.cross.on_body_free") }
+        return strings.t("cross.on_body", ["port": port])
+    }
+
     /// Whether it is ready, only when both files are really there.
     public static func ready(_ strings: Strings, _ info: CrossplayInfo) -> String {
         strings.t(info.ready ? "cross.ready_yes" : "cross.files_missing")

@@ -312,6 +312,9 @@ class SetupTest {
         assertEquals("19132", Crossplay.port(CrossplayInfo(available = true)))
         assertEquals(19140, Crossplay.typedPort(" 19140 "))
         assertNull(Crossplay.typedPort("99999"))
+        assertTrue(Crossplay.confirm(strings, "19140").contains("19140"))
+        assertEquals(strings.t("mobile.cross.on_body_free"), Crossplay.confirm(strings, ""))
+        assertEquals(strings.t("mobile.cross.on_body_free"), Crossplay.confirm(strings, "99999"))
         assertEquals(strings.t("cross.files_missing"), Crossplay.ready(strings, on.copy(enabled = true)))
     }
 

@@ -51,7 +51,8 @@ fun SettingsScreen(vm: AppViewModel, onAbout: () -> Unit, onAccount: () -> Unit,
             item {
                 Card {
                     // The owner's password is reset on the PC, and their devices are in PC settings.
-                    if (vm.me?.isOwner == false) Item(t("account.title"), subtitle = vm.me?.user, onClick = onAccount)
+                    // Shown until the PC says who this is, so a moderator can always reach it.
+                    if (!owner) Item(t("account.title"), subtitle = vm.me?.user ?: vm.user, onClick = onAccount)
                     if (owner) {
                         Item(t("mobile.mod.title"), onClick = onModerators)
                         // A new version shows here too, so the owner sees it without opening PC settings.

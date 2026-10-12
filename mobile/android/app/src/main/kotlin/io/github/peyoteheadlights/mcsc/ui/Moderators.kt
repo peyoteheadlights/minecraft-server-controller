@@ -16,12 +16,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -337,13 +335,6 @@ private fun LevelChoices(catalogue: PermissionCatalogue, selected: String, onPic
 private fun Radio(title: String, subtitle: String?, selected: Boolean, enabled: Boolean = true, onSelect: () -> Unit) {
     Box(Modifier.selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onSelect)) {
         Item(title, subtitle = subtitle, trailing = { RadioButton(selected = selected, onClick = null, enabled = enabled) })
-    }
-}
-
-@Composable
-private fun Tick(title: String, checked: Boolean, subtitle: String? = null, onChange: (Boolean) -> Unit) {
-    Box(Modifier.toggleable(value = checked, role = Role.Checkbox, onValueChange = onChange)) {
-        Item(title, subtitle = subtitle, trailing = { Checkbox(checked = checked, onCheckedChange = null) })
     }
 }
 

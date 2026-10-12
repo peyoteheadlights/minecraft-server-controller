@@ -496,7 +496,7 @@ fun WorldRestoreScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit) {
                 pickFolder = { pickingFolder = true },
                 stop = { stopping = true },
                 takeHome = {
-                    world.takeHome(sharedFolder(context), strings) { shareFile(context, it, strings.t("mobile.download.share_title")) }
+                    world.takeHome(sharedFolder(context, "world"), strings) { shareFile(context, it, strings.t("mobile.download.share_title")) }
                 },
             ),
         )

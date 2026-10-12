@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 
 from ... import filebrowse, transfer
+from ...config import PROJECT_ROOT
 from ...security.auth import Principal
 from ...security.permissions import DATA_EXPORT, require
 from ..deps import audit, get_core
@@ -57,33 +58,42 @@ async def start_export(
         )
     save_in = None
     if payload.folder:
+        # Not inside a server, its backups or this app: the next export would
+        # pack the file saved there.
+        protected = [PROJECT_ROOT, core.config.data_dir]
+        for ctx in core.servers.values():
+            protected += [ctx.config.server_dir, ctx.config.backup_dir]
         try:
-            save_in = filebrowse.writable_folder(payload.folder)
+            save_in = filebrowse.writable_folder(payload.folder, protected)
         except filebrowse.BrowseError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-    folder = transfer.folder(core.config)
     token = secrets.token_hex(16)
-    target = folder / f"{token}.zip"
     filename = f"minecraft-server-control-export-{time.strftime('%Y%m%d')}.zip"
+    # Written straight into the picked folder under a ".part" name, so a
+    # full drive never leaves a cut-off file with an export's name.
+    if save_in is not None:
+        target = save_in / f"{filename}.{token[:8]}.part"
+    else:
+        target = transfer.folder(core.config) / f"{token}.zip"
 
     async def run(job) -> dict[str, Any]:
         total = await asyncio.to_thread(transfer.count_items, core, options)
         job.step("Writing the export file", total=total, unit="files")
         try:
             manifest = await asyncio.to_thread(transfer.export, core, target, options, job.advance)
+            result: dict[str, Any] = {
+                "size_bytes": target.stat().st_size,
+                "servers": len(manifest["servers"]),
+                "filename": filename,
+            }
+            if save_in is None:
+                result["token"] = token
+            else:
+                saved = await asyncio.to_thread(transfer.place, target, save_in, filename)
+                result["saved_to"] = str(saved)
         except BaseException:
             target.unlink(missing_ok=True)
             raise
-        result = {
-            "token": token,
-            "size_bytes": target.stat().st_size,
-            "servers": len(manifest["servers"]),
-            "filename": filename,
-        }
-        if save_in is not None:
-            saved = await asyncio.to_thread(transfer.move_to, target, save_in, filename)
-            result["saved_to"] = str(saved)
-            del result["token"]  # nothing is left to download
         return result
 
     job = core.jobs.start("export", "Exporting everything", run, user=principal.user)

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -136,6 +138,14 @@ fun Card(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> U
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
     ) {
         Column(content = content)
+    }
+}
+
+/** A row with a checkbox at its end; the whole row ticks it. */
+@Composable
+fun Tick(title: String, checked: Boolean, subtitle: String? = null, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
+    Box(Modifier.toggleable(value = checked, enabled = enabled, role = Role.Checkbox, onValueChange = onChange)) {
+        Item(title, subtitle = subtitle, trailing = { Checkbox(checked = checked, onCheckedChange = null, enabled = enabled) })
     }
 }
 

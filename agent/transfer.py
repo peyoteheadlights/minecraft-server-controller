@@ -30,7 +30,6 @@ import copy
 import json
 import os
 import secrets
-import shutil
 import time
 import zipfile
 from collections.abc import Callable
@@ -198,16 +197,26 @@ def estimate(core) -> dict[str, Any]:
     return {"servers": servers}
 
 
-def move_to(source: Path, folder: Path, filename: str) -> Path:
-    """Moves a finished export into a folder picked on the PC, never over a
-    file that is already there ("name (2).zip" instead)."""
+def place(part: Path, folder: Path, filename: str) -> Path:
+    """Gives a finished export, written in ``folder`` under a ".part" name,
+    its real name, never over a file that is already there ("name (2).zip"
+    instead). The name is claimed first, so two exports finishing together
+    can't both take it."""
     stem, suffix = os.path.splitext(filename)
     target = folder / filename
     number = 2
-    while target.exists():
-        target = folder / f"{stem} ({number}){suffix}"
-        number += 1
-    shutil.move(str(source), str(target))
+    while True:
+        try:
+            os.close(os.open(target, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+            break
+        except FileExistsError:
+            target = folder / f"{stem} ({number}){suffix}"
+            number += 1
+    try:
+        os.replace(part, target)
+    except OSError:
+        target.unlink(missing_ok=True)
+        raise
     return target
 
 

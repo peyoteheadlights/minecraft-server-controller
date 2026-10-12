@@ -23,6 +23,15 @@ final class PcPages {
     private(set) var update: UpdateStatus?
     private(set) var oldCopy: OldCopy?
     private(set) var sizes: ExportSizes?
+    /// Measuring reads every world and backup on the PC, so coming back from
+    /// Signed-in devices doesn't do it again.
+    @ObservationIgnored private var sizesAt = Date.distantPast
+    /// Set when the account signs out: a wait still running stops asking the PC.
+    @ObservationIgnored private var stopped = false
+
+    func stop() {
+        stopped = true
+    }
     private(set) var devices = PageRead<[Device]>()
     private(set) var startup = PageRead<StartupReport>()
     private(set) var busy: String?
@@ -42,6 +51,13 @@ final class PcPages {
     func load() async {
         guard let client = client() else { return }
         view.loading = true
+        let measure = sizes == nil || Date().timeIntervalSince(sizesAt) > 300
+        // Asked for together. The rest is shown when the PC answers; a part
+        // it can't read is left out.
+        async let power = try? client.power()
+        async let latest = try? client.updates()
+        async let old = try? client.oldCopy()
+        async let measured = Self.measure(client, measure)
         do {
             view = PageRead(value: try await client.pcSettings())
         } catch {
@@ -49,11 +65,20 @@ final class PcPages {
             noted(problem)
             view = PageRead(value: view.value, problem: problem)
         }
-        // The rest is shown when the PC answers; a part it can't read is left out.
-        power = try? await client.power()
-        if updating == nil { update = try? await client.updates() }
-        oldCopy = (try? await client.oldCopy())?.oldCopy
-        sizes = try? await client.exportSizes()
+        self.power = await power
+        let update = await latest
+        if updating == nil { self.update = update }
+        oldCopy = (await old)?.oldCopy
+        let sizes = await measured
+        if measure {
+            self.sizes = sizes
+            sizesAt = Date()
+        }
+    }
+
+    private nonisolated static func measure(_ client: AgentClient, _ wanted: Bool) async -> ExportSizes? {
+        guard wanted else { return nil }
+        return try? await client.exportSizes()
     }
 
     /// Only the update, for the "Version … is out" on the Settings tab.
@@ -205,7 +230,7 @@ final class PcPages {
         updating = target
         defer { updating = nil }
         let started = Date()
-        while true {
+        while !stopped {
             try? await Task.sleep(nanoseconds: 5_000_000_000)
             // While it restarts the PC doesn't answer: that is expected, not a problem to show.
             if let now = try? await client.updates(), PcUpdate.back(before: before, now: now, target: target) {
@@ -242,7 +267,7 @@ final class PcPages {
             )
             var state = PcSettings.exporting(try await client.exportJob(started.jobId))
             exporting = state
-            while case .running = state {
+            while case .running = state, !stopped {
                 try await Task.sleep(nanoseconds: 1_000_000_000)
                 state = PcSettings.exporting(try await client.exportJob(started.jobId))
                 exporting = state

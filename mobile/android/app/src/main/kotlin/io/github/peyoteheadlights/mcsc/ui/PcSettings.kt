@@ -4,14 +4,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -29,7 +26,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import io.github.peyoteheadlights.mcsc.core.AgentClient
@@ -100,9 +96,16 @@ class PcPages(
     var helpFiles: HelpFiles? by mutableStateOf(null)
         private set
 
+    // Measuring reads every world and backup on the PC, so coming back from
+    // Signed-in devices doesn't do it again.
+    private var sizesAt = 0L
+
     fun load() {
         val c = client() ?: return
         view = view.copy(loading = true)
+        val measure = sizes == null || System.currentTimeMillis() - sizesAt > 300_000
+        // Asked for together. The rest is shown when the PC answers; a part
+        // it can't read is left out.
         scope.launch {
             view = try {
                 Read(c.pcSettings())
@@ -110,11 +113,15 @@ class PcPages(
                 noted(e)
                 Read(view.value, problem = Message.of(e))
             }
-            // The rest is shown when the PC answers; a part it can't read is left out.
-            power = runCatching { c.power() }.getOrNull()
-            if (updating == null) update = runCatching { c.updates() }.getOrNull()
-            oldCopy = runCatching { c.oldCopy().oldCopy }.getOrNull()
-            sizes = runCatching { c.exportSizes() }.getOrNull()
+        }
+        scope.launch { power = runCatching { c.power() }.getOrNull() }
+        scope.launch { runCatching { c.updates() }.getOrNull().let { if (updating == null) update = it } }
+        scope.launch { oldCopy = runCatching { c.oldCopy().oldCopy }.getOrNull() }
+        if (measure) {
+            scope.launch {
+                sizes = runCatching { c.exportSizes() }.getOrNull()
+                sizesAt = System.currentTimeMillis()
+            }
         }
     }
 
@@ -466,7 +473,7 @@ fun PcSettingsScreen(vm: AppViewModel, onBack: () -> Unit, onDevices: () -> Unit
             confirm = t("mobile.pc.help_share"),
             danger = false,
             onConfirm = {
-                pages.makeHelpFile(sharedFolder(context), strings) { shareFile(context, it, strings.t("mobile.pc.help_share")) }
+                pages.makeHelpFile(sharedFolder(context, "help"), strings) { shareFile(context, it, strings.t("mobile.pc.help_share")) }
             },
             onDismiss = pages::cancelHelpFile,
         )
@@ -605,21 +612,6 @@ private fun ExportCard(vm: AppViewModel, pages: PcPages) {
             },
             onDismiss = { picking = false },
         )
-    }
-}
-
-@Composable
-private fun Tick(text: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .toggleable(value = checked, enabled = enabled, role = Role.Checkbox, onValueChange = onChange)
-            .padding(horizontal = 16.dp),
-    ) {
-        Checkbox(checked = checked, onCheckedChange = null, enabled = enabled)
-        Text(text, color = LocalColors.current.text, modifier = Modifier.padding(start = 12.dp))
     }
 }
 

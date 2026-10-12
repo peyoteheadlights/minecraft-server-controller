@@ -375,12 +375,24 @@ def test_a_phone_signed_in_until_signed_out_is_woken_however_long_it_sat(multi_c
 
 
 def test_the_test_alert_wakes_app_phones_too(multi_client, google):
+    import json
+
     register_phone(multi_client)
     google["calls"].clear()
     result = multi_client.post("/api/push/test").json()
     # No browser signed up for Web Push, but the app's phone was woken.
     assert result["app_sent"] is True and result["sent"] is True
-    assert len(sends(google["calls"])) == 1
+    # Only the test alert's own wake counts: on a slow PC a real alert from
+    # the test servers can be sent at the same time.
+    [test_alert] = multi_client.app.state.core.db.query(
+        "SELECT id FROM app_alerts WHERE title = ?", (dispatcher.PUSH_TEST_TITLE,)
+    )
+    woken = [
+        c
+        for c in sends(google["calls"])
+        if json.loads(c.content)["message"]["data"]["alert"] == str(test_alert["id"])
+    ]
+    assert len(woken) == 1
 
 
 def test_removing_a_helper_forgets_their_phone(multi_client, owner, google):

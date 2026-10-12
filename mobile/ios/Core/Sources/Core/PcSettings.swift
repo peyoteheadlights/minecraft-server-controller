@@ -648,7 +648,7 @@ public enum PcUpdate {
 
     /// "What's new", one line per change, at most 30.
     public static func notes(_ release: Release?) -> [String] {
-        (release?.notes ?? "").split(separator: "\n", omittingEmptySubsequences: true)
+        (release?.notes ?? "").split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
             .prefix(30)

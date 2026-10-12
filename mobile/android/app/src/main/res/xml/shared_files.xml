@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The only files the share menu may hand to another app: a world taken home. -->
+<!-- The only files the share menu may hand to another app: a world taken home, or the Get help file. -->
 <paths>
     <cache-path name="shared" path="shared/" />
 </paths>

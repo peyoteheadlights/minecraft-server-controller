@@ -493,6 +493,65 @@ def test_an_export_folder_must_be_a_whole_path_that_is_there(secret_client, tmp_
         assert refused.status_code == 400, refused.text
 
 
+def test_an_export_folder_inside_a_server_or_this_app_is_refused(secret_client):
+    """The next export would pack the file saved there."""
+    core = secret_client.app.state.core
+    for folder in (core.default.config.server_dir / "world", core.config.data_dir):
+        Path(folder).mkdir(parents=True, exist_ok=True)
+        refused = secret_client.post("/api/export", json={"folder": str(folder)})
+        assert refused.status_code == 400, refused.text
+
+
+def test_an_export_folder_is_checked_by_writing_in_it(tmp_path, monkeypatch):
+    """On Windows os.access says yes for almost any folder, so the check
+    writes a file there instead."""
+    from agent import filebrowse
+
+    monkeypatch.setattr(filebrowse.os, "access", lambda *a, **k: True)
+
+    def refused(*args, **kwargs):
+        raise PermissionError(13, "Access is denied")
+
+    monkeypatch.setattr(filebrowse.os, "open", refused)
+    with pytest.raises(filebrowse.BrowseError):
+        filebrowse.writable_folder(str(tmp_path), protected=[])
+
+
+@pytest.mark.parametrize("fails", ["writing", "naming"])
+def test_a_failed_export_into_a_folder_leaves_nothing_behind(
+    secret_client, tmp_path, monkeypatch, fails
+):
+    """A full drive, or a folder Windows won't let us rename in: no cut-off
+    zip in the folder, and nothing left in the app's own folder."""
+    folder = tmp_path / "Exports"
+    folder.mkdir()
+
+    def broken(*args, **kwargs):
+        if fails == "writing":
+            Path(args[1]).write_bytes(b"half a zip")
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(transfer, "export" if fails == "writing" else "place", broken)
+    job = wait_for_job(
+        secret_client,
+        secret_client.post("/api/export", json={"folder": str(folder)}).json()["job_id"],
+    )
+    assert job["state"] != "succeeded"
+    assert list(folder.iterdir()) == []
+    core = secret_client.app.state.core
+    assert not list(transfer.folder(core.config).glob("*.zip"))
+
+
+def test_a_finished_export_never_replaces_a_file_that_appears_meanwhile(tmp_path):
+    part = tmp_path / "export.zip.abc.part"
+    part.write_bytes(b"new")
+    (tmp_path / "export.zip").write_bytes(b"first")
+    saved = transfer.place(part, tmp_path, "export.zip")
+    assert saved.name == "export (2).zip" and saved.read_bytes() == b"new"
+    assert (tmp_path / "export.zip").read_bytes() == b"first"
+    assert not part.exists()
+
+
 # ------------------------------------------------------------------ database
 def test_migration_adds_accounts_and_copy_columns(tmp_path):
     db = Database(tmp_path / "a.db")

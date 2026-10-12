@@ -245,6 +245,8 @@ class PcSettingsTest {
             PcUpdate.lastResult(strings, failed.lastResult),
         )
         assertEquals(listOf("Faster", "Moderators"), PcUpdate.notes(ready.latest))
+        // Notes written on Windows end their lines with \r\n.
+        assertEquals(listOf("Fix A", "Fix B"), PcUpdate.notes(Release("1.10.0", notes = "- Fix A\r\n- Fix B\r\n")))
     }
 
     @Test

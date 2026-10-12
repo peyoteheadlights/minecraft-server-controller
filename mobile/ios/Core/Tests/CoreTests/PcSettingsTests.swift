@@ -241,6 +241,8 @@ final class PcSettingsTests: XCTestCase {
             strings.t("update.last_failed", ["version": "1.10.0"]) + " " + strings.t("update.rolled_back")
         )
         XCTAssertEqual(PcUpdate.notes(ready.latest), ["Faster", "Moderators"])
+        // Notes written on Windows end their lines with \r\n.
+        XCTAssertEqual(PcUpdate.notes(Release(version: "1.10.0", notes: "- Fix A\r\n- Fix B\r\n")), ["Fix A", "Fix B"])
     }
 
     func testThePhoneKnowsWhenThePCIsBack() {

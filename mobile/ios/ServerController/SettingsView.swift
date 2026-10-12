@@ -112,7 +112,8 @@ struct SettingsView: View {
     private var people: some View {
         Section(model.t("mobile.settings.people")) {
             // The owner's password is reset on the PC, and their devices are in PC settings.
-            if model.me?.isOwner == false {
+            // Shown until the PC says who this is, so a moderator can always reach it.
+            if model.me?.isOwner != true {
                 NavigationLink {
                     AccountView()
                 } label: {

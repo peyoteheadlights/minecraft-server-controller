@@ -29,7 +29,10 @@ import io.github.peyoteheadlights.mcsc.core.WidgetSnapshot
 import io.github.peyoteheadlights.mcsc.graph
 import io.github.peyoteheadlights.mcsc.push.Push
 import io.github.peyoteheadlights.mcsc.widget.Widgets
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -146,14 +149,34 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** The "+" on All servers, kept while the app runs so setting up shows its progress again. */
     val adding by lazy { AddServerPages(viewModelScope, { client() }, { prefs.lastProblem = it.key }, ::refreshServers) }
+    // The pages that belong to the signed-in account. Made again when it signs
+    // out, with their own scope, so nothing of one PC or account shows on the
+    // next and an update wait doesn't go on polling the old PC.
+    private var accountScope = newAccountScope()
+
     /** Settings > Moderators (owner only). */
-    val moderators by lazy { ModeratorPages(viewModelScope, { client() }, { prefs.lastProblem = it.key }) }
+    var moderators = ModeratorPages(accountScope, { client() }, { prefs.lastProblem = it.key })
+        private set
 
     /** Settings > Your account. */
-    val yourAccount by lazy { AccountPages(viewModelScope, { client() }, { prefs.lastProblem = it.key }) }
+    var yourAccount = AccountPages(accountScope, { client() }, { prefs.lastProblem = it.key })
+        private set
 
     /** Settings > PC settings (owner only). */
-    val pcSettings by lazy { PcPages(viewModelScope, { client() }, { prefs.lastProblem = it.key }) }
+    var pcSettings = PcPages(accountScope, { client() }, { prefs.lastProblem = it.key })
+        private set
+
+    private fun newAccountScope() = CoroutineScope(viewModelScope.coroutineContext + SupervisorJob(viewModelScope.coroutineContext[Job]))
+
+    /** Drops every page of the account that was signed in. */
+    private fun forgetAccountPages() {
+        pagesBy.clear()
+        accountScope.cancel()
+        accountScope = newAccountScope()
+        moderators = ModeratorPages(accountScope, { client() }, { prefs.lastProblem = it.key })
+        yourAccount = AccountPages(accountScope, { client() }, { prefs.lastProblem = it.key })
+        pcSettings = PcPages(accountScope, { client() }, { prefs.lastProblem = it.key })
+    }
 
     /** An invite scanned or pasted: opened once the phone is paired with its PC. */
     private var pendingInvite: Invite? = null
@@ -169,7 +192,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 stopLive()
                 account = null
                 lockAlerts = false
-                pagesBy.clear()
+                forgetAccountPages()
                 stage = Stage.SignIn(Message("error.session_ended"))
             }
         }
@@ -336,32 +359,25 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (foreground) startLive()
     }
 
-    fun signOut() {
-        val client = graph.client()
-        viewModelScope.launch {
-            if (prefs.lockAlerts) runCatching { client?.forgetPhone() }
-            client?.logout()
-            stopLive()
-            graph.forgetSignIn()
-            Widgets.refresh(getApplication())
-            account = null
-            lockAlerts = false
-            alerts = AlertState()
-            pagesBy.clear()
-            stage = Stage.SignIn()
-        }
-    }
+    fun signOut() = leave(tellPc = true)
 
     /** Everyone was signed out from PC settings, this phone too: its sign-in is already gone on the PC. */
-    fun signedOutEverywhere() {
+    fun signedOutEverywhere() = leave(tellPc = false)
+
+    private fun leave(tellPc: Boolean) {
+        val client = graph.client()
         viewModelScope.launch {
+            if (tellPc) {
+                if (prefs.lockAlerts) runCatching { client?.forgetPhone() }
+                client?.logout()
+            }
             stopLive()
             graph.forgetSignIn()
             Widgets.refresh(getApplication())
             account = null
             lockAlerts = false
             alerts = AlertState()
-            pagesBy.clear()
+            forgetAccountPages()
             stage = Stage.SignIn()
         }
     }
@@ -379,7 +395,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         alerts = AlertState()
         servers = ServersUi()
         server = emptyMap()
-        pagesBy.clear()
+        forgetAccountPages()
         agentVersion = null
         prefs.agentVersion = null
     }
@@ -398,7 +414,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             alerts = AlertState()
             servers = ServersUi()
             server = emptyMap()
-            pagesBy.clear()
+            forgetAccountPages()
             agentVersion = null
             stage = Stage.Welcome
         }

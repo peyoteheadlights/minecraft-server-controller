@@ -45,23 +45,25 @@ final class AppModel {
     )
 
     /// Settings > Moderators (owner only).
-    @ObservationIgnored private(set) lazy var moderators = ModeratorPages(
-        client: { [weak self] in self?.client },
-        noted: { [weak self] problem in self?.note(problem) },
-        strings: strings
-    )
+    @ObservationIgnored private(set) lazy var moderators = makeModeratorPages()
     /// Settings > Your account.
-    @ObservationIgnored private(set) lazy var yourAccount = AccountPages(
-        client: { [weak self] in self?.client },
-        noted: { [weak self] problem in self?.note(problem) },
-        strings: strings
-    )
+    @ObservationIgnored private(set) lazy var yourAccount = makeAccountPages()
     /// Settings > PC settings (owner only).
-    @ObservationIgnored private(set) lazy var pcSettings = PcPages(
-        client: { [weak self] in self?.client },
-        noted: { [weak self] problem in self?.note(problem) },
-        strings: strings
-    )
+    @ObservationIgnored private(set) lazy var pcSettings = makePcPages()
+
+    // The pages of the signed-in account, made again when it signs out so
+    // nothing of one PC or account shows on the next.
+    private func makeModeratorPages() -> ModeratorPages {
+        ModeratorPages(client: { [weak self] in self?.client }, noted: { [weak self] problem in self?.note(problem) }, strings: strings)
+    }
+
+    private func makeAccountPages() -> AccountPages {
+        AccountPages(client: { [weak self] in self?.client }, noted: { [weak self] problem in self?.note(problem) }, strings: strings)
+    }
+
+    private func makePcPages() -> PcPages {
+        PcPages(client: { [weak self] in self?.client }, noted: { [weak self] problem in self?.note(problem) }, strings: strings)
+    }
 
     // Settings.
     var technical: Bool
@@ -340,6 +342,10 @@ final class AppModel {
         tab = .servers
         live = false
         pagesById = [:]
+        pcSettings.stop()
+        moderators = makeModeratorPages()
+        yourAccount = makeAccountPages()
+        pcSettings = makePcPages()
     }
 
     /// Cancel on an invite opened while signed in: back to the app as it was.

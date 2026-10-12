@@ -14,8 +14,11 @@ from __future__ import annotations
 
 import os
 import string
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
+
+from .security.paths import _system_folders, is_inside
 
 MAX_ENTRIES = 500
 
@@ -69,9 +72,11 @@ def shortcuts() -> list[dict[str, Any]]:
     return found
 
 
-def writable_folder(value: str) -> Path:
+def writable_folder(value: str, protected: Iterable[Path] = ()) -> Path:
     """A picked folder to save a file in: the whole path to a folder that
-    is there and that this app can write to."""
+    is there, outside ``protected`` and system folders, that this app can
+    write to. Checked by writing in it: on Windows os.access only reads the
+    read-only flag."""
     raw = (value or "").strip()
     if not raw or "\0" in raw:
         raise BrowseError("That isn't a folder path.")
@@ -80,9 +85,23 @@ def writable_folder(value: str) -> Path:
         raise BrowseError("Choose the whole path to a folder.")
     if not path.is_dir():
         raise BrowseError(f"{path} isn't there, or isn't a folder.")
-    if not os.access(path, os.W_OK):
-        raise BrowseError(f"Windows doesn't let this app save in {path}.")
-    return path
+    resolved = path.resolve()
+    for system in _system_folders():
+        if is_inside(system, resolved):
+            raise BrowseError(f"{path} is a Windows folder. Choose another one.")
+    for folder in protected:
+        if is_inside(Path(folder), resolved):
+            raise BrowseError(
+                f"{path} is inside {folder}. Choose a folder outside the servers "
+                "and this app, or the next export packs this file too."
+            )
+    probe = resolved / f".mcsc-write-test-{os.getpid()}"
+    try:
+        os.close(os.open(probe, os.O_CREAT | os.O_WRONLY))
+        probe.unlink()
+    except OSError as exc:
+        raise BrowseError(f"Windows doesn't let this app save in {path}.") from exc
+    return resolved
 
 
 def listing(value: str | None) -> dict[str, Any]:

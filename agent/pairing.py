@@ -89,6 +89,18 @@ def pairing_code(config) -> dict[str, Any]:
     return base
 
 
+def invite_code(config, token: str, username: str) -> dict[str, Any]:
+    """The pairing code with a moderator's invite added: the same link, so
+    it finds the PC and checks its certificate the same way, plus the
+    one-time ``invite`` and the ``user`` it is for. Only the phone app reads
+    the invite; a browser shows "Open this with Command Block"."""
+    code = pairing_code(config)
+    if not code["ok"]:
+        return code
+    url = code["url"] + "&" + urlencode({"invite": token, "user": username})
+    return {**code, "url": url, "qr": qr_rows(url)}
+
+
 def qr_rows(text: str) -> list[str]:
     """The QR code as rows of 0 and 1 (1 is a dark square), with no quiet
     border. The dashboard draws it square by square, black on white, so

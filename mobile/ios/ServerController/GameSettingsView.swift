@@ -45,7 +45,7 @@ struct GameSettingsView: View {
 
     @ViewBuilder
     private func page(_ content: ContentPages, _ palette: Palette) -> some View {
-        let canEdit = model.can(Permissions.SETTINGS_EDIT)
+        let canEdit = model.can(Permissions.SETTINGS_GAME)
         let strings = model.strings
         let read = content.game
         Text(model.t("game.intro"))
@@ -92,7 +92,7 @@ struct GameSettingsView: View {
                 .disabled(content.busy != nil || !content.gameChanged)
                 Hint(text: model.t("game.copy_kept"), palette: palette)
             }
-            if canEdit && RawText.allowed(model.me, technical: model.technical) && settings.exists {
+            if canEdit && RawText.allowed(model.me, technical: model.technical, permission: Permissions.SETTINGS_GAME) && settings.exists {
                 SectionTitle(text: model.t("game.raw_title"), palette: palette)
                 CardBox(palette: palette) {
                     RawEditorView(

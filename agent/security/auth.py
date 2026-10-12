@@ -93,15 +93,39 @@ def token_hash(token: str) -> str:
 
 
 # ----------------------------------------------------------------------
+@dataclass(frozen=True)
+class Access:
+    """What a moderator may do on each server. ``grants`` holds the sets the
+    owner saved for named servers (an empty set hides that server). An
+    "All servers" moderator also gets ``new_server`` on every other server,
+    including ones added later; anyone else sees only the named servers."""
+
+    grants: dict[str, frozenset[str]]
+    all_servers: bool
+    new_server: frozenset[str]
+
+    def on(self, server_id: str) -> frozenset[str]:
+        if server_id in self.grants:
+            return self.grants[server_id]
+        return self.new_server if self.all_servers else frozenset()
+
+    def anywhere(self) -> frozenset[str]:
+        held: set[str] = set(self.new_server) if self.all_servers else set()
+        for permissions in self.grants.values():
+            held |= permissions
+        return frozenset(held)
+
+
 @dataclass
 class Principal:
     user: str
     kind: str  # session | api_token
     token_hash: str | None = None
     expires_at: float | None = None
-    role: str = "owner"  # owner | helper
-    # The servers this account may use. None: every server.
-    servers: frozenset[str] | None = None
+    role: str = "owner"  # owner | helper (a moderator, renamed in Phase 12)
+    # A moderator's permissions per server. None: the owner, who may do
+    # everything everywhere.
+    access: Access | None = None
 
     @property
     def is_owner(self) -> bool:
@@ -113,12 +137,14 @@ class Principal:
             "kind": self.kind,
             "expires_at": self.expires_at,
             "role": self.role,
-            "servers": sorted(self.servers) if self.servers is not None else None,
         }
 
 
 # A helper's sign-in name: short, and safe to show anywhere.
 USERNAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{1,31}$")
+# Wrong invites are kept with the failed sign-ins under this name, which no
+# account can have (":" isn't allowed in a user name).
+INVITE_ATTEMPT = "invite:"
 MAX_HELPERS = 20
 _DUMMY: list[str] = []
 
@@ -133,6 +159,16 @@ def _dummy_hash() -> str:
 
 class AccountError(ValueError):
     """A helper account can't be made or changed as asked."""
+
+
+class InviteError(Exception):
+    """An invite that can't be used: ``reason`` is unknown, used, cancelled
+    or expired, so the app can say which."""
+
+    def __init__(self, reason: str, message: str):
+        super().__init__(message)
+        self.reason = reason
+        self.message = message
 
 
 class AuthError(Exception):
@@ -250,6 +286,19 @@ class AuthManager:
             return rows[0]["ts"] + window - time.time()
         return None
 
+    def _invites_locked_out(self, source_ip: str) -> float | None:
+        """Wrong invites lock out the address they came from only: one
+        person guessing doesn't stop everyone else's invite."""
+        window = self.config.security.lockout_minutes * 60
+        rows = self.db.query(
+            "SELECT ts FROM login_attempts WHERE success = 0 AND ts > ? AND user = ? "
+            "AND source_ip = ? ORDER BY ts DESC",
+            (time.time() - window, INVITE_ATTEMPT, source_ip),
+        )
+        if len(rows) >= self.config.security.max_failed_logins:
+            return rows[0]["ts"] + window - time.time()
+        return None
+
     def _record_attempt(self, user: str, source_ip: str, success: bool) -> None:
         self.db.insert(
             "login_attempts",
@@ -327,6 +376,24 @@ class AuthManager:
 
         self._record_attempt(username, source_ip, True)
         self._upgrade_hash(username, password, account)
+        return self._new_session(
+            username,
+            account["role"] if account else "owner",
+            source_ip=source_ip,
+            label=label,
+            remember=remember,
+            until_signed_out=until_signed_out,
+        )
+
+    def _new_session(
+        self,
+        username: str,
+        role: str,
+        source_ip: str,
+        label: str,
+        remember: bool,
+        until_signed_out: bool,
+    ) -> dict[str, Any]:
         token = secrets.token_urlsafe(TOKEN_BYTES)
         expires = time.time() + self._lifetime(remember)
         self.db.insert(
@@ -349,7 +416,7 @@ class AuthManager:
             "token": token,
             "user": username,
             "expires_at": None if until_signed_out else expires,
-            "role": account["role"] if account else "owner",
+            "role": role,
             "remember": bool(remember),
         }
 
@@ -403,7 +470,7 @@ class AuthManager:
         if not kept and row["expires_at"] < time.time():
             self.db.execute("DELETE FROM sessions WHERE token_hash = ?", (digest,))
             raise AuthError("Your session has expired. Sign in again.")
-        role, servers = self._role_of(row["user"])
+        role, access = self._role_of(row["user"])
         if role is None:
             # The helper account was removed: its sessions end with it.
             self.db.execute("DELETE FROM sessions WHERE token_hash = ?", (digest,))
@@ -424,36 +491,56 @@ class AuthManager:
             token_hash=digest,
             expires_at=None if kept else row["expires_at"],
             role=role,
-            servers=servers,
+            access=access,
         )
 
-    def _role_of(self, user: str) -> tuple[str | None, frozenset[str] | None]:
-        """The role and server limit of a signed-in name, or (None, None)
-        when no such account exists any more."""
+    def _role_of(self, user: str) -> tuple[str | None, Access | None]:
+        """The role and per-server permissions of a signed-in name, or
+        (None, None) when no such account exists any more."""
         self._refresh_owner()
         if hmac.compare_digest(user, self.config.admin_username):
             return "owner", None
         account = self.account(user)
         if not account:
             return None, None
-        return account["role"], account["servers"]
+        return account["role"], account["access"]
 
     def may_see_alert(self, user: str, server_id: str | None) -> bool:
-        """Whether this account's phones are told about an alert: a helper
-        only about the servers they may use, and alerts about the PC itself
-        (failed sign-ins, the certificate) only go to the owner."""
-        role, servers = self._role_of(user)
+        """Whether this account's phones are told about an alert: a moderator
+        only about the servers they can see now, and alerts about the PC
+        itself (failed sign-ins, the certificate) only go to the owner."""
+        role, access = self._role_of(user)
         if role is None:
             return False
         if server_id is None:
             return role == "owner"
-        return servers is None or server_id in servers
+        return access is None or bool(access.on(server_id))
 
     # -- helper accounts ---------------------------------------------------
     @staticmethod
     def _account_row(row: dict[str, Any]) -> dict[str, Any]:
+        # Helpers from before per-server permissions were given theirs by
+        # database migration 14.
         servers = json.loads(row["servers"]) if row.get("servers") else None
-        return {**row, "servers": frozenset(servers) if servers is not None else None}
+        new_server = frozenset(json.loads(row.get("new_server_grants") or "[]"))
+        grants = {sid: frozenset(p) for sid, p in json.loads(row.get("grants") or "{}").items()}
+        access = Access(grants=grants, all_servers=servers is None, new_server=new_server)
+        return {
+            **row,
+            "servers": frozenset(servers) if servers is not None else None,
+            "access": access,
+        }
+
+    def _save_access(self, name: str, access: Access) -> None:
+        self.db.execute(
+            "UPDATE accounts SET servers = ?, grants = ?, new_server_grants = ? WHERE username = ?",
+            (
+                None if access.all_servers else json.dumps(sorted(access.grants)),
+                json.dumps({sid: sorted(p) for sid, p in sorted(access.grants.items())}),
+                json.dumps(sorted(access.new_server)),
+                name,
+            ),
+        )
 
     def account(self, username: str) -> dict[str, Any] | None:
         row = self.db.query_one(
@@ -483,6 +570,10 @@ class AuthManager:
                     "servers": sorted(account["servers"])
                     if account["servers"] is not None
                     else None,
+                    "access": account["access"],
+                    # No password yet: they haven't used their invite.
+                    "invite_waiting": not account["password_hash"],
+                    "invite": self.open_invite(account["username"]),
                     "created_at": account["created_at"],
                     "created_by": account["created_by"],
                     "password_changed_at": account["password_changed_at"],
@@ -501,8 +592,17 @@ class AuthManager:
         return password
 
     def create_account(
-        self, username: str, password: str, servers: list[str] | None, by: str
+        self,
+        username: str,
+        password: str | None,
+        servers: list[str] | None,
+        by: str,
+        permissions: frozenset[str] | None = None,
     ) -> dict[str, Any]:
+        """A new moderator with ``permissions`` (default: "Look after it") on
+        each of ``servers``, or on every server now and later when None."""
+        from .permissions import LOOK_AFTER_IT
+
         username = (username or "").strip()
         if not USERNAME_RE.match(username):
             raise AccountError(
@@ -512,12 +612,14 @@ class AuthManager:
         if self._is_owner_name(username) or username.lower() == "api-token":
             raise AccountError("That name is already taken.")
         if self.account(username):
-            raise AccountError(f"There is already a helper called {username}.")
+            raise AccountError(f"There is already a moderator called {username}.")
         count = self.db.query_one("SELECT COUNT(*) AS n FROM accounts") or {"n": 0}
         if int(count["n"]) >= MAX_HELPERS:
-            raise AccountError(f"There can be at most {MAX_HELPERS} helpers.")
-        encoded = hash_password(self._check_new_password(password))
+            raise AccountError(f"There can be at most {MAX_HELPERS} moderators.")
+        # No password: the moderator chooses one with an invite.
+        encoded = hash_password(self._check_new_password(password)) if password is not None else ""
         now = time.time()
+        given = LOOK_AFTER_IT if permissions is None else permissions
         self.db.insert(
             "accounts",
             {
@@ -525,6 +627,8 @@ class AuthManager:
                 "password_hash": encoded,
                 "role": "helper",
                 "servers": json.dumps(sorted(servers)) if servers is not None else None,
+                "grants": json.dumps({sid: sorted(given) for sid in sorted(servers or ())}),
+                "new_server_grants": json.dumps(sorted(given)),
                 "created_at": now,
                 "created_by": by,
                 "password_changed_at": now,
@@ -539,17 +643,57 @@ class AuthManager:
         by: str,
         servers: list[str] | None | bool = False,
         password: str | None = None,
+        grants: dict[str, frozenset[str]] | None = None,
+        all_servers: bool | None = None,
+        new_server: frozenset[str] | None = None,
     ) -> dict[str, Any]:
-        """Change a helper's servers (``servers`` False: leave as is) or set
-        a new password, which signs them out everywhere."""
+        """Change a moderator's servers or permissions, or set a new password,
+        which signs them out everywhere.
+
+        ``grants`` sets the permissions on the servers it names and leaves
+        the others as they are (an empty set hides that server).
+        ``all_servers`` and ``new_server`` decide what the servers it doesn't
+        name get. ``servers`` is the older form (False: leave as is): a list
+        limits the moderator to those servers, keeping what they had on each
+        ("Look after it" where they had nothing); None is every server."""
+        from .permissions import LOOK_AFTER_IT
+
         account = self.account(username)
         if not account:
-            raise AccountError(f"There is no helper called {username}.")
+            raise AccountError(f"There is no moderator called {username}.")
         name = account["username"]
+        access: Access = account["access"]
+        before = access
         if servers is not False:
-            value = json.dumps(sorted(servers)) if isinstance(servers, list) else None
-            self.db.execute("UPDATE accounts SET servers = ? WHERE username = ?", (value, name))
-            self.db.audit("helper_servers", user=by, target=name, detail=value or "every server")
+            if isinstance(servers, list):
+                access = Access(
+                    grants={sid: access.on(sid) or LOOK_AFTER_IT for sid in servers},
+                    all_servers=False,
+                    new_server=access.new_server,
+                )
+            else:
+                access = Access(
+                    grants=access.grants, all_servers=True, new_server=access.new_server
+                )
+        if grants is not None or all_servers is not None or new_server is not None:
+            access = Access(
+                grants={**access.grants, **(grants or {})},
+                all_servers=access.all_servers if all_servers is None else all_servers,
+                new_server=access.new_server if new_server is None else new_server,
+            )
+        if access != before:
+            self._save_access(name, access)
+            self.db.audit(
+                "helper_permissions",
+                user=by,
+                target=name,
+                detail=json.dumps(
+                    {
+                        "servers": sorted(access.grants) if not access.all_servers else "all",
+                        "changed": sorted((grants or {}).keys()),
+                    }
+                ),
+            )
         if password is not None:
             encoded = hash_password(self._check_new_password(password))
             self.db.execute(
@@ -560,13 +704,142 @@ class AuthManager:
             self.db.audit("helper_password_set", user=by, target=name)
         return self.account(name) or {}
 
+    # -- invites ---------------------------------------------------------
+    # An invite lets a new moderator choose their password (or one who forgot
+    # theirs choose a new one) and sign in. It works once, for INVITE_HOURS;
+    # only its hash is stored, and a new invite ends the older ones.
+    INVITE_HOURS = 24
+
+    def invite(self, username: str, by: str, forget_password: bool = False) -> dict[str, Any]:
+        """A new invite for a moderator. ``forget_password`` also clears the
+        password they have and signs them out everywhere (the owner's
+        "Reset password")."""
+        account = self.account(username)
+        if not account:
+            raise AccountError(f"There is no moderator called {username}.")
+        name = account["username"]
+        now = time.time()
+        if forget_password:
+            self.db.execute("UPDATE accounts SET password_hash = '' WHERE username = ?", (name,))
+            self.db.execute("DELETE FROM sessions WHERE user = ?", (name,))
+            self.db.audit("helper_password_forgotten", user=by, target=name)
+        elif account["password_hash"]:
+            raise AccountError(f"{name} has a password already. Reset it to send a new invite.")
+        self._end_invites(name, now)
+        token = secrets.token_urlsafe(TOKEN_BYTES)
+        expires = now + self.INVITE_HOURS * 3600
+        self.db.insert(
+            "invites",
+            {
+                "token_hash": token_hash(token),
+                "username": name,
+                "created_at": now,
+                "created_by": by,
+                "expires_at": expires,
+            },
+        )
+        self.db.audit("helper_invited", user=by, target=name)
+        return {"token": token, "username": name, "expires_at": expires}
+
+    def _end_invites(self, name: str, now: float) -> int:
+        cur = self.db.execute(
+            "UPDATE invites SET cancelled_at = ? "
+            "WHERE username = ? AND used_at IS NULL AND cancelled_at IS NULL",
+            (now, name),
+        )
+        return cur.rowcount
+
+    def cancel_invite(self, username: str, by: str) -> int:
+        account = self.account(username)
+        if not account:
+            raise AccountError(f"There is no moderator called {username}.")
+        ended = self._end_invites(account["username"], time.time())
+        self.db.audit("helper_invite_cancelled", user=by, target=account["username"])
+        return ended
+
+    def open_invite(self, username: str) -> dict[str, Any] | None:
+        """The invite a moderator hasn't used yet, if there is one."""
+        return self.db.query_one(
+            "SELECT created_at, expires_at FROM invites WHERE username = ? AND used_at IS NULL "
+            "AND cancelled_at IS NULL AND expires_at > ? ORDER BY created_at DESC LIMIT 1",
+            (username, time.time()),
+        )
+
+    def _usable_invite(self, token: str, source_ip: str) -> dict[str, Any]:
+        """The invite a token belongs to, or why it can't be used. Wrong
+        tokens count as failed sign-ins, so guessing is locked out."""
+        self.login_rate.check(f"login:{source_ip or 'unknown'}")
+        remaining = self._invites_locked_out(source_ip)
+        if remaining:
+            raise AuthError(
+                f"Too many failed attempts. Try again in {int(remaining / 60) + 1} minutes.",
+                status=429,
+                retry_after=int(remaining),
+            )
+        row = self.db.query_one(
+            "SELECT * FROM invites WHERE token_hash = ?", (token_hash(token or ""),)
+        )
+        if row is None:
+            self._record_attempt(INVITE_ATTEMPT, source_ip, False)
+            raise InviteError("unknown", "That invite isn't right. Ask the owner for a new one.")
+        if row["used_at"] is not None:
+            raise InviteError(
+                "used", "This invite has been used already. Ask the owner for a new one."
+            )
+        if row["cancelled_at"] is not None:
+            raise InviteError(
+                "cancelled", "The owner cancelled this invite. Ask them for a new one."
+            )
+        if row["expires_at"] < time.time():
+            raise InviteError("expired", "This invite has run out. Ask the owner for a new one.")
+        if not self.account(row["username"]):
+            raise InviteError(
+                "cancelled", "The owner cancelled this invite. Ask them for a new one."
+            )
+        return row
+
+    def check_invite(self, token: str, source_ip: str = "") -> dict[str, Any]:
+        row = self._usable_invite(token, source_ip)
+        return {"username": row["username"], "expires_at": row["expires_at"]}
+
+    def accept_invite(
+        self, token: str, password: str, source_ip: str = "", label: str = ""
+    ) -> dict[str, Any]:
+        """Set the password an invite is for and sign in, until signed out
+        (only the phone app opens invites)."""
+        row = self._usable_invite(token, source_ip)
+        try:
+            encoded = hash_password(self._check_new_password(password))
+        except ValueError as exc:
+            raise AccountError(str(exc)) from exc
+        now = time.time()
+        name = row["username"]
+        cur = self.db.execute(
+            "UPDATE invites SET used_at = ? WHERE token_hash = ? AND used_at IS NULL",
+            (now, row["token_hash"]),
+        )
+        if cur.rowcount != 1:  # used by someone else a moment ago
+            raise InviteError(
+                "used", "This invite has been used already. Ask the owner for a new one."
+            )
+        self.db.execute(
+            "UPDATE accounts SET password_hash = ?, password_changed_at = ? WHERE username = ?",
+            (encoded, now, name),
+        )
+        self.db.audit("helper_invite_used", user=name, source_ip=source_ip, detail=label[:80])
+        self._record_attempt(name, source_ip, True)
+        return self._new_session(
+            name, "helper", source_ip=source_ip, label=label, remember=True, until_signed_out=True
+        )
+
     def delete_account(self, username: str, by: str) -> str:
         account = self.account(username)
         if not account:
-            raise AccountError(f"There is no helper called {username}.")
+            raise AccountError(f"There is no moderator called {username}.")
         name = account["username"]
         self.db.execute("DELETE FROM accounts WHERE username = ?", (name,))
         self.db.execute("DELETE FROM sessions WHERE user = ?", (name,))
+        self.db.execute("DELETE FROM invites WHERE username = ?", (name,))
         self.db.audit("helper_removed", user=by, target=name)
         return name
 

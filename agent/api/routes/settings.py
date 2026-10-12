@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ...config import ConfigError
 from ...security.auth import Principal
-from ...security.permissions import SETTINGS_EDIT, SETTINGS_VIEW, require
+from ...security.permissions import PC_SETTINGS, require
 from ..deps import audit, get_core
 from ..responses import AlertHistory
 from .models import MaintenanceRequest, SettingsRequest
@@ -42,16 +42,12 @@ SETTABLE_PREFIXES = (
 
 @router.get("/settings")
 async def get_settings(
-    principal: Principal = Depends(require(SETTINGS_VIEW)), core=Depends(get_core)
+    principal: Principal = Depends(require(PC_SETTINGS)), core=Depends(get_core)
 ):
-    config = core.config.as_dict(redact_secrets=True)
-    if principal.servers is not None:
-        # A helper limited to some servers isn't shown the others.
-        config["servers"] = [
-            s for s in config.get("servers", []) if s.get("id") in principal.servers
-        ]
+    """The PC's own settings, the owner's alone. A moderator's screens read
+    each server's settings (/api/servers/{id}/settings) instead."""
     return {
-        "config": config,
+        "config": core.config.as_dict(redact_secrets=True),
         "editable": list(SETTABLE_PREFIXES),
         "secrets": {
             "discord_webhook_configured": bool(core.config.discord_webhook),
@@ -65,7 +61,7 @@ async def get_settings(
 async def update_settings(
     payload: SettingsRequest,
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(PC_SETTINGS)),
     core=Depends(get_core),
 ):
     applied, rejected = {}, {}
@@ -101,7 +97,7 @@ async def update_settings(
 async def set_maintenance(
     payload: MaintenanceRequest,
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(PC_SETTINGS)),
     core=Depends(get_core),
 ):
     result = core.set_maintenance(payload.enabled, user=principal.user)
@@ -113,7 +109,7 @@ async def set_maintenance(
 async def test_notification(
     channel: str,
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(PC_SETTINGS)),
     core=Depends(get_core),
 ):
     try:
@@ -126,6 +122,6 @@ async def test_notification(
 
 @router.get("/notifications/history", response_model=AlertHistory)
 async def notification_history(
-    limit: int = 50, principal: Principal = Depends(require(SETTINGS_VIEW)), core=Depends(get_core)
+    limit: int = 50, principal: Principal = Depends(require(PC_SETTINGS)), core=Depends(get_core)
 ):
     return {"history": core.notifier.history(max(1, min(limit, 200)))}

@@ -14,8 +14,8 @@ from ...security.permissions import (
     BACKUPS_DELETE,
     BACKUPS_DOWNLOAD,
     BACKUPS_RESTORE,
+    PC_SETTINGS,
     SERVER_VIEW,
-    SETTINGS_EDIT,
     require,
 )
 from ..deps import audit, get_server
@@ -146,7 +146,7 @@ async def offsite_status(
 async def set_offsite(
     payload: OffsiteRequest,
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(PC_SETTINGS)),
     ctx=Depends(get_server),
 ):
     """Choose (or clear) the folder for second copies. Existing backups are

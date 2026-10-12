@@ -142,6 +142,16 @@ struct PairingFlowView: View {
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
             .buttonStyle(.bordered)
+            Button {
+                pasteInvite()
+            } label: {
+                Text(model.t("mobile.welcome.paste"))
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.bordered)
+            Text(model.t("mobile.welcome.paste_hint"))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -267,9 +277,21 @@ struct PairingFlowView: View {
 
     // MARK: - Actions
 
+    /// "Paste invite link": the copied message, with the link somewhere in it.
+    private func pasteInvite() {
+        let text = UIPasteboard.general.string ?? ""
+        guard InviteLink.parse(text) != nil, let link = InviteLink.url(text), let pairing = try? PairingLink.parse(link) else {
+            phase = .failed(message: model.t("mobile.invite.paste_empty"), detail: nil, retry: nil)
+            return
+        }
+        model.pendingInvite = InviteLink.parse(text)
+        check(pairing)
+    }
+
     private func submitAddress() {
+        model.pendingInvite = InviteLink.parse(address)
         do {
-            let pairing = try PairingLink.parse(address)
+            let pairing = try PairingLink.parse(model.pendingInvite != nil ? InviteLink.url(address) ?? address : address)
             addressProblem = nil
             check(pairing)
         } catch let error as PairingParseError {
@@ -323,6 +345,9 @@ enum Links {
     static let tailscaleAppStore = "https://apps.apple.com/app/tailscale/id1470499037"
     static let repository = "https://github.com/peyoteheadlights/minecraft-server-controller"
     static let releases = "https://github.com/peyoteheadlights/minecraft-server-controller/releases"
+    /// Where an invited moderator gets the app: Google Play and the App Store once they exist (Phase 14).
+    static let appDownload = releases
+    static let tailscaleSharing = "https://tailscale.com/kb/1084/sharing"
     static let privacy = "https://github.com/peyoteheadlights/minecraft-server-controller/blob/main/PRIVACY.md"
     static let report = "https://github.com/peyoteheadlights/minecraft-server-controller/issues/new?template=bug_report.yml"
     static let suggest = "https://github.com/peyoteheadlights/minecraft-server-controller/issues/new?template=feature_request.yml"

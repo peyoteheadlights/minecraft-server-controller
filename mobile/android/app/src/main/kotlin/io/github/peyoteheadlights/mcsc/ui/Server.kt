@@ -43,7 +43,7 @@ fun ServerScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit, onOpen:
     val state = if (ui.problem != null) States.UNKNOWN else status?.state ?: row?.state
     val now = rememberNow()
     var asking by rememberSaveable { mutableStateOf<String?>(null) }
-    val canEdit = vm.canDo(Permissions.SETTINGS_EDIT)
+    val canEdit = vm.canDo(Permissions.SETTINGS_SERVER)
     LaunchedEffect(serverId) { pages.loadCards() }
 
     ServerFrame(
@@ -116,7 +116,10 @@ fun ServerScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit, onOpen:
         }
         item {
             Card(Modifier.padding(top = 12.dp)) {
-                for ((page, key) in PAGES) Item(t(key), onClick = { onOpen(page) })
+                val readsConsole = vm.me?.readsConsole != false
+                for ((page, key) in PAGES) {
+                    if (readsConsole || page !in CONSOLE_PAGES) Item(t(key), onClick = { onOpen(page) })
+                }
                 // Mods, Plugins or Packs by server type; none for a type that takes neither.
                 Content.kind(row)?.takeIf { it != ContentKind.NONE }?.let { kind -> Item(t(kind.titleKey), onClick = { onOpen("content") }) }
                 Item(t("page.game_settings"), onClick = { onOpen("game") })
@@ -130,6 +133,9 @@ fun ServerScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit, onOpen:
 }
 
 /** The server's own screens, and the dashboard's titles for them. */
+/** What "See the Console and Activity" lets a moderator open. */
+private val CONSOLE_PAGES = setOf("console", "chat", "events", "crashes")
+
 private val PAGES = listOf(
     "console" to "page.console",
     "chat" to "page.chat",

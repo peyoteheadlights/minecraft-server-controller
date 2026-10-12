@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Request
 
 from ... import gamesettings
 from ...security.auth import Principal
-from ...security.permissions import SETTINGS_EDIT, SETTINGS_VIEW, require
+from ...security.permissions import SETTINGS_GAME, SETTINGS_VIEW, require
 from ..deps import audit, get_server
 from ..responses import GameSettings, GameSettingsSaved
 from .models import GameSettingsRawRequest, GameSettingsRequest
@@ -26,7 +26,7 @@ async def get_game_settings(
 async def save_game_settings(
     payload: GameSettingsRequest,
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(SETTINGS_GAME)),
     ctx=Depends(get_server),
 ):
     """Change known keys. Every value is checked first; nothing is written
@@ -40,7 +40,7 @@ async def save_game_settings(
 async def save_game_settings_raw(
     payload: GameSettingsRawRequest,
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(SETTINGS_GAME)),
     ctx=Depends(get_server),
 ):
     """Replace the whole file with text typed in Technical mode. The known

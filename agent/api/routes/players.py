@@ -6,7 +6,14 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ...minecraft import playeractions
 from ...security.auth import Principal
-from ...security.permissions import PLAYERS_MANAGE, PLAYERS_OP, SERVER_VIEW, check, require
+from ...security.permissions import (
+    CONSOLE_READ,
+    PLAYERS_MANAGE,
+    PLAYERS_OP,
+    SERVER_VIEW,
+    check,
+    require,
+)
 from ..deps import audit, get_server
 from ..responses import PlayerActionResult, PlayerActionStatus, Players
 from .models import PlayerActionRequest
@@ -44,7 +51,7 @@ async def players(principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depe
 async def player_sessions(
     username: str = "",
     limit: int = 100,
-    principal: Principal = Depends(require(SERVER_VIEW)),
+    principal: Principal = Depends(require(CONSOLE_READ)),
     ctx=Depends(get_server),
 ):
     return {"sessions": ctx.players.sessions(username or None, max(1, min(limit, 500)))}
@@ -60,7 +67,7 @@ async def player_action(
     """Send whitelist, op, kick, ban or unban for one player. The answer is
     "sent"; it becomes "done" once the server's console confirms it."""
     if payload.action in OPERATOR_ACTIONS:
-        check(principal, PLAYERS_OP)
+        check(principal, PLAYERS_OP, ctx.server_id)
     pending = await ctx.player_actions.send(
         payload.action, payload.name, payload.reason or "", confirm=payload.confirm
     )

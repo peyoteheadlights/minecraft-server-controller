@@ -404,9 +404,9 @@ function startupReport(r) {
 }
 
 renderers["app-settings"] = (page) => loadInto(page, async () => {
-  const owner = can("settings.edit");
+  const owner = can("pc.settings");
   const [data, push, power, sizes, updates, pairing, oldCopy] = await Promise.all([
-    api("/settings"),
+    owner ? api("/settings") : null,
     owner ? api("/push").catch(() => ({ configured: false, enabled: false, phones: [], public_key: "",
       setup_command: ".\\setup.ps1" })) : null,
     api("/power").catch(() => null),

@@ -35,13 +35,26 @@ final class AppModel {
     /// The server screens open now, newest last; the same server can be
     /// open twice (its home and its Console) while one replaces the other.
     @ObservationIgnored private var watchers: [String] = []
-    @ObservationIgnored private var watching: String? = nil
+    private var watching: String? = nil
     @ObservationIgnored private var pagesById: [String: ServerPages] = [:]
     /// The "+" on All servers, kept while the app runs so setting up shows its progress again.
     @ObservationIgnored private(set) lazy var adding = AddServerPages(
         client: { [weak self] in self?.client },
         noted: { [weak self] problem in self?.note(problem) },
         listChanged: { [weak self] in await self?.refreshServers() }
+    )
+
+    /// Settings > Moderators (owner only).
+    @ObservationIgnored private(set) lazy var moderators = ModeratorPages(
+        client: { [weak self] in self?.client },
+        noted: { [weak self] problem in self?.note(problem) },
+        strings: strings
+    )
+    /// Settings > Your account.
+    @ObservationIgnored private(set) lazy var yourAccount = AccountPages(
+        client: { [weak self] in self?.client },
+        noted: { [weak self] problem in self?.note(problem) },
+        strings: strings
     )
 
     // Settings.
@@ -54,7 +67,16 @@ final class AppModel {
     var signedIn: Bool
     var locked: Bool
     var signInNotice: String? = nil
-    var me: Me? = nil
+    /// A moderator's invite scanned or pasted: once the phone is paired with
+    /// its PC, they choose a password instead of signing in.
+    var pendingInvite: Invite? = nil
+    /// An invite opened while signed in to the same PC: the sign-in stays
+    /// until the invite is used, and Cancel goes back to the app (as on Android).
+    var inviteOverSignIn = false
+    /// The signed-in account, from /auth/me.
+    private var account: Me? = nil
+    /// The account on the server whose screen is open: what it may do there.
+    var me: Me? { account?.forServer(watching) }
     var agentVersion: String?
     var lastProblem: String? = nil
 
@@ -164,6 +186,9 @@ final class AppModel {
             client = makeClient(next)
             stopLive()
             startLive()
+            // An invite is another account, but this one stays signed in
+            // until the invite is used.
+            if pendingInvite != nil { inviteOverSignIn = true }
             return
         }
         stopLive()
@@ -202,6 +227,24 @@ final class AppModel {
         signedIn = true
     }
 
+    /// The invited moderator chose a password: the account is theirs, and this phone signs in as them.
+    func acceptInvite(password: String) async throws {
+        guard let client = client, let invite = pendingInvite else { throw AgentError.unreachable }
+        let result = try await client.acceptInvite(token: invite.token, password: password, device: deviceLabel)
+        // Signed in as someone else before: that sign-in ends here.
+        if signedIn {
+            stopLive()
+            await client.logout()
+            clearSignedIn()
+        }
+        TokenStore.save(result.token)
+        pendingInvite = nil
+        inviteOverSignIn = false
+        locked = false
+        signInNotice = nil
+        signedIn = true
+    }
+
     /// Opening the app signed in, or just signed in: read who this is, the
     /// servers, the alerts, and follow the live feed.
     func afterSignIn() async {
@@ -214,7 +257,10 @@ final class AppModel {
     func loadAccount() async {
         guard let client = client, signedIn else { return }
         do {
-            me = try await client.me()
+            let found = try await client.me()
+            account = found
+            alertState = alertState.onlyFor(found)
+            store.alertState = alertState
         } catch let problem as AgentError {
             note(problem)
         } catch {}
@@ -244,6 +290,8 @@ final class AppModel {
         TokenStore.delete()
         store.forgetPC()
         clearSignedIn()
+        pendingInvite = nil
+        inviteOverSignIn = false
         pairing = nil
         client = nil
         alertState = AlertState()
@@ -268,7 +316,7 @@ final class AppModel {
         WidgetCenter.shared.reloadAllTimelines()
         signedIn = false
         locked = false
-        me = nil
+        account = nil
         servers = []
         serversLoaded = false
         serversFresh = false
@@ -278,6 +326,12 @@ final class AppModel {
         tab = .servers
         live = false
         pagesById = [:]
+    }
+
+    /// Cancel on an invite opened while signed in: back to the app as it was.
+    func cancelInvite() {
+        pendingInvite = nil
+        inviteOverSignIn = false
     }
 
     func note(_ problem: AgentError) {
@@ -315,7 +369,8 @@ final class AppModel {
             try await client.alerts(after: after, limit: limit)
         }
         do {
-            let next = try await sync.catchUp(alertState)
+            let caughtUp = try await sync.catchUp(alertState)
+            let next = account.map(caughtUp.onlyFor) ?? caughtUp
             alertState = next
             store.alertState = next
         } catch let problem as AgentError {

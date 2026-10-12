@@ -119,6 +119,8 @@ struct ScannerSheet: View {
                 return
             }
             done = true
+            // A moderator's invite rides on the same code.
+            model.pendingInvite = InviteLink.parse(payload)
             onPairing(pairing)
         } catch let error as PairingParseError {
             if error.problem == .badFingerprint {

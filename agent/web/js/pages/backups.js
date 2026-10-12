@@ -83,7 +83,7 @@ function offsiteCard(offsite) {
       ? el("div", { class: "banner warn" }, t("offsite.folder_unavailable", { folder: offsite.directory, reason: offsite.unavailable }))
       : el("p", { class: "mt-0" }, t("offsite.folder_ok", { folder: offsite.directory })))
     : el("p", { class: "hint mt-0" }, t("offsite.off"));
-  const choose = can("settings.edit") ? el("button", { class: "btn", type: "button",
+  const choose = can("pc.settings") ? el("button", { class: "btn", type: "button",
     onclick: async (e) => {
       const button = e.currentTarget;
       const path = await pickFolder({ title: t("offsite.pick_title"), start: offsite.directory || "" });
@@ -96,7 +96,7 @@ function offsiteCard(offsite) {
         } catch (err) { toast(err.message, "error", 12000); }
       });
     } }, offsite.directory ? t("offsite.change") : t("offsite.choose")) : null;
-  const off = offsite.directory && can("settings.edit") ? el("button", { class: "btn plain", type: "button",
+  const off = offsite.directory && can("pc.settings") ? el("button", { class: "btn plain", type: "button",
     onclick: (e) => busy(e.currentTarget, t("action.saving"), async () => {
       try {
         await api("/backups/offsite", { method: "PUT", body: { directory: "" } });

@@ -75,6 +75,10 @@ object Links {
     const val REPORT = "$REPO/issues/new?template=bug_report.yml"
     const val SUGGEST = "$REPO/issues/new?template=feature_request.yml"
     const val TAILSCALE_ANDROID = "https://play.google.com/store/apps/details?id=com.tailscale.ipn"
+    const val TAILSCALE_SHARE = "https://tailscale.com/kb/1084/sharing"
+
+    /** Where an invited moderator gets the app: Google Play and the App Store once they exist (Phase 14). */
+    const val APP_DOWNLOAD = RELEASES
 }
 
 /** Seconds since 1970, ticking every [every] ms, for "Checked 2m ago". */

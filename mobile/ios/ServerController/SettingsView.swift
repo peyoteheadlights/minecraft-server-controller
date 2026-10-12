@@ -15,6 +15,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                people
                 appearance
                 unlock
                 lockScreenAlerts
@@ -105,6 +106,23 @@ struct SettingsView: View {
                 rescanProblem = model.t(fit.key ?? "mobile.pair.too_new")
             }
             working = false
+        }
+    }
+
+    private var people: some View {
+        Section(model.t("mobile.settings.people")) {
+            NavigationLink {
+                AccountView()
+            } label: {
+                LabeledContent(model.t("account.title"), value: model.me?.user ?? "")
+            }
+            .frame(minHeight: 44)
+            if model.me?.isOwner == true {
+                NavigationLink(model.t("mobile.mod.title")) {
+                    ModeratorsView()
+                }
+                .frame(minHeight: 44)
+            }
         }
     }
 

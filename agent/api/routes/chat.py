@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Request
 
 from ...minecraft.chat import say
 from ...security.auth import Principal
-from ...security.permissions import CHAT_SEND, SERVER_VIEW, require
+from ...security.permissions import CHAT_SEND, CONSOLE_READ, require
 from ..deps import audit, get_server
 from ..responses import ChatLog, ChatSent
 from .models import ChatRequest
@@ -16,7 +16,7 @@ router = APIRouter()
 
 @router.get("/chat", response_model=ChatLog)
 async def chat_log(
-    lines: int = 100, principal: Principal = Depends(require(SERVER_VIEW)), ctx=Depends(get_server)
+    lines: int = 100, principal: Principal = Depends(require(CONSOLE_READ)), ctx=Depends(get_server)
 ):
     """The recent chat this server's console printed. Live messages arrive
     on the websocket as "chat" events."""

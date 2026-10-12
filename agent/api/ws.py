@@ -29,12 +29,13 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from ..events import OWNER_ONLY_EVENTS
 from ..security.auth import AuthError
-from ..security.permissions import WS_ACTIONS, can_see_server, check
+from ..security.permissions import CONSOLE_READ, WS_ACTIONS, can_see_server, check, on_server
 
 log = logging.getLogger("msc.ws")
 
 # Event types only the page showing that server needs.
 PAGE_ONLY = frozenset({"console", "metrics", "chat"})
+CONSOLE_EVENTS = frozenset({"console", "chat"})
 
 ws_router = APIRouter()
 
@@ -119,6 +120,10 @@ async def websocket_endpoint(ws: WebSocket) -> None:
             return False  # a helper limited to other servers hears nothing of this one
         if event.type in OWNER_ONLY_EVENTS and not who["principal"].is_owner:
             return False
+        if event.type in CONSOLE_EVENTS and event.server_id is not None:
+            # The console and chat need more than seeing the server.
+            if CONSOLE_READ not in on_server(who["principal"], event.server_id):
+                return False
         if event.type in PAGE_ONLY and event.server_id is not None:
             return event.server_id == watching["server_id"]
         return True
@@ -135,7 +140,9 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                 "server_id": selected.server_id,
                 "servers": [ctx.summary() for ctx in visible],
                 "status": selected.status(),
-                "console": [line.to_dict() for line in selected.server.console.tail(200)],
+                "console": [line.to_dict() for line in selected.server.console.tail(200)]
+                if CONSOLE_READ in on_server(principal, selected.server_id)
+                else [],
                 "ts": time.time(),
             },
         )
@@ -184,13 +191,13 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                 if kind not in WS_ACTIONS:
                     continue
                 try:
-                    check(who["principal"], WS_ACTIONS[kind])
+                    ctx = server_for(message)
+                    if ctx is None:
+                        continue
+                    check(who["principal"], WS_ACTIONS[kind], ctx.server_id)
                 except AuthError as exc:
                     # Not "error": that one means the session ended.
                     await _send(ws, {"type": "denied", "action": kind, "message": exc.message})
-                    continue
-                ctx = server_for(message)
-                if ctx is None:
                     continue
                 # Asking for a named server's console or status means the page
                 # now shows that server.

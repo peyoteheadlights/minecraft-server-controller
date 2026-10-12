@@ -142,7 +142,45 @@ fun Main(vm: AppViewModel) {
             composable("alerts") {
                 NotificationsScreen(vm, onOpenServer = { nav.navigate("server/${android.net.Uri.encode(it)}") })
             }
-            composable("settings") { SettingsScreen(vm, onAbout = { nav.navigate("about") }) }
+            composable("settings") {
+                SettingsScreen(
+                    vm,
+                    onAbout = { nav.navigate("about") },
+                    onAccount = { nav.navigate("settings/account") },
+                    onModerators = { nav.navigate("settings/moderators") },
+                )
+            }
+            composable("settings/account") { AccountScreen(vm, onBack = { nav.popBackStack() }) }
+            composable("settings/moderators") {
+                ModeratorsScreen(
+                    vm,
+                    onBack = { nav.popBackStack() },
+                    onOpen = { nav.navigate("settings/moderators/${Uri.encode(it)}") },
+                    onAdd = { nav.navigate("settings/moderators-add") },
+                )
+            }
+            composable("settings/moderators-add") {
+                AddModeratorScreen(vm, onBack = { nav.popBackStack() }, onAdded = { name ->
+                    // The invite opens in place of the form; back goes to the list.
+                    nav.popBackStack()
+                    nav.navigate("settings/moderators/${Uri.encode(name)}/invite")
+                })
+            }
+            composable("settings/moderators/{name}") { back ->
+                val name = back.arguments?.getString("name").orEmpty()
+                ModeratorScreen(
+                    vm, name,
+                    onBack = { nav.popBackStack() },
+                    onServer = { id -> nav.navigate("settings/moderators/${Uri.encode(name)}/server/${Uri.encode(id)}") },
+                    onInvite = { nav.navigate("settings/moderators/${Uri.encode(name)}/invite") },
+                )
+            }
+            composable("settings/moderators/{name}/invite") { back ->
+                InviteScreen(vm, back.arguments?.getString("name").orEmpty(), onDone = { nav.popBackStack() })
+            }
+            composable("settings/moderators/{name}/server/{id}") { back ->
+                ModeratorServerScreen(vm, back.arguments?.getString("name").orEmpty(), back.serverId(), onBack = { nav.popBackStack() })
+            }
             composable("about") { AboutScreen(vm, onBack = { nav.popBackStack() }, onHelp = { nav.navigate("help") }) }
             composable("help") { HelpScreen(onBack = { nav.popBackStack() }) }
         }

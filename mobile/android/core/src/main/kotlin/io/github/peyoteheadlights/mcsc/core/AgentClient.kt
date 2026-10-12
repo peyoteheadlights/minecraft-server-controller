@@ -9,7 +9,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -298,6 +300,57 @@ class AgentClient(
         request("${server(serverId)}/backups/offsite").put(buildJsonObject { put("directory", directory) }.toBody()).build(),
         OffsiteSaved.serializer(),
     )
+
+    // ------------------------------------------------------------ moderators
+    suspend fun moderators(): ModeratorList = get("/api/accounts", ModeratorList.serializer())
+
+    /** A new moderator with no password: the answer carries their invite. */
+    suspend fun addModerator(username: String, servers: List<String>?, permissions: Set<String>): ModeratorAdded {
+        val body = buildJsonObject {
+            put("username", username)
+            if (servers != null) put("servers", JsonArray(servers.map(::JsonPrimitive)))
+            put("permissions", JsonArray(permissions.sorted().map(::JsonPrimitive)))
+        }
+        return call(post("/api/accounts", body), ModeratorAdded.serializer())
+    }
+
+    /** "Save for this server", "Save for…", "Apply to all": built by [Moderators]. */
+    suspend fun saveModerator(username: String, body: JsonObject): ModeratorChanged =
+        call(request("/api/accounts/${path(username)}").put(body.toBody()).build(), ModeratorChanged.serializer())
+
+    /** A new invite; with [forgetPassword] the owner's Reset password, which signs them out. */
+    suspend fun inviteModerator(username: String, forgetPassword: Boolean): InviteCode =
+        call(post("/api/accounts/${path(username)}/invite", buildJsonObject { put("forget_password", forgetPassword) }), InviteCode.serializer())
+
+    suspend fun cancelInvite(username: String): Ok =
+        call(request("/api/accounts/${path(username)}/invite").delete().build(), Ok.serializer())
+
+    suspend fun removeModerator(username: String): ModeratorRemoved =
+        call(request("/api/accounts/${path(username)}").delete().build(), ModeratorRemoved.serializer())
+
+    /** Who an invite is for. No sign-in: the invite is what lets them in. */
+    suspend fun checkInvite(token: String): InviteCheck =
+        call(post("/api/invite/check", buildJsonObject { put("token", token) }), InviteCheck.serializer(), signedIn = false)
+
+    /** Chooses the password an invite is for and signs this phone in. */
+    suspend fun acceptInvite(token: String, password: String, device: String): LoginResult {
+        val body = buildJsonObject {
+            put("token", token)
+            put("password", password)
+            put("device", device)
+        }
+        return call(post("/api/invite/accept", body), LoginResult.serializer(), signedIn = false)
+    }
+
+    /** A moderator's own password; their other devices are signed out. */
+    suspend fun changePassword(current: String, new: String): Ok =
+        call(post("/api/account/password", buildJsonObject { put("current", current); put("new", new) }), Ok.serializer())
+
+    /** Signed-in devices: the owner's list has everyone's, a moderator's their own. */
+    suspend fun devices(): DeviceList = get("/api/sessions", DeviceList.serializer())
+
+    suspend fun signOutDevice(id: String): Ok =
+        call(request("/api/sessions/${path(id)}").delete().build(), Ok.serializer())
 
     suspend fun newServerOptions(): NewServerOptions = get("/api/new-server/options", NewServerOptions.serializer())
 

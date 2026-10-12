@@ -234,18 +234,46 @@ class AppPhoneRequest(BaseModel):
 
 class AccountCreateRequest(BaseModel):
     username: str = Field(min_length=2, max_length=32)
-    password: str = Field(min_length=1, max_length=256)
-    # The server ids this helper may use; None means every server.
+    # Left out: the moderator chooses it with the invite the answer carries.
+    password: str | None = Field(default=None, min_length=1, max_length=256)
+    # The server ids this moderator may use; None means every server, now
+    # and later.
     servers: list[str] | None = None
+    # What they may do on each of those servers; None is "Look after it".
+    permissions: list[str] | None = None
 
 
 class AccountUpdateRequest(BaseModel):
-    # Set to change which servers the helper may use: True for every server,
-    # otherwise the list in "servers".
+    # Every server, now and later (True), or only the servers given
+    # permissions (False). Left out: as it is.
     all_servers: bool | None = None
+    # The older form: limit the moderator to these servers, keeping what
+    # they had on each.
     servers: list[str] | None = None
+    # The permissions on each named server ("Save for this server", "Save
+    # for…", "Apply to all"); an empty list hides that server.
+    grants: dict[str, list[str]] | None = None
+    # What an "All servers" moderator gets on the servers not named, and on
+    # each new server.
+    new_server: list[str] | None = None
     # A new password, which signs the helper out everywhere.
     password: str | None = Field(default=None, max_length=256)
+
+
+class InviteRequest(BaseModel):
+    # Also clear the password they have and sign them out ("Reset password").
+    forget_password: bool = False
+
+
+class InviteCheckRequest(BaseModel):
+    token: str = Field(min_length=1, max_length=128)
+
+
+class InviteAcceptRequest(BaseModel):
+    token: str = Field(min_length=1, max_length=128)
+    password: str = Field(max_length=256)
+    # The phone's name, shown with the other signed-in devices.
+    device: str = Field(default="", max_length=80)
 
 
 class PasswordChangeRequest(BaseModel):

@@ -52,8 +52,8 @@ def declared(route) -> str | None:
     return None
 
 
-def test_the_helper_role_is_what_the_prompt_says():
-    helper = permissions.HELPER_PERMISSIONS
+def test_the_default_level_is_what_helpers_could_always_do():
+    helper = permissions.LOOK_AFTER_IT | permissions.MODERATOR_ACCOUNT
     for allowed in (
         permissions.SERVER_CONTROL,
         permissions.PLAYERS_MANAGE,
@@ -62,7 +62,9 @@ def test_the_helper_role_is_what_the_prompt_says():
     ):
         assert allowed in helper
     for forbidden in (
-        permissions.SETTINGS_EDIT,
+        permissions.SETTINGS_GAME,
+        permissions.SETTINGS_SERVER,
+        permissions.PC_SETTINGS,
         permissions.BACKUPS_DELETE,
         permissions.MODS_MANAGE,
         permissions.USERS_MANAGE,
@@ -79,7 +81,9 @@ def test_every_route_a_helper_may_not_use_returns_403(multi_client, owner):
     checked, wrong = 0, []
     for path, route, _scope in api_routes():
         permission = declared(route)
-        if permission is None or permission in permissions.HELPER_PERMISSIONS:
+        if permission is None or permission in (
+            permissions.LOOK_AFTER_IT | permissions.MODERATOR_ACCOUNT
+        ):
             continue
         for method in route.methods:
             if method == "HEAD":

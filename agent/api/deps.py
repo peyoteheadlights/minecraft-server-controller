@@ -74,11 +74,13 @@ async def require_auth(request: Request, core=Depends(get_core)) -> Principal:
 async def server_access(
     request: Request, principal: Principal = Depends(require_auth), core=Depends(get_core)
 ) -> None:
-    """Added to every per-server route: a helper limited to some servers gets
-    a 403 for the others. The unprefixed aliases act on the first server, so
-    that is the server checked for them."""
+    """Added to every per-server route: a moderator gets a 403 for servers
+    they can't see, and the route's permission is then checked on this
+    server (permissions.require reads it). The unprefixed aliases act on the
+    first server, so that is the server checked for them."""
     server_id = request.path_params.get("server_id") or core.config.default_server_id
     check_server(principal, server_id)
+    request.state.server_id = server_id
 
 
 def audit(

@@ -327,7 +327,7 @@ private fun LazyListScope.offsiteCard(vm: AppViewModel, offsite: Offsite?, busy:
     item { SectionTitle(t("offsite.title")) }
     item {
         val colors = LocalColors.current
-        val canEdit = vm.canDo(Permissions.SETTINGS_EDIT)
+        val canEdit = vm.canDo(Permissions.PC_SETTINGS)
         Card {
             Note(t("offsite.lead"), color = colors.text, modifier = Modifier.padding(top = 10.dp))
             val folder = offsite?.directory.orEmpty()

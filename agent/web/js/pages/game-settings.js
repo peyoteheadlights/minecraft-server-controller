@@ -210,7 +210,7 @@ function memoryCard(data) {
     slider = el("input", {
       type: "range", id: "memory-slider", min: String(data.min_mb), max: String(data.total_mb),
       step: String(data.step_mb), value: String(start), "aria-describedby": "memory-now",
-      disabled: can("settings.edit") ? false : "disabled",
+      disabled: can("settings.server") ? false : "disabled",
     });
     const update = () => {
       value.textContent = gb(Number(slider.value));
@@ -219,7 +219,7 @@ function memoryCard(data) {
     slider.addEventListener("input", update);
     update();
   }
-  const save = slider && can("settings.edit") ? el("button", { class: "btn primary", type: "button",
+  const save = slider && can("settings.server") ? el("button", { class: "btn primary", type: "button",
     onclick: (e) => busy(e.currentTarget, t("action.saving"), async () => {
       const mb = Number(slider.value);
       if (mb === current) { toast(t("settings.nothing_changed")); return; }
@@ -241,7 +241,7 @@ function memoryCard(data) {
     technical() ? el("div", { class: "field mt-12" },
       el("label", { for: "jvm-args" }, t("memory.raw_args")), raw,
       el("div", { class: "hint" }, t("memory.raw_hint")),
-      can("settings.edit") ? el("div", { class: "btn-row mt-10" }, el("button", { class: "btn", type: "button",
+      can("settings.server") ? el("div", { class: "btn-row mt-10" }, el("button", { class: "btn", type: "button",
         onclick: (e) => busy(e.currentTarget, t("action.saving"), async () => {
           const next = raw.value.trim() ? raw.value.trim().split(/\s+/) : [];
           if (next.join(" ") === data.jvm_args.join(" ")) { toast(t("settings.nothing_changed")); return; }

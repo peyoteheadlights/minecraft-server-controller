@@ -1,4 +1,5 @@
-"""Helper accounts: friends' own logins with limited access.
+"""Moderator accounts ("helpers" in code until Phase 12): friends' own
+logins, with the permissions the owner ticked on each server.
 
 Only the owner manages them (users.manage). A helper changes their own
 password through /account/password in auth.py. The owner's own password is
@@ -9,11 +10,27 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from ... import pairing
 from ...events import Event
 from ...security.auth import AccountError, Principal
-from ...security.permissions import HELPER, HELPER_PERMISSIONS, USERS_MANAGE, require
+from ...security.permissions import (
+    HELPER,
+    USERS_MANAGE,
+    catalogue,
+    grant,
+    level_of,
+    require,
+)
 from ..deps import audit, get_core
-from .models import AccountCreateRequest, AccountUpdateRequest
+from ..responses import (
+    InviteCode,
+    ModeratorAdded,
+    ModeratorChanged,
+    ModeratorList,
+    ModeratorRemoved,
+    Ok,
+)
+from .models import AccountCreateRequest, AccountUpdateRequest, InviteRequest
 
 router = APIRouter()
 
@@ -29,19 +46,45 @@ def _servers(core, ids: list[str] | None) -> list[str] | None:
     return sorted(set(ids))
 
 
-@router.get("/accounts")
+def _grant(permissions: list[str]) -> frozenset[str]:
+    try:
+        return grant(permissions)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _described(permissions: frozenset[str]) -> dict:
+    return {"permissions": sorted(permissions), "level": level_of(permissions)}
+
+
+def _moderator(core, account: dict) -> dict:
+    """One moderator as the owner's screens show them: what they may do on
+    each server, and what new servers give them."""
+    access = account.pop("access")
+    return {
+        **account,
+        "all_servers": access.all_servers,
+        "new_server": _described(access.new_server),
+        "access": [
+            {"id": ctx.server_id, "name": ctx.name, **_described(access.on(ctx.server_id))}
+            for ctx in core.servers.values()
+        ],
+    }
+
+
+@router.get("/accounts", response_model=ModeratorList)
 async def list_accounts(
     principal: Principal = Depends(require(USERS_MANAGE)), core=Depends(get_core)
 ):
     return {
         "owner": core.auth.owner_username,
-        "helpers": core.auth.accounts(),
-        "helper_can": sorted(HELPER_PERMISSIONS),
+        "helpers": [_moderator(core, account) for account in core.auth.accounts()],
+        "permissions": catalogue(),
         "servers": [{"id": ctx.server_id, "name": ctx.name} for ctx in core.servers.values()],
     }
 
 
-@router.post("/accounts")
+@router.post("/accounts", response_model=ModeratorAdded)
 async def add_account(
     payload: AccountCreateRequest,
     request: Request,
@@ -49,9 +92,12 @@ async def add_account(
     core=Depends(get_core),
 ):
     servers = _servers(core, payload.servers)
+    given = _grant(payload.permissions) if payload.permissions is not None else None
+    if given is not None and not given:
+        raise HTTPException(status_code=400, detail="Tick at least one thing they may do.")
     try:
         account = core.auth.create_account(
-            payload.username, payload.password, servers, by=principal.user
+            payload.username, payload.password, servers, by=principal.user, permissions=given
         )
     except AccountError as exc:
         audit(
@@ -63,14 +109,66 @@ async def add_account(
         Event(
             type="helper_added",
             level="info",
-            message=f"{principal.user} added the helper {account['username']}",
+            message=f"{principal.user} added the moderator {account['username']}",
             data={"username": account["username"], "role": HELPER},
         )
     )
-    return {"ok": True, "username": account["username"]}
+    invite = None
+    if payload.password is None:
+        invite = _invite_code(core, core.auth.invite(account["username"], by=principal.user))
+    return {"ok": True, "username": account["username"], "invite": invite}
 
 
-@router.put("/accounts/{username}")
+def _invite_code(core, made: dict) -> dict:
+    code = pairing.invite_code(core.config, made["token"], made["username"])
+    return {
+        "ok": code["ok"],
+        "username": made["username"],
+        "expires_at": made["expires_at"],
+        "url": code.get("url"),
+        "qr": code.get("qr"),
+        "reason": code.get("reason"),
+    }
+
+
+@router.post("/accounts/{username}/invite", response_model=InviteCode)
+async def new_invite(
+    username: str,
+    request: Request,
+    payload: InviteRequest | None = None,
+    principal: Principal = Depends(require(USERS_MANAGE)),
+    core=Depends(get_core),
+):
+    """A new invite for a moderator who hasn't chosen a password, or, with
+    ``forget_password``, for one who forgot theirs: that also signs them
+    out everywhere. Older invites stop working."""
+    forget = bool(payload and payload.forget_password)
+    try:
+        made = core.auth.invite(username, by=principal.user, forget_password=forget)
+    except AccountError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    audit(
+        core, request, "helper_invite", target=made["username"], detail="reset" if forget else None
+    )
+    return _invite_code(core, made)
+
+
+@router.delete("/accounts/{username}/invite", response_model=Ok)
+async def cancel_invite(
+    username: str,
+    request: Request,
+    principal: Principal = Depends(require(USERS_MANAGE)),
+    core=Depends(get_core),
+):
+    try:
+        core.auth.cancel_invite(username, by=principal.user)
+    except AccountError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    audit(core, request, "helper_invite_cancel", target=username)
+    return {"ok": True}
+
+
+@router.put("/accounts/{username}", response_model=ModeratorChanged)
 async def change_account(
     username: str,
     payload: AccountUpdateRequest,
@@ -78,14 +176,28 @@ async def change_account(
     principal: Principal = Depends(require(USERS_MANAGE)),
     core=Depends(get_core),
 ):
+    """Change a moderator. Their next request already follows the change:
+    nobody is signed out, except by a new password."""
     servers: list[str] | None | bool = False
-    if payload.all_servers is True:
-        servers = None
-    elif payload.servers is not None:
+    if payload.servers is not None:
         servers = _servers(core, payload.servers)
+    elif payload.all_servers is True and payload.grants is None and payload.new_server is None:
+        servers = None  # the older form: every server
+    grants = None
+    if payload.grants is not None:
+        if payload.grants:
+            _servers(core, list(payload.grants))
+        grants = {sid: _grant(perms) for sid, perms in payload.grants.items()}
+    new_server = _grant(payload.new_server) if payload.new_server is not None else None
     try:
         account = core.auth.update_account(
-            username, by=principal.user, servers=servers, password=payload.password
+            username,
+            by=principal.user,
+            servers=servers,
+            password=payload.password,
+            grants=grants,
+            all_servers=payload.all_servers if servers is False else None,
+            new_server=new_server,
         )
     except AccountError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -93,7 +205,7 @@ async def change_account(
     return {"ok": True, "username": account["username"]}
 
 
-@router.delete("/accounts/{username}")
+@router.delete("/accounts/{username}", response_model=ModeratorRemoved)
 async def remove_account(
     username: str,
     request: Request,
@@ -109,7 +221,7 @@ async def remove_account(
         Event(
             type="helper_removed",
             level="warn",
-            message=f"{principal.user} removed the helper {name}",
+            message=f"{principal.user} removed the moderator {name}",
             data={"username": name},
         )
     )

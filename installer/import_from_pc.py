@@ -80,7 +80,7 @@ def main(argv: list[str] | None = None, ask=getpass.getpass, say=print) -> int:
         return 1
     say(
         f"Done: {len(result['servers'])} server(s), {result['files']} files, "
-        f"{result['backups']} backup(s), {result['helpers']} helper(s)."
+        f"{result['backups']} backup(s), {result['helpers']} moderator(s)."
     )
     if not result["secrets"]:
         say("Passwords and keys weren't imported. Run setup.ps1 to choose a dashboard password.")

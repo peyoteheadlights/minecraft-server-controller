@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ... import recommendations
 from ...security.auth import Principal
-from ...security.permissions import SERVER_VIEW, SETTINGS_EDIT, require
+from ...security.permissions import SERVER_VIEW, SETTINGS_SERVER, require
 from ..deps import audit, get_server
 from ..responses import Recommendations
 from .models import RecommendationActionRequest
@@ -35,7 +35,7 @@ async def act_on_recommendation(
     rec_id: str,
     payload: RecommendationActionRequest,
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(SETTINGS_SERVER)),
     ctx=Depends(get_server),
 ):
     try:

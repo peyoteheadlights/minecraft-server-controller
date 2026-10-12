@@ -113,8 +113,10 @@ EVENT_MAP: dict[str, tuple[str, str, int, str]] = {
         "{server}: backup's second copy failed",
     ),
     "world_imported": ("world_imported", "🌍", 0x3BA55D, "{server}: world imported"),
-    "helper_added": ("helper_added", "👤", 0x5865F2, "Helper added"),
-    "helper_removed": ("helper_removed", "👤", 0xFAA61A, "Helper removed"),
+    "helper_added": ("helper_added", "👤", 0x5865F2, "Moderator added"),
+    "helper_removed": ("helper_removed", "👤", 0xFAA61A, "Moderator removed"),
+    # Told with the same switch as adding one: the invite is the second half.
+    "helper_invite_used": ("helper_added", "👤", 0x5865F2, "Moderator joined"),
 }
 
 
@@ -155,6 +157,7 @@ ALERT_PAGES = {
     "auth_failure": "security",
     "certificate_expiring": "security",
     "helper_added": "helpers",
+    "helper_invite_used": "helpers",
     "update_available": "app-settings",
     "update_finished": "app-settings",
     "update_failed": "app-settings",

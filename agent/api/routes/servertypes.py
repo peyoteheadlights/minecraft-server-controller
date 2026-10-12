@@ -17,7 +17,7 @@ from ...security.auth import Principal
 from ...security.permissions import (
     SERVER_VIEW,
     SERVERS_MANAGE,
-    SETTINGS_EDIT,
+    SETTINGS_SERVER,
     require,
 )
 from ...servertypes import bedrock as bedrock_module
@@ -200,7 +200,7 @@ async def version_preflight(
 async def change_version(
     payload: VersionChangeRequest,
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(SETTINGS_SERVER)),
     ctx=Depends(get_server),
 ):
     """Change this server's version, or its type. Stops the server, takes a
@@ -225,7 +225,7 @@ async def change_version(
 @router.post("/version/roll-back", response_model=VersionRolledBack)
 async def roll_back_version(
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(SETTINGS_SERVER)),
     ctx=Depends(get_server),
 ):
     """Put the version that was there before the last change back."""
@@ -237,7 +237,7 @@ async def roll_back_version(
 @router.post("/eula", response_model=EulaAccepted)
 async def accept_eula(
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(SETTINGS_SERVER)),
     ctx=Depends(get_server),
 ):
     """Record that the person accepted Minecraft's rules for this server.
@@ -273,7 +273,7 @@ async def crossplay_status(
 async def set_crossplay(
     payload: CrossplayRequest,
     request: Request,
-    principal: Principal = Depends(require(SETTINGS_EDIT)),
+    principal: Principal = Depends(require(SETTINGS_SERVER)),
     ctx=Depends(get_server),
 ):
     """Turn "Let Bedrock players join" on or off."""

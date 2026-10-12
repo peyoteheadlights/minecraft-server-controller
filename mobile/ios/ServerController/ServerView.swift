@@ -199,7 +199,7 @@ struct ServerView: View {
     /// for the server type, when it takes any) and Game settings.
     private func screens(_ palette: Palette) -> some View {
         card(palette) {
-            ForEach(ServerPage.allCases, id: \.self) { page in
+            ForEach(ServerPage.allCases.filter { model.me?.readsConsole != false || !$0.readsConsole }, id: \.self) { page in
                 screenLink(model.t(page.titleKey), ServerRoute.page(serverId, page), palette)
             }
             if let kind = Content.kind(model.servers.first(where: { $0.id == serverId })), kind != .none {

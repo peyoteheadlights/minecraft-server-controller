@@ -48,7 +48,7 @@ PATTERNS = [
     (re.compile(r"(?i)bearer\s+[A-Za-z0-9._~+/=-]+"), "Bearer [removed]"),
     (re.compile(r"https://(?:\w+\.)?discord(?:app)?\.com/api/webhooks/\S+"), "[webhook removed]"),
     (
-        re.compile(r"(?i)\b(token|password|secret|passphrase|api_key)(\s*[=:]\s*)\S+"),
+        re.compile(r"(?i)\b(token|password|secret|passphrase|api_key|invite)(\s*[=:]\s*)\S+"),
         r"\1\2[removed]",
     ),
 ]

@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Request
 from ...security.auth import Principal
 from ...security.permissions import SECURITY_MANAGE, SECURITY_VIEW, require
 from ..deps import audit, get_core
+from ..responses import SessionsRevoked
 
 router = APIRouter()
 
@@ -42,7 +43,7 @@ async def audit_log(
     return {"entries": core.db.audit_entries(limit)}
 
 
-@router.post("/security/revoke-sessions")
+@router.post("/security/revoke-sessions", response_model=SessionsRevoked)
 async def revoke_sessions(
     request: Request,
     principal: Principal = Depends(require(SECURITY_MANAGE)),

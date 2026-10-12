@@ -14,17 +14,18 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 
-from ... import transfer
+from ... import filebrowse, transfer
 from ...security.auth import Principal
 from ...security.permissions import DATA_EXPORT, require
 from ..deps import audit, get_core
+from ..responses import ExportSizes, ExportStarted
 from .models import ExportRequest
 
 router = APIRouter()
 TOKEN_RE = re.compile(transfer.TOKEN_RE_TEXT)
 
 
-@router.get("/export")
+@router.get("/export", response_model=ExportSizes)
 async def export_sizes(
     principal: Principal = Depends(require(DATA_EXPORT)), core=Depends(get_core)
 ):
@@ -32,7 +33,7 @@ async def export_sizes(
     return await asyncio.to_thread(transfer.estimate, core)
 
 
-@router.post("/export")
+@router.post("/export", response_model=ExportStarted)
 async def start_export(
     payload: ExportRequest,
     request: Request,
@@ -40,7 +41,8 @@ async def start_export(
     core=Depends(get_core),
 ):
     """Start writing the export file as a job. Its result has the token to
-    download it with."""
+    download it with, or, with ``folder`` (picked with the PC folder picker),
+    where on the PC it was saved: the phones never download it."""
     options = transfer.Options(
         worlds=payload.worlds,
         backups=payload.backups,
@@ -53,9 +55,16 @@ async def start_export(
             detail=f"Choose a passphrase of at least {transfer.MIN_PASSPHRASE} characters to "
             "lock the passwords and keys with.",
         )
+    save_in = None
+    if payload.folder:
+        try:
+            save_in = filebrowse.writable_folder(payload.folder)
+        except filebrowse.BrowseError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     folder = transfer.folder(core.config)
     token = secrets.token_hex(16)
     target = folder / f"{token}.zip"
+    filename = f"minecraft-server-control-export-{time.strftime('%Y%m%d')}.zip"
 
     async def run(job) -> dict[str, Any]:
         total = await asyncio.to_thread(transfer.count_items, core, options)
@@ -65,12 +74,17 @@ async def start_export(
         except BaseException:
             target.unlink(missing_ok=True)
             raise
-        return {
+        result = {
             "token": token,
             "size_bytes": target.stat().st_size,
             "servers": len(manifest["servers"]),
-            "filename": f"minecraft-server-control-export-{time.strftime('%Y%m%d')}.zip",
+            "filename": filename,
         }
+        if save_in is not None:
+            saved = await asyncio.to_thread(transfer.move_to, target, save_in, filename)
+            result["saved_to"] = str(saved)
+            del result["token"]  # nothing is left to download
+        return result
 
     job = core.jobs.start("export", "Exporting everything", run, user=principal.user)
     audit(

@@ -352,6 +352,60 @@ class AgentClient(
     suspend fun signOutDevice(id: String): Ok =
         call(request("/api/sessions/${path(id)}").delete().build(), Ok.serializer())
 
+    // ------------------------------------------------------------ PC settings (owner only)
+    /** Signs every device out, this phone too. */
+    suspend fun signEveryoneOut(): SessionsRevoked =
+        call(post("/api/security/revoke-sessions", JsonObject(emptyMap())), SessionsRevoked.serializer())
+
+    suspend fun pcSettings(): PcSettingsView = get("/api/settings", PcSettingsView.serializer())
+
+    /** Saves [updates] as built by [PcSettings.changes]; each refused one comes back with why. */
+    suspend fun savePcSettings(updates: JsonObject): SettingsSaved =
+        call(request("/api/settings").put(buildJsonObject { put("updates", updates) }.toBody()).build(), SettingsSaved.serializer())
+
+    suspend fun maintenance(on: Boolean): MaintenanceSet =
+        call(post("/api/maintenance", buildJsonObject { put("enabled", on) }), MaintenanceSet.serializer())
+
+    /** "discord" or "email". */
+    suspend fun testAlert(channel: String): TestAlert =
+        call(post("/api/notifications/test?channel=${path(channel)}", JsonObject(emptyMap())), TestAlert.serializer(), slow = true)
+
+    suspend fun power(): PowerStatus = get("/api/power", PowerStatus.serializer())
+
+    /** Asks Windows whether this app starts with it. It only checks. */
+    suspend fun startupCheck(): StartupReport = get("/api/system/startup", StartupReport.serializer(), slow = true)
+
+    suspend fun updates(): UpdateStatus = get("/api/updates", UpdateStatus.serializer())
+
+    suspend fun checkForUpdate(): UpdateStatus = call(post("/api/updates/check", JsonObject(emptyMap())), UpdateStatus.serializer(), slow = true)
+
+    /** The checks before updating: the version, and who is playing. */
+    suspend fun updateChecks(): UpdateStatus = get("/api/updates/preflight", UpdateStatus.serializer())
+
+    /** Starts the update; the PC restarts this app, so it stops answering for a while. */
+    suspend fun installUpdate(): UpdateStarted = call(post("/api/updates/install", JsonObject(emptyMap())), UpdateStarted.serializer())
+
+    suspend fun oldCopy(): OldCopyStatus = get("/api/updates/old-copy", OldCopyStatus.serializer())
+
+    suspend fun removeOldCopy(): OldCopyRemoved = call(post("/api/updates/old-copy/remove", JsonObject(emptyMap())), OldCopyRemoved.serializer())
+
+    suspend fun exportSizes(): ExportSizes = get("/api/export", ExportSizes.serializer())
+
+    /** Starts Export everything into a folder on the PC (body from [PcSettings.exportBody]). */
+    suspend fun startExport(body: JsonObject): ExportStarted = call(post("/api/export", body), ExportStarted.serializer())
+
+    suspend fun exportJob(id: String): ExportJob = get("/api/jobs/${path(id)}", ExportJob.serializer())
+
+    /** The files a help file would hold, before it is made. */
+    suspend fun helpFiles(): HelpFiles = get("/api/help-bundle", HelpFiles.serializer())
+
+    suspend fun makeHelpFile(): HelpFileMade =
+        call(post("/api/help-bundle", buildJsonObject { put("confirm", true) }), HelpFileMade.serializer(), slow = true)
+
+    /** Streams the help file into [out], as [downloadBackup] does, for the share menu. */
+    suspend fun downloadHelpFile(made: HelpFileMade, out: java.io.OutputStream): Long =
+        downloadZip("/api/help-bundle/${path(made.token)}?filename=${path(made.filename)}", out) { _, _ -> }
+
     suspend fun newServerOptions(): NewServerOptions = get("/api/new-server/options", NewServerOptions.serializer())
 
     /** Downloads and sets up a new server as a task; it isn't started. */

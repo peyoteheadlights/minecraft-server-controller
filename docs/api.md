@@ -59,8 +59,10 @@ an estimate. A server runs one risky job at a time; a second gets 409.
 | POST | `/api/auth/login` | `{username, password, remember?, device?, phone?}` → `{token, expires_at, remember}`. `remember: true` is "Keep me signed in": the session lasts `security.remember_days` from its last use. `device` names it on the Security page (the phone app sends its name). With both `remember` and `phone` (only the phone apps send it), the session lasts until signed out and `expires_at` is null |
 | POST | `/api/auth/logout` | Invalidate this session |
 | POST | `/api/auth/rotate` | New token, old one invalidated |
-| GET | `/api/auth/me` | Who this token belongs to |
-| POST | `/api/account/password` | `{current, new}`: a helper changes their own password (other sessions end). The owner is refused: reset it on the PC |
+| GET | `/api/auth/me` | Who this token belongs to: `{user, kind, role, servers, permissions, account_permissions, server_permissions, preferences}`. `server_permissions` is what this account may do on each server it can see, by server id; `permissions` is all of them together, for older apps |
+| POST | `/api/account/password` | `{current, new}`: a moderator changes their own password (other sessions end). The owner is refused: reset it on the PC |
+| POST | `/api/invite/check` | No sign-in. `{token}` → `{username, expires_at}`, or 404 (never was) / 410 (used or expired) |
+| POST | `/api/invite/accept` | No sign-in. `{token, password, device?}` chooses the password and signs this phone in, like login. An invite works once, for 24 hours; wrong tokens count towards a lockout for that address only |
 
 ## Versions, pairing, devices and updates
 
@@ -93,20 +95,23 @@ answer disappears without having been marked deprecated in a release first,
 and if a new route declares no response model. Older routes without one are
 listed in `tests/api_untyped_routes.txt`; the list only shrinks.
 
-## Helpers, moving, getting help (owner only)
+## Moderators, PC settings, moving, getting help (owner only)
 
-A helper gets 403 from each of these. See [security.md](security.md#permissions).
+Moderators are "helpers" in the code and in these routes until Phase 12. A
+moderator gets 403 from each of these. See [security.md](security.md#permissions).
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/api/accounts` | The owner's name, every helper (no hashes), what helpers may do |
-| POST | `/api/accounts` | `{username, password, servers?}`; `servers` null is every server |
-| PUT | `/api/accounts/{username}` | `{all_servers?, servers?, password?}`; a new password signs them out |
-| DELETE | `/api/accounts/{username}` | Remove a helper and end their sessions |
+| GET | `/api/accounts` | `{owner, helpers, permissions, servers}`: every moderator (no hashes) with `all_servers`, `new_server` and `access` (per server: `{id, name, permissions, level}`), the permission catalogue, and the servers |
+| POST | `/api/accounts` | `{username, password?, servers?, permissions?}` → `{ok, username, invite}`. Without a password the answer carries an invite (`{url, qr, expires_at}`) for the moderator to choose one. `servers` null is every server, now and later; `permissions` null is "Look after it" |
+| PUT | `/api/accounts/{username}` | `{all_servers?, grants?, new_server?, servers?}`. `grants` is the permissions on each named server (an empty list hides it); `new_server` is what an "All servers" moderator gets elsewhere and on new servers |
+| POST | `/api/accounts/{username}/invite` | A new invite. `{forget_password: true}` is "Reset password": it also clears their password and signs them out everywhere |
+| DELETE | `/api/accounts/{username}/invite` | Cancel the invite |
+| DELETE | `/api/accounts/{username}` | Remove a moderator and end their sessions |
 | GET | `/api/folders?path=` | The folder picker: folder names in one folder, or drives and shortcuts |
 | GET | `/api/power` | Keep awake: on or off, active now, what can still sleep the PC |
 | GET | `/api/export` | Measured sizes of each part, before exporting |
-| POST | `/api/export` | `{worlds, backups, secrets, passphrase?}` starts a job; its result has the token |
+| POST | `/api/export` | `{worlds, backups, secrets, passphrase?, folder?}` starts a job; its result has the token. With `folder` (a PC folder, checked like the folder picker) the file is saved there instead, never over an existing file, and the result has `saved_to` and no token |
 | GET | `/api/export/{token}` | The export file |
 | GET | `/api/help-bundle` | The Get help file's list of files, before it is made |
 | POST | `/api/help-bundle` | `{confirm: true}` makes it; returns a token |
@@ -311,9 +316,12 @@ counting down; `restart_at` in `/api/status` is the deadline (Unix time).
 `POST /api/schedules/{id}/run`,
 `GET|PUT /api/settings`, `POST /api/maintenance`,
 `POST /api/notifications/test?channel=` (`discord`, `email` or `push`),
-`GET /api/notifications/history`,
+`GET /api/notifications/history` (owner only, like `GET /api/settings`),
 `GET /api/security`, `GET /api/security/tls`, `GET /api/security/audit`,
-`POST /api/security/revoke-sessions`.
+`POST /api/security/revoke-sessions`. The phones' PC settings use the
+owner-only ones (`/api/settings`, maintenance, the test alert, power,
+startup, updates, export, Get help, revoke-sessions); each declares its
+answer's shape.
 
 `/api/settings` holds the agent's settings, including the defaults every
 server uses; `/api/servers/{id}/settings` holds one server's own.

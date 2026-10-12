@@ -20,7 +20,7 @@ from ...security.permissions import (
     require,
 )
 from ..deps import audit, get_core
-from ..responses import ServerAdded, ServerList, ServerRemoved
+from ..responses import PowerStatus, ServerAdded, ServerList, ServerRemoved, StartupReport
 from .models import ServerAddRequest
 
 router = APIRouter()
@@ -175,7 +175,7 @@ async def suggest_port(
     return {"port": port, "protocol": protocol, "used": used}
 
 
-@router.get("/system/startup")
+@router.get("/system/startup", response_model=StartupReport)
 async def windows_startup_test(principal: Principal = Depends(require(SYSTEM_VIEW))):
     """Test Windows Startup.
 
@@ -194,7 +194,7 @@ async def windows_startup_test(principal: Principal = Depends(require(SYSTEM_VIE
     return await asyncio.to_thread(report)
 
 
-@router.get("/power")
+@router.get("/power", response_model=PowerStatus)
 async def power(principal: Principal = Depends(require(SYSTEM_VIEW)), core=Depends(get_core)):
     """Whether the PC is being kept awake, and what can still make it sleep."""
     import asyncio

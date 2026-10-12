@@ -1723,3 +1723,94 @@ class WorldPacked(Open):
     files: int
     size_bytes: int
     filename: str
+
+
+# ------------------------------------------------------------ PC settings
+class SettingsSecrets(Open):
+    discord_webhook_configured: bool
+    smtp_configured: bool
+    api_token_configured: bool
+
+
+class SettingsView(Open):
+    """The PC's settings, with passwords and links left out (they stay in .env)."""
+
+    config: dict[str, Any]
+    editable: list[str] = Field(description="Key prefixes PUT /settings accepts")
+    secrets: SettingsSecrets
+
+
+class SettingsSaved(Open):
+    ok: bool
+    applied: dict[str, Any]
+    rejected: dict[str, str] = Field(description="Each refused key with the reason")
+
+
+class MaintenanceSet(Open):
+    ok: bool
+    maintenance: bool
+
+
+class TestAlert(Open):
+    channel: str
+    sent: bool
+
+
+class PowerStatus(Open):
+    supported: bool
+    enabled: bool
+    active: bool
+    running: list[str] = []
+    problem: str | None = None
+    battery: dict[str, Any] | None = None
+    lid: dict[str, Any] | None = None
+    still_sleeps: list[str] = []
+
+
+class StartupReport(Open):
+    """Read from Windows and the agent's startup log; nothing is guessed."""
+
+    supported: bool
+    verdict: str
+    registered: bool | None = None
+    points_to_current_app: bool | None = None
+    mechanism: str | None = None
+    problems: list[str] = []
+
+
+class ExportServerSizes(Open):
+    id: str
+    name: str
+    files: int
+    worlds: int
+    backups: int
+
+
+class ExportSizes(Open):
+    servers: list[ExportServerSizes]
+
+
+class ExportStarted(Open):
+    ok: bool
+    job_id: str
+
+
+class HelpBundleFile(Open):
+    name: str
+    size: int | None = None
+
+
+class HelpBundleList(Open):
+    files: list[HelpBundleFile]
+
+
+class HelpBundleMade(Open):
+    ok: bool
+    token: str
+    filename: str
+    files: list[dict[str, Any]]
+
+
+class SessionsRevoked(Open):
+    ok: bool
+    revoked: int

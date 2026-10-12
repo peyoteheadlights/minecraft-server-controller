@@ -182,6 +182,50 @@ def test_every_route_the_app_uses_exists_and_is_typed():
         assert current[name].response_model is not None, name
 
 
+# Pages of the dashboard that only make sense in a browser: its own phone
+# alerts (Web Push) and the pairing code it shows to phones.
+BROWSER_ONLY = {"/push", "/push/test", "/push/unsubscribe", "/pairing"}
+
+
+def test_every_pc_setting_on_the_dashboard_has_a_phone_screen():
+    """Phase 10 removes the dashboard, so nothing in its App settings may be
+    left without a screen on the phones: every PC-wide setting it saves and
+    every route it calls."""
+    import re
+
+    pages = ROOT / "agent" / "web" / "js" / "pages"
+    dashboard = (pages / "app-settings.js").read_text(encoding="utf-8")
+    dashboard += (pages / "app-update.js").read_text(encoding="utf-8")
+    # Comments name keys as examples; only the code counts.
+    dashboard = re.sub(r"/\*.*?\*/|//[^\n]*", "", dashboard, flags=re.S)
+    keys = set(re.findall(r'"((?:notifications|thresholds|power|updates)\.[a-z_.]+)"', dashboard))
+    keys |= {k + "." for k in re.findall(r"`(notifications\.events)\.\$\{", dashboard)}
+    assert "power.keep_awake" in keys and "notifications.events." in keys
+    phones = {
+        "Android": ROOT
+        / "mobile/android/core/src/main/kotlin/io/github/peyoteheadlights/mcsc/core/PcSettings.kt",
+        "iPhone": ROOT / "mobile/ios/Core/Sources/Core/PcSettings.swift",
+    }
+    for phone, path in phones.items():
+        source = path.read_text(encoding="utf-8")
+        listed = set(
+            re.findall(r'"((?:notifications|thresholds|power|updates)\.[a-z_.]*)"', source)
+        )
+        for key in keys:
+            assert any(key == k or key.startswith(k) for k in listed), (
+                f"{phone} has no screen for {key}"
+            )
+
+    routes = (ROOT / "mobile" / "api-routes.txt").read_text(encoding="utf-8")
+    called = {
+        re.sub(r"\$\{[^}]+\}", "{x}", path).split("?")[0]
+        for path in re.findall(r'api\(\s*[`"](/[^`"]+)[`"]', dashboard)
+    }
+    for path in called - BROWSER_ONLY:
+        pattern = re.escape("/api" + path).replace(re.escape("{x}"), r"\{[a-z_]+\}")
+        assert re.search(r"^[A-Z]+ " + pattern + "$", routes, re.M), f"the phones don't call {path}"
+
+
 # ------------------------------------------------ lock-screen alerts (FCM)
 def service_account(tmp_path, **changes):
     import json

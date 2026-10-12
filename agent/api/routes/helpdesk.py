@@ -14,12 +14,13 @@ from ... import helpbundle
 from ...security.auth import Principal
 from ...security.permissions import HELP_BUNDLE, require
 from ..deps import audit, get_core
+from ..responses import HelpBundleList, HelpBundleMade
 from .models import HelpBundleRequest
 
 router = APIRouter()
 
 
-@router.get("/help-bundle")
+@router.get("/help-bundle", response_model=HelpBundleList)
 async def help_bundle_contents(
     principal: Principal = Depends(require(HELP_BUNDLE)), core=Depends(get_core)
 ):
@@ -27,7 +28,7 @@ async def help_bundle_contents(
     return {"files": [item.to_dict() for item in items]}
 
 
-@router.post("/help-bundle")
+@router.post("/help-bundle", response_model=HelpBundleMade)
 async def make_help_bundle(
     payload: HelpBundleRequest,
     request: Request,

@@ -111,18 +111,38 @@ struct SettingsView: View {
 
     private var people: some View {
         Section(model.t("mobile.settings.people")) {
-            NavigationLink {
-                AccountView()
-            } label: {
-                LabeledContent(model.t("account.title"), value: model.me?.user ?? "")
+            // The owner's password is reset on the PC, and their devices are in PC settings.
+            if model.me?.isOwner == false {
+                NavigationLink {
+                    AccountView()
+                } label: {
+                    LabeledContent(model.t("account.title"), value: model.me?.user ?? "")
+                }
+                .frame(minHeight: 44)
             }
-            .frame(minHeight: 44)
             if model.me?.isOwner == true {
                 NavigationLink(model.t("mobile.mod.title")) {
                     ModeratorsView()
                 }
                 .frame(minHeight: 44)
+                NavigationLink {
+                    PcSettingsScreen()
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(model.t("mobile.pc.title"))
+                        // A new version shows here too, so the owner sees it without opening PC settings.
+                        if let update = model.pcSettings.update, update.available, let version = update.latest?.version {
+                            Text(model.t("update.available", ["version": version])).font(.footnote).foregroundStyle(.secondary)
+                        } else {
+                            Text(model.t("mobile.pc.hint")).font(.footnote).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .frame(minHeight: 44)
             }
+        }
+        .task(id: model.me?.isOwner == true) {
+            if model.me?.isOwner == true { await model.pcSettings.loadUpdate() }
         }
     }
 

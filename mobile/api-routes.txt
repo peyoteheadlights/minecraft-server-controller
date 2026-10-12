@@ -135,3 +135,24 @@ POST /api/invite/accept
 POST /api/account/password
 GET /api/sessions
 DELETE /api/sessions/{session_id}
+# PC settings (Phase 9 part 6b): owner only.
+POST /api/security/revoke-sessions
+GET /api/settings
+PUT /api/settings
+POST /api/maintenance
+POST /api/notifications/test
+GET /api/updates
+POST /api/updates/check
+GET /api/updates/preflight
+POST /api/updates/install
+GET /api/updates/old-copy
+POST /api/updates/old-copy/remove
+GET /api/jobs/{job_id}
+GET /api/export
+POST /api/export
+GET /api/help-bundle
+POST /api/help-bundle
+GET /api/power
+GET /api/system/startup
+# A help file is a zip, not JSON, so it has no typed answer; the apps
+# download it from GET /api/help-bundle/{token} to share it.

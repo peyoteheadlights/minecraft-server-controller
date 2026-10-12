@@ -30,6 +30,7 @@ import copy
 import json
 import os
 import secrets
+import shutil
 import time
 import zipfile
 from collections.abc import Callable
@@ -195,6 +196,19 @@ def estimate(core) -> dict[str, Any]:
             }
         )
     return {"servers": servers}
+
+
+def move_to(source: Path, folder: Path, filename: str) -> Path:
+    """Moves a finished export into a folder picked on the PC, never over a
+    file that is already there ("name (2).zip" instead)."""
+    stem, suffix = os.path.splitext(filename)
+    target = folder / filename
+    number = 2
+    while target.exists():
+        target = folder / f"{stem} ({number}){suffix}"
+        number += 1
+    shutil.move(str(source), str(target))
+    return target
 
 
 def export(

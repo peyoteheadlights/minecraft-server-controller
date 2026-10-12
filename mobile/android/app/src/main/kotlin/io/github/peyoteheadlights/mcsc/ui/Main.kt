@@ -148,9 +148,20 @@ fun Main(vm: AppViewModel) {
                     onAbout = { nav.navigate("about") },
                     onAccount = { nav.navigate("settings/account") },
                     onModerators = { nav.navigate("settings/moderators") },
+                    onPc = { nav.navigate("settings/pc") },
                 )
             }
             composable("settings/account") { AccountScreen(vm, onBack = { nav.popBackStack() }) }
+            composable("settings/pc") {
+                PcSettingsScreen(
+                    vm,
+                    onBack = { nav.popBackStack() },
+                    onDevices = { nav.navigate("settings/pc/devices") },
+                    onAlerts = { nav.navigate("settings/pc/alerts") },
+                )
+            }
+            composable("settings/pc/devices") { DevicesScreen(vm, onBack = { nav.popBackStack() }) }
+            composable("settings/pc/alerts") { AlertSettingsScreen(vm, onBack = { nav.popBackStack() }) }
             composable("settings/moderators") {
                 ModeratorsScreen(
                     vm,

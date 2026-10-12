@@ -41,7 +41,7 @@ struct WorldImportCards: View {
                 Presses(presses: importPresses(timeline, free), palette: palette)
             }
             // Single-player's saves folder holds Java worlds; Bedrock keeps its own.
-            let saves = Array((world.saves?.worlds ?? []).prefix(8))
+            let saves = world.saves?.worlds ?? []
             if !bedrock && !saves.isEmpty {
                 SectionTitle(text: model.t("import.from_saves"), palette: palette)
                 CardBox(palette: palette) {

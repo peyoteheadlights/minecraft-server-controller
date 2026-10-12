@@ -146,15 +146,17 @@ class AddServerPages(
         val c = client() ?: return
         versions = Read(loading = true)
         scope.launch {
-            versions = try {
-                val read = c.typeVersions(chosen.id)
-                version = AddServer.firstVersion(read)
-                loader = version?.loaders?.firstOrNull()
-                Read(read)
+            val answer: Read<TypeVersions> = try {
+                Read(c.typeVersions(chosen.id))
             } catch (e: AgentException) {
                 noted(e)
                 Read(problem = Message.of(e))
             }
+            // Another kind was tapped meanwhile: its own answer is the one shown.
+            if (type?.id != chosen.id) return@launch
+            versions = answer
+            version = answer.value?.let(AddServer::firstVersion)
+            loader = version?.loaders?.firstOrNull()
         }
     }
 

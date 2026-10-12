@@ -466,10 +466,10 @@ class AgentClient(
         return call(post("${server(serverId)}/world/undo", body), Restored.serializer(), slow = true)
     }
 
-    /** This server's recent tasks, newest first. */
     /** Every server's tasks running now, including a new server being set up. */
     suspend fun runningJobs(): JobList = get("/api/jobs?running=true", JobList.serializer())
 
+    /** This server's recent tasks, newest first. */
     suspend fun jobs(serverId: String, limit: Int = 20): JobList =
         get("/api/jobs?server_id=${path(serverId)}&limit=${limit.coerceIn(1, 200)}", JobList.serializer())
 
@@ -587,8 +587,7 @@ class AgentClient(
     suspend fun uploadMod(serverId: String, file: PickedFile): ModUploaded =
         call(upload("${server(serverId)}/mods/upload", file), ModUploaded.serializer(), slow = true)
 
-    /** Reads a modpack (.mrpack) and says what importing it here would do. */
-    /** Reads a pack; with [serverId], also what importing it there would do. */
+    /** Reads a modpack (.mrpack); with [serverId], also what importing it there would do. */
     suspend fun inspectModpack(serverId: String?, file: PickedFile): ModpackInspected = call(
         upload(if (serverId == null) "/api/modpacks/inspect" else "/api/modpacks/inspect?server_id=${path(serverId)}", file),
         ModpackInspected.serializer(),

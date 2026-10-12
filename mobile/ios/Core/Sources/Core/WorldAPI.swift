@@ -121,12 +121,12 @@ extension AgentClient {
         return try await call("POST", world(serverId) + "/world/undo", body: body, slow: true, as: Restored.self)
     }
 
-    /// This server's recent tasks, newest first.
     /// Every server's tasks running now, including a new server being set up.
     public func runningJobs() async throws -> JobList {
         try await call("GET", "/api/jobs?running=true", as: JobList.self)
     }
 
+    /// This server's recent tasks, newest first.
     public func jobs(serverId: String, limit: Int = 20) async throws -> JobList {
         let count = Swift.min(Swift.max(limit, 1), 200)
         return try await call("GET", "/api/jobs?server_id=" + AgentClient.pathSegment(serverId) + "&limit=\(count)", as: JobList.self)

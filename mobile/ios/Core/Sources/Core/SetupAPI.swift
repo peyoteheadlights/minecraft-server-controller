@@ -108,7 +108,7 @@ extension AgentClient {
 
     /// Puts a server folder already on the PC on the list; nothing in it changes.
     public func addServer(name: String, directory: String, type: String, jar: String) async throws -> ServerAdded {
-        let body = try AgentClient.encode(["name": .string(name), "directory": .string(directory), "type": .string(type), "jar": .string(jar)])
+        let body = try AgentClient.encode(["name": name, "directory": directory, "type": type, "jar": jar])
         return try await call("POST", "/api/servers", body: body, as: ServerAdded.self)
     }
 

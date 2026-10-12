@@ -576,6 +576,12 @@ class SetupTest {
             val made = agent.server.takeRequest()
             assertEquals("/api/modpacks/abc/new-server", made.path)
             assertEquals("""{"name":"Pack","directory":"D:/Pack","eula_accepted":true}""", made.body.readUtf8())
+            // Leaving without making the server: the pack read is thrown away.
+            agent.server.enqueue(agent.json("""{"ok": true}"""))
+            c.forgetModpack("abc")
+            val forgot = agent.server.takeRequest()
+            assertEquals("DELETE", forgot.method)
+            assertEquals("/api/modpacks/abc", forgot.path)
             agent.server.enqueue(agent.json("""{"jobs": []}"""))
             c.runningJobs()
             assertEquals("/api/jobs?running=true", agent.server.takeRequest().path)

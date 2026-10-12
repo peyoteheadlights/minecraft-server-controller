@@ -127,14 +127,16 @@ final class AddServerPages {
         versions = PageRead(loading: true)
         do {
             let read = try await client.typeVersions(typeId: chosen.id)
+            // Another kind was tapped meanwhile: its own answer is the one shown.
+            guard type?.id == chosen.id else { return }
             version = AddServer.firstVersion(read)
             loader = version?.loaders.first
             versions = PageRead(value: read)
         } catch let problem as AgentError {
             noted(problem)
-            versions = PageRead(problem: problem)
+            if type?.id == chosen.id { versions = PageRead(problem: problem) }
         } catch {
-            versions.loading = false
+            if type?.id == chosen.id { versions.loading = false }
         }
     }
 

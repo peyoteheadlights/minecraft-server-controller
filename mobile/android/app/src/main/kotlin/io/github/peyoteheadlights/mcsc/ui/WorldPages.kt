@@ -32,6 +32,8 @@ import io.github.peyoteheadlights.mcsc.core.WorldTimeline
 import java.io.File
 import java.io.OutputStream
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 
 /** What a button did, said once it is done: good news or a problem. */
@@ -256,6 +258,8 @@ class WorldPages(
             try {
                 worldRead = c.uploadWorld(serverId, file, steps { done, size -> sending = Downloading(file.name, done, size) })
             } catch (e: AgentException) {
+                // Cancelled: the stopped upload isn't a problem to show.
+                currentCoroutineContext().ensureActive()
                 noted(e)
                 said = Said(Message.of(e).text(strings), good = false)
             } catch (e: kotlinx.coroutines.CancellationException) {

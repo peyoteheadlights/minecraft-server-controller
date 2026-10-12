@@ -66,7 +66,7 @@ fun LazyListScope.worldImportCards(
             }
         }
         // Single-player's saves folder holds Java worlds; Bedrock keeps its own.
-        val saves = world.saves?.worlds.orEmpty().take(8)
+        val saves = world.saves?.worlds.orEmpty()
         if (!bedrock && saves.isNotEmpty()) {
             item { SectionTitle(t("import.from_saves")) }
             item {

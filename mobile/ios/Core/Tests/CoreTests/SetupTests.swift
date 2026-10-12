@@ -571,6 +571,11 @@ final class SetupTests: XCTestCase {
         StubAgent.json(#"{"jobs": []}"#)
         _ = try await c.runningJobs()
         XCTAssertEqual(StubAgent.requests[4].request.url?.query, "running=true")
+        // Leaving without making the server: the pack read is thrown away.
+        StubAgent.json(#"{"ok": true}"#)
+        try await c.forgetModpack(token: "abc")
+        XCTAssertEqual(method(5), "DELETE")
+        XCTAssertEqual(path(5), "/api/modpacks/abc")
     }
 }
 

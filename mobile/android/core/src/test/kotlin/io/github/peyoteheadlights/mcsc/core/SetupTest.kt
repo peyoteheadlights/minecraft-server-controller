@@ -538,6 +538,14 @@ class SetupTest {
     }
 
     @Test
+    fun `a new server's memory stays within what the PC has`() {
+        assertEquals(8192, AddServer.nudged(7680, 512, totalMb = 8192))
+        assertEquals(8192, AddServer.nudged(8192, 512, totalMb = 8192))
+        assertEquals(1024, AddServer.nudged(1024, -512, totalMb = 8192))
+        assertEquals(65536, AddServer.nudged(65536, 512, totalMb = null))
+    }
+
+    @Test
     fun `create waits for the rules to be ticked`() {
         assertFalse(AddServer.ready(name = "A", folder = "D:\\A", version = "1.21.4", ruled = false))
         assertFalse(AddServer.ready(name = "A", folder = "", version = "1.21.4", ruled = true))

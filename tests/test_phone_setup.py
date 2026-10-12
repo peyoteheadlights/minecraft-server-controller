@@ -168,6 +168,8 @@ def test_new_server_options_and_creating_one_are_typed(signed_in, tmp_path, monk
     options = signed_in.get("/api/new-server/options").json()
     assert options["types"] and options["palette"]
     assert options["bedrock"]["privacy_url"]
+    # The most a new server can be given: the PC's measured memory.
+    assert options["total_mb"] and options["total_mb"] >= options["memory_mb"]
     refused = signed_in.post(
         "/api/new-server",
         json={

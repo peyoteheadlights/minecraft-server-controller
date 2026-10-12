@@ -264,7 +264,7 @@ Agent-wide:
 | --- | --- | --- |
 | GET | `/api/server-types` | Every type with its capabilities. The dashboard's comparison table is generated from this |
 | GET | `/api/server-types/{type}/versions` | The Minecraft versions that type offers, from its own official source, with the loader or build versions for each |
-| GET | `/api/new-server/options` | What the New server panel needs: types, default memory and why, a free port, a free color, the EULA link |
+| GET | `/api/new-server/options` | What the New server panel needs: types, default memory and why, the PC's measured memory, a free port, a free color, the EULA link |
 | POST | `/api/new-server` | Create one. Refused without `eula_accepted: true` (for Bedrock this accepts Mojang's EULA and Privacy Policy, recorded before anything is downloaded). Downloads, installs and registers; starts nothing |
 | GET\|POST | `/api/bedrock/terms` | Whether Mojang's EULA and Privacy Policy were accepted, by whom and when; `POST {"accepted": true}` records the person's own tick |
 | GET | `/api/bedrock/versions` | The Bedrock server zips this app downloaded and kept (Mojang only offers the newest) |

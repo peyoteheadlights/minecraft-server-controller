@@ -591,6 +591,11 @@ public enum AddServer {
     public static let HAVE = "have"
     public static let WAYS = [NEW, MODPACK, HAVE]
 
+    /// Memory after More or Less: at least 1 GB, and no more than the PC has (64 GB when that's unknown).
+    public static func nudged(_ memoryMb: Int, _ stepMb: Int, totalMb: Int?) -> Int {
+        Swift.min(Swift.max(memoryMb + stepMb, 1024), Swift.max(1024, totalMb ?? 64 * 1024))
+    }
+
     public static let EDITION = "edition"
     public static let KIND = "kind"
     public static let VERSION = "version"

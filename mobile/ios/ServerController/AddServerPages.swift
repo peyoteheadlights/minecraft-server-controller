@@ -161,7 +161,7 @@ final class AddServerPages {
 
     func nudgeMemory(_ stepMb: Int) {
         guard let now = memoryMb else { return }
-        memoryMb = Swift.min(Swift.max(now + stepMb, 1024), 64 * 1024)
+        memoryMb = AddServer.nudged(now, stepMb, totalMb: options.value?.totalMb)
     }
 
     func create(_ strings: Strings) async {

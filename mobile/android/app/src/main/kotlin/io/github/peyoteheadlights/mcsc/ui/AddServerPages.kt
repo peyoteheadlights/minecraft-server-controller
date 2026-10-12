@@ -193,7 +193,7 @@ class AddServerPages(
 
     fun nudgeMemory(stepMb: Int) {
         val now = memoryMb ?: return
-        memoryMb = (now + stepMb).coerceIn(1024, 64 * 1024)
+        memoryMb = AddServer.nudged(now, stepMb, options.value?.totalMb)
     }
 
     fun create(strings: Strings) {

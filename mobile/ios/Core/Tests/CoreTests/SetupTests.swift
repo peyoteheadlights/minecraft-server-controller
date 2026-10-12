@@ -536,6 +536,13 @@ final class SetupTests: XCTestCase {
         XCTAssertEqual(AddServer.folderFor("D:\\Minecraft", "  "), "D:\\Minecraft")
     }
 
+    func testANewServersMemoryStaysWithinWhatThePCHas() {
+        XCTAssertEqual(AddServer.nudged(7680, 512, totalMb: 8192), 8192)
+        XCTAssertEqual(AddServer.nudged(8192, 512, totalMb: 8192), 8192)
+        XCTAssertEqual(AddServer.nudged(1024, -512, totalMb: 8192), 1024)
+        XCTAssertEqual(AddServer.nudged(65536, 512, totalMb: nil), 65536)
+    }
+
     func testCreateWaitsForTheRulesToBeTicked() {
         XCTAssertFalse(AddServer.ready(name: "A", folder: "D:\\A", version: "1.21.4", ruled: false))
         XCTAssertFalse(AddServer.ready(name: "A", folder: "", version: "1.21.4", ruled: true))

@@ -529,6 +529,10 @@ object AddServer {
     const val HAVE = "have"
     val WAYS = listOf(NEW, MODPACK, HAVE)
 
+    /** Memory after More or Less: at least 1 GB, and no more than the PC has (64 GB when that's unknown). */
+    fun nudged(memoryMb: Int, stepMb: Int, totalMb: Int?): Int =
+        (memoryMb + stepMb).coerceIn(1024, maxOf(1024, totalMb ?: (64 * 1024)))
+
     const val EDITION = "edition"
     const val KIND = "kind"
     const val VERSION = "version"

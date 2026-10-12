@@ -155,6 +155,9 @@ class Principal:
 
 # A helper's sign-in name: short, and safe to show anywhere.
 USERNAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{1,31}$")
+# Wrong invites are kept with the failed sign-ins under this name, which no
+# account can have (":" isn't allowed in a user name).
+INVITE_ATTEMPT = "invite:"
 MAX_HELPERS = 20
 _DUMMY: list[str] = []
 
@@ -293,6 +296,19 @@ class AuthManager:
             (cutoff, user, source_ip),
         )
         if len(rows) >= max_failed:
+            return rows[0]["ts"] + window - time.time()
+        return None
+
+    def _invites_locked_out(self, source_ip: str) -> float | None:
+        """Wrong invites lock out the address they came from only: one
+        person guessing doesn't stop everyone else's invite."""
+        window = self.config.security.lockout_minutes * 60
+        rows = self.db.query(
+            "SELECT ts FROM login_attempts WHERE success = 0 AND ts > ? AND user = ? "
+            "AND source_ip = ? ORDER BY ts DESC",
+            (time.time() - window, INVITE_ATTEMPT, source_ip),
+        )
+        if len(rows) >= self.config.security.max_failed_logins:
             return rows[0]["ts"] + window - time.time()
         return None
 
@@ -773,7 +789,7 @@ class AuthManager:
         """The invite a token belongs to, or why it can't be used. Wrong
         tokens count as failed sign-ins, so guessing is locked out."""
         self.login_rate.check(f"login:{source_ip or 'unknown'}")
-        remaining = self._locked_out("invite", source_ip)
+        remaining = self._invites_locked_out(source_ip)
         if remaining:
             raise AuthError(
                 f"Too many failed attempts. Try again in {int(remaining / 60) + 1} minutes.",
@@ -784,7 +800,7 @@ class AuthManager:
             "SELECT * FROM invites WHERE token_hash = ?", (token_hash(token or ""),)
         )
         if row is None:
-            self._record_attempt("invite", source_ip, False)
+            self._record_attempt(INVITE_ATTEMPT, source_ip, False)
             raise InviteError("unknown", "That invite isn't right. Ask the owner for a new one.")
         if row["used_at"] is not None:
             raise InviteError(

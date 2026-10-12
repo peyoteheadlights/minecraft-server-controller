@@ -114,6 +114,9 @@ object Levels {
 
 /** The owner's moderator screens: levels, switches and what gets saved. */
 object Moderators {
+    /** The shortest password the agent takes (agent/security/auth.py). */
+    const val MIN_PASSWORD = 10
+
     /** The level a set matches, [Levels.CUSTOM] if none, [Levels.NONE] when empty. */
     fun levelOf(permissions: Set<String>, catalogue: PermissionCatalogue): String {
         if (permissions.isEmpty()) return Levels.NONE

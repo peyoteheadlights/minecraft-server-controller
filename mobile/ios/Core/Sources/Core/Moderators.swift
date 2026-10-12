@@ -221,6 +221,9 @@ public struct DeviceList: Codable, Equatable, Sendable {
 
 /// The owner's moderator screens: levels, switches and what gets saved.
 public enum Moderators {
+    /// The shortest password the agent takes (agent/security/auth.py).
+    public static let minPassword = 10
+
     /// The level a set matches, `Levels.CUSTOM` if none, `Levels.NONE` when empty.
     public static func levelOf(_ permissions: Set<String>, _ catalogue: PermissionCatalogue) -> String {
         if permissions.isEmpty { return Levels.NONE }

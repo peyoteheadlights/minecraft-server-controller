@@ -98,10 +98,10 @@ struct SignInView: View {
             do {
                 try await model.signIn(username: name, password: secret)
                 password = ""
-            } catch let error as AgentError {
-                problem = error.message(model.strings)
             } catch {
-                problem = AgentError.unreachable.message(model.strings)
+                let failure = model.client?.translateFailure(error) ?? AgentError.unreachable
+                model.note(failure)
+                problem = failure.message(model.strings)
             }
             working = false
         }
@@ -145,7 +145,7 @@ struct InviteAccountView: View {
                         SecureField(model.t("mobile.invite.password"), text: $password)
                             .textContentType(.newPassword)
                             .frame(minHeight: 44)
-                        if !password.isEmpty && password.count < 10 {
+                        if !password.isEmpty && password.count < Moderators.minPassword {
                             Text(model.t("mobile.invite.too_short")).foregroundStyle(.red)
                         }
                         SecureField(model.t("mobile.invite.repeat"), text: $repeated)
@@ -165,16 +165,21 @@ struct InviteAccountView: View {
                                 .fontWeight(.semibold)
                                 .frame(maxWidth: .infinity, minHeight: 44)
                         }
-                        .disabled(working || password.count < 10 || password != repeated)
+                        .disabled(working || password.count < Moderators.minPassword || password != repeated)
                     } footer: {
                         Text(model.t("mobile.signin.stays"))
                     }
                 }
                 Section {
-                    Button(model.t("mobile.pair.start_over"), role: .destructive) {
-                        Task { await model.forgetPC() }
+                    if model.inviteOverSignIn {
+                        Button(model.t("mobile.common.cancel")) { model.cancelInvite() }
+                            .frame(minHeight: 44)
+                    } else {
+                        Button(model.t("mobile.pair.start_over"), role: .destructive) {
+                            Task { await model.forgetPC() }
+                        }
+                        .frame(minHeight: 44)
                     }
-                    .frame(minHeight: 44)
                 }
             }
             .navigationTitle(model.t("mobile.invite.title"))
@@ -197,17 +202,17 @@ struct InviteAccountView: View {
     }
 
     private func submit() {
-        guard !working, password.count >= 10, password == repeated else { return }
+        guard !working, password.count >= Moderators.minPassword, password == repeated else { return }
         working = true
         problem = nil
         let secret = password
         Task {
             do {
                 try await model.acceptInvite(password: secret)
-            } catch let error as AgentError {
-                problem = error.message(model.strings)
             } catch {
-                problem = AgentError.unreachable.message(model.strings)
+                let failure = model.client?.translateFailure(error) ?? AgentError.unreachable
+                model.note(failure)
+                problem = failure.message(model.strings)
             }
             working = false
         }

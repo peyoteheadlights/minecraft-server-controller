@@ -40,7 +40,7 @@ final class ModeratorPages {
 
     /// Runs one change, says what went wrong in the agent's words, and reads the list again.
     private func run(_ what: String, _ work: (AgentClient) async throws -> Void) async -> Bool {
-        guard let client = client() else { return false }
+        guard busy == nil, let client = client() else { return false }
         busy = what
         said = nil
         var done = false
@@ -145,12 +145,12 @@ final class AccountPages {
     }
 
     func signOut(_ device: Device, user: String?) async {
-        guard let client = client() else { return }
+        guard busy == nil, let client = client() else { return }
         busy = device.id
         said = nil
         do {
             try await client.signOutDevice(id: device.id)
-            said = Said(text: strings.t("mobile.account.signed_out_device", ["device": device.label ?? device.id]), good: true)
+            said = Said(text: strings.t("mobile.account.signed_out_device", ["device": device.label ?? strings.t("security.device_unknown")]), good: true)
         } catch {
             let problem = client.translateFailure(error)
             noted(problem)
@@ -400,7 +400,7 @@ struct ModeratorView: View {
                 if mod.inviteWaiting {
                     Section(model.t("mobile.mod.invite_waiting")) {
                         if let invite = mod.invite {
-                            Text(model.t("mobile.mod.invite_expires", ["time": Display.dateTime(invite.expiresAt)]))
+                            Text(model.t("mobile.mod.invite_expires", ["time": Display.dateTime(model.strings, invite.expiresAt)]))
                         }
                         Button {
                             Task { if await pages.newInvite(name, forgetPassword: false) { showingInvite = true } }
@@ -670,7 +670,7 @@ struct InviteView: View {
                         .frame(maxWidth: 320)
                         .frame(maxWidth: .infinity)
                         .accessibilityLabel(model.t("mobile.mod.invite_title", ["name": name]))
-                    Text(model.t("mobile.mod.invite_expires", ["time": Display.dateTime(invite.expiresAt)]))
+                    Text(model.t("mobile.mod.invite_expires", ["time": Display.dateTime(model.strings, invite.expiresAt)]))
                         .foregroundStyle(.secondary)
                     ShareLink(item: model.t("mobile.mod.invite_message", ["name": name, "app": Links.appDownload, "link": url])) {
                         Label(model.t("mobile.mod.invite_share"), systemImage: "square.and.arrow.up")
@@ -745,7 +745,7 @@ struct AccountView: View {
                     SecureField(model.t("account.new"), text: $new)
                         .textContentType(.newPassword)
                         .frame(minHeight: 44)
-                    if !new.isEmpty && new.count < 10 {
+                    if !new.isEmpty && new.count < Moderators.minPassword {
                         Text(model.t("mobile.invite.too_short")).foregroundStyle(.red)
                     }
                     SecureField(model.t("mobile.invite.repeat"), text: $repeated)
@@ -768,7 +768,7 @@ struct AccountView: View {
                         Text(model.t(pages.busy == "password" ? "mobile.account.saving" : "account.change"))
                             .frame(maxWidth: .infinity, minHeight: 44)
                     }
-                    .disabled(pages.busy != nil || current.isEmpty || new.count < 10 || new != repeated)
+                    .disabled(pages.busy != nil || current.isEmpty || new.count < Moderators.minPassword || new != repeated)
                     Text(model.t("mobile.account.forgot")).font(.footnote).foregroundStyle(.secondary)
                 }
             }
@@ -786,7 +786,7 @@ struct AccountView: View {
                     ForEach(devices.sorted { $0.current && !$1.current }) { device in
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(device.current ? model.t("mobile.account.this_device") : device.label ?? model.t("value.unknown"))
+                                Text(device.current ? model.t("mobile.account.this_device") : device.label ?? model.t("security.device_unknown"))
                                 if let used = device.lastUsed {
                                     Text(Display.ago(model.strings, used, now: Date().timeIntervalSince1970))
                                         .font(.footnote).foregroundStyle(.secondary)

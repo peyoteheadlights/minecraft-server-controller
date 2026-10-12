@@ -267,4 +267,16 @@ class ModeratorsTest {
 
     private fun client(agent: TestAgent, current: () -> String? = { token }) =
         AgentClient(agent.pairing(), current, {}, AgentLog { }, systemTrust = TestAgent.trustingNothing())
+
+    @Test
+    fun `the Console, Chat, Activity and Crashes need See the Console`() {
+        fun me(body: String) = json.decodeFromString(Me.serializer(), body)
+        val sam = me("""{"user": "sam", "role": "helper", "permissions": [], "account_permissions": [],
+            "server_permissions": {"survival": ["server.view", "server.control"], "creative": ["server.view", "console.read"]}}""")
+        assertFalse(sam.forServer("survival").readsConsole)
+        assertTrue(sam.forServer("creative").readsConsole)
+        assertTrue(me("""{"user": "mark", "role": "owner", "permissions": []}""").readsConsole)
+        // An agent older than part 6 doesn't say: they show, as before.
+        assertTrue(me("""{"user": "sam", "role": "helper", "permissions": ["server.view"]}""").readsConsole)
+    }
 }

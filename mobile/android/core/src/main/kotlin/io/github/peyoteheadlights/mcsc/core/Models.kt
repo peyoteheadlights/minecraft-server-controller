@@ -62,6 +62,14 @@ data class Me(
         return copy(permissions = (accountPermissions.orEmpty() + perServer[serverId].orEmpty()).distinct())
     }
 
+    /**
+     * Whether the Console, Chat, Activity and Crashes show on this server
+     * ("See the Console and Activity"). An agent older than part 6 doesn't
+     * say, so they show, as before.
+     */
+    val readsConsole: Boolean
+        get() = isOwner || serverPermissions == null || Permissions.CONSOLE_READ in permissions
+
     /** Whether this account can see that server now (a moderator's servers change). */
     fun sees(serverId: String?): Boolean =
         serverId == null || serverPermissions?.containsKey(serverId) ?: (servers == null || serverId in servers)

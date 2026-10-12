@@ -81,12 +81,12 @@ async def accept_invite(payload: InviteAcceptRequest, request: Request, core=Dep
         raise _invite_problem(exc) from exc
     except AccountError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    device = payload.device or "a phone"
+    where = f" on {payload.device}" if payload.device else ""
     await core.bus.publish(
         Event(
             type="helper_invite_used",
             level="info",
-            message=f"{result['user']} set up their account on {device}",
+            message=f"{result['user']} set up their account{where}",
             data={"username": result["user"], "device": payload.device},
         )
     )

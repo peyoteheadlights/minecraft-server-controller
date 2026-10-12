@@ -70,6 +70,9 @@ final class AppModel {
     /// A moderator's invite scanned or pasted: once the phone is paired with
     /// its PC, they choose a password instead of signing in.
     var pendingInvite: Invite? = nil
+    /// An invite opened while signed in to the same PC: the sign-in stays
+    /// until the invite is used, and Cancel goes back to the app (as on Android).
+    var inviteOverSignIn = false
     /// The signed-in account, from /auth/me.
     private var account: Me? = nil
     /// The account on the server whose screen is open: what it may do there.
@@ -177,13 +180,15 @@ final class AppModel {
     /// (a renewed certificate) keeps the sign-in; for any other address the
     /// app signs out of this PC first, so the sign-in is never sent there.
     func rescanned(_ next: Pairing) async {
-        // An invite is another account: this one signs out first.
-        if pendingInvite == nil, let current = pairing, current.samePc(next), signedIn {
+        if let current = pairing, current.samePc(next), signedIn {
             store.pairing = next
             pairing = next
             client = makeClient(next)
             stopLive()
             startLive()
+            // An invite is another account, but this one stays signed in
+            // until the invite is used.
+            if pendingInvite != nil { inviteOverSignIn = true }
             return
         }
         stopLive()
@@ -226,8 +231,15 @@ final class AppModel {
     func acceptInvite(password: String) async throws {
         guard let client = client, let invite = pendingInvite else { throw AgentError.unreachable }
         let result = try await client.acceptInvite(token: invite.token, password: password, device: deviceLabel)
+        // Signed in as someone else before: that sign-in ends here.
+        if signedIn {
+            stopLive()
+            await client.logout()
+            clearSignedIn()
+        }
         TokenStore.save(result.token)
         pendingInvite = nil
+        inviteOverSignIn = false
         locked = false
         signInNotice = nil
         signedIn = true
@@ -279,6 +291,7 @@ final class AppModel {
         store.forgetPC()
         clearSignedIn()
         pendingInvite = nil
+        inviteOverSignIn = false
         pairing = nil
         client = nil
         alertState = AlertState()
@@ -313,6 +326,12 @@ final class AppModel {
         tab = .servers
         live = false
         pagesById = [:]
+    }
+
+    /// Cancel on an invite opened while signed in: back to the app as it was.
+    func cancelInvite() {
+        pendingInvite = nil
+        inviteOverSignIn = false
     }
 
     func note(_ problem: AgentError) {

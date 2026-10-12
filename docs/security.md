@@ -356,23 +356,34 @@ Every REST route declares the permission it needs (`server.control`,
 one. WebSocket messages are checked the same way.
 
 There are two roles. The **owner** (the account in `.env`, and the API
-token) holds every permission. A **helper** can start, stop and restart,
-manage players, chat, take a backup and view everything, and nothing else:
-no settings, no restoring, downloading or deleting backups, no mods or
-versions, no console commands, no making players operators (an operator can
-type any command in the game, so that would be the console by another
-door), no user management, and no security page (it shows sign-in
-addresses). A permission added later is the owner's
-alone until it is added to the helper role on purpose. A helper can also be
-limited to some servers: every per-server route is refused for the others
-(`server_access`), the server list and jobs leave them out, and the live
-connection carries none of their events. `tests/test_helpers.py` walks every
-route as a helper and expects 403 wherever the role doesn't allow it.
-The player buttons need `players.manage`, except Make operator and Remove
-operator, which need `players.op` (the owner's alone); game settings and importing a
-modpack into a server need `settings.edit`, reading a modpack needs
-`mods.manage`, and duplicating or creating a server from a pack needs
-`servers.manage`.
+token) holds every permission. A **moderator** ("helper" in the code until
+Phase 12) gets permissions per server, picked by the owner from three
+presets (Start and stop, Look after it, Run it) or one switch at a time.
+Some permissions belong to no server (`account_permissions` in
+`/api/auth/me`); everything that changes the PC itself (PC settings,
+moderators, updates, export, Get help, the security page, which shows
+sign-in addresses) is the owner's alone. A moderator is either limited to
+some servers, and every per-server route is refused for the others
+(`server_access`), or "All servers", which also gives them the owner's
+chosen permissions on each new server. The server list and jobs leave out
+servers they can't see, and the live connection carries none of their
+events. A permission added later is the owner's alone until it is added to
+a preset on purpose. `tests/test_helpers.py` and `tests/test_moderators.py`
+walk the routes as a moderator and expect 403 wherever their permissions
+don't allow it. Making players operators needs `players.op` (an operator can
+type any command in the game, so it is the console by another door).
+
+A moderator joins with an **invite**: the owner adds them by name and the
+agent makes a link and QR code, good once, for 24 hours, where they choose
+their own password. Only the owner can reset it, which signs them out
+everywhere and makes a new invite. Wrong invite links count towards a
+lockout for the address that tried them, never for everyone.
+
+Moderators can read the agent's settings (the screens need them) but only
+the owner can change them. The live connection sends a moderator every
+event of their servers, including ones the Activity page shows; the phones
+hide the Console, Chat, Activity and Crashes pages from moderators without
+"See the Console".
 
 ## Downloads
 

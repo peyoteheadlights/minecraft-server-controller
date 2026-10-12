@@ -231,4 +231,17 @@ final class ModeratorsTests: XCTestCase {
         XCTAssertTrue(StubAgent.requests[0].request.url?.absoluteString.hasSuffix("/api/invite/accept") ?? false)
         XCTAssertNil(StubAgent.requests[0].request.value(forHTTPHeaderField: "Authorization"))
     }
+
+    func testTheConsoleChatActivityAndCrashesNeedSeeTheConsole() throws {
+        func me(_ body: String) throws -> Me { try JSONDecoder().decode(Me.self, from: Data(body.utf8)) }
+        let sam = try me("""
+            {"user": "sam", "role": "helper", "permissions": [], "account_permissions": [],
+             "server_permissions": {"survival": ["server.view", "server.control"], "creative": ["server.view", "console.read"]}}
+            """)
+        XCTAssertFalse(sam.forServer("survival").readsConsole)
+        XCTAssertTrue(sam.forServer("creative").readsConsole)
+        XCTAssertTrue(try me(#"{"user": "mark", "role": "owner", "permissions": []}"#).readsConsole)
+        // An agent older than part 6 doesn't say: they show, as before.
+        XCTAssertTrue(try me(#"{"user": "sam", "role": "helper", "permissions": ["server.view"]}"#).readsConsole)
+    }
 }

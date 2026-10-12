@@ -385,6 +385,21 @@ def test_a_wrong_invite_counts_as_a_failed_sign_in(multi_client, owner):
     assert multi_client.post("/api/invite/check", json={"token": "x"}).status_code == 429
 
 
+def test_wrong_invites_lock_out_only_their_own_address(multi_client, owner, paired):
+    from agent.security.auth import AuthError, InviteError
+
+    auth = multi_client.app.state.core.auth
+    auth.login_rate.check = lambda key: None
+    token = token_of(invite_sam(multi_client, owner))
+    for _ in range(12):
+        with pytest.raises((InviteError, AuthError)):
+            auth.check_invite("not-a-real-invite", source_ip="10.0.0.66")
+    with pytest.raises(AuthError):
+        auth.check_invite(token, source_ip="10.0.0.66")
+    # Someone else's guessing doesn't stop sam's invite.
+    assert auth.check_invite(token, source_ip="10.0.0.7")["username"] == "sam"
+
+
 def test_an_invite_needs_a_good_password(multi_client, owner, paired):
     token = token_of(invite_sam(multi_client, owner))
     assert accept(multi_client, token, password="short").status_code == 400

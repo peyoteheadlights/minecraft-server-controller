@@ -118,6 +118,13 @@ public struct Me: Codable, Equatable, Sendable {
         return copy
     }
 
+    /// Whether the Console, Chat, Activity and Crashes show on this server
+    /// ("See the Console and Activity"). An agent older than part 6 doesn't
+    /// say, so they show, as before.
+    public var readsConsole: Bool {
+        isOwner || serverPermissions == nil || permissions.contains(Permissions.CONSOLE_READ)
+    }
+
     /// Whether this account can see that server now (a moderator's servers change).
     public func sees(_ serverId: String?) -> Bool {
         guard let serverId = serverId else { return true }

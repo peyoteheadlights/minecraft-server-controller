@@ -37,6 +37,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import io.github.peyoteheadlights.mcsc.core.Moderators
 import io.github.peyoteheadlights.mcsc.core.formatFingerprint
 
 /** The screens before the app is paired and signed in. */
@@ -154,9 +155,9 @@ private fun Welcome(vm: AppViewModel) {
 private fun InviteAccount(vm: AppViewModel, stage: Stage.Invite) {
     var password by rememberSaveable { mutableStateOf("") }
     var repeat by rememberSaveable { mutableStateOf("") }
-    val short = password.isNotEmpty() && password.length < 10
+    val short = password.isNotEmpty() && password.length < Moderators.MIN_PASSWORD
     val mismatch = repeat.isNotEmpty() && password != repeat
-    val ready = !stage.busy && password.length >= 10 && password == repeat
+    val ready = !stage.busy && password.length >= Moderators.MIN_PASSWORD && password == repeat
     Page(t("mobile.invite.title"), onBack = { vm.back() }) {
         Lead(t("mobile.invite.lead"))
         vm.pairing?.let { Note(t("mobile.signin.pc", "host" to it.host), modifier = Modifier.padding(horizontal = 0.dp)) }

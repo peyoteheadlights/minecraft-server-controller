@@ -31,6 +31,9 @@ enum ServerRoute: Hashable {
 enum ServerPage: String, Hashable, CaseIterable {
     case console, chat, players, performance, backups, world, schedules, events, crashes
 
+    /// What "See the Console and Activity" lets a moderator open.
+    var readsConsole: Bool { [.console, .chat, .events, .crashes].contains(self) }
+
     var titleKey: String { "page.\(rawValue)" }
 }
 

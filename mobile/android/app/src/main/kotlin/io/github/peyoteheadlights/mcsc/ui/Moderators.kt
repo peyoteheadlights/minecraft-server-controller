@@ -103,6 +103,7 @@ class ModeratorPages(
     }
 
     private fun run(what: String, strings: Strings, work: suspend (AgentClient) -> Unit) {
+        if (busy != null) return
         val c = client() ?: return
         busy = what
         said = null
@@ -195,13 +196,14 @@ class AccountPages(
     }
 
     fun signOut(device: Device, user: String?, strings: Strings) {
+        if (busy != null) return
         val c = client() ?: return
         busy = device.id
         said = null
         scope.launch {
             try {
                 c.signOutDevice(device.id)
-                said = Said(strings.t("mobile.account.signed_out_device", "device" to (device.label ?: device.id)), good = true)
+                said = Said(strings.t("mobile.account.signed_out_device", "device" to (device.label ?: strings.t("security.device_unknown"))), good = true)
             } catch (e: AgentException) {
                 noted(e)
                 said = Said(Message.of(e).text(strings), good = false)
@@ -213,11 +215,6 @@ class AccountPages(
 }
 
 // ------------------------------------------------------------ screens
-
-@Composable
-private fun SaidNote(said: Said?) {
-    said?.let { Note(it.text, color = if (it.good) LocalColors.current.success else LocalColors.current.danger) }
-}
 
 /** Settings > Moderators (owner only). */
 @Composable
@@ -661,7 +658,7 @@ fun AccountScreen(vm: AppViewModel, onBack: () -> Unit) {
     var repeat by rememberSaveable { mutableStateOf("") }
     LaunchedEffect(user) { pages.load(user) }
     val mismatch = repeat.isNotEmpty() && new != repeat
-    val short = new.isNotEmpty() && new.length < 10
+    val short = new.isNotEmpty() && new.length < Moderators.MIN_PASSWORD
 
     Scaffold(containerColor = colors.sheet, topBar = { Bar(t("account.title"), onBack) }) { padding ->
         LazyColumn(contentPadding = ScreenPadding, modifier = Modifier.padding(padding).fillMaxSize()) {
@@ -684,7 +681,7 @@ fun AccountScreen(vm: AppViewModel, onBack: () -> Unit) {
                                     pages.load(user)
                                 }
                             },
-                            enabled = pages.busy == null && current.isNotEmpty() && new.length >= 10 && new == repeat,
+                            enabled = pages.busy == null && current.isNotEmpty() && new.length >= Moderators.MIN_PASSWORD && new == repeat,
                             modifier = Modifier.fillMaxWidth(),
                         ) { Text(t(if (pages.busy == "password") "mobile.account.saving" else "account.change")) }
                         Note(t("mobile.account.forgot"), modifier = Modifier.padding(horizontal = 0.dp))
@@ -700,7 +697,7 @@ fun AccountScreen(vm: AppViewModel, onBack: () -> Unit) {
                         if (devices.none { !it.current }) Item(t("mobile.account.no_devices"))
                         for (device in devices.sortedByDescending { it.current }) {
                             Item(
-                                if (device.current) t("mobile.account.this_device") else device.label ?: t("value.unknown"),
+                                if (device.current) t("mobile.account.this_device") else device.label ?: t("security.device_unknown"),
                                 subtitle = device.lastUsed?.let { Display.ago(vm.strings, it, now) },
                                 trailing = {
                                     if (!device.current) {

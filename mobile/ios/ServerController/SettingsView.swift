@@ -111,12 +111,15 @@ struct SettingsView: View {
 
     private var people: some View {
         Section(model.t("mobile.settings.people")) {
-            NavigationLink {
-                AccountView()
-            } label: {
-                LabeledContent(model.t("account.title"), value: model.me?.user ?? "")
+            // The owner's password is reset on the PC, and their devices are in PC settings.
+            if model.me?.isOwner == false {
+                NavigationLink {
+                    AccountView()
+                } label: {
+                    LabeledContent(model.t("account.title"), value: model.me?.user ?? "")
+                }
+                .frame(minHeight: 44)
             }
-            .frame(minHeight: 44)
             if model.me?.isOwner == true {
                 NavigationLink(model.t("mobile.mod.title")) {
                     ModeratorsView()

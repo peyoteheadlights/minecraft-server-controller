@@ -53,6 +53,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 
 /**
  * Settings > PC settings, owner only (the dashboard's App settings): alerts,
@@ -153,7 +155,7 @@ class PcPages(
     }
 
     private fun saveOne(what: String, key: String, on: Boolean, strings: Strings, done: String) = run(what, strings) { c ->
-        val result = c.savePcSettings(kotlinx.serialization.json.buildJsonObject { put(key, kotlinx.serialization.json.JsonPrimitive(on)) })
+        val result = c.savePcSettings(buildJsonObject { put(key, JsonPrimitive(on)) })
         view = Read(c.pcSettings())
         if (key == "power.keep_awake") power = runCatching { c.power() }.getOrNull()
         val (text, good) = PcSettings.saved(strings, result)

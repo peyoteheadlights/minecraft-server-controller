@@ -50,8 +50,9 @@ fun SettingsScreen(vm: AppViewModel, onAbout: () -> Unit, onAccount: () -> Unit,
             item { SectionTitle(t("mobile.settings.people")) }
             item {
                 Card {
-                    Item(t("account.title"), subtitle = vm.me?.user ?: vm.user, onClick = onAccount)
-                    if (vm.me?.isOwner == true) {
+                    // The owner's password is reset on the PC, and their devices are in PC settings.
+                    if (vm.me?.isOwner == false) Item(t("account.title"), subtitle = vm.me?.user, onClick = onAccount)
+                    if (owner) {
                         Item(t("mobile.mod.title"), onClick = onModerators)
                         // A new version shows here too, so the owner sees it without opening PC settings.
                         val update = vm.pcSettings.update?.takeIf { it.available }?.latest?.version

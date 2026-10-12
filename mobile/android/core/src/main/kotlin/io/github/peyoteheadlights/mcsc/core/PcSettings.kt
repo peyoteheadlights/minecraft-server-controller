@@ -337,12 +337,14 @@ object PcSettings {
 
     // ------------------------------------------------------------ signed-in devices
     /** Every account's devices, this account first, then by name; this phone first in its list. */
-    fun byAccount(devices: List<Device>, me: String?): List<Pair<String, List<Device>>> =
+    fun byAccount(devices: List<Device>, me: String?): List<DeviceGroup> =
         devices.groupBy { it.user }
-            .toList()
-            .sortedWith(compareBy<Pair<String, List<Device>>> { it.first != me }.thenBy { it.first.lowercase() })
-            .map { (user, list) -> user to list.sortedWith(compareBy<Device> { !it.current }.thenByDescending { it.lastUsed ?: 0.0 }) }
+            .map { (user, list) -> DeviceGroup(user, list.sortedWith(compareBy<Device> { !it.current }.thenByDescending { it.lastUsed ?: 0.0 })) }
+            .sortedWith(compareBy<DeviceGroup> { it.user != me }.thenBy { it.user.lowercase() })
 }
+
+/** One account's signed-in devices, this phone first. */
+data class DeviceGroup(val user: String, val devices: List<Device>)
 
 /**
  * The app update as PC settings shows it, from GET /api/updates, and

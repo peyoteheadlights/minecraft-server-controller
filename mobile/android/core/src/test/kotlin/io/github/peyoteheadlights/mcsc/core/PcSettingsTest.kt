@@ -211,8 +211,8 @@ class PcSettingsTest {
             Device("4", "alex", "iPhone", lastUsed = 20.0),
         )
         val grouped = PcSettings.byAccount(devices, me = "mark")
-        assertEquals(listOf("mark", "alex", "sam"), grouped.map { it.first })
-        assertEquals(listOf("3", "2"), grouped.first().second.map { it.id })
+        assertEquals(listOf("mark", "alex", "sam"), grouped.map { it.user })
+        assertEquals(listOf("3", "2"), grouped.first().devices.map { it.id })
         TestAgent().use { agent ->
             agent.server.enqueue(agent.json("""{"ok": true}"""))
             agent.server.enqueue(agent.json("""{"ok": true, "revoked": 4}"""))

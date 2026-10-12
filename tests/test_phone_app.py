@@ -202,14 +202,19 @@ def test_every_pc_setting_on_the_dashboard_has_a_phone_screen():
     keys |= {k + "." for k in re.findall(r"`(notifications\.events)\.\$\{", dashboard)}
     assert "power.keep_awake" in keys and "notifications.events." in keys
     phones = {
-        "Android": ROOT / "mobile/android/core/src/main/kotlin/io/github/peyoteheadlights/mcsc/core/PcSettings.kt",
+        "Android": ROOT
+        / "mobile/android/core/src/main/kotlin/io/github/peyoteheadlights/mcsc/core/PcSettings.kt",
         "iPhone": ROOT / "mobile/ios/Core/Sources/Core/PcSettings.swift",
     }
     for phone, path in phones.items():
         source = path.read_text(encoding="utf-8")
-        listed = set(re.findall(r'"((?:notifications|thresholds|power|updates)\.[a-z_.]*)"', source))
+        listed = set(
+            re.findall(r'"((?:notifications|thresholds|power|updates)\.[a-z_.]*)"', source)
+        )
         for key in keys:
-            assert any(key == k or key.startswith(k) for k in listed), f"{phone} has no screen for {key}"
+            assert any(key == k or key.startswith(k) for k in listed), (
+                f"{phone} has no screen for {key}"
+            )
 
     routes = (ROOT / "mobile" / "api-routes.txt").read_text(encoding="utf-8")
     called = {

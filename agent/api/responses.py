@@ -645,7 +645,9 @@ class Recommendations(Open):
 class LoginResult(Open):
     token: str = Field(description="Send as 'Authorization: Bearer <token>'")
     user: str
-    expires_at: float | None = Field(description="null for a phone's sign-in: it lasts until signed out")
+    expires_at: float | None = Field(
+        description="null for a phone's sign-in: it lasts until signed out"
+    )
     role: str = Field(description="owner or helper")
     remember: bool
 
@@ -1217,7 +1219,9 @@ class PaletteColor(Open):
 
 class CpuStatus(Open):
     configured: list[int] | None = Field(None, description="null: every core")
-    applied: list[int] | None = Field(None, description="Read from the running server; null when unknown")
+    applied: list[int] | None = Field(
+        None, description="Read from the running server; null when unknown"
+    )
     applied_reason: str | None = None
     problems: list[str] = []
 
@@ -1270,7 +1274,9 @@ class CpuApplied(Open):
 class ServerSettingsSaved(Open):
     ok: bool
     applied: dict[str, Any]
-    rejected: dict[str, str] = Field(description="Each refused key with the reason, said to the person")
+    rejected: dict[str, str] = Field(
+        description="Each refused key with the reason, said to the person"
+    )
     cpu_cores: CpuApplied | None = Field(None, description="Only when the server is running")
 
 
@@ -1334,7 +1340,9 @@ class OfferedVersion(Open):
     minecraft: str
     stable: bool = True
     loaders: list[str] = []
-    java_required: int | None = Field(None, description="The oldest Java it runs on; null when unknown")
+    java_required: int | None = Field(
+        None, description="The oldest Java it runs on; null when unknown"
+    )
     kept: bool = False
     latest: bool = False
 

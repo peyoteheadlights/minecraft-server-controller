@@ -355,7 +355,12 @@ def test_a_phone_signed_in_until_signed_out_is_woken_however_long_it_sat(multi_c
 
     phone = multi_client.post(
         "/api/auth/login",
-        json={"username": "admin", "password": "correct horse battery", "device": "Pixel", "remember": True},
+        json={
+            "username": "admin",
+            "password": "correct horse battery",
+            "device": "Pixel",
+            "remember": True,
+        },
     ).json()
     register_phone(multi_client, headers={"Authorization": f"Bearer {phone['token']}"})
     core = multi_client.app.state.core

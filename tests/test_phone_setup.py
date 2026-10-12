@@ -51,7 +51,9 @@ def test_a_server_with_its_own_value_keeps_it_there(signed_in, config):
 
 
 def test_a_setting_that_cant_be_changed_says_so_plainly(signed_in):
-    body = signed_in.put("/api/servers/test/settings", json={"updates": {"server.java": "x"}}).json()
+    body = signed_in.put(
+        "/api/servers/test/settings", json={"updates": {"server.java": "x"}}
+    ).json()
     assert body["rejected"]["server.java"] == "This setting can't be changed here."
     assert "dashboard" not in body["rejected"]["server.java"]
 
@@ -106,21 +108,33 @@ def test_remove_server_wording_never_says_dashboard():
     strings = json.loads((ROOT / "mobile" / "shared" / "strings.json").read_text(encoding="utf-8"))
     remove = {key: words for key, words in strings.items() if key.startswith("serverset.remove")}
     assert remove
-    assert not [key for key, words in remove.items() if any("dashboard" in w.lower() for w in words)]
+    assert not [
+        key for key, words in remove.items() if any("dashboard" in w.lower() for w in words)
+    ]
 
 
 def test_raw_game_settings_are_checked_and_never_half_saved(signed_in):
     before = signed_in.get("/api/servers/test/game-settings").json()["text"]
-    refused = signed_in.put("/api/servers/test/game-settings/raw", json={"text": "motd=Hi\nmax-players=lots\n"})
+    refused = signed_in.put(
+        "/api/servers/test/game-settings/raw", json={"text": "motd=Hi\nmax-players=lots\n"}
+    )
     assert refused.status_code == 400
     assert "max-players" in refused.text
     assert signed_in.get("/api/servers/test/game-settings").json()["text"] == before
-    saved = signed_in.put("/api/servers/test/game-settings/raw", json={"text": before + "motd=Hi\n"}).json()
+    saved = signed_in.put(
+        "/api/servers/test/game-settings/raw", json={"text": before + "motd=Hi\n"}
+    ).json()
     assert saved["ok"] is True
     assert "motd" in saved["keys"]
 
 
 def test_java_options_save_through_server_settings(signed_in):
-    saved = signed_in.put("/api/servers/test/settings", json={"updates": {"server.jvm_args": ["-Xmx2G", "-XX:+UseG1GC"]}}).json()
+    saved = signed_in.put(
+        "/api/servers/test/settings",
+        json={"updates": {"server.jvm_args": ["-Xmx2G", "-XX:+UseG1GC"]}},
+    ).json()
     assert saved["rejected"] == {}
-    assert signed_in.get("/api/servers/test/memory").json()["jvm_args"] == ["-Xmx2G", "-XX:+UseG1GC"]
+    assert signed_in.get("/api/servers/test/memory").json()["jvm_args"] == [
+        "-Xmx2G",
+        "-XX:+UseG1GC",
+    ]

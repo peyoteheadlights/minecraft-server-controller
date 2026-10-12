@@ -125,7 +125,11 @@ def test_a_phone_stays_signed_in_until_it_is_signed_out(multi_client):
     assert multi_client.get("/api/servers", headers=phone).status_code == 200
     me = multi_client.get("/api/auth/me", headers=phone).json()
     assert me["expires_at"] is None
-    row = next(r for r in multi_client.get("/api/sessions", headers=phone).json()["sessions"] if r["current"])
+    row = next(
+        r
+        for r in multi_client.get("/api/sessions", headers=phone).json()["sessions"]
+        if r["current"]
+    )
     assert row["expires_at"] is None and row["remember"] is True
 
 
@@ -152,7 +156,9 @@ def test_a_phone_sign_in_still_ends_when_signed_out_or_its_account_goes(multi_cl
     # A helper whose password the owner changes, then a removed helper.
     add_helper(multi_client, owner)
     _, sams = sign_in(multi_client, "sam", HELPER_PASSWORD, **PHONE)
-    changed = multi_client.put("/api/accounts/sam", json={"password": "a brand new password 42"}, headers=owner)
+    changed = multi_client.put(
+        "/api/accounts/sam", json={"password": "a brand new password 42"}, headers=owner
+    )
     assert changed.status_code == 200, changed.text
     assert multi_client.get("/api/servers", headers=sams).status_code == 401
     _, sams = sign_in(multi_client, "sam", "a brand new password 42", **PHONE)

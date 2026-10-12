@@ -27,9 +27,9 @@ from ...servertypes import versions as versions_module
 from ..deps import audit, get_core, get_server
 from ..responses import (
     BedrockTerms,
+    BedrockVersions,
     Crossplay,
     CrossplaySaved,
-    BedrockVersions,
     EulaAccepted,
     ServerTypes,
     ServerVersion,

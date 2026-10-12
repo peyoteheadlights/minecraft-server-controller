@@ -476,8 +476,105 @@ public struct JobList: Decodable, Equatable, Sendable {
     }
 }
 
-public struct JobUndone: Decodable, Equatable, Sendable {
+/// One change on a server's Undo or Redo list (agent/changes.py).
+public struct Change: Decodable, Equatable, Identifiable, Sendable {
+    public var id: Int64
+    public var title: String
+    public var user: String?
+    public var madeAt: Double
+    /// Set on the Redo list: when it was undone.
+    public var undoneAt: Double?
+    /// What Undo or Redo puts back; nil for everything the backup holds.
+    public var scope: [String]?
+    public var backup: String
+    /// When the backup that would be put back was made.
+    public var backupAt: Double
+    /// Play since that backup; nil when no sessions were recorded.
+    public var playedSeconds: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, user, scope, backup
+        case madeAt = "made_at"
+        case undoneAt = "undone_at"
+        case backupAt = "backup_at"
+        case playedSeconds = "played_seconds"
+    }
+
+    public init(
+        id: Int64, title: String, user: String? = nil, madeAt: Double = 0, undoneAt: Double? = nil,
+        scope: [String]? = nil, backup: String = "", backupAt: Double = 0, playedSeconds: Double? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.user = user
+        self.madeAt = madeAt
+        self.undoneAt = undoneAt
+        self.scope = scope
+        self.backup = backup
+        self.backupAt = backupAt
+        self.playedSeconds = playedSeconds
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int64.self, forKey: .id)
+        title = c.value(.title, "")
+        user = c.maybe(.user)
+        madeAt = c.value(.madeAt, 0.0)
+        undoneAt = c.maybe(.undoneAt)
+        scope = c.maybe(.scope)
+        backup = c.value(.backup, "")
+        backupAt = c.value(.backupAt, 0.0)
+        playedSeconds = c.maybe(.playedSeconds)
+    }
+}
+
+/// A server's two lists: Undo reverses `undo`'s first, Redo puts back `redo`'s first.
+public struct UndoRedo: Decodable, Equatable, Sendable {
+    public var undo: [Change]
+    public var redo: [Change]
+    public var serverRunning: Bool
+    public var blockedBy: String?
+
+    enum CodingKeys: String, CodingKey {
+        case undo, redo
+        case serverRunning = "server_running"
+        case blockedBy = "blocked_by"
+    }
+
+    public init(undo: [Change] = [], redo: [Change] = [], serverRunning: Bool = false, blockedBy: String? = nil) {
+        self.undo = undo
+        self.redo = redo
+        self.serverRunning = serverRunning
+        self.blockedBy = blockedBy
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        undo = c.each(.undo)
+        redo = c.each(.redo)
+        serverRunning = c.value(.serverRunning, false)
+        blockedBy = c.maybe(.blockedBy)
+    }
+}
+
+/// What Undo or Redo did.
+public struct ChangeMoved: Decodable, Equatable, Sendable {
+    public var change: Change
     public var restored: String?
+    public var safetyBackup: SafetyBackup?
+
+    enum CodingKeys: String, CodingKey {
+        case change, restored
+        case safetyBackup = "safety_backup"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        change = try c.decode(Change.self, forKey: .change)
+        restored = c.maybe(.restored)
+        safetyBackup = c.maybe(.safetyBackup)
+    }
 }
 
 // MARK: - Schedules
@@ -800,9 +897,8 @@ public enum Backups {
 
     /// The newest finished change on this server that can be undone. The
     /// agent lists jobs newest first.
-    public static func lastUndoable(_ jobs: [Job]) -> Job? {
-        jobs.first { $0.state == "succeeded" && $0.undo != nil }
-    }
+    /// A task's states once it is over.
+    public static let FINISHED: Set<String> = ["succeeded", "failed", "interrupted"]
 
     /// "Kept: last 7 days, 4 weeks, 3 months"; nil when the agent didn't say.
     public static func keeping(_ strings: Strings, _ retention: Retention?) -> String? {
@@ -902,9 +998,14 @@ public enum WorldRestore {
     /// "2h 10m ago · about 1h 30m of play would be lost"; play not known
     /// when no sessions were recorded (never "no play").
     public static func lossLine(_ strings: Strings, _ point: WorldPoint) -> String {
-        let since = strings.t("world.since", ["duration": Display.duration(strings, point.ageSeconds)])
+        lossLine(strings, ageSeconds: point.ageSeconds, playedSeconds: point.playedSeconds)
+    }
+
+    /// The same line for a backup made `ageSeconds` ago (Undo and Redo use it too).
+    public static func lossLine(_ strings: Strings, ageSeconds: Double, playedSeconds: Double?) -> String {
+        let since = strings.t("world.since", ["duration": Display.duration(strings, ageSeconds)])
         let play: String
-        if let played = point.playedSeconds {
+        if let played = playedSeconds {
             play = played < 60
                 ? strings.t("world.no_play")
                 : strings.t("world.play_lost", ["duration": Display.duration(strings, played)])
@@ -1019,5 +1120,56 @@ extension Display {
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
         return formatter.string(from: Date(timeIntervalSince1970: ts))
+    }
+}
+
+/// Undo and Redo: the two lists of changes (changesCard and moveChange in backups.js).
+public enum ChangeList {
+    /// How many changes past the newest the screen lists ("Pressing Undo again goes on to").
+    public static let LATER = 3
+
+    /// Whether the Undo ("undo") or Redo ("redo") button works now: the
+    /// person may restore, there is something to move and no task holds the server.
+    public static func canMove(_ changes: UndoRedo, _ direction: String, canRestore: Bool) -> Bool {
+        let list = direction == "undo" ? changes.undo : changes.redo
+        return canRestore && !list.isEmpty && changes.blockedBy == nil
+    }
+
+    /// The first line: the newest change, or that nothing is left to undo.
+    public static func next(_ strings: Strings, _ changes: UndoRedo, now: Double) -> String {
+        guard let change = changes.undo.first else { return strings.t("changes.nothing_to_undo") }
+        return strings.t("changes.next_undo", [
+            "title": change.title,
+            "when": Display.ago(strings, change.madeAt, now: now),
+            "who": change.user ?? strings.t("value.unknown"),
+        ])
+    }
+
+    /// The change Redo would put back, or nil when nothing was undone.
+    public static func nextRedo(_ strings: Strings, _ changes: UndoRedo, now: Double) -> String? {
+        guard let change = changes.redo.first else { return nil }
+        return strings.t("changes.next_redo", ["title": change.title, "when": Display.ago(strings, change.undoneAt, now: now)])
+    }
+
+    /// The changes after the newest, for "Pressing Undo again goes on to".
+    public static func later(_ strings: Strings, _ changes: UndoRedo, now: Double) -> [String] {
+        changes.undo.dropFirst().prefix(LATER).map {
+            strings.t("changes.later_item", ["title": $0.title, "when": Display.ago(strings, $0.madeAt, now: now)])
+        }
+    }
+
+    /// The question before Undo or Redo: its title, and what goes back and what would be lost.
+    public static func ask(_ strings: Strings, _ direction: String, _ change: Change, now: Double) -> (title: String, body: String) {
+        let what = change.scope?.joined(separator: ", ") ?? strings.t("changes.everything")
+        let body = strings.t("changes.\(direction)_body", ["what": what, "when": Display.dateTime(change.backupAt)])
+        let loss = WorldRestore.lossLine(strings, ageSeconds: Swift.max(0, now - change.backupAt), playedSeconds: change.playedSeconds)
+        return (
+            strings.t("changes.\(direction)_title", ["title": change.title]),
+            [body, loss, strings.t("changes.server_stops")].joined(separator: "\n\n")
+        )
+    }
+
+    public static func done(_ strings: Strings, _ direction: String, _ moved: ChangeMoved) -> String {
+        strings.t("changes.\(direction)_done", ["title": moved.change.title])
     }
 }

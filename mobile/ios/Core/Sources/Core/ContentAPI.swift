@@ -104,9 +104,10 @@ extension AgentClient {
         try await upload(content(serverId) + "/mods/upload", file, as: ModUploaded.self)
     }
 
-    /// Reads a modpack (.mrpack) and says what importing it here would do.
-    public func inspectModpack(serverId: String, file: PickedFile) async throws -> ModpackInspected {
-        try await upload("/api/modpacks/inspect?server_id=" + AgentClient.pathSegment(serverId), file, as: ModpackInspected.self)
+    /// Reads a modpack (.mrpack); with `serverId`, also what importing it there would do.
+    public func inspectModpack(serverId: String?, file: PickedFile) async throws -> ModpackInspected {
+        let path = serverId.map { "/api/modpacks/inspect?server_id=" + AgentClient.pathSegment($0) } ?? "/api/modpacks/inspect"
+        return try await upload(path, file, as: ModpackInspected.self)
     }
 
     /// Throws away a modpack read but not imported.
@@ -148,6 +149,13 @@ extension AgentClient {
         return try await call("PUT", content(serverId) + "/game-settings", body: body, as: GameSettingsSaved.self)
     }
 
+    /// Saves the whole server.properties as typed in Technical mode. The
+    /// agent still checks the known keys, and writes nothing when one fails.
+    public func saveGameSettingsText(serverId: String, text: String) async throws -> GameSettingsSaved {
+        let body = try AgentClient.encode(["text": JSONValue.string(text)])
+        return try await call("PUT", content(serverId) + "/game-settings/raw", body: body, as: GameSettingsSaved.self)
+    }
+
     // MARK: - Plumbing
 
     private func content(_ id: String) -> String {
@@ -161,13 +169,19 @@ extension AgentClient {
     /// Sends a picked file as the dashboard's upload form does (field
     /// "file"). The form is written to a file next to it and sent from
     /// there, so the phone never holds the whole file in memory.
-    private func upload<T: Decodable>(_ path: String, _ file: PickedFile, as type: T.Type) async throws -> T {
+    /// `sent` gets the bytes sent so far and the form's size.
+    func upload<T: Decodable>(
+        _ path: String,
+        _ file: PickedFile,
+        sent: (@Sendable (Int64, Int64?) -> Void)? = nil,
+        as type: T.Type
+    ) async throws -> T {
         let boundary = "mcsc-" + UUID().uuidString
         let form = FileManager.default.temporaryDirectory.appendingPathComponent(boundary + ".form")
         defer { try? FileManager.default.removeItem(at: form) }
         try AgentClient.writeForm(file, boundary: boundary, to: form)
         return try await call(
-            "POST", path, slow: true, upload: (form, "multipart/form-data; boundary=" + boundary), as: type
+            "POST", path, slow: true, upload: (form, "multipart/form-data; boundary=" + boundary), sent: sent, as: type
         )
     }
 

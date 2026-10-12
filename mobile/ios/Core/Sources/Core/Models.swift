@@ -429,6 +429,7 @@ public enum Permissions {
     public static let PLAYERS_MANAGE = "players.manage"
     public static let PLAYERS_OP = "players.op"
     public static let CHAT_SEND = "chat.send"
+    public static let SETTINGS_VIEW = "settings.view"
     public static let SETTINGS_EDIT = "settings.edit"
     public static let BACKUPS_CREATE = "backups.create"
     public static let BACKUPS_DOWNLOAD = "backups.download"
@@ -436,4 +437,7 @@ public enum Permissions {
     public static let BACKUPS_DELETE = "backups.delete"
     public static let SCHEDULES_MANAGE = "schedules.manage"
     public static let MODS_MANAGE = "mods.manage"
+    public static let SERVERS_MANAGE = "servers.manage"
+    public static let FILES_BROWSE = "files.browse"
+    public static let WORLD_REPLACE = "world.replace"
 }

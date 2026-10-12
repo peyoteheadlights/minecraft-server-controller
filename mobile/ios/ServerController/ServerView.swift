@@ -206,6 +206,9 @@ struct ServerView: View {
                 screenLink(model.t(kind.titleKey), ServerRoute.content(serverId), palette)
             }
             screenLink(model.t("page.game_settings"), ServerRoute.game(serverId), palette)
+            if ServerForm.visible(model.me) {
+                screenLink(model.t("page.server_settings"), ServerRoute.settings(serverId), palette)
+            }
         }
     }
 

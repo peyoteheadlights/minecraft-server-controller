@@ -42,7 +42,7 @@
   "mobile.signin.title": ["Sign in", "Sign in"],
   "mobile.signin.lead": ["Use the same username and password as the dashboard.", "Same credentials as the dashboard."],
   "mobile.signin.pc": ["PC: {host}", "Agent: {host}"],
-  "mobile.signin.stays": ["You stay signed in on this phone, behind your phone's unlock. Sign it out any time from the dashboard's Security page.", "A remembered session, stored in the phone's secure storage. Revocable under Security."],
+  "mobile.signin.stays": ["You only sign in once. This phone stays signed in, behind your phone's unlock, until you sign it out here or on the PC.", "A session with no time limit, stored in the phone's secure storage. Ends on sign-out, revoke, or a password change."],
   "mobile.signin.device": ["{app} on {model}", "{app} on {model}"],
 
   "mobile.lock.title": ["Unlock to continue", "Locked"],
@@ -94,12 +94,6 @@
   "mobile.perf.summary": ["{title}: latest {latest}, lowest {low}, highest {high}. Touch or drag along the graph to read each point.", "{title}: latest {latest}, min {low}, max {high}. Touch or drag to read each point."],
 
   "mobile.alerts.title": ["Alerts", "Alerts"],
-  "mobile.backups.last_change": ["Newest change", "Newest change"],
-  "mobile.backups.last_change_body": ["{title}, {when}. Undo puts back the backup {backup} made just before it.", "{title}, {when}. Undo restores the backup {backup} taken just before it."],
-  "mobile.backups.undo_change": ["Undo", "Undo"],
-  "mobile.backups.undo_title": ["Undo this change?", "Undo this change?"],
-  "mobile.backups.undo_body": ["{title} is undone by restoring {backup}. The server stops first, and a backup of how things are now is made.", "{title} is undone by restoring {backup}. The server is stopped first and a backup is taken."],
-  "mobile.backups.undone": ["Undone. {name} is back.", "Undone: {name} is back."],
   "mobile.alerts.empty": ["Nothing yet. Alerts about your servers show up here.", "No alerts since pairing."],
   "mobile.alerts.empty_hint": ["The PC decides which alerts are sent, in the dashboard's Settings, under Alerts.", "Events and cooldowns are set in the dashboard (notifications.*)."],
   "mobile.alerts.mark_read": ["Mark all as read", "Mark all read"],
@@ -267,5 +261,54 @@
   "mobile.common.cancel": ["Cancel", "Cancel"],
   "mobile.common.close": ["Close", "Close"],
   "mobile.common.retry": ["Try again", "Retry"],
-  "mobile.common.loading": ["Loading…", "Loading…"]
+  "mobile.common.loading": ["Loading…", "Loading…"],
+
+  "mobile.serverset.intro": ["How Command Block runs this server. The game's own rules are in Game settings.", "Agent-side settings for this server. server.properties is under Game settings."],
+  "mobile.serverset.read_only": ["Your account can see these settings but not change them.", "This account lacks settings.edit."],
+  "mobile.serverset.autostart": ["Start it when the PC starts", "Start with the agent"],
+  "mobile.serverset.autostart_hint": ["Only when Command Block itself starts with the PC.", "autostart_minecraft: starts when the agent starts."],
+  "mobile.serverset.color_hint": ["Or type one as # and six letters or numbers, like #3366CC.", "Custom hex, #RRGGBB."],
+  "mobile.serverset.color_bad": ["That isn't a color. Type # and six letters or numbers.", "Not a #RRGGBB hex value."],
+  "mobile.serverset.save": ["Save", "Save"],
+
+  "mobile.version.working": ["Changing… {step}", "Running: {step}"],
+  "mobile.version.working_plain": ["Changing… The server is stopped while this runs.", "Running."],
+  "mobile.version.leave_ok": ["You can leave this screen or close the app. The change carries on, and this screen shows it when you come back.", "The task continues on the PC; progress is shown here when you return."],
+  "mobile.version.pick": ["Pick a version", "Select version"],
+
+  "mobile.raw.will_change": ["These settings will change", "Changes to apply"],
+  "mobile.raw.nothing": ["Nothing changed.", "No changes."],
+  "mobile.raw.added": ["{key} added: {new}", "+ {key}={new}"],
+  "mobile.raw.removed": ["{key} removed (it was {old})", "- {key}={old}"],
+  "mobile.raw.changed": ["{key}: {old} becomes {new}", "~ {key}: {old} -> {new}"],
+  "mobile.raw.check": ["Check changes", "Review diff"],
+  "mobile.raw.save": ["Save these changes", "Apply"],
+  "mobile.raw.edit_more": ["Keep editing", "Back"],
+  "mobile.raw.args_title": ["Java options, as text", "JVM arguments (raw)"],
+  "mobile.raw.args_hint": ["One option per line or all on one line. The memory slider only changes -Xmx.", "Whitespace-separated. The slider replaces -Xmx only."],
+
+  "mobile.raw.args_saved": ["Saved. Used from the next start.", "JVM arguments saved; applied on next start."],
+
+  "mobile.folders.type_path": ["Type the path", "Path"],
+  "mobile.folders.open": ["Open", "Go"],
+
+  "mobile.add.title": ["Add a server", "Add server"],
+  "mobile.add.way_new_hint": ["Download and set up a new server on your PC.", "Install a new server into an empty folder."],
+  "mobile.add.way_modpack_hint": ["Make a server from a Modrinth modpack file on this phone.", "Create a server from a .mrpack."],
+  "mobile.add.way_have_hint": ["A server folder that's already on your PC. Nothing in it changes.", "Register an existing server folder; no files change."],
+  "mobile.add.pick_folder": ["Choose a folder on the PC", "Browse"],
+  "mobile.add.new_folder": ["The server's own folder is made inside it: {folder}", "Target: {folder}"],
+  "mobile.add.no_folder": ["No folder chosen yet.", "No folder."],
+  "mobile.add.less": ["Less", "-512 MB"],
+  "mobile.add.more": ["More", "+512 MB"],
+  "mobile.add.working": ["Setting up… {step}", "Running: {step}"],
+  "mobile.add.leave_ok": ["You can leave this screen or close the app. Setting up carries on, and the new server shows on All servers when it's ready.", "The task continues on the PC."],
+  "mobile.add.pack_name": ["Modpack: {name}", "Pack: {name}"],
+  "mobile.add.start_over": ["Start again", "Reset"],
+
+  "mobile.import.not_a_world": ["Choose a world saved as a .zip (or a .mcworld for a Bedrock server).", "Expected .zip, .mcworld or .mctemplate."],
+  "mobile.import.sending": ["Sending {name}…", "Uploading {name}…"],
+  "mobile.import.stop_ask": ["Stop the server", "Stop"],
+  "mobile.download.save_failed": ["The world couldn't be saved on this phone: {reason}", "Writing the file failed: {reason}"],
+  "mobile.download.share_title": ["Take the world home", "Share world"]
 }

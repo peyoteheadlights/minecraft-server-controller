@@ -145,7 +145,7 @@ public final class AgentClient: @unchecked Sendable {
 
     public func login(username: String, password: String, device: String) async throws -> LoginResult {
         // The app always keeps the sign-in, behind its own unlock.
-        let body = LoginBody(username: username, password: password, device: device, label: device, remember: true)
+        let body = LoginBody(username: username, password: password, device: device, label: device, remember: true, phone: true)
         return try await call("POST", "/api/auth/login", body: try AgentClient.encode(body), signedIn: false, as: LoginResult.self)
     }
 
@@ -219,6 +219,8 @@ public final class AgentClient: @unchecked Sendable {
         let device: String
         let label: String
         let remember: Bool
+        /// Kept until signed out, not for the browser's set number of days.
+        let phone: Bool
     }
 
     private struct PhoneBody: Encodable {
@@ -248,6 +250,7 @@ public final class AgentClient: @unchecked Sendable {
         timeout: TimeInterval = AgentClient.requestTimeout,
         slow: Bool = false,
         upload: (file: URL, contentType: String)? = nil,
+        sent: (@Sendable (Int64, Int64?) -> Void)? = nil,
         as type: T.Type
     ) async throws -> T {
         let logPath = path.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false).first.map { String($0) } ?? path
@@ -277,7 +280,7 @@ public final class AgentClient: @unchecked Sendable {
         do {
             let chosen = slow ? slowSession : session
             if let upload = upload {
-                result = try await chosen.upload(for: request, fromFile: upload.file)
+                result = try await chosen.upload(for: request, fromFile: upload.file, delegate: sent.map(SendProgress.init))
             } else {
                 result = try await chosen.data(for: request)
             }
@@ -317,6 +320,19 @@ public final class AgentClient: @unchecked Sendable {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
             throw AgentError.notAnAgent
+        }
+    }
+
+    /// Passes an upload's progress on as it is sent.
+    private final class SendProgress: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+        let report: @Sendable (Int64, Int64?) -> Void
+
+        init(_ report: @escaping @Sendable (Int64, Int64?) -> Void) {
+            self.report = report
+        }
+
+        func urlSession(_ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
+            report(totalBytesSent, totalBytesExpectedToSend > 0 ? totalBytesExpectedToSend : nil)
         }
     }
 

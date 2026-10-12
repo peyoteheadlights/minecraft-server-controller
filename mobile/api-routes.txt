@@ -43,7 +43,11 @@ POST /api/servers/{server_id}/worlds/save
 GET /api/servers/{server_id}/world/timeline
 POST /api/servers/{server_id}/world/undo
 GET /api/jobs
+# Only phone apps from before Undo and Redo call this one.
 POST /api/jobs/{job_id}/undo
+GET /api/servers/{server_id}/changes
+POST /api/servers/{server_id}/changes/undo
+POST /api/servers/{server_id}/changes/redo
 GET /api/servers/{server_id}/schedules
 POST /api/servers/{server_id}/schedules
 PUT /api/servers/{server_id}/schedules/{schedule_id}
@@ -82,8 +86,41 @@ PUT /api/servers/{server_id}/addons/{pack_uuid}
 DELETE /api/servers/{server_id}/addons/{pack_uuid}
 GET /api/servers/{server_id}/game-settings
 PUT /api/servers/{server_id}/game-settings
+PUT /api/servers/{server_id}/game-settings/raw
 GET /api/alerts
 GET /api/app/phone
 PUT /api/app/phone
 DELETE /api/app/phone
 GET /api/version
+# Setup (Phase 9 part 5).
+GET /api/servers/{server_id}/settings
+PUT /api/servers/{server_id}/settings
+PUT /api/servers/{server_id}/color
+GET /api/servers/{server_id}/memory
+PUT /api/servers/{server_id}/memory
+GET /api/server-types
+GET /api/server-types/{type_id}/versions
+GET /api/servers/{server_id}/version
+POST /api/servers/{server_id}/version/preflight
+POST /api/servers/{server_id}/version
+POST /api/servers/{server_id}/version/roll-back
+POST /api/servers/{server_id}/eula
+GET /api/servers/{server_id}/crossplay
+PUT /api/servers/{server_id}/crossplay
+GET /api/servers/{server_id}/duplicate
+POST /api/servers/{server_id}/duplicate
+DELETE /api/servers/{server_id}
+# Part 5b: the PC folder picker, new servers and world import
+GET /api/folders
+POST /api/servers
+GET /api/new-server/options
+POST /api/new-server
+POST /api/modpacks/{token}/new-server
+POST /api/servers/{server_id}/world/import/upload
+POST /api/servers/{server_id}/world/import/folder
+GET /api/servers/{server_id}/world/saves
+POST /api/servers/{server_id}/world/import
+DELETE /api/servers/{server_id}/world/import/{token}
+POST /api/servers/{server_id}/world/download
+# The packed world is a zip, not JSON, so it has no typed answer; the apps
+# download it from GET /api/servers/{server_id}/world/download/{token}.

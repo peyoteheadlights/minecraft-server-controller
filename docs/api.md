@@ -56,7 +56,7 @@ an estimate. A server runs one risky job at a time; a second gets 409.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| POST | `/api/auth/login` | `{username, password, remember?, device?}` → `{token, expires_at, remember}`. `remember: true` is "Keep me signed in": the session lasts `security.remember_days` from its last use. `device` names it on the Security page (the phone app sends its name) |
+| POST | `/api/auth/login` | `{username, password, remember?, device?, phone?}` → `{token, expires_at, remember}`. `remember: true` is "Keep me signed in": the session lasts `security.remember_days` from its last use. `device` names it on the Security page (the phone app sends its name). With both `remember` and `phone` (only the phone apps send it), the session lasts until signed out and `expires_at` is null |
 | POST | `/api/auth/logout` | Invalidate this session |
 | POST | `/api/auth/rotate` | New token, old one invalidated |
 | GET | `/api/auth/me` | Who this token belongs to |

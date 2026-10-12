@@ -24,17 +24,21 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.peyoteheadlights.mcsc.core.Backup
 import io.github.peyoteheadlights.mcsc.core.Backups
+import io.github.peyoteheadlights.mcsc.core.ChangeList
 import io.github.peyoteheadlights.mcsc.core.Display
-import io.github.peyoteheadlights.mcsc.core.Job
+import io.github.peyoteheadlights.mcsc.core.FolderPicker
 import io.github.peyoteheadlights.mcsc.core.Offsite
 import io.github.peyoteheadlights.mcsc.core.Permissions
 import io.github.peyoteheadlights.mcsc.core.Tone
+import io.github.peyoteheadlights.mcsc.core.UndoRedo
+import io.github.peyoteheadlights.mcsc.core.WorldImport
 import io.github.peyoteheadlights.mcsc.core.WorldPoint
 import io.github.peyoteheadlights.mcsc.core.WorldRestore
 
@@ -77,7 +81,7 @@ fun SaidNote(said: Said?) {
 private data class Confirming(val title: String, val body: String, val confirm: String, val run: () -> Unit)
 
 /**
- * Back up now, Save world, the last change and its Undo, every backup with
+ * Back up now, Save world, Undo and Redo, every backup with
  * Check, Download, Restore and Delete, the second copy off the PC, and the
  * worlds. A download goes to a file the person picks, with the sign-in in
  * a header; nothing else ever leaves the PC.
@@ -87,6 +91,7 @@ fun BackupsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit, onRest
     val world = vm.pages(serverId).world
     val strings = vm.strings
     var asking by remember { mutableStateOf<Confirming?>(null) }
+    var picking by remember { mutableStateOf(false) }
     // The backup waiting for the picker: id, name and size, kept if the
     // screen is rebuilt (the phone turned) while the picker is open.
     var saving by rememberSaveable { mutableStateOf<Triple<Long, String, Long?>?>(null) }
@@ -110,6 +115,12 @@ fun BackupsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit, onRest
         refreshing = false,
         onRefresh = world::loadBackups,
         overlay = {
+            if (picking) {
+                FolderPickerDialog(vm, t("offsite.pick_title"), world.offsite?.directory, onPick = {
+                    picking = false
+                    world.setOffsite(it, strings)
+                }, onDismiss = { picking = false })
+            }
             asking?.let { ask ->
                 Confirm(ask.title, ask.body, ask.confirm, danger = true, onConfirm = {
                     asking = null
@@ -118,6 +129,10 @@ fun BackupsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit, onRest
             }
             world.restoring?.let { ask ->
                 RestoreDialog(vm, ask.backup, ask.willHappen, onRestore = { world.restore(it, strings) }, onDismiss = world::cancelRestore)
+            }
+            world.moving?.let { ask ->
+                val (title, body) = ChangeList.ask(strings, ask.direction, ask.change, rememberNow())
+                StartAfterDialog(title, body, t("changes.${ask.direction}"), onConfirm = { world.move(it, strings) }, onDismiss = world::cancelMove)
             }
         },
     ) {
@@ -139,7 +154,9 @@ fun BackupsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit, onRest
                 Note(t("mobile.backups.downloading", "name" to name) + share)
             }
         }
-        world.lastChange?.let { job -> item { LastChange(vm, world, job, busy) { asking = it } } }
+        world.changes?.takeIf { it.undo.isNotEmpty() || it.redo.isNotEmpty() }?.let { lists ->
+            item { UndoRedoCard(vm, world, lists, busy) }
+        }
 
         item { SectionTitle(t("backups.list")) }
         val list = world.backups
@@ -167,36 +184,34 @@ fun BackupsScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit, onRest
         item { SectionTitle(t("page.world")) }
         item { Card { Item(t("world.lead"), onClick = onRestoreWorld) } }
 
-        offsiteCard(vm, world.offsite, busy) { world.offsiteOff(strings) }
+        offsiteCard(vm, world.offsite, busy, onChoose = { picking = true }) { world.offsiteOff(strings) }
         worldsCard(vm, world)
     }
 }
 
+/** The Undo and Redo lists (changesCard in backups.js): the newest change,
+ * the one undone last, and the next few Undo would go on to. */
 @Composable
-private fun LastChange(vm: AppViewModel, world: WorldPages, job: Job, busy: String?, ask: (Confirming) -> Unit) {
-    val undo = job.result?.undo ?: return
+private fun UndoRedoCard(vm: AppViewModel, world: WorldPages, lists: UndoRedo, busy: String?) {
     val strings = vm.strings
+    val colors = LocalColors.current
     val now = rememberNow()
+    val canRestore = vm.canDo(Permissions.BACKUPS_RESTORE)
     Column {
-        SectionTitle(t("mobile.backups.last_change"))
+        SectionTitle(t("changes.title"))
         Card {
-            Note(
-                t("mobile.backups.last_change_body", "title" to job.title, "when" to Display.ago(strings, job.finishedAt, now), "backup" to undo.backup),
-                color = LocalColors.current.text,
-                modifier = Modifier.padding(top = 10.dp),
-            )
-            if (vm.canDo(Permissions.BACKUPS_RESTORE)) {
+            Note(ChangeList.next(strings, lists, now), color = colors.text, modifier = Modifier.padding(top = 10.dp))
+            ChangeList.nextRedo(strings, lists, now)?.let { Note(it, color = colors.text) }
+            val later = ChangeList.later(strings, lists, now)
+            if (later.isNotEmpty()) Note(t("changes.then") + "\n" + later.joinToString("\n") { "• $it" })
+            lists.blockedBy?.let { Note(t("world.busy", "job" to it), color = colors.warning) }
+            if (canRestore) {
                 Presses(
                     listOf(
-                        Press(t("mobile.backups.undo_change"), {
-                            ask(
-                                Confirming(
-                                    strings.t("mobile.backups.undo_title"),
-                                    strings.t("mobile.backups.undo_body", "title" to job.title, "backup" to undo.backup),
-                                    strings.t("mobile.backups.undo_change"),
-                                ) { world.undo(job, strings) },
-                            )
-                        }, danger = true, enabled = busy == null),
+                        Press(t("changes.undo"), { world.askMove("undo") }, danger = true,
+                            enabled = busy == null && ChangeList.canMove(lists, "undo", canRestore)),
+                        Press(t("changes.redo"), { world.askMove("redo") }, danger = true,
+                            enabled = busy == null && ChangeList.canMove(lists, "redo", canRestore)),
                     ),
                 )
             }
@@ -249,6 +264,35 @@ private fun BackupCard(
     }
 }
 
+/** Undo or Redo: what goes back and what would be lost, "start the server after", then yes or no. */
+@Composable
+private fun StartAfterDialog(title: String, body: String, confirm: String, onConfirm: (Boolean) -> Unit, onDismiss: () -> Unit) {
+    val colors = LocalColors.current
+    var startAfter by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column {
+                Text(body)
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp)) {
+                    Checkbox(checked = startAfter, onCheckedChange = { startAfter = it })
+                    Text(t("backups.start_after"))
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(startAfter) }, colors = ButtonDefaults.textButtonColors(contentColor = colors.danger)) {
+                Text(confirm)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(t("mobile.common.cancel")) } },
+        containerColor = colors.float,
+        titleContentColor = colors.text,
+        textContentColor = colors.text2,
+    )
+}
+
 /** What the agent says a restore will do, "start the server after", then yes or no. */
 @Composable
 private fun RestoreDialog(vm: AppViewModel, backup: Backup, willHappen: List<String>, onRestore: (Boolean) -> Unit, onDismiss: () -> Unit) {
@@ -279,7 +323,7 @@ private fun RestoreDialog(vm: AppViewModel, backup: Backup, willHappen: List<Str
     )
 }
 
-private fun LazyListScope.offsiteCard(vm: AppViewModel, offsite: Offsite?, busy: String?, onTurnOff: () -> Unit) {
+private fun LazyListScope.offsiteCard(vm: AppViewModel, offsite: Offsite?, busy: String?, onChoose: () -> Unit, onTurnOff: () -> Unit) {
     item { SectionTitle(t("offsite.title")) }
     item {
         val colors = LocalColors.current
@@ -295,9 +339,17 @@ private fun LazyListScope.offsiteCard(vm: AppViewModel, offsite: Offsite?, busy:
                 else -> Note(t("offsite.folder_ok", "folder" to folder))
             }
             if (vm.technical) offsite?.subfolder?.let { Note(it, color = colors.text3) }
-            if (canEdit) Note(t("mobile.offsite.choose_on_pc"), color = colors.text3)
-            if (canEdit && folder.isNotEmpty()) {
-                Presses(listOf(Press(t(if (busy == "offsite") "action.saving" else "offsite.turn_off"), onTurnOff, enabled = busy == null)))
+            // Choosing a folder needs the PC folder picker, which is the owner's.
+            val canPick = canEdit && FolderPicker.allowed(vm.me)
+            if (canEdit && !canPick) Note(t("mobile.offsite.choose_on_pc"), color = colors.text3)
+            if (canEdit && offsite != null) {
+                Presses(
+                    listOfNotNull(
+                        Press(t(if (folder.isEmpty()) "offsite.choose" else "offsite.change"), onChoose, enabled = busy == null).takeIf { canPick },
+                        Press(t(if (busy == "offsite") "action.saving" else "offsite.turn_off"), onTurnOff, enabled = busy == null)
+                            .takeIf { folder.isNotEmpty() },
+                    ),
+                )
             }
         }
     }
@@ -338,7 +390,15 @@ fun WorldRestoreScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit) {
     val world = vm.pages(serverId).world
     val strings = vm.strings
     var asking by remember { mutableStateOf<WorldPoint?>(null) }
-    LaunchedEffect(serverId) { world.loadTimeline() }
+    var stopping by remember { mutableStateOf(false) }
+    var pickingFolder by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val bedrock = vm.servers.list.firstOrNull { it.id == serverId }?.edition == "bedrock"
+    val pickZip = rememberFilePicker { world.sendWorld(it, strings) }
+    // Read again when the server starts or stops: importing needs it off.
+    val state = vm.server[serverId]?.status?.state
+    LaunchedEffect(serverId, state) { world.loadTimeline() }
+    LaunchedEffect(serverId, bedrock) { if (!bedrock && WorldImport.canImport(vm.me)) world.loadSaves() }
     val now = rememberNow()
 
     ServerFrame(
@@ -360,6 +420,28 @@ fun WorldRestoreScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit) {
                     },
                     onDismiss = { asking = null },
                 )
+            }
+            if (stopping) {
+                Confirm(
+                    title = t("confirm.stop_title"),
+                    body = t("confirm.stop_body"),
+                    confirm = t("action.stop"),
+                    danger = true,
+                    onConfirm = {
+                        stopping = false
+                        vm.act(serverId, "stop")
+                    },
+                    onDismiss = { stopping = false },
+                )
+            }
+            if (pickingFolder) {
+                FolderPickerDialog(vm, t("import.pick_title"), null, onPick = {
+                    pickingFolder = false
+                    world.pickWorldFolder(it, strings)
+                }, onDismiss = { pickingFolder = false })
+            }
+            world.worldRead?.let { read ->
+                WorldReadDialog(vm, read, onReplace = { world.importWorld(strings) }, onCancel = world::forgetWorld)
             }
         },
     ) {
@@ -405,5 +487,16 @@ fun WorldRestoreScreen(vm: AppViewModel, serverId: String, onBack: () -> Unit) {
                 item { Note(t("world.footer"), color = LocalColors.current.text3) }
             }
         }
+        worldImportCards(
+            vm, world, timeline, bedrock,
+            WorldImportActions(
+                pickZip = pickZip,
+                pickFolder = { pickingFolder = true },
+                stop = { stopping = true },
+                takeHome = {
+                    world.takeHome(sharedFolder(context), strings) { shareFile(context, it, strings.t("mobile.download.share_title")) }
+                },
+            ),
+        )
     }
 }

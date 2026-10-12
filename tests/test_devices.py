@@ -98,3 +98,81 @@ def test_removing_a_helper_ends_their_kept_sign_ins(multi_client):
 def test_a_bad_device_id_is_refused(multi_client):
     for bad in ("x", "' OR 1=1 --", "0" * 64):
         assert multi_client.delete(f"/api/sessions/{bad}").status_code in (404, 422)
+
+
+# ------------------------------------------------------------ phones: sign in once
+PHONE = {"device": "Server Controller on Pixel 9", "remember": True, "phone": True}
+
+
+def _age(core, token: str, seconds: float) -> None:
+    """Pretend a sign-in was last used `seconds` ago, as if the phone sat in a drawer."""
+    from agent.security.auth import token_hash
+
+    then = time.time() - seconds
+    core.db.execute(
+        "UPDATE sessions SET last_used = ?, expires_at = ? WHERE token_hash = ?",
+        (then, then, token_hash(token)),
+    )
+
+
+def test_a_phone_stays_signed_in_until_it_is_signed_out(multi_client):
+    core = multi_client.app.state.core
+    signed, phone = sign_in(multi_client, **PHONE)
+    assert signed["expires_at"] is None
+    # Long past "keep me signed in": a phone isn't asked to sign in again.
+    _age(core, signed["token"], (core.config.security.remember_days + 30) * 86400)
+    core.auth.purge_expired()
+    assert multi_client.get("/api/servers", headers=phone).status_code == 200
+    me = multi_client.get("/api/auth/me", headers=phone).json()
+    assert me["expires_at"] is None
+    row = next(
+        r
+        for r in multi_client.get("/api/sessions", headers=phone).json()["sessions"]
+        if r["current"]
+    )
+    assert row["expires_at"] is None and row["remember"] is True
+
+
+def test_a_browsers_keep_me_signed_in_still_ends(multi_client):
+    core = multi_client.app.state.core
+    # The dashboard names its device too; only the phone apps say "phone".
+    kept, browser = sign_in(multi_client, label="Firefox", device="Mark's PC", remember=True)
+    assert kept["expires_at"] is not None
+    _age(core, kept["token"], (core.config.security.remember_days + 1) * 86400)
+    assert multi_client.get("/api/servers", headers=browser).status_code == 401
+
+
+def test_a_phone_sign_in_still_ends_when_signed_out_or_its_account_goes(multi_client):
+    owner = dict(multi_client.headers)
+    # Signed out in the app.
+    _, phone = sign_in(multi_client, **PHONE)
+    assert multi_client.post("/api/auth/logout", headers=phone).status_code == 200
+    assert multi_client.get("/api/servers", headers=phone).status_code == 401
+    # Signed out on the PC.
+    _, phone = sign_in(multi_client, **PHONE)
+    rows = multi_client.get("/api/sessions", headers=owner).json()["sessions"]
+    phone_id = next(r["id"] for r in rows if r["label"] == PHONE["device"])
+    assert multi_client.delete(f"/api/sessions/{phone_id}", headers=owner).status_code == 200
+    assert multi_client.get("/api/servers", headers=phone).status_code == 401
+    # "Sign out everywhere" on the Security page.
+    _, phone = sign_in(multi_client, **PHONE)
+    assert multi_client.post("/api/security/revoke-sessions", headers=owner).status_code == 200
+    assert multi_client.get("/api/servers", headers=phone).status_code == 401
+    owner = sign_in(multi_client)[1]
+    # A helper whose password the owner changes, then a removed helper.
+    add_helper(multi_client, owner)
+    _, sams = sign_in(multi_client, "sam", HELPER_PASSWORD, **PHONE)
+    changed = multi_client.put(
+        "/api/accounts/sam", json={"password": "a brand new password 42"}, headers=owner
+    )
+    assert changed.status_code == 200, changed.text
+    assert multi_client.get("/api/servers", headers=sams).status_code == 401
+    _, sams = sign_in(multi_client, "sam", "a brand new password 42", **PHONE)
+    assert multi_client.delete("/api/accounts/sam", headers=owner).status_code == 200
+    assert multi_client.get("/api/servers", headers=sams).status_code == 401
+
+
+def test_a_phone_sign_in_stays_until_signed_out_when_its_key_is_renewed(multi_client):
+    _, phone = sign_in(multi_client, **PHONE)
+    rotated = multi_client.post("/api/auth/rotate", headers=phone).json()
+    assert rotated["expires_at"] is None

@@ -131,6 +131,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * open twice (its home and its Console) while one replaces the other. */
     private val watchers = mutableListOf<String>()
     private val pagesBy = mutableMapOf<String, ServerPages>()
+
+    /** The PC folder picker's listing, shared by every screen that chooses a folder. */
+    val folders by lazy { FolderBrowser(viewModelScope, { client() }, { prefs.lastProblem = it.key }) }
+
+    /** The "+" on All servers, kept while the app runs so setting up shows its progress again. */
+    val adding by lazy { AddServerPages(viewModelScope, { client() }, { prefs.lastProblem = it.key }, ::refreshServers) }
     private var feed: LiveFeed? = null
     private var liveJob: Job? = null
     private var refreshJob: Job? = null
@@ -387,7 +393,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** What the Console, Chat, Players, Activity and Crashes screens show. */
     fun pages(serverId: String): ServerPages = pagesBy.getOrPut(serverId) {
-        ServerPages(serverId, viewModelScope, { client() }, { prefs.lastProblem = it.key })
+        ServerPages(serverId, viewModelScope, { client() }, { prefs.lastProblem = it.key }, ::refreshServers)
     }
 
     fun canDo(permission: String): Boolean = me?.can(permission) == true
@@ -481,7 +487,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         is LiveSignal.Console -> signal.serverId?.let { pagesBy[it] }?.onConsoleLine(signal.line)
                         is LiveSignal.Chat -> signal.serverId?.let { pagesBy[it] }?.onChat(signal.message)
                         is LiveSignal.ConsoleTail -> pagesBy[signal.serverId]?.onConsoleTail(signal.lines)
-                        is LiveSignal.Task -> signal.serverId?.let { pagesBy[it] }?.content?.onTask(signal.job)
+                        is LiveSignal.Task -> {
+                            adding.onTask(signal.job)
+                            signal.serverId?.let { pagesBy[it] }?.let { pages ->
+                                pages.content.onTask(signal.job)
+                                pages.world.onTask(signal.job)
+                                pages.setup.onTask(signal.job)
+                            }
+                        }
                         is LiveSignal.Closed -> {
                             live = false
                             // A 401 here signs the app out; anything else, try again.

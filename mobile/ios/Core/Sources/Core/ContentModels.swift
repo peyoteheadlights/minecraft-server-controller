@@ -1039,29 +1039,37 @@ public struct GameSetting: Decodable, Equatable, Identifiable, Sendable {
 }
 
 public struct GameSettings: Decodable, Equatable, Sendable {
+    public var file: String
     public var exists: Bool
     public var fields: [GameSetting]
     public var running: Bool
     public var restartNeeded: Bool
+    /// The whole file as it is now, for the Technical mode editor.
+    public var text: String
 
     enum CodingKeys: String, CodingKey {
-        case exists, fields, running
+        case file, exists, fields, running, text
         case restartNeeded = "restart_needed"
     }
 
-    public init(exists: Bool = false, fields: [GameSetting] = [], running: Bool = false, restartNeeded: Bool = false) {
+    public init(file: String = "", exists: Bool = false, fields: [GameSetting] = [], running: Bool = false,
+                restartNeeded: Bool = false, text: String = "") {
+        self.file = file
         self.exists = exists
         self.fields = fields
         self.running = running
         self.restartNeeded = restartNeeded
+        self.text = text
     }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        file = c.value(.file, "")
         exists = c.value(.exists, false)
         fields = c.each(.fields)
         running = c.value(.running, false)
         restartNeeded = c.value(.restartNeeded, false)
+        text = c.value(.text, "")
     }
 }
 

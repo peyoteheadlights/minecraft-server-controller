@@ -125,11 +125,14 @@ final class AgentClientTests: XCTestCase {
     }
 
     func testTheSignInAsksToBeRememberedWithThePhonesName() async throws {
-        StubAgent.json("{\"token\": \"\(token)\"}")
+        // A phone's sign-in has no end time: it lasts until signed out.
+        StubAgent.json("{\"token\": \"\(token)\", \"user\": \"admin\", \"expires_at\": null, \"role\": \"owner\", \"remember\": true}")
         let result = try await client().login(username: "admin", password: "pw", device: "Server Controller on iPhone")
         XCTAssertEqual(result.token, token)
+        XCTAssertNil(result.expiresAt)
         let body = String(data: StubAgent.requests.first?.body ?? Data(), encoding: .utf8) ?? ""
         XCTAssertTrue(body.contains("\"remember\":true"), body)
+        XCTAssertTrue(body.contains("\"phone\":true"), body)
         XCTAssertTrue(body.contains("\"device\":\"Server Controller on iPhone\""), body)
         XCTAssertNil(StubAgent.requests.first?.request.value(forHTTPHeaderField: "Authorization"))
     }

@@ -1,5 +1,6 @@
 import Core
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// A heading over a group of cards.
 struct SectionTitle: View {
@@ -88,6 +89,7 @@ struct BackupsView: View {
 
     @Environment(AppModel.self) private var model
     @State private var asking: Confirming?
+    @State private var picking = false
     @State private var moving = false
 
     private var world: WorldPages { model.pages(serverId).world }
@@ -116,6 +118,18 @@ struct BackupsView: View {
                 },
                 message: { ask in Text(ask.body) }
             )
+            .sheet(isPresented: $picking) {
+                FolderPickerView(title: model.t("offsite.pick_title"), start: world.offsite?.directory) { folder in
+                    let strings = model.strings
+                    Task { await world.setOffsite(folder, strings) }
+                }
+            }
+            .sheet(item: $world.moving) { ask in
+                MoveSheet(ask: ask) { startAfter in
+                    let strings = model.strings
+                    Task { await world.move(ask, startAfter: startAfter, strings) }
+                }
+            }
             .sheet(item: $world.restoring) { ask in
                 RestoreSheet(ask: ask, palette: palette) { startAfter in
                     let strings = model.strings
@@ -152,8 +166,8 @@ struct BackupsView: View {
                 Hint(text: downloadText(progress), palette: palette)
             }
         }
-        if let job = world.lastChange, let undo = job.undo {
-            lastChange(world, job, undo, busy, palette, now: now)
+        if let lists = world.changes, !lists.undo.isEmpty || !lists.redo.isEmpty {
+            undoRedoCard(world, lists, busy, palette, now: now)
         }
 
         SectionTitle(text: model.t("backups.list"), palette: palette)
@@ -220,25 +234,35 @@ struct BackupsView: View {
         return model.t("mobile.backups.downloading", ["name": progress.name]) + " " + share
     }
 
+    /// The Undo and Redo lists (changesCard in backups.js): the newest
+    /// change, the one undone last, and the next few Undo would go on to.
     @ViewBuilder
-    private func lastChange(_ world: WorldPages, _ job: Job, _ undo: Undo, _ busy: String?, _ palette: Palette, now: Double) -> some View {
+    private func undoRedoCard(_ world: WorldPages, _ lists: UndoRedo, _ busy: String?, _ palette: Palette, now: Double) -> some View {
         let strings = model.strings
-        SectionTitle(text: model.t("mobile.backups.last_change"), palette: palette)
+        let canRestore = model.can(Permissions.BACKUPS_RESTORE)
+        SectionTitle(text: model.t("changes.title"), palette: palette)
         CardBox(palette: palette) {
-            Text(model.t("mobile.backups.last_change_body", [
-                "title": job.title, "when": Display.ago(strings, job.finishedAt, now: now), "backup": undo.backup,
-            ]))
-            .foregroundStyle(palette.textPrimary)
-            if model.can(Permissions.BACKUPS_RESTORE) {
+            Text(ChangeList.next(strings, lists, now: now))
+                .foregroundStyle(palette.textPrimary)
+            if let redo = ChangeList.nextRedo(strings, lists, now: now) {
+                Text(redo).foregroundStyle(palette.textPrimary)
+            }
+            let later = ChangeList.later(strings, lists, now: now)
+            if !later.isEmpty {
+                Hint(text: ([model.t("changes.then")] + later.map { "• " + $0 }).joined(separator: "\n"), palette: palette)
+            }
+            if let job = lists.blockedBy {
+                Text(model.t("world.busy", ["job": job])).foregroundStyle(palette.tone(.warning))
+            }
+            if canRestore {
                 Presses(presses: [
-                    Press(title: model.t("mobile.backups.undo_change"), danger: true, enabled: busy == nil) {
-                        asking = Confirming(
-                            title: model.t("mobile.backups.undo_title"),
-                            body: model.t("mobile.backups.undo_body", ["title": job.title, "backup": undo.backup]),
-                            confirm: model.t("mobile.backups.undo_change")
-                        ) {
-                            Task { await world.undo(job, strings) }
-                        }
+                    Press(title: model.t("changes.undo"), danger: true,
+                          enabled: busy == nil && ChangeList.canMove(lists, "undo", canRestore: canRestore)) {
+                        world.askMove("undo")
+                    },
+                    Press(title: model.t("changes.redo"), danger: true,
+                          enabled: busy == nil && ChangeList.canMove(lists, "redo", canRestore: canRestore)) {
+                        world.askMove("redo")
                     },
                 ], palette: palette)
             }
@@ -300,6 +324,20 @@ struct BackupsView: View {
         }
     }
 
+    private func offsitePresses(_ world: WorldPages, _ busy: String?, folder: String, canPick: Bool) -> [Press] {
+        let strings = model.strings
+        var presses: [Press] = []
+        if canPick {
+            presses.append(Press(title: model.t(folder.isEmpty ? "offsite.choose" : "offsite.change"), enabled: busy == nil) { picking = true })
+        }
+        if !folder.isEmpty {
+            presses.append(Press(title: model.t(busy == "offsite" ? "action.saving" : "offsite.turn_off"), enabled: busy == nil) {
+                Task { await world.offsiteOff(strings) }
+            })
+        }
+        return presses
+    }
+
     @ViewBuilder
     private func offsiteCard(_ world: WorldPages, _ busy: String?, _ palette: Palette) -> some View {
         let canEdit = model.can(Permissions.SETTINGS_EDIT)
@@ -323,16 +361,13 @@ struct BackupsView: View {
             if model.technical, let subfolder = offsite?.subfolder {
                 Hint(text: subfolder, palette: palette)
             }
-            if canEdit {
+            // Choosing a folder needs the PC folder picker, which is the owner's.
+            let canPick = canEdit && FolderPicker.allowed(model.me)
+            if canEdit && !canPick {
                 Hint(text: model.t("mobile.offsite.choose_on_pc"), palette: palette)
             }
-            if canEdit && !folder.isEmpty {
-                let strings = model.strings
-                Presses(presses: [
-                    Press(title: model.t(busy == "offsite" ? "action.saving" : "offsite.turn_off"), enabled: busy == nil) {
-                        Task { await world.offsiteOff(strings) }
-                    },
-                ], palette: palette)
+            if canEdit && offsite != nil {
+                Presses(presses: offsitePresses(world, busy, folder: folder, canPick: canPick), palette: palette)
             }
         }
     }
@@ -363,6 +398,45 @@ struct BackupsView: View {
                 }
             }
         }
+    }
+}
+
+/// Undo or Redo: what goes back and what would be lost, "start the server
+/// after", then yes or no.
+private struct MoveSheet: View {
+    let ask: MoveAsk
+    let move: (Bool) -> Void
+
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    @State private var startAfter = false
+
+    var body: some View {
+        let asked = ChangeList.ask(model.strings, ask.direction, ask.change, now: Date().timeIntervalSince1970)
+        NavigationStack {
+            Form {
+                Section {
+                    Text(asked.body)
+                }
+                Section {
+                    Toggle(model.t("backups.start_after"), isOn: $startAfter)
+                }
+                Section {
+                    Button(model.t("changes.\(ask.direction)"), role: .destructive) {
+                        move(startAfter)
+                        dismiss()
+                    }
+                }
+            }
+            .navigationTitle(asked.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(model.t("mobile.common.cancel")) { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
     }
 }
 
@@ -419,16 +493,26 @@ struct WorldRestoreView: View {
 
     @Environment(AppModel.self) private var model
     @State private var asking: WorldPoint?
+    @State private var stopping = false
+    @State private var pickingZip = false
+    @State private var pickingFolder = false
 
     private var world: WorldPages { model.pages(serverId).world }
 
+    private var bedrock: Bool { model.servers.first { $0.id == serverId }?.edition == "bedrock" }
+
     var body: some View {
-        let world = self.world
+        @Bindable var world = self.world
         ServerFrame(serverId: serverId, title: model.t("page.world")) { palette in
             ScrollView {
                 TimelineView(.periodic(from: .now, by: 30)) { context in
                     VStack(alignment: .leading, spacing: 12) {
                         content(world, palette, now: context.date.timeIntervalSince1970)
+                        WorldImportCards(
+                            world: world, timeline: world.timeline.value, bedrock: bedrock, palette: palette,
+                            pickZip: { pickingZip = true }, pickFolder: { pickingFolder = true }, stop: { stopping = true },
+                            now: context.date.timeIntervalSince1970
+                        )
                     }
                     .padding(16)
                     .frame(maxWidth: 640)
@@ -451,8 +535,68 @@ struct WorldRestoreView: View {
                     Text(model.t("world.confirm_body", ["loss": WorldRestore.lossLine(model.strings, point)]) + "\n\n" + model.t("world.confirm_safety"))
                 }
             )
+            .alert(model.t("confirm.stop_title"), isPresented: $stopping) {
+                Button(model.t("action.stop"), role: .destructive) { stop() }
+                Button(model.t("mobile.common.cancel"), role: .cancel) {}
+            } message: {
+                Text(model.t("confirm.stop_body"))
+            }
+            .fileImporter(isPresented: $pickingZip, allowedContentTypes: [.item]) { result in
+                guard case .success(let url) = result else { return }
+                pickedZip(url)
+            }
+            .sheet(isPresented: $pickingFolder) {
+                FolderPickerView(title: model.t("import.pick_title"), start: nil) { folder in
+                    let strings = model.strings
+                    Task { await world.pickWorldFolder(folder, strings) }
+                }
+            }
+            .sheet(item: $world.worldRead, onDismiss: { world.forgetWorld() }) { read in
+                NavigationStack {
+                    WorldReadSheet(read: read) {
+                        // importWorld takes the read off first, which closes
+                        // the sheet without forgetting it on the agent.
+                        let strings = model.strings
+                        Task { await world.importWorld(strings) }
+                    }
+                }
+            }
+            .sheet(item: $world.sharing, onDismiss: { world.finishSharing() }) { done in
+                ShareSheet(file: done.file)
+            }
         }
         .task(id: serverId) { await world.loadTimeline() }
+        .task(id: "\(serverId):\(bedrock)") {
+            if !bedrock && WorldImport.canImport(model.me) { await world.loadSaves() }
+        }
+    }
+
+    /// Stops the server after asking, then reads the page again: a world
+    /// can come in once it is off.
+    private func stop() {
+        let world = self.world
+        Task {
+            let words = await model.perform("stop", serverId: serverId)
+            world.said = Said(text: words, good: words == model.t("mobile.server.done_stop"))
+            await world.loadTimeline()
+        }
+    }
+
+    private func pickedZip(_ url: URL) {
+        let strings = model.strings
+        let world = self.world
+        guard WorldImport.accepts(url.lastPathComponent) else {
+            world.said = Said(text: strings.t("mobile.import.not_a_world"), good: false)
+            return
+        }
+        Task {
+            do {
+                let file = try await Task.detached { try PickedCopy.make(url) }.value
+                world.sendWorld(file, strings)
+            } catch {
+                world.said = Said(text: strings.t("mobile.error.failed", ["reason": error.localizedDescription]), good: false)
+            }
+        }
     }
 
     private var askTitle: String {

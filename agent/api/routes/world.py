@@ -20,7 +20,16 @@ from ...security.permissions import (
 )
 from ..deps import audit, get_server
 from ..errors import audit_failure
-from ..responses import Checklist, Restored, WorldTimeline
+from ..responses import (
+    Checklist,
+    Ok,
+    Restored,
+    SavedWorlds,
+    WorldImported,
+    WorldPacked,
+    WorldRead,
+    WorldTimeline,
+)
 from .models import WorldFolderRequest, WorldImportRequest, WorldUndoRequest
 
 CHUNK = 1024 * 1024
@@ -72,7 +81,7 @@ async def dismiss_getting_started(
     return checklist.dismiss(ctx)
 
 
-@router.post("/world/import/upload")
+@router.post("/world/import/upload", response_model=WorldRead)
 async def upload_world(
     request: Request,
     file: UploadFile = File(...),
@@ -105,7 +114,7 @@ async def upload_world(
     return {"token": token, "world": info.to_dict(), **worldimport.fit(ctx, info)}
 
 
-@router.post("/world/import/folder")
+@router.post("/world/import/folder", response_model=WorldRead)
 async def pick_world_folder(
     payload: WorldFolderRequest,
     principal: Principal = Depends(require(WORLD_REPLACE)),
@@ -117,7 +126,7 @@ async def pick_world_folder(
     return {"token": token, "world": info.to_dict(), **worldimport.fit(ctx, info)}
 
 
-@router.get("/world/saves")
+@router.get("/world/saves", response_model=SavedWorlds)
 async def single_player_worlds(
     principal: Principal = Depends(require(WORLD_REPLACE)), ctx=Depends(get_server)
 ):
@@ -127,7 +136,7 @@ async def single_player_worlds(
     return {"folder": str(folder) if folder else None, "worlds": worlds}
 
 
-@router.post("/world/import")
+@router.post("/world/import", response_model=WorldImported)
 async def import_world(
     payload: WorldImportRequest,
     request: Request,
@@ -145,7 +154,7 @@ async def import_world(
     return {"ok": True, **result}
 
 
-@router.delete("/world/import/{token}")
+@router.delete("/world/import/{token}", response_model=Ok)
 async def forget_world(
     token: str, principal: Principal = Depends(require(WORLD_REPLACE)), ctx=Depends(get_server)
 ):
@@ -154,7 +163,7 @@ async def forget_world(
     return {"ok": True}
 
 
-@router.post("/world/download")
+@router.post("/world/download", response_model=WorldPacked)
 async def pack_world(
     request: Request,
     principal: Principal = Depends(require(BACKUPS_DOWNLOAD)),

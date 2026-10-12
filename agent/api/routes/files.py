@@ -9,11 +9,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from ... import filebrowse
 from ...security.auth import Principal
 from ...security.permissions import FILES_BROWSE, require
+from ..responses import FolderListing
 
 router = APIRouter()
 
 
-@router.get("/folders")
+@router.get("/folders", response_model=FolderListing)
 async def browse_folders(path: str = "", principal: Principal = Depends(require(FILES_BROWSE))):
     try:
         return await asyncio.to_thread(filebrowse.listing, path or None)

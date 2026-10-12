@@ -355,6 +355,15 @@ MIGRATIONS: list[tuple[int, str]] = [
         CREATE INDEX changes_server ON changes(server_id, undone, id);
         """,
     ),
+    (
+        13,
+        # A phone app's sign-in lasts until it is signed out (Phase 9 part
+        # 5): the person scans the code and signs in once, and time alone
+        # never asks them again.
+        """
+        ALTER TABLE sessions ADD COLUMN until_signed_out INTEGER NOT NULL DEFAULT 0;
+        """,
+    ),
 ]
 
 

@@ -49,9 +49,8 @@ object Backups {
     /** A backup whose file is gone can't be downloaded or restored. */
     fun onDisk(backup: Backup): Boolean = backup.exists != false
 
-    /** The newest finished change on this server that can be undone. The
-     * agent lists jobs newest first. */
-    fun lastUndoable(jobs: List<Job>): Job? = jobs.firstOrNull { it.state == "succeeded" && it.result?.undo != null }
+    /** A task's states once it is over. */
+    val FINISHED = setOf("succeeded", "failed", "interrupted")
 
     /** "Kept: last 7 days, 4 weeks, 3 months"; null when the agent didn't say. */
     fun keeping(strings: Strings, retention: Retention?): String? {
@@ -165,13 +164,15 @@ object WorldRestore {
 
     /** "2h 10m ago · about 1h 30m of play would be lost"; play not known
      * when no sessions were recorded (never "no play"). */
-    fun lossLine(strings: Strings, point: WorldPoint): String {
-        val since = strings.t("world.since", "duration" to Display.duration(strings, point.ageSeconds))
-        val played = point.playedSeconds
+    fun lossLine(strings: Strings, point: WorldPoint): String = lossLine(strings, point.ageSeconds, point.playedSeconds)
+
+    /** The same line for a backup made [ageSeconds] ago (Undo and Redo use it too). */
+    fun lossLine(strings: Strings, ageSeconds: Double, playedSeconds: Double?): String {
+        val since = strings.t("world.since", "duration" to Display.duration(strings, ageSeconds))
         val play = when {
-            played == null -> strings.t("world.play_unknown")
-            played < 60 -> strings.t("world.no_play")
-            else -> strings.t("world.play_lost", "duration" to Display.duration(strings, played))
+            playedSeconds == null -> strings.t("world.play_unknown")
+            playedSeconds < 60 -> strings.t("world.no_play")
+            else -> strings.t("world.play_lost", "duration" to Display.duration(strings, playedSeconds))
         }
         return "$since · $play"
     }
@@ -185,6 +186,54 @@ object WorldRestore {
 
     fun done(strings: Strings, result: Restored): String =
         result.safetyBackup?.name?.let { strings.t("world.done_with_undo", "name" to it) } ?: strings.t("world.done")
+}
+
+/** Undo and Redo: the two lists of changes (changesCard and moveChange in backups.js). */
+object ChangeList {
+    /** How many changes past the newest the screen lists ("Pressing Undo again goes on to"). */
+    const val LATER = 3
+
+    /** Whether the Undo ("undo") or Redo ("redo") button works now: the
+     * person may restore, there is something to move and no task holds the server. */
+    fun canMove(changes: UndoRedo, direction: String, canRestore: Boolean): Boolean {
+        val list = if (direction == "undo") changes.undo else changes.redo
+        return canRestore && list.isNotEmpty() && changes.blockedBy == null
+    }
+
+    /** The first line: the newest change, or that nothing is left to undo. */
+    fun next(strings: Strings, changes: UndoRedo, now: Double): String {
+        val change = changes.undo.firstOrNull() ?: return strings.t("changes.nothing_to_undo")
+        return strings.t(
+            "changes.next_undo",
+            "title" to change.title,
+            "when" to Display.ago(strings, change.madeAt, now),
+            "who" to (change.user ?: strings.t("value.unknown")),
+        )
+    }
+
+    /** The change Redo would put back, or null when nothing was undone. */
+    fun nextRedo(strings: Strings, changes: UndoRedo, now: Double): String? {
+        val change = changes.redo.firstOrNull() ?: return null
+        return strings.t("changes.next_redo", "title" to change.title, "when" to Display.ago(strings, change.undoneAt, now))
+    }
+
+    /** The changes after the newest, for "Pressing Undo again goes on to". */
+    fun later(strings: Strings, changes: UndoRedo, now: Double): List<String> =
+        changes.undo.drop(1).take(LATER).map {
+            strings.t("changes.later_item", "title" to it.title, "when" to Display.ago(strings, it.madeAt, now))
+        }
+
+    /** The question before Undo or Redo: what goes back, and what would be lost. */
+    fun ask(strings: Strings, direction: String, change: Change, now: Double): Pair<String, String> {
+        val what = change.scope?.joinToString(", ") ?: strings.t("changes.everything")
+        val body = strings.t("changes.${direction}_body", "what" to what, "when" to Display.dateTime(strings, change.backupAt))
+        val loss = WorldRestore.lossLine(strings, (now - change.backupAt).coerceAtLeast(0.0), change.playedSeconds)
+        return strings.t("changes.${direction}_title", "title" to change.title) to
+            listOf(body, loss, strings.t("changes.server_stops")).joinToString("\n\n")
+    }
+
+    fun done(strings: Strings, direction: String, moved: ChangeMoved): String =
+        strings.t("changes.${direction}_done", "title" to moved.change.title)
 }
 
 /** The health checks' words (healthCard in performance.js). */
@@ -219,4 +268,67 @@ object HealthChecks {
         is JsonPrimitive -> value.content
         is JsonArray, is JsonObject -> value.toString()
     }
+}
+
+/**
+ * Bringing a world in (a zip from the phone, a folder on the PC or one of
+ * single-player's saves) and taking this server's world home as a zip
+ * (world.js). A world is read and shown first; it replaces this one only
+ * after a confirm, with a backup first that Undo puts back.
+ */
+object WorldImport {
+    /** What the phone may send: a Java world's zip, a Bedrock .mcworld or .mctemplate. */
+    val SUFFIXES = listOf(".zip", ".mcworld", ".mctemplate")
+
+    fun canImport(me: Me?): Boolean = me?.can(Permissions.WORLD_REPLACE) == true
+
+    fun canDownload(me: Me?): Boolean = me?.can(Permissions.BACKUPS_DOWNLOAD) == true
+
+    fun accepts(fileName: String): Boolean = SUFFIXES.any { fileName.lowercase().endsWith(it) }
+
+    /** Why no world can be brought in now, or null when it can. */
+    fun blocked(strings: Strings, timeline: WorldTimeline): String? = when {
+        timeline.serverRunning -> strings.t("import.stop_first")
+        timeline.blockedBy != null -> strings.t("world.busy", "job" to timeline.blockedBy)
+        else -> null
+    }
+
+    fun title(read: WorldRead): String = read.world.name ?: read.world.folderName
+
+    /** Name, version, size and last played, as label and value; Unknown when not read. */
+    fun facts(
+        strings: Strings,
+        world: WorldInfo,
+        zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+        locale: java.util.Locale = java.util.Locale.getDefault(),
+    ): List<Pair<String, String>> = listOf(
+        strings.t("import.name") to (world.name ?: world.folderName),
+        strings.t("import.version") to (world.version ?: strings.t("value.unknown")),
+        strings.t("import.size") to strings.t(
+            "import.size_value", "size" to Display.bytes(strings, world.sizeBytes), "files" to world.files.toString(),
+        ),
+        strings.t("import.last_played") to
+            (world.lastPlayed?.takeIf { it > 0 }?.let { Display.dateTime(strings, it, zone, locale) } ?: strings.t("value.unknown")),
+    )
+
+    /** What the person should know before replacing: a level.dat not fully
+     * read, the wrong edition, a newer game version, where a Bedrock world goes. */
+    fun lines(strings: Strings, read: WorldRead): List<VersionChange.Line> = buildList {
+        read.world.readProblem?.let { add(VersionChange.Line(strings.t("import.read_problem", "problem" to it), Tone.WARNING)) }
+        if (!read.editionMatches) {
+            add(VersionChange.Line(strings.t(if (read.world.edition == "bedrock") "import.is_bedrock" else "import.is_java"), Tone.DANGER))
+        }
+        if (read.newerThanServer == true) {
+            add(VersionChange.Line(
+                strings.t("import.newer", "world" to (read.world.version ?: ""), "server" to (read.serverVersion ?: "")), Tone.WARNING,
+            ))
+        }
+        read.levelName?.let { add(VersionChange.Line(strings.t("import.bedrock_level", "name" to it), Tone.NEUTRAL)) }
+    }
+
+    /** The agent refuses a world of the other edition, so it isn't offered. */
+    fun canUse(read: WorldRead): Boolean = read.editionMatches
+
+    fun done(strings: Strings, result: WorldImported): String =
+        strings.t(if (result.undo != null) "import.done_with_undo" else "import.done")
 }

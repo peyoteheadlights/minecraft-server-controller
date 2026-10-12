@@ -7,7 +7,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -16,13 +20,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import io.github.peyoteheadlights.mcsc.core.AddServer
 import io.github.peyoteheadlights.mcsc.core.Display
 import io.github.peyoteheadlights.mcsc.core.ServerRow
 import io.github.peyoteheadlights.mcsc.core.States
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ServersScreen(vm: AppViewModel, onOpen: (String) -> Unit) {
+fun ServersScreen(vm: AppViewModel, onOpen: (String) -> Unit, onAdd: () -> Unit) {
     val ui = vm.servers
     val colors = LocalColors.current
     val now = rememberNow()
@@ -32,6 +37,9 @@ fun ServersScreen(vm: AppViewModel, onOpen: (String) -> Unit) {
             Bar(t("mobile.servers.title"), actions = {
                 if (vm.live) {
                     Text(t("mobile.servers.live"), color = colors.success, modifier = Modifier.padding(end = 16.dp))
+                }
+                if (AddServer.allowed(vm.me)) {
+                    IconButton(onClick = onAdd) { Icon(Icons.Filled.Add, contentDescription = t("mobile.add.title")) }
                 }
             })
         },

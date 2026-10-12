@@ -1,0 +1,591 @@
+package io.github.peyoteheadlights.mcsc.core
+
+import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class SetupTest {
+    private val token = "secret-session-token-1234567890"
+    private val strings = Strings(Shared.strings)
+    private val json = Json { ignoreUnknownKeys = true }
+
+    private fun client(agent: TestAgent) = AgentClient(agent.pairing(), { token }, systemTrust = TestAgent.trustingNothing())
+
+    private val settingsJson = """{"server_id": "s", "server": {"name": "Survival", "autosleep": true, "autosleep_minutes": 30,
+        "start_timeout": 300.0, "stop_timeout": 90, "autostart_minecraft": false, "cpu_cores": []},
+        "color": "#3366CC", "palette": [{"id": "blue", "name": "Blue", "hex": "#3366CC"}],
+        "monitor": {"auto_restart": true, "restart_delay": 10.5, "max_crashes": 5, "crash_window_minutes": 10},
+        "backups": {"keep_daily": 7, "keep_weekly": 4, "keep_monthly": 3}, "mods": {}, "overrides": {}, "editable": [],
+        "cpu": {"logical_cores": 8, "supported": true, "unsupported_reason": null, "others": [],
+            "status": {"configured": null, "applied": null, "applied_reason": "The server is not running", "problems": []}},
+        "sleep": {"enabled": true, "minutes": 30, "players_online": 0, "stops_in": 125.0, "list_answered": true}}"""
+
+    private fun settings() = json.decodeFromString(ServerSettings.serializer(), settingsJson)
+
+    private fun me(vararg permissions: String) = Me(user = "x", role = "helper", permissions = permissions.toList())
+
+    @Test
+    fun `server settings decode and every field starts at its saved value`() {
+        val s = settings()
+        assertEquals("Survival", ServerForm.initial(s, ServerForm.NAME))
+        assertEquals("true", ServerForm.initial(s, "monitor.auto_restart"))
+        assertEquals("10.5", ServerForm.initial(s, "monitor.restart_delay"))
+        assertEquals("300", ServerForm.initial(s, "server.start_timeout"))
+        assertEquals("7", ServerForm.initial(s, "backups.keep_daily"))
+        assertEquals("false", ServerForm.initial(s, "server.autostart_minecraft"))
+        assertEquals(8, s.cpu.logicalCores)
+        assertNull(s.cpu.status.configured)
+        assertEquals("blue", s.palette.single().id)
+    }
+
+    @Test
+    fun `only someone who may edit settings can change them, and only viewers see them`() {
+        assertFalse(ServerForm.visible(null))
+        assertFalse(ServerForm.visible(me()))
+        assertTrue(ServerForm.visible(me(Permissions.SETTINGS_VIEW)))
+        assertFalse(ServerForm.editable(me(Permissions.SETTINGS_VIEW)))
+        assertTrue(ServerForm.editable(me(Permissions.SETTINGS_VIEW, Permissions.SETTINGS_EDIT)))
+    }
+
+    @Test
+    fun `save sends only what changed, typed as the agent takes it`() {
+        val s = settings()
+        val nothing = ServerForm.changed(s, mapOf("monitor.auto_restart" to "true", "server.start_timeout" to "300", ServerForm.NAME to " Survival "))
+        assertTrue(nothing.isEmpty())
+        val sent = ServerForm.changed(s, mapOf(
+            ServerForm.NAME to "  Creative ",
+            "monitor.auto_restart" to "false",
+            "monitor.restart_delay" to "20",
+            "backups.keep_daily" to "3",
+            "server.autosleep_minutes" to "soon",
+        ))
+        assertEquals(buildJsonObject {
+            put("server.name", "Creative")
+            put("monitor.auto_restart", false)
+            put("monitor.restart_delay", 20.0)
+            put("server.autosleep_minutes", "soon")
+            put("backups.keep_daily", 3)
+        }, sent)
+        // A blank name is never sent.
+        assertTrue(ServerForm.changed(s, mapOf(ServerForm.NAME to "  ")).isEmpty())
+    }
+
+    @Test
+    fun `saying what happened`() {
+        assertEquals("Nothing changed.", ServerForm.saved(strings, sent = false, result = null))
+        assertEquals("Settings saved.", ServerForm.saved(strings, sent = true, result = ServerSettingsSaved()))
+        val refused = ServerSettingsSaved(rejected = mapOf("server.autosleep_minutes" to "Pick between 1 minute and 24 hours."))
+        assertEquals(strings.t("mobile.game.fix_marked"), ServerForm.saved(strings, sent = true, result = refused))
+    }
+
+    @Test
+    fun `a typed color must be one`() {
+        assertEquals("#3366CC", ServerForm.color("#3366cc"))
+        assertEquals("#3366CC", ServerForm.color("3366cc"))
+        assertNull(ServerForm.color("#36c"))
+        assertNull(ServerForm.color("blue"))
+    }
+
+    @Test
+    fun `sleep says only what was measured`() {
+        val s = settings()
+        assertEquals("Empty. Stopping in 2m.", ServerForm.sleepLine(strings, s))
+        assertEquals(strings.t("serverset.sleep_unknown_players"), ServerForm.sleepLine(strings, s.copy(sleep = s.sleep!!.copy(playersOnline = null))))
+        assertEquals(strings.t("value.unknown"), ServerForm.sleepLine(strings, s.copy(sleep = null)))
+        val off = s.copy(server = buildJsonObject { put("autosleep", false) })
+        assertEquals(strings.t("serverset.sleep_off"), ServerForm.sleepLine(strings, off))
+    }
+
+    @Test
+    fun `server settings and color go to the agent's routes`() = runBlocking {
+        TestAgent().use { agent ->
+            val c = client(agent)
+            agent.server.enqueue(agent.json(settingsJson))
+            assertEquals("Survival", ServerForm.initial(c.serverSettings("s"), ServerForm.NAME))
+            assertEquals("/api/servers/s/settings", agent.server.takeRequest().path)
+            agent.server.enqueue(agent.json("""{"ok": true, "applied": {"server.name": "C"}, "rejected": {"server.autosleep_minutes": "Pick between 1 minute and 24 hours."}}"""))
+            val saved = c.saveServerSettings("s", buildJsonObject { put("server.name", "C") })
+            assertEquals(JsonPrimitive("C"), saved.applied["server.name"])
+            assertEquals("Pick between 1 minute and 24 hours.", saved.rejected["server.autosleep_minutes"])
+            val put = agent.server.takeRequest()
+            assertEquals("PUT", put.method)
+            assertEquals("""{"updates":{"server.name":"C"}}""", put.body.readUtf8())
+            agent.server.enqueue(agent.json("""{"ok": true, "color": "#3366CC"}"""))
+            assertEquals("#3366CC", c.setColor("s", "#3366CC").color)
+            val color = agent.server.takeRequest()
+            assertEquals("/api/servers/s/color", color.path)
+            assertEquals("""{"color":"#3366CC"}""", color.body.readUtf8())
+        }
+    }
+
+    // ------------------------------------------------------------ CPU cores and memory
+    @Test
+    fun `cpu cores show who else uses each core and what the server got`() {
+        val cpu = CpuOverview(
+            logicalCores = 8, supported = true,
+            others = listOf(CpuOther("b", "Creative", listOf(0, 1)), CpuOther("c", "Modded", listOf(1))),
+            status = CpuStatus(configured = listOf(0, 1, 2, 3), applied = listOf(0, 1, 2, 3)),
+        )
+        assertEquals(mapOf(0 to listOf("Creative"), 1 to listOf("Creative", "Modded")), CpuCores.sharedBy(cpu))
+        assertEquals("1-4, 7", CpuCores.describe(listOf(6, 3, 0, 1, 2)))
+        assertEquals(setOf(0, 1, 2, 3), CpuCores.half(7))
+        assertEquals("Using 1-4 now.", CpuCores.nowLine(strings, cpu))
+        assertEquals("Using all cores now.", CpuCores.nowLine(strings, cpu.copy(status = CpuStatus(applied = (0..7).toList()))))
+        assertEquals("Cores in use now unknown: The server is not running", CpuCores.nowLine(strings, cpu.copy(status = CpuStatus(appliedReason = "The server is not running"))))
+        assertEquals(emptyList<Int>(), CpuCores.toSave(all = true, picked = setOf(2)))
+        assertNull(CpuCores.toSave(all = false, picked = emptySet()))
+        assertEquals(listOf(1, 3), CpuCores.toSave(all = false, picked = setOf(3, 1)))
+    }
+
+    @Test
+    fun `after saving cores the phone says whether the running server got them`() {
+        assertEquals(strings.t("serverset.cores_next_start"), CpuCores.saved(strings, ServerSettingsSaved()))
+        assertEquals(strings.t("serverset.cores_applied"), CpuCores.saved(strings, ServerSettingsSaved(cpuCores = CpuApplied(ok = true, applied = listOf(0)))))
+        assertEquals("Saved, but not applied yet: Access denied", CpuCores.saved(strings, ServerSettingsSaved(cpuCores = CpuApplied(ok = false, reason = "Access denied"))))
+        val decoded = json.decodeFromString(ServerSettingsSaved.serializer(), """{"ok": true, "applied": {"server.cpu_cores": [0]}, "rejected": {}, "cpu_cores": {"ok": true, "applied": [0], "reason": null}}""")
+        assertEquals(listOf(0), decoded.cpuCores?.applied)
+    }
+
+    private val memoryJson = """{"total_mb": 16384, "total_source": "measured (psutil)", "limit_mb": 6144, "jvm_args": ["-Xmx6G"],
+        "takes_memory_limit": true, "min_mb": 1024, "max_mb": 16384, "step_mb": 512, "together_mb": 14336,
+        "servers": [{"id": "s", "name": "Survival", "limit_mb": 6144, "running": false, "this": true},
+                    {"id": "b", "name": "Creative", "limit_mb": 8192, "running": true, "this": false}], "over": false, "running": false}"""
+
+    @Test
+    fun `the memory slider keeps to what the pc has`() {
+        val memory = json.decodeFromString(MemoryOverview.serializer(), memoryJson)
+        assertTrue(Memory.slider(memory))
+        assertEquals(6144, Memory.start(memory))
+        assertEquals(1024, Memory.snap(memory, 100f))
+        assertEquals(16384, Memory.snap(memory, 99999f))
+        assertEquals(2560, Memory.snap(memory, 2700f))
+        assertEquals("6 GB", Memory.gb(6144))
+        assertEquals("1.5 GB", Memory.gb(1536))
+        assertEquals("Now: up to 6 GB. Changes apply on the next start.", Memory.nowLine(strings, memory))
+        assertFalse(Memory.slider(memory.copy(totalMb = null)))
+        assertEquals(strings.t("memory.pc_unknown"), Memory.noSlider(strings, memory.copy(totalMb = null), bedrock = false))
+    }
+
+    @Test
+    fun `memory warns when every server together would use more than the pc has`() {
+        val memory = json.decodeFromString(MemoryOverview.serializer(), memoryJson)
+        assertNull(Memory.warning(strings, memory, 8192))
+        assertEquals("With Creative running, servers may use 16.5 GB, more than this PC has (16 GB).", Memory.warning(strings, memory, 8704))
+        val alone = memory.copy(servers = memory.servers.take(1))
+        assertEquals("17 GB is more than this PC has (16 GB). Windows may slow down or the server may crash.", Memory.warning(strings, alone, 17408))
+        assertNull(Memory.warning(strings, memory.copy(totalMb = null), 99999))
+    }
+
+    @Test
+    fun `bedrock servers have no memory setting`() {
+        val bedrock = MemoryOverview(totalMb = 16384, takesMemoryLimit = false)
+        assertFalse(Memory.slider(bedrock))
+        assertEquals(strings.t("memory.not_bedrock"), Memory.noSlider(strings, bedrock, bedrock = true))
+    }
+
+    @Test
+    fun `memory goes to the agent's route`() = runBlocking {
+        TestAgent().use { agent ->
+            val c = client(agent)
+            agent.server.enqueue(agent.json(memoryJson))
+            assertEquals(6144, c.memory("s").limitMb)
+            assertEquals("/api/servers/s/memory", agent.server.takeRequest().path)
+            agent.server.enqueue(agent.json(memoryJson.replace("\"limit_mb\": 6144, \"jvm", "\"limit_mb\": 4096, \"jvm").replace("{\"total_mb\"", "{\"ok\": true, \"total_mb\"")))
+            assertEquals(4096, c.setMemory("s", 4096).limitMb)
+            val put = agent.server.takeRequest()
+            assertEquals("PUT", put.method)
+            assertEquals("""{"memory_mb":4096}""", put.body.readUtf8())
+        }
+    }
+
+    // ------------------------------------------------------------ version and type
+    private val versionJson = """{"type": "fabric", "capabilities": {"id": "fabric", "name": "Fabric", "edition": "java", "content": "mods"},
+        "minecraft_version": "1.21.1", "minecraft_version_source": "console", "loader_version": "0.16.5", "loader_name": "Fabric Loader",
+        "detected_type": "fabric", "pending_version": null, "eula_required": true, "eula_url": "https://aka.ms/MinecraftEULA",
+        "last_change": {"at": 1.0, "type": "fabric", "previous_type": "fabric", "minecraft_version": "1.21.1", "can_roll_back": true, "install_log": null, "moved_aside": []}}"""
+
+    private val preflightJson = """{"current": {"type": "fabric", "type_name": "Fabric", "minecraft_version": "1.21.1", "loader_version": "0.16.5", "observed": true},
+        "target": {"type": "paper", "type_name": "Paper", "minecraft_version": "1.20.4", "loader_version": null, "stable": true},
+        "type_change": true, "gentle_type_change": false, "direction": "older", "downgrade_warning": true,
+        "java": {"verdict": "unknown", "detail": "Java couldn't be checked on this PC."}, "java_required": 17,
+        "latest_only": false, "kept": false, "content_kind": "mods", "target_content_kind": "plugins", "content": [],
+        "moved_aside": ["sodium.jar", "lithium.jar"], "unknown_support": [], "not_supporting": [],
+        "backup_first": true, "crossplay": true, "crossplay_available": true}"""
+
+    @Test
+    fun `the version is what the console said, and roll back and the eula follow the agent`() {
+        val version = json.decodeFromString(ServerVersion.serializer(), versionJson)
+        assertEquals("Fabric 1.21.1", VersionChange.now(strings, version))
+        assertEquals(strings.t("version.not_seen_yet"), VersionChange.now(strings, version.copy(minecraftVersion = null)))
+        assertTrue(VersionChange.eulaNeeded(version))
+        assertFalse(VersionChange.eulaNeeded(version.copy(eulaRequired = false)))
+        assertTrue(VersionChange.canRollBack(version))
+        assertFalse(VersionChange.canRollBack(version.copy(lastChange = null)))
+        assertEquals("https://aka.ms/MinecraftEULA", version.eulaUrl)
+    }
+
+    @Test
+    fun `only the same edition's kinds are offered, and snapshots only when asked`() {
+        val version = json.decodeFromString(ServerVersion.serializer(), versionJson)
+        val types = listOf(ServerTypeInfo("fabric", "Fabric"), ServerTypeInfo("paper", "Paper"), ServerTypeInfo("bedrock", "Bedrock", edition = "bedrock"))
+        assertEquals(listOf("fabric", "paper"), VersionChange.sameEdition(types, version).map { it.id })
+        val offered = TypeVersions(versions = listOf(OfferedVersion("1.21.4"), OfferedVersion("25w01a", stable = false)))
+        assertEquals(listOf("1.21.4"), VersionChange.choices(offered, snapshots = false).map { it.minecraft })
+        assertEquals(2, VersionChange.choices(offered, snapshots = true).size)
+    }
+
+    @Test
+    fun `the check says what might break before anything changes`() {
+        val report = json.decodeFromString(VersionPreflight.serializer(), preflightJson)
+        val lines = VersionChange.lines(strings, report)
+        assertEquals(strings.t("version.downgrade"), lines[0].text)
+        assertEquals(Tone.WARNING, lines[1].tone)
+        assertTrue(lines[1].text.startsWith("This changes the server from Fabric to Paper."))
+        assertTrue(lines.any { it.text.startsWith("2 add-ons don't fit") })
+        assertEquals(strings.t("version.java_unknown"), lines[lines.size - 2].text)
+        assertEquals(strings.t("version.backup_first"), lines.last().text)
+        assertTrue(VersionChange.danger(report))
+        assertFalse(VersionChange.danger(report.copy(downgradeWarning = false, gentleTypeChange = true)))
+        assertEquals("Paper 1.20.4", VersionChange.target(report))
+        val incompatible = report.copy(java = JavaCheck("incompatible", "Minecraft 1.20.4 needs Java 17; this PC has Java 8."))
+        assertEquals(Tone.DANGER, VersionChange.lines(strings, incompatible).first().tone)
+    }
+
+    @Test
+    fun `a running change is found again when the screen opens`() {
+        val jobs = listOf(
+            Job("a", kind = "backup", state = "running", serverId = "s"),
+            Job("b", kind = "version_change", state = "succeeded", serverId = "s"),
+            Job("c", kind = "version_change", state = "running", serverId = "other"),
+            Job("d", kind = "version_rollback", state = "running", serverId = "s", step = "Putting the previous version back"),
+        )
+        assertEquals("d", VersionChange.running(jobs, "s")?.id)
+        assertNull(VersionChange.running(jobs.take(3), "s"))
+    }
+
+    @Test
+    fun `version routes are called as the dashboard calls them`() = runBlocking {
+        TestAgent().use { agent ->
+            val c = client(agent)
+            agent.server.enqueue(agent.json("""{"types": [{"id": "fabric", "name": "Fabric", "edition": "java", "ease": "easy", "recommended": true}], "recommended": "fabric", "default": "fabric"}"""))
+            assertEquals("fabric", c.serverTypes().types.single().id)
+            assertEquals("/api/server-types", agent.server.takeRequest().path)
+            agent.server.enqueue(agent.json("""{"type": "fabric", "type_name": "Fabric", "latest_stable": "1.21.4", "versions": [{"minecraft": "1.21.4", "stable": true, "loaders": ["0.16.9"], "java_required": 21}], "source_problem": null}"""))
+            assertEquals(21, c.typeVersions("fabric").versions.single().javaRequired)
+            assertEquals("/api/server-types/fabric/versions", agent.server.takeRequest().path)
+            agent.server.enqueue(agent.json(versionJson))
+            assertTrue(c.serverVersion("s").eulaRequired)
+            agent.server.takeRequest()
+            agent.server.enqueue(agent.json(preflightJson))
+            assertTrue(c.versionPreflight("s", "paper", "1.20.4", null).typeChange)
+            val check = agent.server.takeRequest()
+            assertEquals("/api/servers/s/version/preflight", check.path)
+            assertEquals("""{"type":"paper","minecraft_version":"1.20.4","confirm":false}""", check.body.readUtf8())
+            agent.server.enqueue(agent.json("""{"ok": true, "job_id": "j1", "pending": true}"""))
+            assertEquals("j1", c.changeVersion("s", "fabric", "1.21.4", "0.16.9").jobId)
+            assertEquals("""{"type":"fabric","minecraft_version":"1.21.4","loader_version":"0.16.9","confirm":true}""", agent.server.takeRequest().body.readUtf8())
+            agent.server.enqueue(agent.json("""{"ok": true, "job_id": "j2", "type": "fabric", "restored": []}"""))
+            assertEquals("j2", c.rollBackVersion("s").jobId)
+            assertEquals("/api/servers/s/version/roll-back", agent.server.takeRequest().path)
+            agent.server.enqueue(agent.json("""{"ok": true, "file": "C:\\s\\eula.txt", "url": "https://aka.ms/MinecraftEULA"}"""))
+            assertEquals("https://aka.ms/MinecraftEULA", c.acceptEula("s").url)
+            assertEquals("/api/servers/s/eula", agent.server.takeRequest().path)
+        }
+    }
+
+    // ------------------------------------------------------------ crossplay and duplicate
+    @Test
+    fun `crossplay is offered only where geyser is built, with the agent's reason`() {
+        val off = json.decodeFromString(CrossplayInfo.serializer(), """{"available": false, "unavailable_reason": "GeyserMC publishes no build for Forge servers.", "enabled": false, "port": null, "default_port": 19132, "suggested_port": null, "differences": []}""")
+        assertEquals("GeyserMC publishes no build for Forge servers.", Crossplay.whyNot(strings, off))
+        assertEquals(strings.t("cross.not_for_type"), Crossplay.whyNot(strings, off.copy(unavailableReason = null)))
+        val on = CrossplayInfo(available = true, enabled = false, suggestedPort = 19133)
+        assertNull(Crossplay.whyNot(strings, on))
+        assertEquals("19133", Crossplay.port(on))
+        assertEquals("19132", Crossplay.port(CrossplayInfo(available = true)))
+        assertEquals(19140, Crossplay.typedPort(" 19140 "))
+        assertNull(Crossplay.typedPort("99999"))
+        assertEquals(strings.t("cross.files_missing"), Crossplay.ready(strings, on.copy(enabled = true)))
+    }
+
+    @Test
+    fun `duplicate is for the owner and offers the world choices there are`() {
+        assertFalse(Duplicate.allowed(me(Permissions.SETTINGS_EDIT)))
+        assertTrue(Duplicate.allowed(me(Permissions.SERVERS_MANAGE)))
+        assertEquals(listOf("copy", "fresh"), Duplicate.worlds(DuplicateOptions(worldFolders = listOf("world"))))
+        assertEquals(listOf("fresh"), Duplicate.worlds(DuplicateOptions()))
+        assertFalse(Duplicate.ready(" ", "C:\\s"))
+        assertTrue(Duplicate.ready("Copy", "C:\\s"))
+        assertEquals("Copying files", Duplicate.progress(Job("j", kind = "duplicate", state = "running", serverId = "s", step = "Copying files"), "s"))
+        assertNull(Duplicate.progress(Job("j", kind = "duplicate", state = "succeeded", serverId = "s"), "s"))
+    }
+
+    @Test
+    fun `crossplay and duplicate go to the agent's routes`() = runBlocking {
+        TestAgent().use { agent ->
+            val c = client(agent)
+            agent.server.enqueue(agent.json("""{"available": true, "enabled": false, "default_port": 19132, "suggested_port": 19132, "username_prefix": ".", "differences": ["a"], "address": null, "address_unknown": null}"""))
+            assertTrue(c.crossplay("s").available)
+            agent.server.takeRequest()
+            agent.server.enqueue(agent.json("""{"ok": true, "available": true, "enabled": true, "port": 19132, "default_port": 19132, "ready": true}"""))
+            assertTrue(c.setCrossplay("s", true, 19132).ready)
+            val put = agent.server.takeRequest()
+            assertEquals("PUT", put.method)
+            assertEquals("""{"enabled":true,"port":19132}""", put.body.readUtf8())
+            agent.server.enqueue(agent.json("""{"name": "Survival copy", "directory": "C:\\mc\\Survival copy", "running": true, "crossplay": false, "world_folders": ["world"]}"""))
+            assertEquals("Survival copy", c.duplicateOptions("s").name)
+            agent.server.takeRequest()
+            agent.server.enqueue(agent.json("""{"ok": true, "job": {"id": "j", "kind": "duplicate", "title": "Copying", "state": "running", "server_id": "s"}}"""))
+            assertEquals("j", c.duplicate("s", "Copy", "D:/mc/Copy", "fresh").job.id)
+            assertEquals("""{"name":"Copy","directory":"D:/mc/Copy","world":"fresh"}""", agent.server.takeRequest().body.readUtf8())
+        }
+    }
+
+    @Test
+    fun `remove server is for the owner and never on the last server`() {
+        assertFalse(RemoveServer.allowed(me(Permissions.SETTINGS_EDIT)))
+        assertTrue(RemoveServer.allowed(me(Permissions.SERVERS_MANAGE)))
+        assertEquals(strings.t("serverset.remove_last"), RemoveServer.blocked(strings, 1))
+        assertNull(RemoveServer.blocked(strings, 2))
+        assertEquals(strings.t("serverset.remove_hint"), RemoveServer.hint(strings, 2))
+        assertEquals(strings.t("serverset.remove_last"), RemoveServer.hint(strings, 1))
+    }
+
+    @Test
+    fun `remove server goes to the agent's route`() = runBlocking {
+        TestAgent().use { agent ->
+            agent.server.enqueue(agent.json("""{"ok": true, "removed": "s", "name": "Survival", "directory": "C:\\mc"}"""))
+            assertEquals("Survival", client(agent).removeServer("s").name)
+            val request = agent.server.takeRequest()
+            assertEquals("DELETE", request.method)
+            assertEquals("/api/servers/s", request.path)
+        }
+    }
+
+    @Test
+    fun `the change list shows added, removed and changed keys and ignores comments`() {
+        val before = "#Minecraft server properties\nmotd=Hello\npvp=true\nmax-players=20\n"
+        val after = "# my note\nmotd = Hi there\nmax-players=20\nallow-flight=true\n"
+        assertEquals(
+            listOf(
+                RawChange("allow-flight", null, "true"),
+                RawChange("motd", "Hello", "Hi there"),
+                RawChange("pvp", "true", null),
+            ),
+            RawText.propertyChanges(before, after),
+        )
+        assertEquals(emptyList<RawChange>(), RawText.propertyChanges(before, "# new comment\n" + before))
+    }
+
+    @Test
+    fun `properties are read the way the agent reads them`() {
+        val read = RawText.properties("  a : 1\nb\\\n  c=2\n! old\nmotd=caf\\u00e9\nempty=\na=3\n")
+        assertEquals(mapOf("a" to "3", "bc" to "2", "motd" to "café", "empty" to ""), read)
+    }
+
+    @Test
+    fun `java options are compared by option, not by position`() {
+        val before = listOf("-Xms1G", "-Xmx4G", "-XX:+UseG1GC", "-Dfile.encoding=UTF-8")
+        assertEquals(listOf("-Xms1G", "-Xmx6G", "-XX:-UseG1GC"), RawText.args(" -Xms1G  -Xmx6G\n-XX:-UseG1GC "))
+        assertEquals(
+            listOf(
+                RawChange("-Dfile.encoding", "-Dfile.encoding=UTF-8", null),
+                RawChange("-XX:UseG1GC", "-XX:+UseG1GC", "-XX:-UseG1GC"),
+                RawChange("-Xmx", "-Xmx4G", "-Xmx6G"),
+            ),
+            RawText.argChanges(before, RawText.args("-Xmx6G -Xms1G -XX:-UseG1GC")),
+        )
+        assertEquals(emptyList<RawChange>(), RawText.argChanges(before, before.reversed()))
+        // An option given twice: taking one out is a change, not "nothing changed".
+        assertEquals(
+            listOf(RawChange("-Dx (2)", "-Dx=2", null)),
+            RawText.argChanges(RawText.args("-Dx=1 -Dx=2"), RawText.args("-Dx=1")),
+        )
+    }
+
+    @Test
+    fun `each change is said in plain words`() {
+        assertEquals(strings.t("mobile.raw.added", "key" to "a", "new" to "1"), RawText.line(strings, RawChange("a", null, "1")))
+        assertEquals(strings.t("mobile.raw.removed", "key" to "a", "old" to "1"), RawText.line(strings, RawChange("a", "1", null)))
+        assertEquals(strings.t("mobile.raw.changed", "key" to "a", "old" to "1", "new" to "2"), RawText.line(strings, RawChange("a", "1", "2")))
+        assertTrue(RawText.allowed(me(Permissions.SETTINGS_EDIT), technical = true))
+        assertFalse(RawText.allowed(me(Permissions.SETTINGS_EDIT), technical = false))
+        assertFalse(RawText.allowed(me(Permissions.SETTINGS_VIEW), technical = true))
+    }
+
+    @Test
+    fun `raw game settings go to the agent's route`() = runBlocking {
+        TestAgent().use { agent ->
+            agent.server.enqueue(agent.json("""{"ok": true, "keys": ["motd"], "running": false, "restart_needed": false}"""))
+            assertEquals(listOf("motd"), client(agent).saveGameSettingsText("s", "motd=Hi\n").keys)
+            val request = agent.server.takeRequest()
+            assertEquals("PUT", request.method)
+            assertEquals("/api/servers/s/game-settings/raw", request.path)
+            assertEquals("""{"text":"motd=Hi\n"}""", request.body.readUtf8())
+        }
+    }
+
+    @Test
+    fun `the folder picker reads the agent's listing and goes up to the drives from a root`() {
+        val top = AgentJson.decodeFromString<FolderListing>(
+            """{"path": null, "parent": null, "folders": [], "drives": [{"name": "C:", "path": "C:\\"}], "shortcuts": [{"key": "saves", "path": "C:\\saves"}]}"""
+        )
+        assertTrue(FolderPicker.atTop(top))
+        assertNull(FolderPicker.up(top))
+        assertEquals(strings.t("folders.saves"), FolderPicker.shortcutName(strings, top.shortcuts[0]))
+        assertEquals(strings.t("folders.drive", "name" to "C:"), FolderPicker.driveName(strings, top.drives[0]))
+        val root = AgentJson.decodeFromString<FolderListing>(
+            """{"path": "C:\\", "parent": null, "folders": [{"name": "mc", "path": "C:\\mc", "world": false}], "truncated": false, "world": false}"""
+        )
+        assertFalse(FolderPicker.atTop(root))
+        assertEquals("", FolderPicker.up(root))
+        val inside = AgentJson.decodeFromString<FolderListing>(
+            """{"path": "C:\\mc", "parent": "C:\\", "folders": [], "truncated": true, "world": true}"""
+        )
+        assertEquals("C:\\", FolderPicker.up(inside))
+        assertEquals(listOf(strings.t("folders.empty"), strings.t("folders.truncated")), FolderPicker.notes(strings, inside))
+    }
+
+    @Test
+    fun `the folder picker is the owner's, and typing a path is for Technical mode`() {
+        assertFalse(FolderPicker.allowed(me(Permissions.SETTINGS_EDIT)))
+        assertTrue(FolderPicker.allowed(me(Permissions.FILES_BROWSE)))
+        assertFalse(FolderPicker.canType(technical = false))
+        assertTrue(FolderPicker.canType(technical = true))
+    }
+
+    @Test
+    fun `folders and the off-PC folder go to the agent's routes`() = runBlocking {
+        TestAgent().use { agent ->
+            val c = client(agent)
+            agent.server.enqueue(agent.json("""{"path": null, "parent": null, "folders": [], "drives": [], "shortcuts": []}"""))
+            assertNull(c.folders(null).path)
+            assertEquals("/api/folders", agent.server.takeRequest().path)
+            agent.server.enqueue(agent.json("""{"path": "D:\\My stuff", "parent": "D:\\", "folders": []}"""))
+            c.folders("D:\\My stuff")
+            assertEquals("/api/folders?path=D%3A%5CMy%20stuff", agent.server.takeRequest().path)
+            agent.server.enqueue(agent.json("""{"ok": true, "directory": "D:\\Backups"}"""))
+            c.setOffsite("s", "D:\\Backups")
+            assertEquals("""{"directory":"D:\\Backups"}""", agent.server.takeRequest().body.readUtf8())
+        }
+    }
+
+    private val optionsJson = """{"types": [
+        {"id": "vanilla", "name": "Vanilla", "edition": "java", "ease": "easy", "snapshots": true, "version_source": "Mojang version list"},
+        {"id": "fabric", "name": "Fabric", "edition": "java", "content": "mods", "ease": "easy", "modrinth": true, "picks_loader": true, "loader_name": "Fabric Loader", "metadata_files": ["fabric.mod.json"], "recommended": true},
+        {"id": "bedrock", "name": "Bedrock", "edition": "bedrock", "takes_memory_limit": false, "latest_only": true}
+      ], "recommended": "fabric", "memory_mb": 4096, "memory_reason": null, "port": 25566, "color": "#F87906",
+      "palette": [{"id": "orange", "name": "Orange", "hex": "#F87906"}], "eula_url": "https://aka.ms/MinecraftEULA",
+      "bedrock": {"port": 19132, "port_v6": 19133, "eula_url": "https://minecraft.net/eula", "privacy_url": "https://privacy", "terms": null}}"""
+
+    @Test
+    fun `new servers are the owner's, and Bedrock skips the table of kinds`() {
+        val options = AgentJson.decodeFromString<NewServerOptions>(optionsJson)
+        assertFalse(AddServer.allowed(me(Permissions.SETTINGS_EDIT)))
+        assertTrue(AddServer.allowed(me(Permissions.SERVERS_MANAGE)))
+        assertEquals(listOf("vanilla", "fabric"), AddServer.kinds(options).map { it.id })
+        assertEquals(listOf(AddServer.EDITION, AddServer.KIND, AddServer.VERSION, AddServer.DETAILS, AddServer.RULES), AddServer.steps("java"))
+        assertEquals(listOf(AddServer.EDITION, AddServer.VERSION, AddServer.DETAILS, AddServer.RULES), AddServer.steps("bedrock"))
+        assertEquals("bedrock", AddServer.bedrockType(options)?.id)
+        assertTrue(AddServer.memoryShown(options.types[1]))
+        assertFalse(AddServer.memoryShown(options.types[2]))
+    }
+
+    @Test
+    fun `the table of kinds comes from the agent's types`() {
+        val fabric = AgentJson.decodeFromString<NewServerOptions>(optionsJson).types[1]
+        val rows = AddServer.rows(strings, fabric, technical = false)
+        assertEquals(
+            listOf(
+                strings.t("new.col_best_for") to strings.t("types.fabric.best"),
+                strings.t("new.col_content") to strings.t("new.content_mods"),
+                strings.t("new.col_modrinth") to strings.t("value.yes"),
+                strings.t("new.col_crossplay") to strings.t("value.no"),
+                strings.t("new.col_ease") to strings.t("new.ease_easy"),
+            ),
+            rows,
+        )
+        val technical = AddServer.rows(strings, fabric, technical = true)
+        assertEquals(strings.t("new.col_loader") to "Fabric Loader", technical[5])
+        assertEquals(strings.t("new.col_metadata") to "fabric.mod.json", technical[6])
+    }
+
+    @Test
+    fun `the newest finished version is picked first`() {
+        val versions = AgentJson.decodeFromString<TypeVersions>(
+            """{"type": "vanilla", "type_name": "Vanilla", "versions": [{"minecraft": "25w01a", "stable": false}, {"minecraft": "1.21.4", "latest": true}, {"minecraft": "1.21.3"}]}"""
+        )
+        assertEquals("1.21.4", AddServer.firstVersion(versions)?.minecraft)
+        assertNull(AddServer.firstVersion(TypeVersions()))
+    }
+
+    @Test
+    fun `the folder is a new one named after the server, inside the one picked`() {
+        assertEquals("D:\\Minecraft\\Survival", AddServer.folderFor("D:\\Minecraft", " Survival "))
+        assertEquals("D:\\Survival", AddServer.folderFor("D:\\", "Survival"))
+        assertEquals("/srv/mc/My world", AddServer.folderFor("/srv/mc/", "My: world?"))
+        assertEquals("D:\\Minecraft", AddServer.folderFor("D:\\Minecraft", "  "))
+    }
+
+    @Test
+    fun `create waits for the rules to be ticked`() {
+        assertFalse(AddServer.ready(name = "A", folder = "D:\\A", version = "1.21.4", ruled = false))
+        assertFalse(AddServer.ready(name = "A", folder = "", version = "1.21.4", ruled = true))
+        assertFalse(AddServer.ready(name = "A", folder = "D:\\A", version = null, ruled = true))
+        assertTrue(AddServer.ready(name = "A", folder = "D:\\A", version = "1.21.4", ruled = true))
+        assertEquals("new.eula_tick", AddServer.ruleKey("java"))
+        assertEquals("new.bedrock_tick", AddServer.ruleKey("bedrock"))
+    }
+
+    @Test
+    fun `a creation still running is found again, and the agent's warnings are said after adding`() {
+        val running = Job("j", kind = "server_create", state = "running", step = "Downloading")
+        assertEquals(running, AddServer.creating(listOf(Job("k", kind = "backup", state = "running"), running)))
+        assertNull(AddServer.creating(listOf(running.copy(state = "succeeded"))))
+        val added = AgentJson.decodeFromString<ServerAdded>(
+            """{"ok": true, "server": {"id": "sky", "name": "Skyblock", "state": "OFFLINE"}, "warnings": ["No port is set."]}"""
+        )
+        assertEquals(listOf(strings.t("add.added", "name" to "Skyblock"), "No port is set."), AddServer.addedLines(strings, added))
+    }
+
+    @Test
+    fun `adding and creating go to the agent's routes`() = runBlocking {
+        TestAgent().use { agent ->
+            val c = client(agent)
+            agent.server.enqueue(agent.json(optionsJson))
+            assertEquals("fabric", c.newServerOptions().recommended)
+            assertEquals("/api/new-server/options", agent.server.takeRequest().path)
+            agent.server.enqueue(agent.json("""{"ok": true, "server_id": "fresh", "name": "Fresh", "directory": "D:/Fresh", "job_id": "j", "server": {"id": "fresh", "name": "Fresh", "state": "OFFLINE"}}"""))
+            assertEquals("fresh", c.createServer(NewServerRequest("Fresh", "D:/Fresh", "fabric", "1.21.4", null, 4096, "#F87906", eulaAccepted = true)).serverId)
+            assertEquals(
+                """{"name":"Fresh","directory":"D:/Fresh","type":"fabric","minecraft_version":"1.21.4","memory_mb":4096,"color":"#F87906","eula_accepted":true}""",
+                agent.server.takeRequest().body.readUtf8(),
+            )
+            agent.server.enqueue(agent.json("""{"ok": true, "server": {"id": "sky", "name": "Sky", "state": "OFFLINE"}, "warnings": []}"""))
+            assertEquals("sky", c.addServer("Sky", "D:/Sky", "paper", jar = "").server.id)
+            assertEquals("""{"name":"Sky","directory":"D:/Sky","type":"paper","jar":""}""", agent.server.takeRequest().body.readUtf8())
+            agent.server.enqueue(agent.json("""{"ok": true, "server_id": "pack", "name": "Pack", "directory": "D:/Pack", "job_id": "j", "server": {"id": "pack", "name": "Pack", "state": "OFFLINE"}}"""))
+            c.modpackServer("abc", "Pack", "D:/Pack", null, null, eulaAccepted = true)
+            val made = agent.server.takeRequest()
+            assertEquals("/api/modpacks/abc/new-server", made.path)
+            assertEquals("""{"name":"Pack","directory":"D:/Pack","eula_accepted":true}""", made.body.readUtf8())
+            // Leaving without making the server: the pack read is thrown away.
+            agent.server.enqueue(agent.json("""{"ok": true}"""))
+            c.forgetModpack("abc")
+            val forgot = agent.server.takeRequest()
+            assertEquals("DELETE", forgot.method)
+            assertEquals("/api/modpacks/abc", forgot.path)
+            agent.server.enqueue(agent.json("""{"jobs": []}"""))
+            c.runningJobs()
+            assertEquals("/api/jobs?running=true", agent.server.takeRequest().path)
+        }
+    }
+}
+

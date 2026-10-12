@@ -464,6 +464,31 @@ class ContentPages(
         }
     }
 
+    /** Saves the whole file as typed in Technical mode. A refused value
+     * leaves the file as it was, and its reason is shown. */
+    fun saveGameText(text: String, strings: Strings) {
+        val c = client() ?: return
+        if (busy != null) return
+        busy = "game_text"
+        said = null
+        scope.launch {
+            try {
+                val done = c.saveGameSettingsText(serverId, text)
+                said = Said(GameForm.saved(strings, done), good = true)
+                gameRestart = done.running && done.nothingChanged != true
+                loadGame()
+            } catch (e: AgentException.Failed) {
+                noted(e)
+                said = Said(e.problems.values.joinToString(" ").ifBlank { Message.of(e).text(strings) }, good = false)
+            } catch (e: AgentException) {
+                noted(e)
+                said = Said(Message.of(e).text(strings), good = false)
+            } finally {
+                busy = null
+            }
+        }
+    }
+
     fun gameRestarted() {
         gameRestart = false
     }

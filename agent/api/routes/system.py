@@ -20,7 +20,7 @@ from ...security.permissions import (
     require,
 )
 from ..deps import audit, get_core
-from ..responses import ServerList
+from ..responses import ServerAdded, ServerList, ServerRemoved
 from .models import ServerAddRequest
 
 router = APIRouter()
@@ -59,7 +59,7 @@ def _new_id(name: str, taken: list[str]) -> str:
     return candidate
 
 
-@router.post("/servers")
+@router.post("/servers", response_model=ServerAdded)
 async def add_server(
     payload: ServerAddRequest,
     request: Request,
@@ -147,7 +147,7 @@ async def add_server(
     return {"ok": True, "server": ctx.summary(), "warnings": warnings}
 
 
-@router.delete("/servers/{server_id}")
+@router.delete("/servers/{server_id}", response_model=ServerRemoved)
 async def remove_server(
     server_id: str,
     request: Request,

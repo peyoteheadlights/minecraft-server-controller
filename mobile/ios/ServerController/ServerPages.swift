@@ -22,6 +22,9 @@ enum ServerRoute: Hashable {
     /// Mods, Plugins or Packs, named for the server type.
     case content(String)
     case game(String)
+    case settings(String)
+    /// The "+" on All servers.
+    case add
 }
 
 /// A server's own screens, with the dashboard's titles for them.
@@ -44,13 +47,17 @@ final class ServerPages {
     let world: WorldPages
     /// Mods / Plugins / Packs and Game settings.
     let content: ContentPages
+    /// Server settings.
+    let setup: SetupPages
 
-    init(serverId: String, client: @escaping () -> AgentClient?, noted: @escaping (AgentError) -> Void) {
+    init(serverId: String, client: @escaping () -> AgentClient?, noted: @escaping (AgentError) -> Void,
+         listChanged: @escaping () async -> Void = {}) {
         self.serverId = serverId
         self.client = client
         self.noted = noted
         world = WorldPages(serverId: serverId, client: client, noted: noted)
         content = ContentPages(serverId: serverId, client: client, noted: noted)
+        setup = SetupPages(serverId: serverId, client: client, noted: noted, listChanged: listChanged)
     }
 
     // MARK: - Console

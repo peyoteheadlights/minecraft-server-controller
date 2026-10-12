@@ -54,6 +54,54 @@ extension AgentClient {
         try await downloadZip(world(serverId) + "/backups/\(backupId)/download", to: destination, progress: progress)
     }
 
+    /// Sends a world's zip (or .mcworld) and says what it is. Nothing is
+    /// replaced until `importWorld`; `forgetWorld` throws it away.
+    public func uploadWorld(
+        serverId: String,
+        file: PickedFile,
+        progress: (@Sendable (Int64, Int64?) -> Void)? = nil
+    ) async throws -> WorldRead {
+        try await upload(world(serverId) + "/world/import/upload", file, sent: progress, as: WorldRead.self)
+    }
+
+    /// Reads a world folder on the PC (one from the folder picker or single-player's saves).
+    public func pickWorldFolder(serverId: String, path: String) async throws -> WorldRead {
+        let body = try AgentClient.encode(["path": path])
+        return try await call("POST", world(serverId) + "/world/import/folder", body: body, slow: true, as: WorldRead.self)
+    }
+
+    /// Single-player's worlds on the PC.
+    public func savedWorlds(serverId: String) async throws -> SavedWorlds {
+        try await call("GET", world(serverId) + "/world/saves", as: SavedWorlds.self)
+    }
+
+    /// Replaces this server's world with the one read; a backup is taken first.
+    public func importWorld(serverId: String, token: String) async throws -> WorldImported {
+        let body = try AgentClient.encode(WorldImportBody(token: token, confirm: true))
+        return try await call("POST", world(serverId) + "/world/import", body: body, slow: true, as: WorldImported.self)
+    }
+
+    public func forgetWorld(serverId: String, token: String) async throws {
+        _ = try await call("DELETE", world(serverId) + "/world/import/" + AgentClient.pathSegment(token), as: Ok.self)
+    }
+
+    /// Packs this server's world as a zip for single-player; `downloadWorld` fetches it.
+    public func packWorld(serverId: String) async throws -> WorldPacked {
+        try await call("POST", world(serverId) + "/world/download", body: Data("{}".utf8), slow: true, as: WorldPacked.self)
+    }
+
+    /// Downloads the world packed by `packWorld` to `destination`, as `downloadBackup` does.
+    public func downloadWorld(
+        serverId: String,
+        packed: WorldPacked,
+        to destination: URL,
+        progress: @escaping @Sendable (Int64, Int64?) -> Void = { _, _ in }
+    ) async throws -> Int64 {
+        let path = world(serverId) + "/world/download/" + AgentClient.pathSegment(packed.token)
+            + "?filename=" + AgentClient.pathSegment(packed.filename)
+        return try await downloadZip(path, to: destination, progress: progress)
+    }
+
     public func worlds(serverId: String) async throws -> WorldList {
         try await call("GET", world(serverId) + "/worlds", as: WorldList.self)
     }
@@ -73,15 +121,28 @@ extension AgentClient {
         return try await call("POST", world(serverId) + "/world/undo", body: body, slow: true, as: Restored.self)
     }
 
+    /// Every server's tasks running now, including a new server being set up.
+    public func runningJobs() async throws -> JobList {
+        try await call("GET", "/api/jobs?running=true", as: JobList.self)
+    }
+
     /// This server's recent tasks, newest first.
     public func jobs(serverId: String, limit: Int = 20) async throws -> JobList {
         let count = Swift.min(Swift.max(limit, 1), 200)
         return try await call("GET", "/api/jobs?server_id=" + AgentClient.pathSegment(serverId) + "&limit=\(count)", as: JobList.self)
     }
 
-    /// Undoes a finished change by restoring the backup made just before it.
-    public func undoJob(jobId: String) async throws -> JobUndone {
-        try await call("POST", "/api/jobs/" + AgentClient.pathSegment(jobId) + "/undo", body: Data("{}".utf8), slow: true, as: JobUndone.self)
+    /// The server's Undo and Redo lists.
+    public func changes(serverId: String) async throws -> UndoRedo {
+        try await call("GET", world(serverId) + "/changes", as: UndoRedo.self)
+    }
+
+    /// Reverses the newest change ("undo") or puts back the one undone last
+    /// ("redo"). The server stops for it; `startAfter` starts it again.
+    public func moveChange(serverId: String, direction: String, startAfter: Bool) async throws -> ChangeMoved {
+        precondition(direction == "undo" || direction == "redo")
+        let body = try AgentClient.encode(MoveBody(startAfter: startAfter))
+        return try await call("POST", world(serverId) + "/changes/" + direction, body: body, slow: true, as: ChangeMoved.self)
     }
 
     public func schedules(serverId: String) async throws -> ScheduleList {
@@ -121,6 +182,11 @@ extension AgentClient {
         "/api/servers/" + AgentClient.pathSegment(id)
     }
 
+    private struct WorldImportBody: Encodable {
+        let token: String
+        let confirm: Bool
+    }
+
     private struct RestoreBody: Encodable {
         let confirm: Bool
         let startAfter: Bool
@@ -131,6 +197,12 @@ extension AgentClient {
             case startAfter = "start_after"
             case safetyBackup = "safety_backup"
         }
+    }
+
+    private struct MoveBody: Encodable {
+        let startAfter: Bool
+
+        enum CodingKeys: String, CodingKey { case startAfter = "start_after" }
     }
 
     private struct WorldRestoreBody: Encodable {

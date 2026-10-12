@@ -170,6 +170,7 @@ object Permissions {
     const val PLAYERS_MANAGE = "players.manage"
     const val PLAYERS_OP = "players.op"
     const val CHAT_SEND = "chat.send"
+    const val SETTINGS_VIEW = "settings.view"
     const val SETTINGS_EDIT = "settings.edit"
     const val BACKUPS_CREATE = "backups.create"
     const val BACKUPS_DOWNLOAD = "backups.download"
@@ -177,4 +178,7 @@ object Permissions {
     const val BACKUPS_DELETE = "backups.delete"
     const val SCHEDULES_MANAGE = "schedules.manage"
     const val MODS_MANAGE = "mods.manage"
+    const val SERVERS_MANAGE = "servers.manage"
+    const val FILES_BROWSE = "files.browse"
+    const val WORLD_REPLACE = "world.replace"
 }

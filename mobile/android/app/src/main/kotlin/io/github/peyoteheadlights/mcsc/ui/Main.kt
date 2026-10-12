@@ -78,7 +78,16 @@ fun Main(vm: AppViewModel) {
         },
     ) { padding ->
         NavHost(nav, startDestination = "servers", modifier = Modifier.padding(padding)) {
-            composable("servers") { ServersScreen(vm, onOpen = { nav.navigate("server/${android.net.Uri.encode(it)}") }) }
+            composable("servers") {
+                ServersScreen(vm, onOpen = { nav.navigate("server/${android.net.Uri.encode(it)}") }, onAdd = { nav.navigate("servers/add") })
+            }
+            composable("servers/add") {
+                AddServerScreen(vm, onBack = { nav.popBackStack() }, onOpen = { id ->
+                    // The new server opens in place of the "+" screen.
+                    nav.popBackStack()
+                    nav.navigate("server/${Uri.encode(id)}")
+                })
+            }
             composable("server/{id}") { back ->
                 val id = back.arguments?.getString("id").orEmpty()
                 ServerScreen(vm, id, onBack = { nav.popBackStack() }, onOpen = { page -> nav.navigate("server/${Uri.encode(id)}/$page") })
@@ -110,6 +119,14 @@ fun Main(vm: AppViewModel) {
             }
             composable("server/{id}/game") { back ->
                 GameSettingsScreen(vm, back.serverId(), onBack = { nav.popBackStack() })
+            }
+            composable("server/{id}/settings") { back ->
+                ServerSettingsScreen(
+                    vm, back.serverId(),
+                    onBack = { nav.popBackStack() },
+                    // The server is gone: back to All servers, not to its page.
+                    onRemoved = { nav.popBackStack("servers", inclusive = false) },
+                )
             }
             composable("server/{id}/events") { back ->
                 EventsScreen(vm, back.serverId(), onBack = { nav.popBackStack() })

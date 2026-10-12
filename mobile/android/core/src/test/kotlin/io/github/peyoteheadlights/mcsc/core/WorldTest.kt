@@ -157,17 +157,51 @@ class WorldTest {
         assertTrue(Backups.onDisk(good))
     }
 
+    // ------------------------------------------------------------ undo and redo
+    private fun change(id: Long, title: String, at: Double) =
+        Change(id, title, user = "mark", madeAt = at, backup = "b$id.zip", backupAt = at - 5, playedSeconds = 600.0)
+
     @Test
-    fun `only a finished change with a backup made before it can be undone`() {
-        val undo = JobResult(Undo("restore_backup", 7, "safety-1.zip"))
-        val jobs = listOf(
-            Job("a", state = "running", result = undo),
-            Job("b", state = "succeeded"),
-            Job("c", state = "succeeded", result = undo),
-            Job("d", state = "succeeded", result = undo),
+    fun `Undo and Redo work only with the restore permission, something to move and no task holding the server`() {
+        val both = UndoRedo(undo = listOf(change(2, "Restore", 100.0)), redo = listOf(change(1, "Mods", 50.0)))
+        assertTrue(ChangeList.canMove(both, "undo", canRestore = true))
+        assertTrue(ChangeList.canMove(both, "redo", canRestore = true))
+        assertFalse(ChangeList.canMove(both, "undo", canRestore = false))
+        assertFalse(ChangeList.canMove(both.copy(blockedBy = "Backing up"), "undo", canRestore = true))
+        // A new change empties Redo: nothing to put back.
+        val afterNew = both.copy(redo = emptyList())
+        assertFalse(ChangeList.canMove(afterNew, "redo", canRestore = true))
+        assertFalse(ChangeList.canMove(UndoRedo(), "undo", canRestore = true))
+    }
+
+    @Test
+    fun `the lists are said newest first, with who made the change`() {
+        val now = 10_000.0
+        val changes = UndoRedo(
+            undo = (5L downTo 1L).map { change(it, "Change $it", now - it * 3600) },
+            redo = listOf(change(9, "Game settings", 0.0).copy(undoneAt = now - 120)),
         )
-        assertEquals("c", Backups.lastUndoable(jobs)?.id)
-        assertNull(Backups.lastUndoable(jobs.take(2)))
+        val next = ChangeList.next(strings, changes, now)
+        assertTrue(next, next.contains("Change 5") && next.contains("mark"))
+        assertEquals(ChangeList.LATER, ChangeList.later(strings, changes, now).size)
+        assertTrue(ChangeList.later(strings, changes, now).first().contains("Change 4"))
+        assertTrue(ChangeList.nextRedo(strings, changes, now)!!.contains("Game settings"))
+        assertNull(ChangeList.nextRedo(strings, UndoRedo(), now))
+        assertEquals(strings.t("changes.nothing_to_undo"), ChangeList.next(strings, UndoRedo(), now))
+    }
+
+    @Test
+    fun `Undo says what goes back and how much play would be lost`() {
+        val now = 7200.0
+        val c = change(3, "Restore world", 3605.0).copy(scope = listOf("world"))
+        val (title, body) = ChangeList.ask(strings, "undo", c, now)
+        assertEquals(strings.t("changes.undo_title", "title" to "Restore world"), title)
+        assertTrue(body, body.contains("world"))
+        assertTrue(body, body.contains(strings.t("world.play_lost", "duration" to Display.duration(strings, 600.0))))
+        assertTrue(body, body.endsWith(strings.t("changes.server_stops")))
+        // Everything in the backup when the change names nothing; play unknown stays unknown.
+        val (_, all) = ChangeList.ask(strings, "redo", c.copy(scope = null, playedSeconds = null), now)
+        assertTrue(all, all.contains(strings.t("changes.everything")) && all.contains(strings.t("world.play_unknown")))
     }
 
     @Test
@@ -292,6 +326,31 @@ class WorldTest {
     }
 
     @Test
+    fun `the change lists are read and Undo and Redo sent to the server's own routes`() = runBlocking {
+        TestAgent().use { agent ->
+            val c = client(agent)
+            agent.server.enqueue(agent.json("""{"undo": [{"id": 4, "title": "Install Sodium", "user": "mark", "made_at": 100, "undone_at": null, "scope": ["mods"], "backup_id": 7, "backup": "pre.zip", "backup_at": 99, "played_seconds": null}], "redo": [], "server_running": true, "blocked_by": null}"""))
+            val changes = c.changes("survival")
+            assertEquals("Install Sodium", changes.undo.single().title)
+            assertEquals(listOf("mods"), changes.undo.single().scope)
+            assertNull(changes.undo.single().playedSeconds)
+            assertTrue(changes.serverRunning)
+            assertEquals("/api/servers/survival/changes", agent.server.takeRequest().path)
+
+            agent.server.enqueue(agent.json("""{"ok": true, "change": {"id": 4, "title": "Install Sodium", "made_at": 100, "backup_id": 7, "backup": "pre.zip", "backup_at": 99}, "restored": "pre.zip", "safety_backup": {"id": 8, "name": "now.zip"}, "job_id": "j"}"""))
+            val moved = c.moveChange("survival", "undo", startAfter = true)
+            assertEquals(strings.t("changes.undo_done", "title" to "Install Sodium"), ChangeList.done(strings, "undo", moved))
+            val sent = agent.server.takeRequest()
+            assertEquals("/api/servers/survival/changes/undo", sent.path)
+            assertTrue(sent.body.readUtf8().contains("\"start_after\":true"))
+
+            agent.server.enqueue(agent.json("""{"ok": true, "change": {"id": 4, "title": "Install Sodium", "made_at": 100, "backup_id": 8, "backup": "now.zip", "backup_at": 150}, "restored": "now.zip"}"""))
+            c.moveChange("survival", "redo", startAfter = false)
+            assertEquals("/api/servers/survival/changes/redo", agent.server.takeRequest().path)
+        }
+    }
+
+    @Test
     fun `a backup downloads with the sign-in in a header, never in the address`() = runBlocking {
         TestAgent().use { agent ->
             val zip = ByteArray(200_000) { (it % 251).toByte() }
@@ -371,6 +430,118 @@ class WorldTest {
             agent.server.enqueue(agent.json("""{"jobs": []}"""))
             c.jobs("survival")
             assertEquals("/api/jobs?server_id=survival&limit=20", agent.server.takeRequest().path)
+        }
+    }
+
+    // ------------------------------------------------------------ bringing a world in, taking it home
+    private fun me(vararg permissions: String) = Me(user = "x", role = "helper", permissions = permissions.toList())
+
+    @Test
+    fun `importing needs world replace, taking it home needs backups download`() {
+        assertFalse(WorldImport.canImport(me(Permissions.BACKUPS_RESTORE)))
+        assertTrue(WorldImport.canImport(me(Permissions.WORLD_REPLACE)))
+        assertFalse(WorldImport.canDownload(me(Permissions.WORLD_REPLACE)))
+        assertTrue(WorldImport.canDownload(me(Permissions.BACKUPS_DOWNLOAD)))
+        assertFalse(WorldImport.canImport(null))
+        assertTrue(WorldImport.accepts("My World.ZIP"))
+        assertTrue(WorldImport.accepts("island.mcworld"))
+        assertFalse(WorldImport.accepts("level.dat"))
+    }
+
+    @Test
+    fun `a running server has to be stopped before a world comes in`() {
+        assertEquals(strings.t("import.stop_first"), WorldImport.blocked(strings, WorldTimeline(serverRunning = true)))
+        assertEquals(strings.t("world.busy", "job" to "A backup"), WorldImport.blocked(strings, WorldTimeline(blockedBy = "A backup")))
+        assertNull(WorldImport.blocked(strings, WorldTimeline()))
+    }
+
+    @Test
+    fun `a world read is shown with what is known, and the wrong edition isn't offered`() {
+        val read = AgentJson.decodeFromString<WorldRead>(
+            """{"token": "${"a".repeat(32)}", "world": {"source": "zip", "folder_name": "Island", "name": null, "version": null,
+              "last_played": null, "size_bytes": 2048, "files": 3, "read_problem": "truncated", "edition": "bedrock"},
+              "edition_matches": false, "server_edition": "java", "server_version": "1.21.1", "newer_than_server": null, "level_name": null}"""
+        )
+        assertEquals("Island", WorldImport.title(read))
+        val facts = WorldImport.facts(strings, read.world, utc, Locale.US)
+        assertEquals(strings.t("import.name") to "Island", facts[0])
+        assertEquals(strings.t("value.unknown"), facts[1].second)
+        assertEquals(strings.t("import.size_value", "size" to Display.bytes(strings, 2048), "files" to "3"), facts[2].second)
+        assertEquals(strings.t("value.unknown"), facts[3].second)
+        assertEquals(
+            listOf(strings.t("import.read_problem", "problem" to "truncated"), strings.t("import.is_bedrock")),
+            WorldImport.lines(strings, read).map { it.text },
+        )
+        assertFalse(WorldImport.canUse(read))
+
+        val newer = read.copy(
+            world = read.world.copy(edition = "java", version = "1.21.4", readProblem = null),
+            editionMatches = true, newerThanServer = true,
+        )
+        assertEquals(
+            listOf(strings.t("import.newer", "world" to "1.21.4", "server" to "1.21.1")),
+            WorldImport.lines(strings, newer).map { it.text },
+        )
+        assertTrue(WorldImport.canUse(newer))
+    }
+
+    @Test
+    fun `an import with a backup first says it can be undone`() {
+        val result = AgentJson.decodeFromString<WorldImported>(
+            """{"ok": true, "job_id": "j1", "world": {"source": "folder", "folder_name": "New", "size_bytes": 1, "files": 1},
+              "safety_backup": {"id": 7, "name": "pre-import.zip"}, "undo": {"kind": "restore_backup", "backup_id": 7, "backup": "pre-import.zip"}}"""
+        )
+        assertEquals(strings.t("import.done_with_undo"), WorldImport.done(strings, result))
+        assertEquals(strings.t("import.done"), WorldImport.done(strings, result.copy(undo = null)))
+    }
+
+    @Test
+    fun `worlds are read, imported, forgotten and taken home through the agent's routes`() = runBlocking {
+        TestAgent().use { agent ->
+            val c = client(agent)
+            val readJson = """{"token": "${"b".repeat(32)}", "world": {"source": "zip", "folder_name": "W", "size_bytes": 5, "files": 1},
+              "edition_matches": true, "server_edition": "java"}"""
+            agent.server.enqueue(agent.json(readJson))
+            val bytes = ByteArray(200_000) { 1 }
+            var sent = 0L
+            val read = c.uploadWorld("survival", PickedFile.of("w.zip", bytes)) { n, _ -> sent = n }
+            assertEquals("b".repeat(32), read.token)
+            assertEquals(bytes.size.toLong(), sent)
+            val upload = agent.server.takeRequest()
+            assertEquals("/api/servers/survival/world/import/upload", upload.path)
+            assertTrue(upload.body.readUtf8().contains("filename=\"w.zip\""))
+
+            agent.server.enqueue(agent.json(readJson))
+            c.pickWorldFolder("survival", "C:\\saves\\W")
+            val folder = agent.server.takeRequest()
+            assertEquals("/api/servers/survival/world/import/folder", folder.path)
+            assertEquals("""{"path":"C:\\saves\\W"}""", folder.body.readUtf8())
+
+            agent.server.enqueue(agent.json("""{"folder": null, "worlds": []}"""))
+            assertNull(c.savedWorlds("survival").folder)
+            assertEquals("/api/servers/survival/world/saves", agent.server.takeRequest().path)
+
+            agent.server.enqueue(agent.json("""{"ok": true, "job_id": "j", "world": {"source": "zip", "folder_name": "W", "size_bytes": 5, "files": 1}}"""))
+            c.importWorld("survival", read.token)
+            assertEquals("""{"token":"${"b".repeat(32)}","confirm":true}""", agent.server.takeRequest().body.readUtf8())
+
+            agent.server.enqueue(agent.json("""{"ok": true}"""))
+            c.forgetWorld("survival", read.token)
+            val forget = agent.server.takeRequest()
+            assertEquals("DELETE", forget.method)
+            assertEquals("/api/servers/survival/world/import/${"b".repeat(32)}", forget.path)
+
+            agent.server.enqueue(agent.json("""{"ok": true, "token": "t1", "files": 2, "size_bytes": 3, "filename": "My World.zip"}"""))
+            val packed = c.packWorld("survival")
+            assertEquals("/api/servers/survival/world/download", agent.server.takeRequest().path)
+            val zip = byteArrayOf(80, 75, 3, 4)
+            agent.server.enqueue(MockResponse().setHeader("Content-Type", "application/zip").setBody(Buffer().write(zip)))
+            val out = ByteArrayOutputStream()
+            assertEquals(4L, c.downloadWorld("survival", packed, out))
+            assertTrue(zip.contentEquals(out.toByteArray()))
+            val download = agent.server.takeRequest()
+            assertEquals("/api/servers/survival/world/download/t1?filename=My%20World.zip", download.path)
+            assertEquals("Bearer $token", download.getHeader("Authorization"))
         }
     }
 }

@@ -41,12 +41,16 @@ class ServerPages(
     private val scope: CoroutineScope,
     private val client: () -> AgentClient?,
     private val noted: (AgentException) -> Unit,
+    onListChanged: () -> Unit = {},
 ) {
     /** Backups, Restore world, Schedules and Performance. */
     val world = WorldPages(serverId, scope, client, noted)
 
     /** Mods, Plugins or Packs, and Game settings. */
     val content = ContentPages(serverId, scope, client, noted)
+
+    /** Server settings. */
+    val setup = SetupPages(serverId, scope, client, noted, onListChanged)
 
     // ------------------------------------------------------------ console
     var console: Read<List<ConsoleLine>> by mutableStateOf(Read())

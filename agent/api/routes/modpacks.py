@@ -11,7 +11,7 @@ from ... import modpack
 from ...security.auth import Principal
 from ...security.permissions import MODS_MANAGE, SERVERS_MANAGE, SETTINGS_EDIT, require
 from ..deps import audit, get_core, get_server
-from ..responses import ModpackImported, ModpackInspected, Ok
+from ..responses import ModpackImported, ModpackInspected, Ok, ServerCreated
 from .models import ModpackIntoRequest, ModpackNewRequest
 
 # Agent-wide: reading a pack, and making a new server from it.
@@ -66,7 +66,7 @@ async def forget_modpack(
     return {"ok": True}
 
 
-@global_router.post("/modpacks/{token}/new-server")
+@global_router.post("/modpacks/{token}/new-server", response_model=ServerCreated)
 async def modpack_new_server(
     token: str,
     payload: ModpackNewRequest,

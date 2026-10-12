@@ -158,8 +158,41 @@ data class Job(
 @Serializable
 data class JobList(val jobs: List<Job> = emptyList())
 
+/** One change on a server's Undo or Redo list (agent/changes.py). */
 @Serializable
-data class JobUndone(val restored: String = "")
+data class Change(
+    val id: Long,
+    val title: String = "",
+    val user: String? = null,
+    @SerialName("made_at") val madeAt: Double = 0.0,
+    /** Set on the Redo list: when it was undone. */
+    @SerialName("undone_at") val undoneAt: Double? = null,
+    /** What Undo or Redo puts back; null for everything the backup holds. */
+    val scope: List<String>? = null,
+    @SerialName("backup_id") val backupId: Long? = null,
+    val backup: String = "",
+    /** When the backup that would be put back was made. */
+    @SerialName("backup_at") val backupAt: Double = 0.0,
+    /** Play since that backup; null when no sessions were recorded. */
+    @SerialName("played_seconds") val playedSeconds: Double? = null,
+)
+
+/** A server's two lists: Undo reverses [undo]'s first, Redo puts back [redo]'s first. */
+@Serializable
+data class UndoRedo(
+    val undo: List<Change> = emptyList(),
+    val redo: List<Change> = emptyList(),
+    @SerialName("server_running") val serverRunning: Boolean = false,
+    @SerialName("blocked_by") val blockedBy: String? = null,
+)
+
+/** What Undo or Redo did. */
+@Serializable
+data class ChangeMoved(
+    val change: Change,
+    val restored: String = "",
+    @SerialName("safety_backup") val safetyBackup: SafetyBackup? = null,
+)
 
 @Serializable
 data class Schedule(
@@ -257,4 +290,55 @@ data class ServerHealth(
     val overall: String = "",
     val note: String? = null,
     val checks: List<HealthCheck> = emptyList(),
+)
+
+/** A world read before it replaces anything (bringing a world in). */
+@Serializable
+data class WorldInfo(
+    val source: String = "",
+    @SerialName("folder_name") val folderName: String = "",
+    val name: String? = null,
+    val version: String? = null,
+    @SerialName("last_played") val lastPlayed: Double? = null,
+    @SerialName("size_bytes") val sizeBytes: Long = 0,
+    val files: Int = 0,
+    @SerialName("read_problem") val readProblem: String? = null,
+    val edition: String = "java",
+)
+
+/** An uploaded or picked world and whether it fits this server. Nothing
+ * changes until it is imported with [token]. */
+@Serializable
+data class WorldRead(
+    val token: String,
+    val world: WorldInfo,
+    @SerialName("edition_matches") val editionMatches: Boolean = false,
+    @SerialName("server_edition") val serverEdition: String = "java",
+    @SerialName("server_version") val serverVersion: String? = null,
+    @SerialName("newer_than_server") val newerThanServer: Boolean? = null,
+    @SerialName("level_name") val levelName: String? = null,
+)
+
+@Serializable
+data class SavedWorld(val folder: String = "", val path: String = "", val modified: Double = 0.0)
+
+/** Single-player's worlds on the PC; [folder] is null when it has none. */
+@Serializable
+data class SavedWorlds(val folder: String? = null, val worlds: List<SavedWorld> = emptyList())
+
+@Serializable
+data class WorldImported(
+    @SerialName("job_id") val jobId: String? = null,
+    val world: WorldInfo = WorldInfo(),
+    @SerialName("safety_backup") val safetyBackup: SafetyBackup? = null,
+    val undo: Undo? = null,
+)
+
+/** The world zipped for single-player, downloaded with [token]. */
+@Serializable
+data class WorldPacked(
+    val token: String,
+    val files: Int = 0,
+    @SerialName("size_bytes") val sizeBytes: Long? = null,
+    val filename: String = "world.zip",
 )

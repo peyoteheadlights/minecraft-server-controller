@@ -5,6 +5,8 @@ import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLException
 import javax.net.ssl.X509TrustManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.JsonObject
@@ -123,6 +125,8 @@ class AgentClient(
             put("label", device)
             // The app always keeps the sign-in, behind its own unlock.
             put("remember", true)
+            // Kept until signed out, not for the browser's set number of days.
+            put("phone", true)
         }
         return call(post("/api/auth/login", body), LoginResult.serializer(), signedIn = false)
     }
@@ -289,6 +293,58 @@ class AgentClient(
         Offsite.serializer(),
     )
 
+    /** Chooses the folder for second copies; the agent checks it first. */
+    suspend fun setOffsite(serverId: String, directory: String): OffsiteSaved = call(
+        request("${server(serverId)}/backups/offsite").put(buildJsonObject { put("directory", directory) }.toBody()).build(),
+        OffsiteSaved.serializer(),
+    )
+
+    suspend fun newServerOptions(): NewServerOptions = get("/api/new-server/options", NewServerOptions.serializer())
+
+    /** Downloads and sets up a new server as a task; it isn't started. */
+    suspend fun createServer(new: NewServerRequest): ServerCreated = call(
+        post("/api/new-server", buildJsonObject {
+            put("name", new.name)
+            put("directory", new.directory)
+            put("type", new.type)
+            put("minecraft_version", new.minecraft)
+            new.loader?.let { put("loader_version", it) }
+            new.memoryMb?.let { put("memory_mb", it) }
+            new.color?.let { put("color", it) }
+            put("eula_accepted", new.eulaAccepted)
+        }),
+        ServerCreated.serializer(),
+        slow = true,
+    )
+
+    /** Puts a server folder already on the PC on the list; nothing in it changes. */
+    suspend fun addServer(name: String, directory: String, type: String, jar: String): ServerAdded = call(
+        post("/api/servers", buildJsonObject {
+            put("name", name)
+            put("directory", directory)
+            put("type", type)
+            put("jar", jar)
+        }),
+        ServerAdded.serializer(),
+    )
+
+    /** Makes a new server from a pack already read by [inspectModpack]. */
+    suspend fun modpackServer(token: String, name: String, directory: String, memoryMb: Int?, color: String?, eulaAccepted: Boolean): ServerCreated = call(
+        post("/api/modpacks/${path(token)}/new-server", buildJsonObject {
+            put("name", name)
+            put("directory", directory)
+            memoryMb?.let { put("memory_mb", it) }
+            color?.let { put("color", it) }
+            put("eula_accepted", eulaAccepted)
+        }),
+        ServerCreated.serializer(),
+        slow = true,
+    )
+
+    /** The folders inside [path] on the PC, or the drives and shortcuts when null. */
+    suspend fun folders(path: String?): FolderListing =
+        get(if (path.isNullOrEmpty()) "/api/folders" else "/api/folders?path=${path(path)}", FolderListing.serializer())
+
     /**
      * Streams a backup's zip into [out], with the sign-in in a header (never
      * in the address), and returns the bytes written. [progress] gets the
@@ -300,8 +356,23 @@ class AgentClient(
         backupId: Long,
         out: java.io.OutputStream,
         progress: (Long, Long?) -> Unit = { _, _ -> },
+    ): Long = downloadZip("${server(serverId)}/backups/$backupId/download", out, progress)
+
+    /** Streams the world packed by [packWorld] into [out], as [downloadBackup] does. */
+    suspend fun downloadWorld(
+        serverId: String,
+        packed: WorldPacked,
+        out: java.io.OutputStream,
+        progress: (Long, Long?) -> Unit = { _, _ -> },
+    ): Long = downloadZip(
+        "${server(serverId)}/world/download/${path(packed.token)}?filename=${path(packed.filename)}", out, progress,
+    )
+
+    private suspend fun downloadZip(
+        path: String,
+        out: java.io.OutputStream,
+        progress: (Long, Long?) -> Unit,
     ): Long = withContext(Dispatchers.IO) {
-        val path = "${server(serverId)}/backups/$backupId/download"
         val current = token() ?: throw AgentException.SignedOut()
         val request = Request.Builder().url(pairing.origin + path).header("Authorization", "Bearer $current").get().build()
         val response = try {
@@ -342,6 +413,41 @@ class AgentClient(
         }
     }
 
+    /** Sends a world's zip (or .mcworld) and says what it is. Nothing is
+     * replaced until [importWorld]; [forgetWorld] throws it away. */
+    suspend fun uploadWorld(serverId: String, file: PickedFile, progress: (Long, Long?) -> Unit = { _, _ -> }): WorldRead {
+        val job = currentCoroutineContext()[Job]
+        val sending = upload("${server(serverId)}/world/import/upload", file) { sent, size ->
+            // Cancelled: stop sending, and the agent throws away the part it got.
+            if (job?.isActive == false) throw IOException("Cancelled")
+            progress(sent, size)
+        }
+        return call(sending, WorldRead.serializer(), slow = true)
+    }
+
+    /** Reads a world folder on the PC (one from the folder picker or single-player's saves). */
+    suspend fun pickWorldFolder(serverId: String, path: String): WorldRead =
+        call(post("${server(serverId)}/world/import/folder", buildJsonObject { put("path", path) }), WorldRead.serializer(), slow = true)
+
+    /** Single-player's worlds on the PC. */
+    suspend fun savedWorlds(serverId: String): SavedWorlds = get("${server(serverId)}/world/saves", SavedWorlds.serializer())
+
+    /** Replaces this server's world with the one read; a backup is taken first. */
+    suspend fun importWorld(serverId: String, token: String): WorldImported {
+        val body = buildJsonObject {
+            put("token", token)
+            put("confirm", true)
+        }
+        return call(post("${server(serverId)}/world/import", body), WorldImported.serializer(), slow = true)
+    }
+
+    suspend fun forgetWorld(serverId: String, token: String): Ok =
+        call(request("${server(serverId)}/world/import/${path(token)}").delete().build(), Ok.serializer())
+
+    /** Packs this server's world as a zip for single-player; [downloadWorld] fetches it. */
+    suspend fun packWorld(serverId: String): WorldPacked =
+        call(post("${server(serverId)}/world/download", JsonObject(emptyMap())), WorldPacked.serializer(), slow = true)
+
     suspend fun worlds(serverId: String): WorldList = get("${server(serverId)}/worlds", WorldList.serializer())
 
     /** Asks Minecraft to save the world now (save-all flush). */
@@ -360,13 +466,23 @@ class AgentClient(
         return call(post("${server(serverId)}/world/undo", body), Restored.serializer(), slow = true)
     }
 
+    /** Every server's tasks running now, including a new server being set up. */
+    suspend fun runningJobs(): JobList = get("/api/jobs?running=true", JobList.serializer())
+
     /** This server's recent tasks, newest first. */
     suspend fun jobs(serverId: String, limit: Int = 20): JobList =
         get("/api/jobs?server_id=${path(serverId)}&limit=${limit.coerceIn(1, 200)}", JobList.serializer())
 
-    /** Undoes a finished change by restoring the backup made just before it. */
-    suspend fun undoJob(jobId: String): JobUndone =
-        call(post("/api/jobs/${path(jobId)}/undo", JsonObject(emptyMap())), JobUndone.serializer(), slow = true)
+    /** The server's Undo and Redo lists. */
+    suspend fun changes(serverId: String): UndoRedo = get("${server(serverId)}/changes", UndoRedo.serializer())
+
+    /** Reverses the newest change ("undo") or puts back the one undone last
+     * ("redo"). The server stops for it; [startAfter] starts it again. */
+    suspend fun moveChange(serverId: String, direction: String, startAfter: Boolean): ChangeMoved {
+        require(direction == "undo" || direction == "redo")
+        val body = buildJsonObject { put("start_after", startAfter) }
+        return call(post("${server(serverId)}/changes/$direction", body), ChangeMoved.serializer(), slow = true)
+    }
 
     suspend fun schedules(serverId: String): ScheduleList = get("${server(serverId)}/schedules", ScheduleList.serializer())
 
@@ -471,9 +587,12 @@ class AgentClient(
     suspend fun uploadMod(serverId: String, file: PickedFile): ModUploaded =
         call(upload("${server(serverId)}/mods/upload", file), ModUploaded.serializer(), slow = true)
 
-    /** Reads a modpack (.mrpack) and says what importing it here would do. */
-    suspend fun inspectModpack(serverId: String, file: PickedFile): ModpackInspected =
-        call(upload("/api/modpacks/inspect?server_id=${path(serverId)}", file), ModpackInspected.serializer(), slow = true)
+    /** Reads a modpack (.mrpack); with [serverId], also what importing it there would do. */
+    suspend fun inspectModpack(serverId: String?, file: PickedFile): ModpackInspected = call(
+        upload(if (serverId == null) "/api/modpacks/inspect" else "/api/modpacks/inspect?server_id=${path(serverId)}", file),
+        ModpackInspected.serializer(),
+        slow = true,
+    )
 
     /** Throws away a modpack read but not imported. */
     suspend fun forgetModpack(token: String): Ok =
@@ -511,7 +630,111 @@ class AgentClient(
         GameSettingsSaved.serializer(),
     )
 
+    /** Saves the whole server.properties as typed in Technical mode. The
+     * agent still checks the known keys, and writes nothing when one fails. */
+    suspend fun saveGameSettingsText(serverId: String, text: String): GameSettingsSaved = call(
+        request("${server(serverId)}/game-settings/raw").put(buildJsonObject { put("text", text) }.toBody()).build(),
+        GameSettingsSaved.serializer(),
+    )
+
+    // ------------------------------------------------------------ setup
+    suspend fun serverSettings(serverId: String): ServerSettings =
+        get("${server(serverId)}/settings", ServerSettings.serializer())
+
+    /** Saves [updates] (only what changed). Refused keys come back in
+     * [ServerSettingsSaved.rejected] with the agent's reason. */
+    suspend fun saveServerSettings(serverId: String, updates: JsonObject): ServerSettingsSaved = call(
+        request("${server(serverId)}/settings").put(buildJsonObject { put("updates", updates) }.toBody()).build(),
+        ServerSettingsSaved.serializer(),
+    )
+
+    suspend fun memory(serverId: String): MemoryOverview =
+        get("${server(serverId)}/memory", MemoryOverview.serializer())
+
+    /** Sets only the -Xmx limit; used from the next start. */
+    suspend fun setMemory(serverId: String, mb: Int): MemoryOverview = call(
+        request("${server(serverId)}/memory").put(buildJsonObject { put("memory_mb", mb) }.toBody()).build(),
+        MemoryOverview.serializer(),
+    )
+
+    suspend fun serverTypes(): ServerTypes = get("/api/server-types", ServerTypes.serializer())
+
+    /** The versions a type offers, from its official source (read through the PC). */
+    suspend fun typeVersions(typeId: String): TypeVersions =
+        get("/api/server-types/${path(typeId)}/versions", TypeVersions.serializer(), slow = true)
+
+    suspend fun serverVersion(serverId: String): ServerVersion =
+        get("${server(serverId)}/version", ServerVersion.serializer())
+
+    /** What a change would do, before anything happens. */
+    suspend fun versionPreflight(serverId: String, type: String, minecraft: String, loader: String?): VersionPreflight = call(
+        request("${server(serverId)}/version/preflight").post(versionBody(type, minecraft, loader, confirm = false).toBody()).build(),
+        VersionPreflight.serializer(),
+        slow = true,
+    )
+
+    /** Stops the server, takes a backup, installs and checks; answers once done. */
+    suspend fun changeVersion(serverId: String, type: String, minecraft: String, loader: String?): VersionChanged = call(
+        request("${server(serverId)}/version").post(versionBody(type, minecraft, loader, confirm = true).toBody()).build(),
+        VersionChanged.serializer(),
+        slow = true,
+    )
+
+    suspend fun rollBackVersion(serverId: String): VersionRolledBack = call(
+        request("${server(serverId)}/version/roll-back").post(JsonObject(emptyMap()).toBody()).build(),
+        VersionRolledBack.serializer(),
+        slow = true,
+    )
+
+    /** Only ever sent from the person's own tick. */
+    suspend fun acceptEula(serverId: String): EulaAccepted = call(
+        request("${server(serverId)}/eula").post(JsonObject(emptyMap()).toBody()).build(),
+        EulaAccepted.serializer(),
+    )
+
+    private fun versionBody(type: String, minecraft: String, loader: String?, confirm: Boolean) = buildJsonObject {
+        put("type", type)
+        put("minecraft_version", minecraft)
+        if (loader != null) put("loader_version", loader)
+        put("confirm", confirm)
+    }
+
+    suspend fun crossplay(serverId: String): CrossplayInfo =
+        get("${server(serverId)}/crossplay", CrossplayInfo.serializer())
+
+    /** Installs or moves aside Geyser and Floodgate; the server must be stopped. */
+    suspend fun setCrossplay(serverId: String, enabled: Boolean, port: Int?): CrossplayInfo = call(
+        request("${server(serverId)}/crossplay").put(buildJsonObject {
+            put("enabled", enabled)
+            if (port != null) put("port", port)
+        }.toBody()).build(),
+        CrossplayInfo.serializer(),
+        slow = true,
+    )
+
+    suspend fun duplicateOptions(serverId: String): DuplicateOptions =
+        get("${server(serverId)}/duplicate", DuplicateOptions.serializer())
+
+    /** Starts the copy as a task; the new server appears once it is checked. */
+    suspend fun duplicate(serverId: String, name: String, directory: String, world: String): DuplicateStarted = call(
+        request("${server(serverId)}/duplicate").post(buildJsonObject {
+            put("name", name)
+            put("directory", directory)
+            put("world", world)
+        }.toBody()).build(),
+        DuplicateStarted.serializer(),
+    )
+
+    suspend fun setColor(serverId: String, color: String): ColorSaved = call(
+        request("${server(serverId)}/color").put(buildJsonObject { put("color", color) }.toBody()).build(),
+        ColorSaved.serializer(),
+    )
+
     // ------------------------------------------------------------------
+    /** Takes a server off the list. Nothing on the PC is deleted. */
+    suspend fun removeServer(serverId: String): ServerRemoved =
+        call(request(server(serverId)).delete().build(), ServerRemoved.serializer())
+
     private fun server(id: String) = "/api/servers/${path(id)}"
 
     private fun path(id: String) = java.net.URLEncoder.encode(id, "UTF-8").replace("+", "%20")
@@ -526,10 +749,10 @@ class AgentClient(
     private fun fileBody(filename: String) = buildJsonObject { put("filename", filename) }
 
     /** A file picked on the phone, sent as the dashboard's upload form does. */
-    private fun upload(path: String, file: PickedFile): Request {
+    private fun upload(path: String, file: PickedFile, progress: ((Long, Long?) -> Unit)? = null): Request {
         val form = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
-            .addFormDataPart("file", file.name, file.body())
+            .addFormDataPart("file", file.name, file.body(progress))
             .build()
         return request(path).post(form).build()
     }

@@ -645,7 +645,9 @@ class Recommendations(Open):
 class LoginResult(Open):
     token: str = Field(description="Send as 'Authorization: Bearer <token>'")
     user: str
-    expires_at: float
+    expires_at: float | None = Field(
+        description="null for a phone's sign-in: it lasts until signed out"
+    )
     role: str = Field(description="owner or helper")
     remember: bool
 
@@ -1206,3 +1208,415 @@ class GameSettingsSaved(Open):
     undo: Undo | None = None
     running: bool
     restart_needed: bool
+
+
+# ------------------------------------------------------------ server settings
+class PaletteColor(Open):
+    id: str
+    name: str
+    hex: str
+
+
+class CpuStatus(Open):
+    configured: list[int] | None = Field(None, description="null: every core")
+    applied: list[int] | None = Field(
+        None, description="Read from the running server; null when unknown"
+    )
+    applied_reason: str | None = None
+    problems: list[str] = []
+
+
+class CpuOther(Open):
+    id: str
+    name: str
+    cores: list[int] = []
+
+
+class CpuOverview(Open):
+    logical_cores: int | None = None
+    supported: bool
+    unsupported_reason: str | None = None
+    others: list[CpuOther] = []
+    status: CpuStatus
+
+
+class SleepStatus(Open):
+    enabled: bool
+    minutes: int
+    players_online: int | None = None
+    stops_in: float | None = None
+    list_answered: bool | None = None
+
+
+class ServerSettings(Open):
+    """One server's own settings: name and launch settings under "server",
+    then its crash, backup and mod settings with its overrides applied."""
+
+    server_id: str
+    server: dict[str, Any]
+    color: str | None = None
+    palette: list[PaletteColor]
+    monitor: dict[str, Any]
+    backups: dict[str, Any]
+    mods: dict[str, Any]
+    overrides: dict[str, Any]
+    editable: list[str]
+    cpu: CpuOverview
+    sleep: SleepStatus | None = None
+
+
+class CpuApplied(Open):
+    ok: bool
+    applied: list[int] | None = Field(None, description="Read back from the running server")
+    reason: str | None = None
+
+
+class ServerSettingsSaved(Open):
+    ok: bool
+    applied: dict[str, Any]
+    rejected: dict[str, str] = Field(
+        description="Each refused key with the reason, said to the person"
+    )
+    cpu_cores: CpuApplied | None = Field(None, description="Only when the server is running")
+
+
+class ColorSaved(Open):
+    ok: bool
+    color: str
+
+
+class MemoryServer(Open):
+    id: str
+    name: str
+    limit_mb: int | None = Field(None, description="null: no -Xmx set")
+    running: bool
+    this: bool
+
+
+class MemoryOverview(Open):
+    """The memory slider: bounded by the PC's measured memory."""
+
+    total_mb: int | None = Field(None, description="null when it couldn't be measured")
+    limit_mb: int | None = None
+    jvm_args: list[str]
+    takes_memory_limit: bool
+    min_mb: int
+    max_mb: int | None = None
+    step_mb: int
+    together_mb: int
+    servers: list[MemoryServer]
+    over: bool
+    running: bool
+
+
+class MemorySaved(MemoryOverview):
+    ok: bool
+
+
+# ------------------------------------------------------------ server types and versions
+class ServerType(Open):
+    id: str
+    name: str
+    edition: str = "java"
+    content: str | None = None
+    ease: str | None = None
+    snapshots: bool = False
+    picks_loader: bool = False
+    loader_name: str | None = None
+    latest_only: bool = False
+    takes_memory_limit: bool = True
+    crossplay: bool = False
+    has_content: bool = False
+    recommended: bool = False
+    modrinth: bool = False
+    metadata_files: list[str] = []
+    version_source: str | None = None
+
+
+class ServerTypes(Open):
+    types: list[ServerType]
+    recommended: str
+    default: str
+
+
+class OfferedVersion(Open):
+    minecraft: str
+    stable: bool = True
+    loaders: list[str] = []
+    java_required: int | None = Field(
+        None, description="The oldest Java it runs on; null when unknown"
+    )
+    kept: bool = False
+    latest: bool = False
+
+
+class TypeVersions(Open):
+    type: str
+    type_name: str
+    latest_only: bool = False
+    snapshots: bool = False
+    picks_loader: bool = False
+    loader_name: str | None = None
+    latest_stable: str | None = None
+    versions: list[OfferedVersion]
+    source_problem: str | None = None
+
+
+class LastVersionChange(Open):
+    at: float | None = None
+    type: str | None = None
+    previous_type: str | None = None
+    minecraft_version: str | None = None
+    can_roll_back: bool = False
+
+
+class ServerVersion(Open):
+    """One server's type and version as its console reported them; null
+    means Unknown, never a guess from a file name."""
+
+    type: str
+    capabilities: ServerType
+    minecraft_version: str | None = None
+    minecraft_version_source: str | None = None
+    loader_version: str | None = None
+    loader_name: str | None = None
+    detected_type: str | None = None
+    pending_version: dict[str, Any] | None = None
+    eula_required: bool = False
+    eula_url: str
+    last_change: LastVersionChange | None = None
+
+
+class PreflightSide(Open):
+    type: str
+    type_name: str
+    minecraft_version: str | None = None
+    loader_version: str | None = None
+
+
+class JavaCheck(Open):
+    verdict: str = Field(description="ok, incompatible, unknown or not_needed")
+    detail: str | None = None
+
+
+class VersionPreflight(Open):
+    """What a version or type change would do, before anything happens."""
+
+    current: PreflightSide
+    target: PreflightSide
+    type_change: bool
+    gentle_type_change: bool
+    direction: str
+    downgrade_warning: bool
+    java: JavaCheck
+    java_required: int | None = None
+    moved_aside: list[str] = []
+    unknown_support: list[str] = []
+    not_supporting: list[str] = []
+    crossplay: bool = False
+    crossplay_available: bool = False
+
+
+class VersionChanged(Open):
+    ok: bool
+    job_id: str
+    verified: bool | None = None
+    crossplay_turned_off: bool | None = None
+
+
+class VersionRolledBack(Open):
+    ok: bool
+    job_id: str
+    type: str
+
+
+class EulaAccepted(Open):
+    ok: bool
+    url: str
+
+
+# ------------------------------------------------------------ crossplay and duplicate
+class Crossplay(Open):
+    """Whether Bedrock players can join this Java server (Geyser)."""
+
+    available: bool
+    unavailable_reason: str | None = None
+    enabled: bool
+    port: int | None = None
+    default_port: int
+    suggested_port: int | None = None
+    username_prefix: str = ""
+    missing_mod: str | None = None
+    ready: bool = False
+    differences: list[str] = []
+    address: str | None = Field(None, description="Only from a measured Tailscale address")
+    address_unknown: str | None = None
+
+
+class CrossplaySaved(Crossplay):
+    ok: bool
+
+
+class DuplicateOptions(Open):
+    name: str
+    directory: str
+    running: bool
+    crossplay: bool
+    world_folders: list[str] = []
+
+
+class DuplicateStarted(Open):
+    ok: bool
+    job: Job
+
+
+class ServerRemoved(Open):
+    """A server taken off the list. Nothing on disk was touched."""
+
+    ok: bool
+    removed: str
+    name: str
+    directory: str
+
+
+# ------------------------------------------------------------ folder picker
+class PcDrive(Open):
+    name: str
+    path: str
+
+
+class PcShortcut(Open):
+    key: str
+    path: str
+
+
+class PcFolder(Open):
+    name: str
+    path: str
+    world: bool = Field(description="It holds a Minecraft world (a level.dat inside)")
+
+
+class FolderListing(Open):
+    """The folders inside one folder, names only. With no folder asked for:
+    the PC's drives and the usual shortcuts, and path is null."""
+
+    path: str | None
+    parent: str | None = Field(description="null at a drive's root: going up shows the drives")
+    folders: list[PcFolder]
+    drives: list[PcDrive] = []
+    shortcuts: list[PcShortcut] = []
+    truncated: bool = False
+    world: bool = False
+
+
+# ------------------------------------------------------------ adding a server
+class ServerAdded(Open):
+    """A server folder already on the PC, now on the list. Nothing in it changed."""
+
+    ok: bool
+    server: ServerRow
+    warnings: list[str] = Field(
+        [], description="Said in the agent's own words: no port set, a shared port"
+    )
+
+
+class BedrockNewOptions(Open):
+    port: int | None = Field(None, description="null when no free pair of UDP ports was found")
+    port_v6: int | None = None
+    eula_url: str
+    privacy_url: str
+    terms: dict[str, Any] | None = Field(
+        None, description="Who accepted Mojang's terms and when; null before anyone did"
+    )
+
+
+class NewServerOptions(Open):
+    types: list[ServerType]
+    recommended: str
+    memory_mb: int | None = Field(
+        None, description="The suggested memory; null when the PC's memory couldn't be read"
+    )
+    memory_reason: str | None = None
+    port: int
+    color: str
+    palette: list[PaletteColor]
+    eula_url: str
+    bedrock: BedrockNewOptions
+
+
+class ServerCreated(Open):
+    """A brand-new server, set up and not started."""
+
+    ok: bool
+    server_id: str
+    name: str
+    directory: str
+    port: int | None = None
+    memory_mb: int | None = None
+    job_id: str
+    server: ServerRow
+    next: str | None = None
+    modpack: dict[str, Any] | None = Field(
+        None, description="Only for a server made from a modpack"
+    )
+
+
+# ------------------------------------------------------------ world import and download
+class WorldInfo(Open):
+    """A world read before it replaces anything."""
+
+    source: str = Field(description="zip or folder")
+    folder_name: str
+    name: str | None = Field(None, description="LevelName from level.dat; null when unreadable")
+    version: str | None = Field(
+        None, description="The game version that last saved it; null when unknown"
+    )
+    last_played: float | None = None
+    size_bytes: int
+    files: int
+    read_problem: str | None = None
+    edition: str = "java"
+
+
+class WorldRead(Open):
+    """An uploaded or picked world and whether it fits this server. Nothing
+    changes until the import is confirmed with the token."""
+
+    token: str
+    world: WorldInfo
+    edition_matches: bool
+    server_edition: str
+    server_version: str | None = None
+    newer_than_server: bool | None = Field(None, description="null when either version isn't known")
+    level_name: str | None = None
+
+
+class SavedWorld(Open):
+    folder: str
+    path: str
+    modified: float
+
+
+class SavedWorlds(Open):
+    folder: str | None = Field(
+        None, description="Single-player's saves folder; null when it isn't on this PC"
+    )
+    worlds: list[SavedWorld]
+
+
+class WorldImported(Open):
+    ok: bool
+    job_id: str
+    world: WorldInfo
+    safety_backup: SafetyBackup | None = None
+    undo: Undo | None = None
+
+
+class WorldPacked(Open):
+    """The world zipped for single-player; download it with the token."""
+
+    ok: bool
+    token: str
+    files: int
+    size_bytes: int
+    filename: str

@@ -13,11 +13,26 @@ import okio.source
  * when the phone doesn't say.
  */
 class PickedFile(val name: String, val size: Long?, private val open: () -> InputStream) {
-    internal fun body(): RequestBody = object : RequestBody() {
+    /** [progress] gets the bytes sent so far and the size, when known. */
+    internal fun body(progress: ((Long, Long?) -> Unit)? = null): RequestBody = object : RequestBody() {
         override fun contentType(): MediaType = OCTET_STREAM
         override fun contentLength(): Long = size ?: -1L
         override fun writeTo(sink: BufferedSink) {
-            open().use { sink.writeAll(it.source()) }
+            open().use { input ->
+                if (progress == null) {
+                    sink.writeAll(input.source())
+                    return
+                }
+                val buffer = ByteArray(64 * 1024)
+                var sent = 0L
+                while (true) {
+                    val n = input.read(buffer)
+                    if (n < 0) break
+                    sink.write(buffer, 0, n)
+                    sent += n
+                    progress(sent, size)
+                }
+            }
         }
     }
 

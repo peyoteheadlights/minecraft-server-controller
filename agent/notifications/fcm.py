@@ -269,7 +269,7 @@ def phones(db) -> list[dict[str, Any]]:
     return db.query(
         "SELECT p.token, p.user, p.platform, p.label FROM app_phones p "
         "JOIN sessions s ON s.token_hash = p.session "
-        "WHERE s.expires_at > ? ORDER BY p.created_at",
+        "WHERE s.expires_at > ? OR s.until_signed_out = 1 ORDER BY p.created_at",
         (time.time(),),
     )
 

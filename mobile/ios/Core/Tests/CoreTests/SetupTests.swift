@@ -559,7 +559,7 @@ final class SetupTests: XCTestCase {
         StubAgent.json(#"{"ok": true, "server_id": "fresh", "name": "Fresh", "directory": "D:/Fresh", "job_id": "j", "server": {"id": "fresh", "name": "Fresh", "state": "OFFLINE"}}"#)
         let made = try await c.createServer(NewServerRequest(name: "Fresh", directory: "D:/Fresh", type: "fabric", minecraft: "1.21.4", loader: nil, memoryMb: 4096, color: "#F87906", eulaAccepted: true))
         XCTAssertEqual(made.serverId, "fresh")
-        XCTAssertEqual(body(1), #"{"color":"#F87906","directory":"D:/Fresh","eula_accepted":true,"memory_mb":4096,"minecraft_version":"1.21.4","name":"Fresh","type":"fabric"}"#)
+        XCTAssertEqual(body(1), ##"{"color":"#F87906","directory":"D:/Fresh","eula_accepted":true,"memory_mb":4096,"minecraft_version":"1.21.4","name":"Fresh","type":"fabric"}"##)
         StubAgent.json(#"{"ok": true, "server": {"id": "sky", "name": "Sky", "state": "OFFLINE"}, "warnings": []}"#)
         let added = try await c.addServer(name: "Sky", directory: "D:/Sky", type: "paper", jar: "")
         XCTAssertEqual(added.server.id, "sky")

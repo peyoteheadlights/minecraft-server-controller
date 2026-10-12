@@ -179,12 +179,14 @@ class WorldTest {
         val now = 10_000.0
         val changes = UndoRedo(
             undo = (5L downTo 1L).map { change(it, "Change $it", now - it * 3600) },
-            redo = listOf(change(9, "Game settings", 0.0).copy(undoneAt = now - 120)),
+            redo = listOf(change(9, "Game settings", 0.0).copy(undoneAt = now - 120), change(8, "Mods", 0.0).copy(undoneAt = now - 60)),
         )
         val next = ChangeList.next(strings, changes, now)
         assertTrue(next, next.contains("Change 5") && next.contains("mark"))
         assertEquals(ChangeList.LATER, ChangeList.later(strings, changes, now).size)
-        assertTrue(ChangeList.later(strings, changes, now).first().contains("Change 4"))
+        assertTrue(ChangeList.later(strings, changes, now).first().let { it.contains("Change 4") && it.contains("mark") })
+        assertEquals(1, ChangeList.laterRedo(strings, changes, now).size)
+        assertTrue(ChangeList.laterRedo(strings, changes, now).first().let { it.contains("Mods") && it.contains("mark") })
         assertTrue(ChangeList.nextRedo(strings, changes, now)!!.contains("Game settings"))
         assertNull(ChangeList.nextRedo(strings, UndoRedo(), now))
         assertEquals(strings.t("changes.nothing_to_undo"), ChangeList.next(strings, UndoRedo(), now))

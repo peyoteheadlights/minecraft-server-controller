@@ -188,11 +188,16 @@ final class WorldTests: XCTestCase {
         let now = 10_000.0
         var undone = change(9, "Game settings", at: 0)
         undone.undoneAt = now - 120
-        let changes = UndoRedo(undo: (1...5).reversed().map { change(Int64($0), "Change \($0)", at: now - Double($0) * 3600) }, redo: [undone])
+        var undoneBefore = change(8, "Mods", at: 0)
+        undoneBefore.undoneAt = now - 60
+        let changes = UndoRedo(undo: (1...5).reversed().map { change(Int64($0), "Change \($0)", at: now - Double($0) * 3600) }, redo: [undone, undoneBefore])
         let next = ChangeList.next(s, changes, now: now)
         XCTAssertTrue(next.contains("Change 5") && next.contains("mark"), next)
         XCTAssertEqual(ChangeList.later(s, changes, now: now).count, ChangeList.LATER)
         XCTAssertTrue(ChangeList.later(s, changes, now: now)[0].contains("Change 4"))
+        XCTAssertTrue(ChangeList.later(s, changes, now: now)[0].contains("mark"))
+        XCTAssertEqual(ChangeList.laterRedo(s, changes, now: now).count, 1)
+        XCTAssertTrue(ChangeList.laterRedo(s, changes, now: now)[0].contains("Mods"))
         XCTAssertTrue(ChangeList.nextRedo(s, changes, now: now)?.contains("Game settings") ?? false)
         XCTAssertNil(ChangeList.nextRedo(s, UndoRedo(), now: now))
         XCTAssertEqual(ChangeList.next(s, UndoRedo(), now: now), s.t("changes.nothing_to_undo"))

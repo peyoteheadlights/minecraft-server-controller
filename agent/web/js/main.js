@@ -131,7 +131,10 @@ const invited = new URLSearchParams(location.search).has("invite");
 if (invited) {
   const line = document.createElement("h1");
   line.textContent = t("invite.open_in_app");
-  $("#login-form").replaceChildren(line);
+  const hint = document.createElement("p");
+  hint.className = "hint";
+  hint.textContent = t("invite.open_in_app_hint");
+  $("#login-form").replaceChildren(line, hint);
 } else if (state.token) {
   // Unreachable is not signed out: the offline screen waits for the PC and
   // then loads the page again, still signed in.

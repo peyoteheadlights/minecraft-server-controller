@@ -118,6 +118,18 @@ def test_an_all_servers_moderator_gets_new_servers(multi_client, owner):
     assert listed["new_server"]["level"] == "start_and_stop"
 
 
+def test_the_sign_in_answer_names_exactly_the_servers_a_moderator_sees(multi_client, owner):
+    """ "All servers" with nothing for the other servers sees only the named
+    ones, so /auth/me lists them instead of saying every server."""
+    sam = add_helper(multi_client, owner)
+    give(multi_client, owner, {"survival": P.RUN_IT}, all_servers=True, new_server=[])
+    assert me(multi_client, sam)["servers"] == ["survival"]
+    give(multi_client, owner, all_servers=True, new_server=sorted(P.START_AND_STOP))
+    assert me(multi_client, sam)["servers"] is None
+    give(multi_client, owner, {"creative": set()}, all_servers=True)
+    assert me(multi_client, sam)["servers"] == ["survival"]
+
+
 def test_a_moderator_limited_to_named_servers_gets_no_new_ones(multi_client, owner):
     add_helper(multi_client, owner, servers=["creative"])
     core = multi_client.app.state.core
@@ -180,6 +192,17 @@ def test_game_server_and_pc_settings_are_separate(multi_client, owner):
     assert c.put("/api/servers/survival/game-settings", json={}, headers=sam).status_code == 403
 
 
+def test_only_the_owner_reads_the_pc_settings(multi_client, owner):
+    """The PC's own settings (alert emails, limits, sign-in length) are the
+    owner's; a moderator's screens read their servers' settings instead."""
+    sam = add_helper(multi_client, owner)
+    give(multi_client, owner, {"survival": P.RUN_IT})
+    assert multi_client.get("/api/settings", headers=sam).status_code == 403
+    assert multi_client.get("/api/settings", headers=owner).status_code == 200
+    assert multi_client.get("/api/notifications/history", headers=sam).status_code == 403
+    assert multi_client.get("/api/servers/survival/settings", headers=sam).status_code == 200
+
+
 def test_owner_only_routes_refuse_every_moderator(multi_client, owner):
     sam = add_helper(multi_client, owner)
     give(multi_client, owner, {"survival": P.SERVER_PERMISSIONS, "creative": P.SERVER_PERMISSIONS})
@@ -195,10 +218,15 @@ def test_owner_only_routes_refuse_every_moderator(multi_client, owner):
     assert not wrong, wrong
 
 
-def test_old_helpers_keep_what_they_had(multi, tmp_path):
-    """A helper saved before per-server permissions reads as "Look after
-    it" on the same servers."""
-    db = Database(multi.database_path)
+def test_old_helpers_keep_what_they_had(tmp_path, monkeypatch):
+    """A helper saved before per-server permissions becomes "Look after it"
+    on the same servers when the database is upgraded."""
+    from agent.database import db as dbmodule
+    from agent.security.auth import AuthManager
+
+    before = [m for m in dbmodule.MIGRATIONS if m[0] < 14]
+    monkeypatch.setattr(dbmodule, "MIGRATIONS", before)
+    db = Database(tmp_path / "old.db")
     db.execute(
         "INSERT INTO accounts (username, password_hash, role, servers, created_at) "
         "VALUES ('old', 'x', 'helper', '[\"creative\"]', 0)"
@@ -207,7 +235,10 @@ def test_old_helpers_keep_what_they_had(multi, tmp_path):
         "INSERT INTO accounts (username, password_hash, role, servers, created_at) "
         "VALUES ('everywhere', 'x', 'helper', NULL, 0)"
     )
-    from agent.security.auth import AuthManager
+    monkeypatch.undo()
+    db.migrate()
+    rows = {r["username"]: r for r in db.query("SELECT * FROM accounts")}
+    assert rows["old"]["grants"] is not None and rows["everywhere"]["grants"] is not None
 
     auth = AuthManager.__new__(AuthManager)
     auth.db = db

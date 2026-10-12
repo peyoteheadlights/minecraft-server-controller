@@ -135,6 +135,10 @@
   "Open this with Command Block",
   "Open this invite in the Command Block app"
  ],
+ "invite.open_in_app_hint": [
+  "Get Command Block on your phone, then scan the invite's QR code, or copy this page's link and choose Paste invite link.",
+  "Invites can't be accepted in a browser. Install the phone app, then scan the invite QR code or use Paste invite link."
+ ],
  "pair.scan": [
   "Scan this with your phone's camera, or type:",
   "Scan, or open:"
@@ -5460,8 +5464,8 @@
   "Calls SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED) while any server runs. The lid, the power button and a low battery can still sleep the PC."
  ],
  "helpers.lead": [
-  "Give friends their own sign-in. They can run the server and look after players, but can't change how it's set up.",
-  "Moderator accounts: own credentials, the Moderator role, optionally limited to some servers. Every action is checked on the agent."
+  "Give friends their own sign-in. A new moderator can look after the server; choose more or less for each server in the phone app.",
+  "Moderator accounts: own credentials and permissions per server (\"Look after it\" by default, set in the phone app). Every action is checked on the agent."
  ],
  "helpers.list": [
   "Moderators",
@@ -5504,7 +5508,7 @@
   "Delete"
  ],
  "helpers.owner_note": [
-  "You sign in as {owner}, the owner. Only the owner can change settings and manage moderators.",
+  "You sign in as {owner}, the owner. Only the owner can manage moderators and change the PC's settings.",
   "Owner account: {owner} (from .env). The owner holds every permission."
  ],
  "helpers.add": [
@@ -5576,8 +5580,8 @@
   "Moderator {name} deleted."
  ],
  "helpers.what": [
-  "What moderators can do",
-  "Moderator role"
+  "What a new moderator can do",
+  "Default permissions (\"Look after it\")"
  ],
  "helpers.can": [
   "Can",
@@ -5604,7 +5608,7 @@
   "backups.create"
  ],
  "helpers.can_view": [
-  "See every page",
+  "See their servers, the Console and Chat",
   "server.view, console.read, settings.view, system.view"
  ],
  "helpers.cannot_settings": [

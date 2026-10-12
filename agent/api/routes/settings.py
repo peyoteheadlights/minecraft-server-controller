@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ...config import ConfigError
 from ...security.auth import Principal
-from ...security.permissions import PC_SETTINGS, SETTINGS_VIEW, can_see_server, require
+from ...security.permissions import PC_SETTINGS, require
 from ..deps import audit, get_core
 from ..responses import AlertHistory
 from .models import MaintenanceRequest, SettingsRequest
@@ -42,16 +42,12 @@ SETTABLE_PREFIXES = (
 
 @router.get("/settings")
 async def get_settings(
-    principal: Principal = Depends(require(SETTINGS_VIEW)), core=Depends(get_core)
+    principal: Principal = Depends(require(PC_SETTINGS)), core=Depends(get_core)
 ):
-    config = core.config.as_dict(redact_secrets=True)
-    if not principal.is_owner:
-        # A moderator isn't shown the servers they can't see.
-        config["servers"] = [
-            s for s in config.get("servers", []) if can_see_server(principal, s.get("id"))
-        ]
+    """The PC's own settings, the owner's alone. A moderator's screens read
+    each server's settings (/api/servers/{id}/settings) instead."""
     return {
-        "config": config,
+        "config": core.config.as_dict(redact_secrets=True),
         "editable": list(SETTABLE_PREFIXES),
         "secrets": {
             "discord_webhook_configured": bool(core.config.discord_webhook),
@@ -126,6 +122,6 @@ async def test_notification(
 
 @router.get("/notifications/history", response_model=AlertHistory)
 async def notification_history(
-    limit: int = 50, principal: Principal = Depends(require(SETTINGS_VIEW)), core=Depends(get_core)
+    limit: int = 50, principal: Principal = Depends(require(PC_SETTINGS)), core=Depends(get_core)
 ):
     return {"history": core.notifier.history(max(1, min(limit, 200)))}

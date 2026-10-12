@@ -137,8 +137,16 @@ async def sign_out_device(
 @router.get("/auth/me", response_model=Me)
 async def me(principal: Principal = Depends(require(ACCOUNT)), core=Depends(get_core)):
     held = held_anywhere(principal)
+    seen = [sid for sid in core.servers if can_see_server(principal, sid)]
+    access = principal.access
+    # None means every server, now and later: the owner, or an "All servers"
+    # moderator who sees all of today's servers and gets something on new ones.
+    every = access is None or (
+        access.all_servers and bool(access.new_server) and len(seen) == len(core.servers)
+    )
     return {
         **principal.to_dict(),
+        "servers": None if every else sorted(seen),
         "permissions": legacy_names(held),
         "account_permissions": sorted(held - SERVER_PERMISSIONS),
         "server_permissions": {

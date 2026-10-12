@@ -379,8 +379,9 @@ their own password. Only the owner can reset it, which signs them out
 everywhere and makes a new invite. Wrong invite links count towards a
 lockout for the address that tried them, never for everyone.
 
-Moderators can read the agent's settings (the screens need them) but only
-the owner can change them. The live connection sends a moderator every
+The PC's own settings and its alert log are the owner's alone, to read as
+well as to change; a moderator's screens read each server's settings. The
+live connection sends a moderator every
 event of their servers, including ones the Activity page shows; the phones
 hide the Console, Chat, Activity and Crashes pages from moderators without
 "See the Console".

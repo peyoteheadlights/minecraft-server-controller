@@ -369,12 +369,18 @@ MIGRATIONS: list[tuple[int, str]] = [
         # Moderators' permissions per server (Phase 9 part 6). grants is a
         # JSON object of server id to the permissions ticked there;
         # new_server_grants is what an "All servers" moderator gets on the
-        # servers grants doesn't name. Helpers from before keep NULL, read
-        # as what helpers could do then (agent/security/auth.py). An invite
+        # servers grants doesn't name. Helpers from before get what helpers
+        # could do then ("Look after it") on the servers they had. An invite
         # lets a new moderator choose their password; only its hash is kept.
         """
         ALTER TABLE accounts ADD COLUMN grants TEXT;
         ALTER TABLE accounts ADD COLUMN new_server_grants TEXT;
+        UPDATE accounts SET new_server_grants = '["backups.create", "chat.send",
+            "console.read", "players.manage", "server.control", "server.view"]';
+        UPDATE accounts SET grants = CASE WHEN servers IS NULL THEN '{}' ELSE (
+            SELECT json_group_object(value, json(accounts.new_server_grants))
+            FROM json_each(accounts.servers)
+        ) END;
         CREATE TABLE invites (
             token_hash TEXT PRIMARY KEY,
             username TEXT NOT NULL COLLATE NOCASE,

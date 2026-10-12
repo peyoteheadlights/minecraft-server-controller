@@ -131,25 +131,12 @@ class Principal:
     def is_owner(self) -> bool:
         return self.role == "owner"
 
-    @property
-    def servers(self) -> frozenset[str] | None:
-        """The servers this account is limited to, None for every server
-        (the owner, or an "All servers" moderator who has none hidden)."""
-        access = self.access
-        if access is None:
-            return None
-        if access.all_servers and all(access.grants.values()):
-            return None
-        return frozenset(sid for sid, permissions in access.grants.items() if permissions)
-
     def to_dict(self) -> dict[str, Any]:
-        servers = self.servers
         return {
             "user": self.user,
             "kind": self.kind,
             "expires_at": self.expires_at,
             "role": self.role,
-            "servers": sorted(servers) if servers is not None else None,
         }
 
 
@@ -532,18 +519,11 @@ class AuthManager:
     # -- helper accounts ---------------------------------------------------
     @staticmethod
     def _account_row(row: dict[str, Any]) -> dict[str, Any]:
-        from .permissions import LOOK_AFTER_IT
-
+        # Helpers from before per-server permissions were given theirs by
+        # database migration 14.
         servers = json.loads(row["servers"]) if row.get("servers") else None
-        new_server = LOOK_AFTER_IT
-        if row.get("new_server_grants"):
-            new_server = frozenset(json.loads(row["new_server_grants"]))
-        if row.get("grants") is not None:
-            grants = {sid: frozenset(p) for sid, p in json.loads(row["grants"]).items()}
-        else:
-            # A helper from before per-server permissions: what helpers could
-            # do then, on the servers they had.
-            grants = {sid: LOOK_AFTER_IT for sid in servers or ()}
+        new_server = frozenset(json.loads(row.get("new_server_grants") or "[]"))
+        grants = {sid: frozenset(p) for sid, p in json.loads(row.get("grants") or "{}").items()}
         access = Access(grants=grants, all_servers=servers is None, new_server=new_server)
         return {
             **row,

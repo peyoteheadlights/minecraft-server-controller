@@ -455,6 +455,12 @@ def test_using_an_invite_tells_the_owner(multi_client, owner, paired):
     assert "helper_invite_used" in OWNER_ONLY_EVENTS
 
 
+def test_update_alerts_are_only_for_the_owner():
+    from agent.events import OWNER_ONLY_EVENTS
+
+    assert {"update_available", "update_finished", "update_failed"} <= OWNER_ONLY_EVENTS
+
+
 def test_reset_password_signs_out_and_makes_an_invite(multi_client, owner, paired):
     sam = add_helper(multi_client, owner)
     invite = multi_client.post(

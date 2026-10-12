@@ -457,6 +457,41 @@ def test_redaction_cuts_known_shapes():
     assert "hunter22" not in text and "webhooks/1/abc" not in text and "pbkdf2" not in text
 
 
+def test_redaction_cuts_a_moderators_invite():
+    text = helpbundle.redact(
+        "opened https://pc:8765/?pair=1&invite=Zx9abcdefghijklmnopqrstu&user=sam", []
+    )
+    assert "Zx9abcdefghijklmnopqrstu" not in text
+
+
+def test_an_export_can_be_saved_in_a_folder_on_the_pc(secret_client, tmp_path):
+    folder = tmp_path / "Exports"
+    folder.mkdir()
+    (folder / "minecraft-server-control-export-x.zip").write_text("not this one")
+    started = secret_client.post("/api/export", json={"folder": str(folder)})
+    assert started.status_code == 200, started.text
+    job = wait_for_job(secret_client, started.json()["job_id"])
+    saved = Path(job["result"]["saved_to"])
+    assert saved.parent == folder and saved.is_file()
+    assert zipfile.is_zipfile(saved)
+    # Nothing is left behind to download.
+    core = secret_client.app.state.core
+    assert not (transfer.folder(core.config) / f"{job['result']['token']}.zip").exists()
+    # A second one never writes over the first.
+    again = wait_for_job(
+        secret_client,
+        secret_client.post("/api/export", json={"folder": str(folder)}).json()["job_id"],
+    )
+    assert again["result"]["saved_to"] != job["result"]["saved_to"]
+    assert saved.is_file()
+
+
+def test_an_export_folder_must_be_a_whole_path_that_is_there(secret_client, tmp_path):
+    for folder in ("Exports", str(tmp_path / "missing")):
+        refused = secret_client.post("/api/export", json={"folder": folder})
+        assert refused.status_code == 400, refused.text
+
+
 # ------------------------------------------------------------------ database
 def test_migration_adds_accounts_and_copy_columns(tmp_path):
     db = Database(tmp_path / "a.db")

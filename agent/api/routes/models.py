@@ -305,6 +305,8 @@ class ExportRequest(BaseModel):
     # Passwords and keys only go in encrypted, with this passphrase.
     secrets: bool = False
     passphrase: str | None = Field(default=None, max_length=256)
+    # A folder on the PC to save the file in (the phones' Export everything).
+    folder: str | None = Field(default=None, max_length=1024)
 
 
 class HelpBundleRequest(BaseModel):

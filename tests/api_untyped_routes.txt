@@ -1,12 +1,9 @@
 # Older routes that answer without a response model yet (agent/api/responses.py).
 # Remove a line when its route gets one. New routes must not be added here.
 GET /api/account/preferences
-GET /api/export
 GET /api/export/{token}
-GET /api/help-bundle
 GET /api/help-bundle/{token}
 GET /api/ports/suggest
-GET /api/power
 GET /api/push
 GET /api/security
 GET /api/security/audit
@@ -19,21 +16,13 @@ GET /api/servers/{server_id}/mods/updates
 GET /api/servers/{server_id}/players/sessions
 GET /api/servers/{server_id}/tps
 GET /api/servers/{server_id}/world/download/{token}
-GET /api/settings
-GET /api/system/startup
 POST /api/auth/rotate
-POST /api/export
-POST /api/help-bundle
-POST /api/maintenance
-POST /api/notifications/test
 POST /api/push/subscribe
 POST /api/push/test
 POST /api/push/unsubscribe
-POST /api/security/revoke-sessions
 POST /api/servers/{server_id}/server/cancel-restart
 POST /api/servers/{server_id}/server/clear-crash-block
 POST /api/servers/{server_id}/server/restart-now
 POST /api/servers/{server_id}/tps/detect
 PUT /api/account/preferences
 PUT /api/servers/{server_id}/tps
-PUT /api/settings

@@ -69,6 +69,22 @@ def shortcuts() -> list[dict[str, Any]]:
     return found
 
 
+def writable_folder(value: str) -> Path:
+    """A picked folder to save a file in: the whole path to a folder that
+    is there and that this app can write to."""
+    raw = (value or "").strip()
+    if not raw or "\0" in raw:
+        raise BrowseError("That isn't a folder path.")
+    path = Path(raw).expanduser()
+    if not path.is_absolute():
+        raise BrowseError("Choose the whole path to a folder.")
+    if not path.is_dir():
+        raise BrowseError(f"{path} isn't there, or isn't a folder.")
+    if not os.access(path, os.W_OK):
+        raise BrowseError(f"Windows doesn't let this app save in {path}.")
+    return path
+
+
 def listing(value: str | None) -> dict[str, Any]:
     """The folders inside one folder. With no folder: drives and shortcuts."""
     if not value:

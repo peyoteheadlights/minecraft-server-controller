@@ -33,6 +33,10 @@ OWNER_ONLY_EVENTS = frozenset(
         "certificate_problem",
         "helper_added",
         "helper_invite_used",
+        # Only the owner can install an update.
+        "update_available",
+        "update_finished",
+        "update_failed",
     }
 )
 

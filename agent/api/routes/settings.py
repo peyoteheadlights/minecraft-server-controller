@@ -8,7 +8,7 @@ from ...config import ConfigError
 from ...security.auth import Principal
 from ...security.permissions import PC_SETTINGS, require
 from ..deps import audit, get_core
-from ..responses import AlertHistory
+from ..responses import AlertHistory, MaintenanceSet, SettingsSaved, SettingsView, TestAlert
 from .models import MaintenanceRequest, SettingsRequest
 
 router = APIRouter()
@@ -40,7 +40,7 @@ SETTABLE_PREFIXES = (
 )
 
 
-@router.get("/settings")
+@router.get("/settings", response_model=SettingsView)
 async def get_settings(
     principal: Principal = Depends(require(PC_SETTINGS)), core=Depends(get_core)
 ):
@@ -57,7 +57,7 @@ async def get_settings(
     }
 
 
-@router.put("/settings")
+@router.put("/settings", response_model=SettingsSaved)
 async def update_settings(
     payload: SettingsRequest,
     request: Request,
@@ -93,7 +93,7 @@ async def update_settings(
     return {"ok": True, "applied": applied, "rejected": rejected}
 
 
-@router.post("/maintenance")
+@router.post("/maintenance", response_model=MaintenanceSet)
 async def set_maintenance(
     payload: MaintenanceRequest,
     request: Request,
@@ -105,7 +105,7 @@ async def set_maintenance(
     return {"ok": True, **result}
 
 
-@router.post("/notifications/test")
+@router.post("/notifications/test", response_model=TestAlert)
 async def test_notification(
     channel: str,
     request: Request,

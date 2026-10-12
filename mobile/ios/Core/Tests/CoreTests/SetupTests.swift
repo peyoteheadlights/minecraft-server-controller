@@ -129,11 +129,11 @@ final class SetupTests: XCTestCase {
         XCTAssertEqual(saved.rejected["server.autosleep_minutes"], "Pick between 1 minute and 24 hours.")
         XCTAssertEqual(method(1), "PUT")
         XCTAssertEqual(body(1), #"{"updates":{"server.name":"C"}}"#)
-        StubAgent.json(#"{"ok": true, "color": "#3366CC"}"#)
+        StubAgent.json(##"{"ok": true, "color": "#3366CC"}"##)
         let color = try await c.setColor(serverId: "s", color: "#3366CC")
         XCTAssertEqual(color.color, "#3366CC")
         XCTAssertEqual(path(2), "/api/servers/s/color")
-        XCTAssertEqual(body(2), #"{"color":"#3366CC"}"#)
+        XCTAssertEqual(body(2), ##"{"color":"#3366CC"}"##)
     }
 
     // MARK: - CPU cores and memory

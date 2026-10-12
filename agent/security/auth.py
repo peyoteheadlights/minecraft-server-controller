@@ -250,7 +250,8 @@ class AuthManager:
 
     def _refresh_owner(self) -> None:
         """Pick up a password reset made on the PC while the agent runs: when
-        .env has changed since it was last read, its owner lines win."""
+        .env has changed since it was last read, its owner lines win. A new
+        owner password ends every owner sign-in, phones included."""
         stamp = self._env_stamp()
         if stamp is None or stamp == self._env_seen:
             return
@@ -259,11 +260,17 @@ class AuthManager:
             text = self.config.env_path.read_text(encoding="utf-8")
         except OSError:
             return
+        old_name, old_hash = self.config.admin_username, self.config.admin_password_hash
         for raw in text.splitlines():
             key, _, value = raw.strip().partition("=")
             if key.strip() in ("MCSC_ADMIN_PASSWORD_HASH", "MCSC_ADMIN_USERNAME") and value:
                 os.environ[key.strip()] = value.strip().strip('"').strip("'")
         log.info("the owner's sign-in details in .env changed; using the new ones")
+        if old_hash and self.config.admin_password_hash != old_hash:
+            for name in {old_name, self.config.admin_username}:
+                self.db.execute("DELETE FROM sessions WHERE user = ?", (name,))
+            self.db.audit("owner_password_changed", user=self.config.admin_username)
+            log.info("the owner's password changed; the owner's sign-ins have ended")
 
     @property
     def owner_username(self) -> str:
@@ -462,6 +469,7 @@ class AuthManager:
         api_token = self.config.api_token
         if api_token and hmac.compare_digest(token, api_token):
             return Principal(user="api-token", kind="api_token")
+        self._refresh_owner()  # a new owner password ends the owner's sessions first
         digest = token_hash(token)
         row = self.db.query_one("SELECT * FROM sessions WHERE token_hash = ?", (digest,))
         if not row:
